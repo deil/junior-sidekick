@@ -7,7 +7,6 @@ import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.adapters.spring.AgentConfigMeh
 import com.github.uncomplexco.sidekick.application.formatUserMssage
-import com.github.uncomplexco.sidekick.application.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.prompt.SystemPromptBuilder
 import org.springframework.stereotype.Component
 

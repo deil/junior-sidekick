@@ -29,7 +29,9 @@ dependencies {
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
     implementation("com.slack.api:bolt-jakarta-servlet:1.48.0")
-    implementation("ai.koog:koog-agents:0.8.0")
+    implementation("ai.koog:koog-agents:1.0.0")
+    implementation("io.modelcontextprotocol:kotlin-sdk-client:0.8.1")
+    implementation("io.modelcontextprotocol:kotlin-sdk-core:0.8.1")
 
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")

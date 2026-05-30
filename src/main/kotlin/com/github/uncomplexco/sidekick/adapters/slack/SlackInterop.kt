@@ -61,6 +61,16 @@ fun loadThreadHistory(
         }
 }
 
-fun slackTsToMillis(ts: String): Long = (ts.toDouble().times(1000)).toLong()
+internal fun slackTsToMillis(ts: String): Long = (ts.toDouble().times(1000)).toLong()
+
+internal fun isBotsOwnMessage(
+    sender: String,
+    ctx: EventContext,
+): Boolean = sender == ctx.botUserId
+
+internal fun containsMention(
+    text: String,
+    username: String,
+): Boolean = text.contains("<@$username>")
 
 internal val log: Logger = LoggerFactory.getLogger(SlackAppFactory::class.java)

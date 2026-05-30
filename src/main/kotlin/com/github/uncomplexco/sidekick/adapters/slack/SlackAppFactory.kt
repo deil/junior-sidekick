@@ -15,42 +15,65 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.stereotype.Component
+import java.time.Clock
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+
+class HandledEventsDeduper(
+    private val clock: Clock = Clock.systemUTC(),
+    private val ttl: Duration = 5.minutes,
+) {
+    private val events = ConcurrentHashMap<String, Long>()
+
+    fun put(
+        channelId: String,
+        messageId: String,
+    ): Boolean {
+        cleanupExpired()
+
+        val key = "$channelId:$messageId"
+        val expiresAt = clock.millis() + ttl.inWholeMilliseconds
+        val alreadySeen = events.putIfAbsent(key, expiresAt)
+        return alreadySeen == null
+    }
+
+    fun cleanupExpired() {
+        val threshold = clock.millis()
+        events.entries.removeIf { it.value <= threshold }
+    }
+}
 
 @Configuration
-@ConditionalOnExpression("'\${adapters.slack.bot.token:}' != '' and '\${adapters.slack.bot.signing-secret:}' != ''")
-class SlackAppFactory(
-    val appMentionHandler: AppMentionEventHandler,
-    val privateMessageHandler: PrivateMessageEventHandler,
-    val channelMessageHandler: ChannelMessageEventHandler,
-) {
+@ConditionalOnExpression(
+    $$"'${adapters.slack.bot.token:}' != '' and '${adapters.slack.bot.signing-secret:}' != ''",
+)
+class SlackAppFactory {
     @Bean
-    fun slackAdapterConfig(
-        @Value("\${adapters.slack.bot.token:}") botToken: String,
-        @Value("\${adapters.slack.bot.signing-secret:}") signingSecret: String,
-    ): AppConfig =
-        AppConfig
-            .builder()
-            .signingSecret(signingSecret)
-            .singleTeamBotToken(botToken)
-            .build()
-
-    @Bean
-    fun slackApp(slackAdapterConfig: AppConfig): App {
+    fun slackApp(
+        slackAdapterConfig: AppConfig,
+        eventDeduper: HandledEventsDeduper,
+        appMentionHandler: AppMentionEventHandler,
+        privateMessageHandler: PrivateMessageEventHandler,
+        channelMessageHandler: ChannelMessageEventHandler,
+    ): App {
         val app = App(slackAdapterConfig)
 
-        app.assistant(buildSlackAssistant(app, privateMessageHandler))
+        app.assistant(buildSlackAssistant(app, eventDeduper, privateMessageHandler))
 
         app.event(AppMentionEvent::class.java) { payload, ctx ->
             val event = payload.event
-            if (!event.text.isNullOrBlank()) {
+            if (!event.text.isNullOrBlank() && eventDeduper.put(event.channel, event.ts)) {
                 async(app) {
+                    val conversationId = event.toConversationId()
                     appMentionHandler.handle(
                         messageId = event.ts,
                         sender = event.user,
                         text = event.text,
                         ctx =
                             TurnContext(
-                                chatConversationId = event.toConversationId(),
+                                chatConversationId = conversationId,
                                 historyLoader = {
                                     if (event.threadTs != null) {
                                         loadThreadHistory(ctx, event.threadTs, event.ts)
@@ -58,7 +81,7 @@ class SlackAppFactory(
                                         emptyList()
                                     }
                                 },
-                                chat = replyInSlack(ctx, event.threadTs),
+                                chat = replyInSlack(ctx, event.threadTs ?: event.ts),
                             ),
                     )
                 }
@@ -69,7 +92,9 @@ class SlackAppFactory(
 
         app.event(MessageEvent::class.java) { payload, ctx ->
             val event = payload.event
-            if (!event.text.isNullOrBlank() && event.botId != ctx.botUserId) {
+            if (!event.text.isNullOrBlank() && !isBotsOwnMessage(event.botId, ctx) && !containsMention(event.text, ctx.botUserId) &&
+                eventDeduper.put(event.channel, event.ts)
+            ) {
                 if (event.channelType != "im") {
                     async(app) {
                         channelMessageHandler.handle(
@@ -122,6 +147,7 @@ class SlackAppFactory(
 
 internal fun buildSlackAssistant(
     app: App,
+    deduper: HandledEventsDeduper,
     messageHandler: PrivateMessageEventHandler,
 ): Assistant {
     val assistant = Assistant(app.executorService())
@@ -130,13 +156,16 @@ internal fun buildSlackAssistant(
         val text = req.event.text
         if (text.isNullOrBlank()) return@userMessage
 
+        if (!deduper.put(req.event.channel, req.event.ts)) return@userMessage
+
+        val conversationId = ChatConversationId(channelId = null, threadId = req.event.threadTs)
         messageHandler.handle(
             messageId = req.event.ts,
             sender = req.event.user,
             text = text,
             ctx =
                 TurnContext(
-                    chatConversationId = ChatConversationId(channelId = null, threadId = req.event.threadTs),
+                    chatConversationId = conversationId,
                     historyLoader = {
                         if (req.event.threadTs != null) {
                             loadThreadHistory(ctx, req.event.threadTs, req.event.ts)
