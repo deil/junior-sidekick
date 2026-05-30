@@ -1,8 +1,10 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
+import com.github.uncomplexco.sidekick.application.conversations.ChatConversationId
 import com.github.uncomplexco.sidekick.usecases.AppMentionEventHandler
 import com.github.uncomplexco.sidekick.usecases.ChannelMessageEventHandler
 import com.github.uncomplexco.sidekick.usecases.PrivateMessageEventHandler
+import com.github.uncomplexco.sidekick.usecases.TurnContext
 import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
 import com.slack.api.bolt.context.builtin.EventContext
@@ -43,18 +45,21 @@ class SlackAppFactory(
             if (!event.text.isNullOrBlank()) {
                 async(app) {
                     appMentionHandler.handle(
-                        channel = event.channel,
-                        threadId = event.threadTs,
                         messageId = event.ts,
                         sender = event.user,
                         text = event.text,
-                        historyLoader = {
-                            if (event.threadTs != null) {
-                                loadThreadHistory(ctx, event.threadTs, event.ts)
-                            } else {
-                                emptyList()
-                            }
-                        },
+                        ctx =
+                            TurnContext(
+                                chatConversationId = event.toConversationId(),
+                                historyLoader = {
+                                    if (event.threadTs != null) {
+                                        loadThreadHistory(ctx, event.threadTs, event.ts)
+                                    } else {
+                                        emptyList()
+                                    }
+                                },
+                                chat = replyInSlack(ctx, event.threadTs),
+                            ),
                     )
                 }
             }
@@ -68,34 +73,41 @@ class SlackAppFactory(
                 if (event.channelType != "im") {
                     async(app) {
                         channelMessageHandler.handle(
-                            channel = event.channel,
-                            threadId = event.threadTs,
                             messageId = event.ts,
                             sender = event.user,
                             text = event.text,
-                            historyLoader = {
-                                if (event.threadTs != null) {
-                                    loadThreadHistory(ctx, event.threadTs, event.ts)
-                                } else {
-                                    emptyList()
-                                }
-                            },
+                            ctx =
+                                TurnContext(
+                                    chatConversationId = event.toConversationId(),
+                                    historyLoader = {
+                                        if (event.threadTs != null) {
+                                            loadThreadHistory(ctx, event.threadTs, event.ts)
+                                        } else {
+                                            emptyList()
+                                        }
+                                    },
+                                    chat = replyInSlack(ctx, event.threadTs),
+                                ),
                         )
                     }
                 } else {
                     async(app) {
                         privateMessageHandler.handle(
-                            threadId = event.threadTs,
                             messageId = event.ts,
                             sender = event.user,
                             text = event.text,
-                            historyLoader = {
-                                if (event.threadTs != null) {
-                                    loadThreadHistory(ctx, event.threadTs, event.ts)
-                                } else {
-                                    emptyList()
-                                }
-                            },
+                            ctx =
+                                TurnContext(
+                                    chatConversationId = event.toDirectMessageConversationId(),
+                                    historyLoader = {
+                                        if (event.threadTs != null) {
+                                            loadThreadHistory(ctx, event.threadTs, event.ts)
+                                        } else {
+                                            emptyList()
+                                        }
+                                    },
+                                    chat = replyInSlack(ctx, event.threadTs),
+                                ),
                         )
                     }
                 }
@@ -119,10 +131,21 @@ internal fun buildSlackAssistant(
         if (text.isNullOrBlank()) return@userMessage
 
         messageHandler.handle(
-            threadId = req.event.threadTs,
             messageId = req.event.ts,
             sender = req.event.user,
             text = text,
+            ctx =
+                TurnContext(
+                    chatConversationId = ChatConversationId(channelId = null, threadId = req.event.threadTs),
+                    historyLoader = {
+                        if (req.event.threadTs != null) {
+                            loadThreadHistory(ctx, req.event.threadTs, req.event.ts)
+                        } else {
+                            emptyList()
+                        }
+                    },
+                    chat = replyInSlack(ctx, req.event.threadTs),
+                ),
         )
     }
 
@@ -135,3 +158,9 @@ internal fun async(
 ) {
     app.executorService().submit { block() }
 }
+
+internal fun AppMentionEvent.toConversationId(): ChatConversationId = ChatConversationId(channel, threadTs)
+
+internal fun MessageEvent.toConversationId(): ChatConversationId = ChatConversationId(channel, threadTs)
+
+internal fun MessageEvent.toDirectMessageConversationId(): ChatConversationId = ChatConversationId(null, threadTs)

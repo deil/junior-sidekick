@@ -1,23 +1,30 @@
 package com.github.uncomplexco.sidekick.usecases
 
-import com.github.uncomplexco.sidekick.application.conversations.Message
+import com.github.uncomplexco.sidekick.application.agent.SidekickAgent
+import com.github.uncomplexco.sidekick.application.agent.TurnMessage
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Component
-class ChannelMessageEventHandler {
+class ChannelMessageEventHandler(
+    private val agent: SidekickAgent,
+) {
     fun handle(
-        channel: String,
-        threadId: String?,
         messageId: String,
         sender: String,
         text: String,
-        historyLoader: () -> List<Message>,
+        ctx: TurnContext,
     ) {
-        if (threadId != null) {
-            log.debug("[#$channel/$threadId] @$sender: $text")
+        if (ctx.chatConversationId.isThread) {
+            log.debug("[#${ctx.chatConversationId.channelId}/${ctx.chatConversationId.threadId}] @$sender: $text")
         } else {
-            log.debug("[#$channel] @$sender: $text")
+            log.debug("[#${ctx.chatConversationId.channelId}] @$sender: $text")
+        }
+
+        runBlocking {
+            val agentReply = agent.runTurn(TurnMessage(user = sender, text = text))
+            ctx.chat.postReply(agentReply)
         }
     }
 
