@@ -2,16 +2,16 @@
 
 Sidekick, Junior Sidekick.
 
-![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white)
+[![Kotlin](https://img.shields.io/badge/kotlin-2.3-blue.svg?logo=kotlin)](http://kotlinlang.org)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 
-Sidekick is a Slack-based AI assistant for software teams. It listens in Slack, runs an LLM-powered agent, and replies in DMs, channels, and threads.
+Sidekick is a Slack-based AI assistant for AI-pilled teams. It listens in Slack, runs an LLM-powered agent, and replies in DMs, channels, and threads.
 
 ## Overview
 
 Sidekick is built for teams that want an assistant where the work already happens: Slack.
 
-It receives Slack events, turns messages into agent turns, runs a Koog agent through OpenRouter, and posts the response back to the right Slack conversation. The project is intentionally small enough to understand and change, while leaving room for deeper capabilities such as workspace tools, skills, Slack artifacts, and MCP integrations.
+Based on this AI-generated paragraph, it receives Slack events, turns messages into agent turns, runs a Koog agent through OpenRouter, and posts the response back to the right Slack conversation. The project is intentionally small enough to understand and change, while leaving room for deeper capabilities such as workspace tools, skills, Slack artifacts, and MCP integrations. Eventually, Anton will re-write it to not be a hallucination. This day hasn't come yet, because Sidekick is not fully alive yet.
 
 ## Key Features
 
@@ -55,11 +55,9 @@ mpim:read
 
 ## Technologies
 
-- Kotlin
-- Spring Boot
-- [Slack Bolt for Java](https://github.com/slackapi/java-slack-sdk)
-- [Koog Agents](https://github.com/JetBrains/koog)
-- [OpenRouter](https://openrouter.ai/)
+- Kotlin / Spring Boot
+- [Slack Bolt for JVM](https://github.com/slackapi/java-slack-sdk)
+- [Koog](https://github.com/JetBrains/koog)
 
 ## Status
 
