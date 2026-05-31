@@ -1,10 +1,10 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.application.sessions.ChatConversationId
-import com.github.uncomplexco.sidekick.usecases.AppMentionEventHandler
-import com.github.uncomplexco.sidekick.usecases.ChannelMessageEventHandler
-import com.github.uncomplexco.sidekick.usecases.ChatConversationContext
-import com.github.uncomplexco.sidekick.usecases.PrivateMessageEventHandler
+import com.github.uncomplexco.sidekick.application.sessions.ChatTrigger
+import com.github.uncomplexco.sidekick.ports.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
+import com.github.uncomplexco.sidekick.usecases.IncomingChatMessage
 import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
 import com.slack.api.bolt.middleware.builtin.Assistant
@@ -52,36 +52,36 @@ class SlackAppFactory {
     fun slackApp(
         slackAdapterConfig: AppConfig,
         eventDeduper: HandledEventsDeduper,
-        appMentionHandler: AppMentionEventHandler,
-        privateMessageHandler: PrivateMessageEventHandler,
-        channelMessageHandler: ChannelMessageEventHandler,
+        handleIncomingChatMessage: HandleIncomingChatMessageUsecase,
     ): App {
         val app = App(slackAdapterConfig)
 
-        app.assistant(buildSlackAssistant(app, eventDeduper, privateMessageHandler))
+        app.assistant(buildSlackAssistant(app, eventDeduper, handleIncomingChatMessage))
 
         app.event(AppMentionEvent::class.java) { payload, ctx ->
             val event = payload.event
             if (!event.text.isNullOrBlank() && eventDeduper.put(event.channel, event.ts)) {
                 async(app) {
                     val conversationId = event.toConversationId()
-                    appMentionHandler.handle(
-                        messageId = event.ts,
-                        messageTimestamp = slackTsToMillis(event.ts),
-                        sender = toMessageAuthor(event.user, ctx),
-                        text = event.text,
-                        ctx =
-                            ChatConversationContext(
-                                chatConversationId = conversationId,
-                                historyLoader = {
-                                    if (event.threadTs != null) {
-                                        loadThreadHistory(ctx, event.threadTs, event.ts)
-                                    } else {
-                                        emptyList()
-                                    }
-                                },
-                                chat = replyInSlack(ctx, event.threadTs ?: event.ts),
-                            ),
+                    handleIncomingChatMessage.handle(
+                        conversationId,
+                        IncomingChatMessage(
+                            id = event.ts,
+                            createdAtMs = slackTsToMillis(event.ts),
+                            sender = toMessageAuthor(event.user, ctx),
+                            text = event.text,
+                            trigger = ChatTrigger.APP_MENTION,
+                        ),
+                        ChatPlatformAdapter(
+                            historyLoader = {
+                                if (event.threadTs != null) {
+                                    loadThreadHistory(ctx, event.threadTs, event.ts)
+                                } else {
+                                    emptyList()
+                                }
+                            },
+                            reply = replyInSlack(ctx, event.threadTs ?: event.ts),
+                        ),
                     )
                 }
             }
@@ -91,49 +91,34 @@ class SlackAppFactory {
 
         app.event(MessageEvent::class.java) { payload, ctx ->
             val event = payload.event
-            if (!event.text.isNullOrBlank() && !isBotsOwnMessage(event.botId, ctx) && !containsMention(event.text, ctx.botUserId) &&
+            if (!event.text.isNullOrBlank() && !isBotsOwnMessage(event.botId, ctx) &&
+                !containsMention(
+                    event.text,
+                    ctx.botUserId,
+                ) &&
                 eventDeduper.put(event.channel, event.ts)
             ) {
                 if (event.channelType != "im") {
                     async(app) {
-                        channelMessageHandler.handle(
-                            messageId = event.ts,
-                            messageTimestamp = slackTsToMillis(event.ts),
-                            sender = toMessageAuthor(event.user, ctx),
-                            text = event.text,
-                            ctx =
-                                ChatConversationContext(
-                                    chatConversationId = event.toConversationId(),
-                                    historyLoader = {
-                                        if (event.threadTs != null) {
-                                            loadThreadHistory(ctx, event.threadTs, event.ts)
-                                        } else {
-                                            emptyList()
-                                        }
-                                    },
-                                    chat = replyInSlack(ctx, event.threadTs),
-                                ),
-                        )
-                    }
-                } else {
-                    async(app) {
-                        privateMessageHandler.handle(
-                            messageId = event.ts,
-                            messageTimestamp = slackTsToMillis(event.ts),
-                            sender = toMessageAuthor(event.user, ctx),
-                            text = event.text,
-                            ctx =
-                                ChatConversationContext(
-                                    chatConversationId = event.toDirectMessageConversationId(),
-                                    historyLoader = {
-                                        if (event.threadTs != null) {
-                                            loadThreadHistory(ctx, event.threadTs, event.ts)
-                                        } else {
-                                            emptyList()
-                                        }
-                                    },
-                                    chat = replyInSlack(ctx, event.threadTs),
-                                ),
+                        handleIncomingChatMessage.handle(
+                            event.toConversationId(),
+                            IncomingChatMessage(
+                                id = event.ts,
+                                createdAtMs = slackTsToMillis(event.ts),
+                                sender = toMessageAuthor(event.user, ctx),
+                                text = event.text,
+                                trigger = ChatTrigger.PASSIVE_MESSAGE,
+                            ),
+                            ChatPlatformAdapter(
+                                historyLoader = {
+                                    if (event.threadTs != null) {
+                                        loadThreadHistory(ctx, event.threadTs, event.ts)
+                                    } else {
+                                        emptyList()
+                                    }
+                                },
+                                reply = replyInSlack(ctx, event.threadTs),
+                            ),
                         )
                     }
                 }
@@ -149,7 +134,7 @@ class SlackAppFactory {
 internal fun buildSlackAssistant(
     app: App,
     deduper: HandledEventsDeduper,
-    messageHandler: PrivateMessageEventHandler,
+    handleIncomingChatMessage: HandleIncomingChatMessageUsecase,
 ): Assistant {
     val assistant = Assistant(app.executorService())
 
@@ -161,23 +146,25 @@ internal fun buildSlackAssistant(
 
         val conversationId = ChatConversationId(channelId = ctx.channelId, threadId = req.event.threadTs)
         runBlocking {
-            messageHandler.handle(
-                messageId = req.event.ts,
-                messageTimestamp = slackTsToMillis(req.event.ts),
-                sender = toMessageAuthor(req.event.user, ctx),
-                text = text,
-                ctx =
-                    ChatConversationContext(
-                        chatConversationId = conversationId,
-                        historyLoader = {
-                            if (req.event.threadTs != null) {
-                                loadThreadHistory(ctx, req.event.threadTs, req.event.ts)
-                            } else {
-                                emptyList()
-                            }
-                        },
-                        chat = replyInSlack(ctx, req.event.threadTs),
-                    ),
+            handleIncomingChatMessage.handle(
+                conversationId,
+                IncomingChatMessage(
+                    id = req.event.ts,
+                    createdAtMs = slackTsToMillis(req.event.ts),
+                    sender = toMessageAuthor(req.event.user, ctx),
+                    text = text,
+                    trigger = ChatTrigger.ASSISTANT_MESSAGE,
+                ),
+                ChatPlatformAdapter(
+                    historyLoader = {
+                        if (req.event.threadTs != null) {
+                            loadThreadHistory(ctx, req.event.threadTs, req.event.ts)
+                        } else {
+                            emptyList()
+                        }
+                    },
+                    reply = replyInSlack(ctx, req.event.threadTs),
+                ),
             )
         }
     }
@@ -195,5 +182,3 @@ internal fun async(
 internal fun AppMentionEvent.toConversationId(): ChatConversationId = ChatConversationId(channel, threadTs)
 
 internal fun MessageEvent.toConversationId(): ChatConversationId = ChatConversationId(channel, threadTs)
-
-internal fun MessageEvent.toDirectMessageConversationId(): ChatConversationId = ChatConversationId(null, threadTs)

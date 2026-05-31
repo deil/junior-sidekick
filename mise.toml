@@ -1,2 +1,6 @@
 [tools]
 java = "temurin-25"
+
+[tasks]
+test = "./gradlew test"
+build = "./gradlew build -x test"

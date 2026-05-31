@@ -59,6 +59,7 @@ users:read
 - Kotlin / Spring Boot
 - [Slack Bolt for JVM](https://github.com/slackapi/java-slack-sdk)
 - [Koog](https://github.com/JetBrains/koog)
+- [mise](https://mise.jdx.dev/)
 
 ## Status
 

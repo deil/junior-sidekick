@@ -2,7 +2,7 @@ plugins {
     kotlin("jvm") version "2.3.20"
     kotlin("plugin.spring") version "2.3.20"
     kotlin("plugin.serialization") version "2.3.20"
-    id("org.springframework.boot") version "4.0.5"
+    id("org.springframework.boot") version "4.0.6"
     id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -28,7 +28,7 @@ dependencies {
     developmentOnly("org.springframework.boot:spring-boot-docker-compose")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
-    implementation("com.slack.api:bolt-jakarta-servlet:1.48.0")
+    implementation("com.slack.api:bolt-jakarta-servlet:1.49.0")
     implementation("ai.koog:koog-agents:1.0.0")
     implementation("io.modelcontextprotocol:kotlin-sdk-client:0.8.1")
     implementation("io.modelcontextprotocol:kotlin-sdk-core:0.8.1")

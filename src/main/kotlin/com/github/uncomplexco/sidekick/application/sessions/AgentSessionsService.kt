@@ -25,12 +25,13 @@ class AgentSessions(
 
     suspend fun recordIncomingMessage(
         sessionId: SessionId,
-        historyLoader: (() -> List<ChatMessage>)?,
+        seedHistory: Boolean,
+        historyLoader: () -> List<ChatMessage>,
         message: SessionMessage,
     ): TurnContext =
         withSessionLock(sessionId) {
             val turnId = generateTurnId()
-            val state = loadOrSeedState(sessionId, historyLoader)
+            val state = loadOrSeedState(sessionId, seedHistory, historyLoader)
             upsertMessage(state.messages, message)
             saveState(sessionId, state)
 
@@ -41,6 +42,8 @@ class AgentSessions(
                 history = state.messages.filter { it.id != message.id },
             )
         }
+
+    fun exists(sessionId: SessionId): Boolean = loadState(sessionId).messages.isNotEmpty()
 
     suspend fun recordAssistantReply(
         sessionId: SessionId,
@@ -91,10 +94,11 @@ class AgentSessions(
 
     private fun loadOrSeedState(
         sessionId: SessionId,
-        historyLoader: (() -> List<ChatMessage>)?,
+        seedHistory: Boolean,
+        historyLoader: () -> List<ChatMessage>,
     ): SessionState {
         val state = loadState(sessionId)
-        if (state.messages.isEmpty() && historyLoader != null) {
+        if (state.messages.isEmpty() && seedHistory) {
             val seededHistory = historyLoader()
             seededHistory
                 .sortedBy { it.timestamp }
