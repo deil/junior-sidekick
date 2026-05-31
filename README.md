@@ -11,7 +11,7 @@ Sidekick is a Slack-based AI assistant for AI-pilled teams. It listens in Slack,
 
 Sidekick is built for teams that want an assistant where the work already happens: Slack.
 
-Based on this AI-generated paragraph, it receives Slack events, turns messages into agent turns, runs a Koog agent through OpenRouter, and posts the response back to the right Slack conversation. The project is intentionally small enough to understand and change, while leaving room for deeper capabilities such as workspace tools, skills, Slack artifacts, and MCP integrations. Eventually, Anton will re-write it to not be a hallucination. This day hasn't come yet, because Sidekick is not fully alive yet.
+According to GPT-5.5 summary, it receives Slack events, resolves user identity, persists conversation history, runs a Koog agent through OpenRouter, and posts the response back to the right Slack conversation. Eventually, Anton will re-write it to not be a hallucination. This day hasn't come yet, because Sidekick is not fully alive yet.
 
 ## Key Features
 
@@ -54,7 +54,7 @@ mpim:read
 users:read
 ```
 
-## Technologies
+## Ingredients
 
 - Kotlin / Spring Boot
 - [Slack Bolt for JVM](https://github.com/slackapi/java-slack-sdk)
