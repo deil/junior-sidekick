@@ -1,11 +1,13 @@
-package com.github.uncomplexco.sidekick.application.prompt
+package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.TurnMessage
 import com.github.uncomplexco.sidekick.application.sessions.MessageRole
+import com.github.uncomplexco.sidekick.application.sessions.SessionCompaction
 import com.github.uncomplexco.sidekick.application.sessions.SessionMessage
 import com.github.uncomplexco.sidekick.application.sessions.TurnContext
 import org.springframework.stereotype.Component
+import java.time.Instant.ofEpochMilli
 
 @Component
 class PromptBuilder(
@@ -32,16 +34,33 @@ class PromptBuilder(
             append("</current-message>")
         }
 
-    fun buildThreadTranscript(ctx: TurnContext): String? {
-        val liveMessages = ctx.history
-        if (liveMessages.isEmpty()) {
+    fun buildThreadTranscript(ctx: TurnContext): String? = buildThreadContext(ctx.compactions, ctx.history)
+
+    fun buildThreadContext(
+        compactions: List<SessionCompaction>,
+        history: List<SessionMessage>,
+    ): String? {
+        if (history.isEmpty() && compactions.isEmpty()) {
             return null
         }
 
         val lines = mutableListOf<String>()
 
+        if (compactions.isNotEmpty()) {
+            lines += "<thread-compactions>"
+            compactions.forEachIndexed { index, compaction ->
+                lines +=
+                    "summary_${index + 1}:\n${compaction.summary}\n\ncovered_messages: ${compaction.coveredMessageIds.size}\ncreated_at: ${
+                        ofEpochMilli(
+                            compaction.createdAtMs,
+                        )
+                    }\n"
+            }
+            lines += "</thread-compactions>"
+        }
+
         lines += "<thread-transcript>"
-        liveMessages.forEach { lines += renderConversationMessageLine(it) }
+        history.forEach { lines += renderConversationMessageLine(it) }
         lines += "</thread-transcript>"
 
         return lines.joinToString("\n")

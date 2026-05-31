@@ -1,6 +1,8 @@
 package com.github.uncomplexco.sidekick.application.sessions
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.context.PromptBuilder
+import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.usecases.IncomingChatMessage
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
@@ -128,7 +130,16 @@ class ConversationTriggerPolicyTest {
 
     private fun policy(): ConversationTriggerPolicy = ConversationTriggerPolicy(agentSessions())
 
-    private fun agentSessions(): AgentSessions = AgentSessions(AgentConfig("Sidekick", dir.resolve("state").toString()))
+    private fun agentSessions(): AgentSessions {
+        val config = AgentConfig("Sidekick", dir.resolve("state").toString())
+        return AgentSessions(
+            config,
+            SessionContextCompactor(
+                PromptBuilder(config),
+                summarizer = { messages -> "summary for ${messages.size} messages" },
+            ),
+        )
+    }
 
     private fun message(
         trigger: ChatTrigger,

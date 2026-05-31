@@ -132,32 +132,6 @@ Incoming user messages and assistant replies are both persisted. Assistant repli
 
 `AgentSessions` stores live session messages directly. It does not compact session history.
 
-## Prompt shape
-
-The LLM prompt receives prior session history as a thread transcript and the triggering message separately:
-
-```text
-<thread-transcript>
-...
-</thread-transcript>
-
-<current-message>
-...
-</current-message>
-```
-
-The current message is excluded from transcript history. That invariant prevents Sidekick from seeing the same user request twice in one turn.
-
-Seeded Slack history affects prompts the same way locally recorded history does. Once persisted, it is just session history.
-
-```text
-Persisted session messages
-  |
-  +-- all messages except current turn ----> <thread-transcript>
-  |
-  +-- current triggering message ----------> <current-message>
-```
-
 ## Gotchas
 
 Root channel app mentions should not seed history. There is no Slack thread yet; the root message starts the Sidekick session.
@@ -174,9 +148,5 @@ Seeded human messages may have weaker author data than live incoming messages de
 
 ## Key files
 
-- [SlackAppFactory.kt](/Users/anton/projects/sidekick/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/slack/SlackAppFactory.kt) – Slack event subscription wiring, deduplication, dispatch, and history-loader construction.
-- [SlackInterop.kt](/Users/anton/projects/sidekick/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/slack/SlackInterop.kt) – Slack reply delivery, thread-history loading, timestamp conversion, mention detection, and user lookup.
-- [ConversationTriggerPolicy.kt](/Users/anton/projects/sidekick/src/main/kotlin/com/github/uncomplexco/sidekick/application/sessions/ConversationTriggerPolicy.kt) – Trigger decisions for app mentions, passive messages, direct messages, and assistant messages.
+- [ConversationTriggerPolicy.kt](/Users/anton/projects/sidekick/src/main/kotlin/com/github/uncomplexco/sidekick/application/sessions/ConversationTriggerPolicy.kt) – Trigger decisions for app mentions, passive messages, and assistant messages.
 - [HandleIncomingChatMessageUsecase.kt](/Users/anton/projects/sidekick/src/main/kotlin/com/github/uncomplexco/sidekick/usecases/HandleIncomingChatMessageUsecase.kt) – Conversation use case that records incoming messages, runs Sidekick, posts replies, and records assistant output.
-- [AgentSessionsService.kt](/Users/anton/projects/sidekick/src/main/kotlin/com/github/uncomplexco/sidekick/application/sessions/AgentSessionsService.kt) – Session persistence, one-time seeding, turn creation, and assistant reply recording.
-- [PromptBuilder.kt](/Users/anton/projects/sidekick/src/main/kotlin/com/github/uncomplexco/sidekick/application/prompt/PromptBuilder.kt) – Transcript/current-message prompt shape.

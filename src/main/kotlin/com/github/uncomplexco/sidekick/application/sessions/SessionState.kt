@@ -3,6 +3,15 @@ package com.github.uncomplexco.sidekick.application.sessions
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class SessionCompaction(
+    val id: String,
+    val createdAtMs: Long,
+    val summary: String,
+    val coveredMessageIds: List<String>,
+    val assistantMessageCount: Int = 0,
+)
+
+@Serializable
 class SessionMessage(
     val id: String,
     val role: MessageRole,
@@ -22,6 +31,7 @@ data class SessionInFlightState(
 
 data class SessionState(
     val id: SessionId,
+    var compactions: MutableList<SessionCompaction> = mutableListOf(),
     var messages: MutableList<SessionMessage> = mutableListOf(),
     var inflight: SessionInFlightState = SessionInFlightState(),
 )

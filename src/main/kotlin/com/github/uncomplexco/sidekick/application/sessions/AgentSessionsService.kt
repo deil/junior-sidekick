@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.sessions
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.KSerializer
@@ -9,12 +10,14 @@ import org.springframework.stereotype.Component
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 @Component
 class AgentSessions(
     private val config: AgentConfig,
+    private val contextCompactor: SessionContextCompactor,
 ) {
     private val json =
         Json {
@@ -33,12 +36,14 @@ class AgentSessions(
             val turnId = generateTurnId()
             val state = loadOrSeedState(sessionId, seedHistory, historyLoader)
             upsertMessage(state.messages, message)
+            contextCompactor.compactIfNeeded(state)
             saveState(sessionId, state)
 
             TurnContext(
                 sessionId = sessionId,
                 turnId = turnId,
                 currentMessageId = message.id,
+                compactions = state.compactions,
                 history = state.messages.filter { it.id != message.id },
             )
         }
@@ -118,6 +123,7 @@ class AgentSessions(
 
     private fun loadState(sessionId: SessionId): SessionState {
         val folder = sessionId.folder(config.stateDirectoryPath())
+        val compactions = loadJsonl<SessionCompaction>(folder.resolve("compactions.jsonl"))
         val messages = loadJsonl<SessionMessage>(folder.resolve("messages.jsonl"))
 
         val inflight =
@@ -129,6 +135,7 @@ class AgentSessions(
 
         return SessionState(
             id = sessionId,
+            compactions = compactions.sortedBy { it.createdAtMs }.toMutableList(),
             messages = messages.sortedBy { it.createdAtMs }.toMutableList(),
             inflight = inflight,
         )
@@ -140,12 +147,14 @@ class AgentSessions(
     ) {
         val folder = key.folder(config.stateDirectoryPath())
         Files.createDirectories(folder)
+        writeJsonl(folder.resolve("compactions.jsonl"), state.compactions)
         writeJsonl(folder.resolve("messages.jsonl"), state.messages)
         writeJson(folder.resolve("inflight.json"), SessionInFlightState.serializer(), state.inflight)
     }
 
+    @OptIn(ExperimentalUuidApi::class)
     private fun generateTurnId(prefix: String = "turn"): String =
-        "${prefix}_${System.currentTimeMillis()}_${UUID.randomUUID().toString().replace("-", "").take(8)}"
+        "${prefix}_${System.currentTimeMillis()}_${Uuid.generateV7().toString().replace("-", "").take(8)}"
 
     private suspend fun <T> withSessionLock(
         key: SessionId,
