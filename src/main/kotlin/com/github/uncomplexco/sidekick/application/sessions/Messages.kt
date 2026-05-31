@@ -9,11 +9,10 @@ data class ChatConversationId(
     val isThread: Boolean = threadId != null
 }
 
-@Serializable
 data class ChatMessage(
     val id: String,
     val role: MessageRole,
-    val sender: String? = null,
+    val author: MessageAuthor?,
     val text: String,
     val timestamp: Long,
 )

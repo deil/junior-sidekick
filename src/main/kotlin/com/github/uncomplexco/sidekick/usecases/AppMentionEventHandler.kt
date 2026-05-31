@@ -35,6 +35,7 @@ class AppMentionEventHandler(
         val turn =
             agentSessions.recordIncomingMessage(
                 sessionId = sessionId,
+                historyLoader = ctx.historyLoader,
                 message =
                     SessionMessage(
                         id = messageId,

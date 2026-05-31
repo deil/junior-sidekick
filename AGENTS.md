@@ -1,0 +1,2 @@
+- In all interactions and commit messages, be concise. Be brutally direct and honest.
+- At session start, read `docs/context/context-map.md`

@@ -64,7 +64,7 @@ fun loadThreadHistory(
             return@mapNotNull ChatMessage(
                 id = it.ts,
                 role = if (botMessage) MessageRole.ASSISTANT else MessageRole.USER,
-                sender = if (botMessage) it.user else null,
+                author = if (botMessage) toMessageAuthor(it.user, ctx) else null,
                 text = text,
                 timestamp = slackTsToMillis(it.ts),
             )

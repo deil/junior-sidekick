@@ -25,11 +25,12 @@ class AgentSessions(
 
     suspend fun recordIncomingMessage(
         sessionId: SessionId,
+        historyLoader: (() -> List<ChatMessage>)?,
         message: SessionMessage,
     ): TurnContext =
         withSessionLock(sessionId) {
             val turnId = generateTurnId()
-            val state = loadOrSeedState(sessionId)
+            val state = loadOrSeedState(sessionId, historyLoader)
             upsertMessage(state.messages, message)
             saveState(sessionId, state)
 
@@ -88,7 +89,28 @@ class AgentSessions(
         }
     }
 
-    private fun loadOrSeedState(sessionId: SessionId): SessionState = loadState(sessionId)
+    private fun loadOrSeedState(
+        sessionId: SessionId,
+        historyLoader: (() -> List<ChatMessage>)?,
+    ): SessionState {
+        val state = loadState(sessionId)
+        if (state.messages.isEmpty() && historyLoader != null) {
+            val seededHistory = historyLoader()
+            seededHistory
+                .sortedBy { it.timestamp }
+                .map {
+                    SessionMessage(
+                        id = it.id,
+                        role = it.role,
+                        author = it.author,
+                        text = it.text,
+                        createdAtMs = it.timestamp,
+                    )
+                }.forEach { state.messages.add(it) }
+        }
+
+        return state
+    }
 
     private fun loadState(sessionId: SessionId): SessionState {
         val folder = sessionId.folder(config.stateDirectoryPath())
