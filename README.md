@@ -51,6 +51,7 @@ im:read
 im:write
 mpim:history
 mpim:read
+users:read
 ```
 
 ## Technologies

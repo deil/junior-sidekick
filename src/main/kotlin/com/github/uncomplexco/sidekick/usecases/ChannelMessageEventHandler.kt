@@ -3,13 +3,13 @@ package com.github.uncomplexco.sidekick.usecases
 import com.github.uncomplexco.sidekick.application.agent.SidekickAgent
 import com.github.uncomplexco.sidekick.application.agent.TurnMessage
 import com.github.uncomplexco.sidekick.application.sessions.AgentSessions
+import com.github.uncomplexco.sidekick.application.sessions.MessageAuthor
 import com.github.uncomplexco.sidekick.application.sessions.MessageRole
 import com.github.uncomplexco.sidekick.application.sessions.SessionId
 import com.github.uncomplexco.sidekick.application.sessions.SessionMessage
 import com.github.uncomplexco.sidekick.application.sessions.toSessionId
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.time.Clock
 
 @Component
 class ChannelMessageEventHandler(
@@ -19,14 +19,14 @@ class ChannelMessageEventHandler(
     suspend fun handle(
         messageId: String,
         messageTimestamp: Long,
-        sender: String,
+        sender: MessageAuthor,
         text: String,
         ctx: ChatConversationContext,
     ) {
         if (ctx.chatConversationId.isThread) {
-            log.debug("[#${ctx.chatConversationId.channelId}/${ctx.chatConversationId.threadId}] @$sender: $text")
+            log.debug("[#${ctx.chatConversationId.channelId}/${ctx.chatConversationId.threadId}] @${sender.username}: $text")
         } else {
-            log.debug("[#${ctx.chatConversationId.channelId}] @$sender: $text")
+            log.debug("[#${ctx.chatConversationId.channelId}] @${sender.username}: $text")
         }
 
         val sessionId =
@@ -43,7 +43,7 @@ class ChannelMessageEventHandler(
                     SessionMessage(
                         id = messageId,
                         role = MessageRole.USER,
-                        user = sender,
+                        author = sender,
                         text = text,
                         createdAtMs = messageTimestamp,
                         explicitMention = false,
@@ -57,8 +57,9 @@ class ChannelMessageEventHandler(
             sessionId = sessionId,
             turnId = turn.turnId,
             text = agentReply,
-            messageId = replyMessageId.messageId,
+            replyId = replyMessageId.messageId,
             createdAtMs = replyMessageId.timestamp,
+            originalMessageId = messageId,
         )
     }
 

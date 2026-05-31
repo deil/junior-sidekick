@@ -45,14 +45,18 @@ class AgentSessions(
         sessionId: SessionId,
         turnId: String,
         text: String,
-        messageId: String,
+        replyId: String,
         createdAtMs: Long,
+        originalMessageId: String,
     ) = withSessionLock(sessionId) {
         val state = loadState(sessionId)
+
+        state.messages.find { it.id == originalMessageId }?.replied = true
+
         upsertMessage(
             state.messages,
             SessionMessage(
-                id = messageId,
+                id = replyId,
                 role = MessageRole.ASSISTANT,
                 text = normalizeMessageText(text),
                 createdAtMs = createdAtMs,

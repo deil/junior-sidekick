@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.usecases
 import com.github.uncomplexco.sidekick.application.agent.SidekickAgent
 import com.github.uncomplexco.sidekick.application.agent.TurnMessage
 import com.github.uncomplexco.sidekick.application.sessions.AgentSessions
+import com.github.uncomplexco.sidekick.application.sessions.MessageAuthor
 import com.github.uncomplexco.sidekick.application.sessions.MessageRole
 import com.github.uncomplexco.sidekick.application.sessions.SessionMessage
 import com.github.uncomplexco.sidekick.application.sessions.toSessionId
@@ -17,7 +18,7 @@ class PrivateMessageEventHandler(
     suspend fun handle(
         messageId: String,
         messageTimestamp: Long,
-        sender: String,
+        sender: MessageAuthor,
         text: String,
         ctx: ChatConversationContext,
     ) {
@@ -33,7 +34,7 @@ class PrivateMessageEventHandler(
                     SessionMessage(
                         id = messageId,
                         role = MessageRole.USER,
-                        user = sender,
+                        author = sender,
                         text = text,
                         createdAtMs = messageTimestamp,
                         explicitMention = false,
@@ -47,8 +48,9 @@ class PrivateMessageEventHandler(
             sessionId = sessionId,
             turnId = turn.turnId,
             text = agentReply,
-            messageId = replyMessageId.messageId,
+            replyId = replyMessageId.messageId,
             createdAtMs = replyMessageId.timestamp,
+            originalMessageId = messageId,
         )
     }
 

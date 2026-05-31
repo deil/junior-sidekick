@@ -68,7 +68,7 @@ class SlackAppFactory {
                     appMentionHandler.handle(
                         messageId = event.ts,
                         messageTimestamp = slackTsToMillis(event.ts),
-                        sender = event.user,
+                        sender = toMessageAuthor(event.user, ctx),
                         text = event.text,
                         ctx =
                             ChatConversationContext(
@@ -99,7 +99,7 @@ class SlackAppFactory {
                         channelMessageHandler.handle(
                             messageId = event.ts,
                             messageTimestamp = slackTsToMillis(event.ts),
-                            sender = event.user,
+                            sender = toMessageAuthor(event.user, ctx),
                             text = event.text,
                             ctx =
                                 ChatConversationContext(
@@ -120,7 +120,7 @@ class SlackAppFactory {
                         privateMessageHandler.handle(
                             messageId = event.ts,
                             messageTimestamp = slackTsToMillis(event.ts),
-                            sender = event.user,
+                            sender = toMessageAuthor(event.user, ctx),
                             text = event.text,
                             ctx =
                                 ChatConversationContext(
@@ -164,7 +164,7 @@ internal fun buildSlackAssistant(
             messageHandler.handle(
                 messageId = req.event.ts,
                 messageTimestamp = slackTsToMillis(req.event.ts),
-                sender = req.event.user,
+                sender = toMessageAuthor(req.event.user, ctx),
                 text = text,
                 ctx =
                     ChatConversationContext(

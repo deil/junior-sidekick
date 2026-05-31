@@ -60,14 +60,17 @@ class PromptBuilder(
         """.trimMargin()
 
     private fun renderConversationMessageLine(message: SessionMessage): String {
-        val displayName = message.user ?: if (message.role == MessageRole.ASSISTANT) config.name else "user"
+        val displayName =
+            message.author?.username ?: if (message.role == MessageRole.ASSISTANT) config.name else message.role.name.lowercase()
         val markers = mutableListOf<String>()
         if (message.replied == false) {
             markers += "assistant skipped: ${message.skippedReason ?: "no-reply route"}"
         }
+
         if (message.explicitMention) {
             markers += "explicit mention"
         }
+
         val markerSuffix = if (markers.isEmpty()) "" else " (${markers.joinToString("; ")})"
         return "[${message.role.name.lowercase()}] $displayName: ${message.text}$markerSuffix"
     }

@@ -18,11 +18,13 @@ data class ChatMessage(
     val timestamp: Long,
 )
 
-data class Message(
-    val id: String,
-)
-
 enum class MessageRole {
     USER,
     ASSISTANT,
 }
+
+@Serializable
+data class MessageAuthor(
+    val username: String,
+    val fullName: String?,
+)

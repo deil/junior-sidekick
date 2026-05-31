@@ -8,11 +8,12 @@ import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.adapters.spring.AgentConfigMeh
 import com.github.uncomplexco.sidekick.application.formatUserMssage
 import com.github.uncomplexco.sidekick.application.prompt.PromptBuilder
+import com.github.uncomplexco.sidekick.application.sessions.MessageAuthor
 import com.github.uncomplexco.sidekick.application.sessions.TurnContext
 import org.springframework.stereotype.Component
 
 data class TurnMessage(
-    val user: String,
+    val user: MessageAuthor,
     val text: String,
 )
 

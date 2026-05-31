@@ -1,12 +1,16 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.application.sessions.ChatMessage
+import com.github.uncomplexco.sidekick.application.sessions.MessageAuthor
 import com.github.uncomplexco.sidekick.application.sessions.MessageRole
 import com.github.uncomplexco.sidekick.ports.ReplyResult
 import com.github.uncomplexco.sidekick.ports.ReplyToMessage
 import com.slack.api.bolt.context.builtin.EventContext
+import com.slack.api.model.event.AppMentionEvent
+import com.slack.api.model.event.MessageEvent
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.util.concurrent.ConcurrentHashMap
 
 fun replyInSlack(
     ctx: EventContext,
@@ -66,6 +70,35 @@ fun loadThreadHistory(
             )
         }
 }
+
+internal val usernamesCache = ConcurrentHashMap<String, MessageAuthor>()
+
+internal fun toMessageAuthor(
+    userId: String,
+    ctx: EventContext,
+): MessageAuthor =
+    usernamesCache.computeIfAbsent(userId) {
+        val userinfo = ctx.client().usersInfo { req -> req.user(userId) }
+
+        if (!userinfo.isOk) {
+            return@computeIfAbsent MessageAuthor(
+                username = userId,
+                fullName = null,
+            )
+        }
+
+        return@computeIfAbsent MessageAuthor(
+            username = userId,
+            fullName =
+                if (userinfo.user.profile.displayNameNormalized
+                        .isNullOrBlank()
+                ) {
+                    userinfo.user.realName
+                } else {
+                    userinfo.user.profile.displayNameNormalized
+                },
+        )
+    }
 
 internal fun slackTsToMillis(ts: String): Long = (ts.toDouble().times(1000)).toLong()
 
