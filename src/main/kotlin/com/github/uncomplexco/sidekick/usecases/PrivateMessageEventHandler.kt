@@ -2,30 +2,54 @@ package com.github.uncomplexco.sidekick.usecases
 
 import com.github.uncomplexco.sidekick.application.agent.SidekickAgent
 import com.github.uncomplexco.sidekick.application.agent.TurnMessage
-import kotlinx.coroutines.runBlocking
+import com.github.uncomplexco.sidekick.application.sessions.AgentSessions
+import com.github.uncomplexco.sidekick.application.sessions.MessageRole
+import com.github.uncomplexco.sidekick.application.sessions.SessionMessage
+import com.github.uncomplexco.sidekick.application.sessions.toSessionId
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Component
 class PrivateMessageEventHandler(
     private val agent: SidekickAgent,
+    private val agentSessions: AgentSessions,
 ) {
-    fun handle(
+    suspend fun handle(
         messageId: String,
+        messageTimestamp: Long,
         sender: String,
         text: String,
-        ctx: TurnContext,
+        ctx: ChatConversationContext,
     ) {
-        if (ctx.chatConversationId.isThread) {
-            log.debug("[DM/${ctx.chatConversationId.threadId}] @$sender: $text")
-        } else {
-            log.debug("[DM] @$sender: $text")
-        }
+        if (!ctx.chatConversationId.isThread) return
 
-        runBlocking {
-            val agentReply = agent.runTurn(TurnMessage(user = sender, text = text))
-            ctx.chat.postReply(agentReply)
-        }
+        log.debug("[DM/${ctx.chatConversationId.threadId}] @$sender: $text")
+        val sessionId = ctx.chatConversationId.toSessionId()
+
+        val turn =
+            agentSessions.recordIncomingMessage(
+                sessionId = sessionId,
+                message =
+                    SessionMessage(
+                        id = messageId,
+                        role = MessageRole.USER,
+                        user = sender,
+                        text = text,
+                        createdAtMs = messageTimestamp,
+                        explicitMention = false,
+                    ),
+            )
+
+        val agentReply = agent.runTurn(turn, TurnMessage(user = sender, text = text))
+        val replyMessageId = ctx.chat.postReply(agentReply)
+
+        agentSessions.recordAssistantReply(
+            sessionId = sessionId,
+            turnId = turn.turnId,
+            text = agentReply,
+            messageId = replyMessageId.messageId,
+            createdAtMs = replyMessageId.timestamp,
+        )
     }
 
     companion object {

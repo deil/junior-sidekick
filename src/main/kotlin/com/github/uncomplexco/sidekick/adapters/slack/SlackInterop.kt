@@ -1,7 +1,8 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
-import com.github.uncomplexco.sidekick.application.conversations.ChatMessage
-import com.github.uncomplexco.sidekick.application.conversations.MessageRole
+import com.github.uncomplexco.sidekick.application.sessions.ChatMessage
+import com.github.uncomplexco.sidekick.application.sessions.MessageRole
+import com.github.uncomplexco.sidekick.ports.ReplyResult
 import com.github.uncomplexco.sidekick.ports.ReplyToMessage
 import com.slack.api.bolt.context.builtin.EventContext
 import org.slf4j.Logger
@@ -26,6 +27,11 @@ fun replyInSlack(
             log.warn("Slack markdown post failed, fallback to plain text")
             ctx.say(text)
         }
+
+        ReplyResult(
+            messageId = postResponse.ts,
+            timestamp = slackTsToMillis(postResponse.ts),
+        )
     }
 
 fun loadThreadHistory(
@@ -64,9 +70,9 @@ fun loadThreadHistory(
 internal fun slackTsToMillis(ts: String): Long = (ts.toDouble().times(1000)).toLong()
 
 internal fun isBotsOwnMessage(
-    sender: String,
+    senderBotId: String?,
     ctx: EventContext,
-): Boolean = sender == ctx.botUserId
+): Boolean = senderBotId != null && senderBotId == ctx.botUserId
 
 internal fun containsMention(
     text: String,

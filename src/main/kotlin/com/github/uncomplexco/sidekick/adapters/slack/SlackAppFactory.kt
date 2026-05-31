@@ -1,21 +1,19 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
-import com.github.uncomplexco.sidekick.application.conversations.ChatConversationId
+import com.github.uncomplexco.sidekick.application.sessions.ChatConversationId
 import com.github.uncomplexco.sidekick.usecases.AppMentionEventHandler
 import com.github.uncomplexco.sidekick.usecases.ChannelMessageEventHandler
+import com.github.uncomplexco.sidekick.usecases.ChatConversationContext
 import com.github.uncomplexco.sidekick.usecases.PrivateMessageEventHandler
-import com.github.uncomplexco.sidekick.usecases.TurnContext
 import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
-import com.slack.api.bolt.context.builtin.EventContext
 import com.slack.api.bolt.middleware.builtin.Assistant
 import com.slack.api.model.event.AppMentionEvent
 import com.slack.api.model.event.MessageEvent
-import org.springframework.beans.factory.annotation.Value
+import kotlinx.coroutines.runBlocking
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.stereotype.Component
 import java.time.Clock
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
@@ -69,10 +67,11 @@ class SlackAppFactory {
                     val conversationId = event.toConversationId()
                     appMentionHandler.handle(
                         messageId = event.ts,
+                        messageTimestamp = slackTsToMillis(event.ts),
                         sender = event.user,
                         text = event.text,
                         ctx =
-                            TurnContext(
+                            ChatConversationContext(
                                 chatConversationId = conversationId,
                                 historyLoader = {
                                     if (event.threadTs != null) {
@@ -99,10 +98,11 @@ class SlackAppFactory {
                     async(app) {
                         channelMessageHandler.handle(
                             messageId = event.ts,
+                            messageTimestamp = slackTsToMillis(event.ts),
                             sender = event.user,
                             text = event.text,
                             ctx =
-                                TurnContext(
+                                ChatConversationContext(
                                     chatConversationId = event.toConversationId(),
                                     historyLoader = {
                                         if (event.threadTs != null) {
@@ -119,10 +119,11 @@ class SlackAppFactory {
                     async(app) {
                         privateMessageHandler.handle(
                             messageId = event.ts,
+                            messageTimestamp = slackTsToMillis(event.ts),
                             sender = event.user,
                             text = event.text,
                             ctx =
-                                TurnContext(
+                                ChatConversationContext(
                                     chatConversationId = event.toDirectMessageConversationId(),
                                     historyLoader = {
                                         if (event.threadTs != null) {
@@ -156,26 +157,29 @@ internal fun buildSlackAssistant(
         val text = req.event.text
         if (text.isNullOrBlank()) return@userMessage
 
-        if (!deduper.put(req.event.channel, req.event.ts)) return@userMessage
+        if (!deduper.put(ctx.channelId, req.event.ts)) return@userMessage
 
-        val conversationId = ChatConversationId(channelId = null, threadId = req.event.threadTs)
-        messageHandler.handle(
-            messageId = req.event.ts,
-            sender = req.event.user,
-            text = text,
-            ctx =
-                TurnContext(
-                    chatConversationId = conversationId,
-                    historyLoader = {
-                        if (req.event.threadTs != null) {
-                            loadThreadHistory(ctx, req.event.threadTs, req.event.ts)
-                        } else {
-                            emptyList()
-                        }
-                    },
-                    chat = replyInSlack(ctx, req.event.threadTs),
-                ),
-        )
+        val conversationId = ChatConversationId(channelId = ctx.channelId, threadId = req.event.threadTs)
+        runBlocking {
+            messageHandler.handle(
+                messageId = req.event.ts,
+                messageTimestamp = slackTsToMillis(req.event.ts),
+                sender = req.event.user,
+                text = text,
+                ctx =
+                    ChatConversationContext(
+                        chatConversationId = conversationId,
+                        historyLoader = {
+                            if (req.event.threadTs != null) {
+                                loadThreadHistory(ctx, req.event.threadTs, req.event.ts)
+                            } else {
+                                emptyList()
+                            }
+                        },
+                        chat = replyInSlack(ctx, req.event.threadTs),
+                    ),
+            )
+        }
     }
 
     return assistant
@@ -183,9 +187,9 @@ internal fun buildSlackAssistant(
 
 internal fun async(
     app: App,
-    block: () -> Unit,
+    block: suspend () -> Unit,
 ) {
-    app.executorService().submit { block() }
+    app.executorService().submit { runBlocking { block() } }
 }
 
 internal fun AppMentionEvent.toConversationId(): ChatConversationId = ChatConversationId(channel, threadTs)

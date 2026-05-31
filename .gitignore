@@ -6,7 +6,7 @@ build/
 !**/src/test/**/build/
 src/main/resources/application-local.properties
 RefactorMe.kt
-
+data/
 
 ### STS ###
 .apt_generated

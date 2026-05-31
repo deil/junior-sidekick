@@ -7,7 +7,8 @@ import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.adapters.spring.AgentConfigMeh
 import com.github.uncomplexco.sidekick.application.formatUserMssage
-import com.github.uncomplexco.sidekick.application.prompt.SystemPromptBuilder
+import com.github.uncomplexco.sidekick.application.prompt.PromptBuilder
+import com.github.uncomplexco.sidekick.application.sessions.TurnContext
 import org.springframework.stereotype.Component
 
 data class TurnMessage(
@@ -18,9 +19,12 @@ data class TurnMessage(
 @Component
 class SidekickAgent(
     private val config: AgentConfigMeh,
-    private val promptBuilder: SystemPromptBuilder,
+    private val promptBuilder: PromptBuilder,
 ) {
-    suspend fun runTurn(message: TurnMessage): String {
+    suspend fun runTurn(
+        ctx: TurnContext,
+        message: TurnMessage,
+    ): String {
         val agent =
             AIAgent(
                 promptExecutor = openRouterExecutor(config.openRouterApiKey),
@@ -43,6 +47,6 @@ class SidekickAgent(
                     ),
             )
 
-        return agent.run(formatUserMssage(message.user, message.text))
+        return agent.run(promptBuilder.buildUserMessage(message, ctx))
     }
 }
