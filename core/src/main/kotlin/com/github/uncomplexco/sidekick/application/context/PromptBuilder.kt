@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.agent.TurnMessage
+import com.github.uncomplexco.sidekick.application.TurnMessage
 import com.github.uncomplexco.sidekick.application.sessions.MessageRole
 import com.github.uncomplexco.sidekick.application.sessions.SessionCompaction
 import com.github.uncomplexco.sidekick.application.sessions.SessionMessage

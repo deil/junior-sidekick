@@ -16,7 +16,6 @@ class ChatPlatformAdapter(
     val botUsername: String,
     val historyLoader: () -> List<ChatMessage>,
     val reply: ReplyToMessage,
-    val slackClient: MethodsClient,
 )
 
 interface SlackClientProvider {

@@ -2,26 +2,17 @@ package com.github.uncomplexco.sidekick.usecases
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.SidekickAgent
-import com.github.uncomplexco.sidekick.application.agent.TurnMessage
+import com.github.uncomplexco.sidekick.application.IncomingChatMessage
+import com.github.uncomplexco.sidekick.application.TurnMessage
 import com.github.uncomplexco.sidekick.application.sessions.AgentSessions
 import com.github.uncomplexco.sidekick.application.sessions.ChatConversationId
-import com.github.uncomplexco.sidekick.application.sessions.ChatTrigger
 import com.github.uncomplexco.sidekick.application.sessions.ConversationTriggerPolicy
-import com.github.uncomplexco.sidekick.application.sessions.MessageAuthor
 import com.github.uncomplexco.sidekick.application.sessions.MessageRole
 import com.github.uncomplexco.sidekick.application.sessions.SessionMessage
 import com.github.uncomplexco.sidekick.application.sessions.TriggerDecision
 import com.github.uncomplexco.sidekick.ports.ChatPlatformAdapter
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-
-data class IncomingChatMessage(
-    val id: String,
-    val createdAtMs: Long,
-    val sender: MessageAuthor,
-    val text: String,
-    val trigger: ChatTrigger,
-)
 
 @Component
 class HandleIncomingChatMessageUsecase(
@@ -80,7 +71,7 @@ class HandleIncomingChatMessageUsecase(
                     ),
             )
 
-        val agentReply = agent.runTurn(turn, TurnMessage(user = message.sender, text = message.text), chat.slackClient)
+        val agentReply = agent.runTurn(turn, TurnMessage(user = message.sender, text = message.text))
         val replyMessageId = chat.reply.postReply(agentReply)
 
         agentSessions.recordAssistantReply(

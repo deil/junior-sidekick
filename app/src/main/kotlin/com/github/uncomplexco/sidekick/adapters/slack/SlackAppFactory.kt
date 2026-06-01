@@ -1,10 +1,11 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
+import com.github.uncomplexco.sidekick.application.IncomingChatMessage
+import com.github.uncomplexco.sidekick.application.SharedContext
 import com.github.uncomplexco.sidekick.application.sessions.ChatConversationId
 import com.github.uncomplexco.sidekick.application.sessions.ChatTrigger
 import com.github.uncomplexco.sidekick.ports.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
-import com.github.uncomplexco.sidekick.usecases.IncomingChatMessage
 import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
 import com.slack.api.bolt.middleware.builtin.Assistant
@@ -51,10 +52,12 @@ class SlackAppFactory {
     @Bean
     fun slackApp(
         slackAdapterConfig: AppConfig,
+        sharedContext: SharedContext,
         eventDeduper: HandledEventsDeduper,
         handleIncomingChatMessage: HandleIncomingChatMessageUsecase,
     ): App {
         val app = App(slackAdapterConfig)
+        sharedContext.slackClient = app.client()
 
         app.assistant(buildSlackAssistant(app, eventDeduper, handleIncomingChatMessage))
 
@@ -82,7 +85,6 @@ class SlackAppFactory {
                                 }
                             },
                             reply = replyInSlack(ctx, event.threadTs ?: event.ts),
-                            slackClient = ctx.client(),
                         ),
                     )
                 }
@@ -121,7 +123,6 @@ class SlackAppFactory {
                                     }
                                 },
                                 reply = replyInSlack(ctx, event.threadTs),
-                                slackClient = ctx.client(),
                             ),
                         )
                     }
@@ -169,7 +170,6 @@ internal fun buildSlackAssistant(
                         }
                     },
                     reply = replyInSlack(ctx, req.event.threadTs),
-                    slackClient = ctx.client(),
                 ),
             )
         }

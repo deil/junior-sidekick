@@ -54,13 +54,14 @@ mpim:read
 users:read
 ```
 
-Additional bot token scopes required for Slack canvas tools:
+Additional bot token scopes required by optional Slack agent tools:
 
-```text
-canvases:read
-canvases:write
-files:read
-```
+| Scope | Tools that need it |
+| --- | --- |
+| `canvases:read` | `slackCanvasCreate` |
+| `canvases:write` | `slackCanvasCreate` |
+| `files:read` | `slackCanvasCreate` |
+| `reactions:write` | `slackReactionAdd` |
 
 ## Ingredients
 

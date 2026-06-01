@@ -7,42 +7,31 @@ import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import com.github.uncomplexco.sidekick.application.TurnMessage
 import com.github.uncomplexco.sidekick.application.config.AgentConfigMeh
 import com.github.uncomplexco.sidekick.application.context.PromptBuilder
-import com.github.uncomplexco.sidekick.application.sessions.MessageAuthor
 import com.github.uncomplexco.sidekick.application.sessions.TurnContext
-import com.github.uncomplexco.sidekick.application.tools.SystemTools
-import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasRuntimeContext
-import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
-import com.slack.api.methods.MethodsClient
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
-data class TurnMessage(
-    val user: MessageAuthor,
-    val text: String,
-)
-
 private val log = LoggerFactory.getLogger(SidekickAgent::class.java)
+
+fun interface TurnToolRegistryFactory {
+    fun build(ctx: TurnContext): ToolRegistry
+}
 
 @Component
 class SidekickAgent(
     private val config: AgentConfig,
     private val configMeh: AgentConfigMeh,
     private val promptBuilder: PromptBuilder,
+    private val toolRegistryFactory: TurnToolRegistryFactory,
 ) {
     suspend fun runTurn(
         ctx: TurnContext,
         message: TurnMessage,
-        slackClient: MethodsClient,
     ): String {
-        val toolRegistry =
-            ToolRegistry {
-                tools(SystemTools())
-                tools(
-                    SlackCanvasTools(slackClient, ctx.sessionId).asTools(),
-                )
-            }
+        val toolRegistry = toolRegistryFactory.build(ctx)
 
         val agent =
             AIAgent(
