@@ -54,6 +54,14 @@ mpim:read
 users:read
 ```
 
+Additional bot token scopes required for Slack canvas tools:
+
+```text
+canvases:read
+canvases:write
+files:read
+```
+
 ## Ingredients
 
 - Kotlin / Spring Boot

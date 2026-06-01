@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.usecases
 
+import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.SidekickAgent
 import com.github.uncomplexco.sidekick.application.agent.TurnMessage
 import com.github.uncomplexco.sidekick.application.sessions.AgentSessions
@@ -24,6 +25,7 @@ data class IncomingChatMessage(
 
 @Component
 class HandleIncomingChatMessageUsecase(
+    private val agentConfig: AgentConfig,
     private val agent: SidekickAgent,
     private val agentSessions: AgentSessions,
     private val triggerPolicy: ConversationTriggerPolicy,
@@ -58,6 +60,10 @@ class HandleIncomingChatMessageUsecase(
         decision: TriggerDecision.Handle,
         chat: ChatPlatformAdapter,
     ) {
+        if (agentConfig.botUsername == null) {
+            agentConfig.botUsername = chat.botUsername
+        }
+
         val turn =
             agentSessions.recordIncomingMessage(
                 sessionId = decision.sessionId,
@@ -74,7 +80,7 @@ class HandleIncomingChatMessageUsecase(
                     ),
             )
 
-        val agentReply = agent.runTurn(turn, TurnMessage(user = message.sender, text = message.text))
+        val agentReply = agent.runTurn(turn, TurnMessage(user = message.sender, text = message.text), chat.slackClient)
         val replyMessageId = chat.reply.postReply(agentReply)
 
         agentSessions.recordAssistantReply(

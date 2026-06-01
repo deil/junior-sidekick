@@ -73,6 +73,7 @@ class SlackAppFactory {
                             trigger = ChatTrigger.APP_MENTION,
                         ),
                         ChatPlatformAdapter(
+                            botUsername = ctx.botUserId,
                             historyLoader = {
                                 if (event.threadTs != null) {
                                     loadThreadHistory(ctx, event.threadTs, event.ts)
@@ -81,6 +82,7 @@ class SlackAppFactory {
                                 }
                             },
                             reply = replyInSlack(ctx, event.threadTs ?: event.ts),
+                            slackClient = ctx.client(),
                         ),
                     )
                 }
@@ -110,6 +112,7 @@ class SlackAppFactory {
                                 trigger = ChatTrigger.PASSIVE_MESSAGE,
                             ),
                             ChatPlatformAdapter(
+                                botUsername = ctx.botUserId,
                                 historyLoader = {
                                     if (event.threadTs != null) {
                                         loadThreadHistory(ctx, event.threadTs, event.ts)
@@ -118,6 +121,7 @@ class SlackAppFactory {
                                     }
                                 },
                                 reply = replyInSlack(ctx, event.threadTs),
+                                slackClient = ctx.client(),
                             ),
                         )
                     }
@@ -156,6 +160,7 @@ internal fun buildSlackAssistant(
                     trigger = ChatTrigger.ASSISTANT_MESSAGE,
                 ),
                 ChatPlatformAdapter(
+                    botUsername = ctx.botUserId,
                     historyLoader = {
                         if (req.event.threadTs != null) {
                             loadThreadHistory(ctx, req.event.threadTs, req.event.ts)
@@ -164,6 +169,7 @@ internal fun buildSlackAssistant(
                         }
                     },
                     reply = replyInSlack(ctx, req.event.threadTs),
+                    slackClient = ctx.client(),
                 ),
             )
         }

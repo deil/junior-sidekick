@@ -10,6 +10,8 @@ class AgentConfig(
     @Value($$"${agent.name}") val name: String,
     @Value($$"${agent.state-directory}") val stateDir: String,
 ) {
+    var botUsername: String? = null
+
     fun stateDirectoryPath(): Path {
         val path = Path.of(stateDir).toAbsolutePath().normalize()
         Files.createDirectories(path)
