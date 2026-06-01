@@ -3,3 +3,6 @@ plugins {
 }
 
 rootProject.name = "junior-sidekick"
+
+include("core")
+include("app")

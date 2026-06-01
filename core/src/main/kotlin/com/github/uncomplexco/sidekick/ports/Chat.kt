@@ -18,3 +18,9 @@ class ChatPlatformAdapter(
     val reply: ReplyToMessage,
     val slackClient: MethodsClient,
 )
+
+interface SlackClientProvider {
+    fun client(): MethodsClient
+
+    fun hasToken(): Boolean
+}

@@ -3,7 +3,7 @@ package com.github.uncomplexco.sidekick.adapters.koog
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
-import com.github.uncomplexco.sidekick.adapters.spring.AgentConfigMeh
+import com.github.uncomplexco.sidekick.application.config.AgentConfigMeh
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.context.PromptBuilder
 import com.github.uncomplexco.sidekick.application.sessions.SessionMessage
