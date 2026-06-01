@@ -41,7 +41,12 @@ class HandleIncomingChatMessageUsecase(
             }
 
             is TriggerDecision.Handle -> {
-                handle(message, decision, chat)
+                chat.activity.start()
+                try {
+                    handle(message, decision, chat)
+                } finally {
+                    chat.activity.clear()
+                }
             }
         }
     }

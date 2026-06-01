@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.adapters.slack
 import com.github.uncomplexco.sidekick.application.sessions.ChatMessage
 import com.github.uncomplexco.sidekick.application.sessions.MessageAuthor
 import com.github.uncomplexco.sidekick.application.sessions.MessageRole
+import com.github.uncomplexco.sidekick.ports.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.ReplyResult
 import com.github.uncomplexco.sidekick.ports.ReplyToMessage
 import com.slack.api.bolt.context.builtin.EventContext
@@ -37,6 +38,60 @@ fun replyInSlack(
             timestamp = slackTsToMillis(postResponse.ts),
         )
     }
+
+fun slackActivityIndicator(
+    ctx: EventContext,
+    threadTs: String,
+): ChatActivityIndicator =
+    object : ChatActivityIndicator {
+        override fun start() {
+            setStatus(
+                status = slackAssistantStatusTexts.random(),
+                loadingMessages =
+                    listOf(
+                        "Reading what everyone said...",
+                        "Checking the important bits...",
+                        "Turning context into an answer...",
+                        "Avoiding confident nonsense...",
+                        "Making it Slack-sized...",
+                    ),
+            )
+        }
+
+        override fun clear() {
+            setStatus("")
+        }
+
+        private fun setStatus(
+            status: String,
+            loadingMessages: List<String>? = null,
+        ) {
+            runCatching {
+                val response =
+                    ctx.client().assistantThreadsSetStatus { req ->
+                        req.channelId(ctx.channelId)
+                        req.threadTs(threadTs)
+                        req.status(status)
+                        if (loadingMessages != null) {
+                            req.loadingMessages(loadingMessages)
+                        }
+                        req
+                    }
+                if (!response.isOk) {
+                    log.warn("Slack assistant status update failed: {}", response.error)
+                }
+            }.onFailure {
+                log.warn("Slack assistant status update failed", it)
+            }
+        }
+    }
+
+private val slackAssistantStatusTexts =
+    listOf(
+        "consulting the tiny compiler",
+        "untangling the thread",
+        "thinking with tabs open",
+    )
 
 fun loadThreadHistory(
     ctx: EventContext,

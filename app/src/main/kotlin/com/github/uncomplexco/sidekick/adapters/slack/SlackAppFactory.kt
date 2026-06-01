@@ -66,6 +66,7 @@ class SlackAppFactory {
             if (!event.text.isNullOrBlank() && eventDeduper.put(event.channel, event.ts)) {
                 async(app) {
                     val conversationId = event.toConversationId()
+                    val responseThreadTs = event.threadTs ?: event.ts
                     handleIncomingChatMessage.handle(
                         conversationId,
                         IncomingChatMessage(
@@ -84,7 +85,8 @@ class SlackAppFactory {
                                     emptyList()
                                 }
                             },
-                            reply = replyInSlack(ctx, event.threadTs ?: event.ts),
+                            reply = replyInSlack(ctx, responseThreadTs),
+                            activity = slackActivityIndicator(ctx, responseThreadTs),
                         ),
                     )
                 }
@@ -104,6 +106,7 @@ class SlackAppFactory {
             ) {
                 if (event.channelType != "im") {
                     async(app) {
+                        val responseThreadTs = event.threadTs ?: event.ts
                         handleIncomingChatMessage.handle(
                             event.toConversationId(),
                             IncomingChatMessage(
@@ -123,6 +126,7 @@ class SlackAppFactory {
                                     }
                                 },
                                 reply = replyInSlack(ctx, event.threadTs),
+                                activity = slackActivityIndicator(ctx, responseThreadTs),
                             ),
                         )
                     }
@@ -150,6 +154,7 @@ internal fun buildSlackAssistant(
         if (!deduper.put(ctx.channelId, req.event.ts)) return@userMessage
 
         val conversationId = ChatConversationId(channelId = ctx.channelId, threadId = req.event.threadTs)
+        val responseThreadTs = req.event.threadTs ?: req.event.ts
         runBlocking {
             handleIncomingChatMessage.handle(
                 conversationId,
@@ -170,6 +175,7 @@ internal fun buildSlackAssistant(
                         }
                     },
                     reply = replyInSlack(ctx, req.event.threadTs),
+                    activity = slackActivityIndicator(ctx, responseThreadTs),
                 ),
             )
         }

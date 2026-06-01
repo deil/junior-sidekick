@@ -12,10 +12,23 @@ fun interface ReplyToMessage {
     suspend fun postReply(text: String): ReplyResult
 }
 
+interface ChatActivityIndicator {
+    fun start()
+
+    fun clear()
+}
+
+object NoopChatActivityIndicator : ChatActivityIndicator {
+    override fun start() = Unit
+
+    override fun clear() = Unit
+}
+
 class ChatPlatformAdapter(
     val botUsername: String,
     val historyLoader: () -> List<ChatMessage>,
     val reply: ReplyToMessage,
+    val activity: ChatActivityIndicator = NoopChatActivityIndicator,
 )
 
 interface SlackClientProvider {
