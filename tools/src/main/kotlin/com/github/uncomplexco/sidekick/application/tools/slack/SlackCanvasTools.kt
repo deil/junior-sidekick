@@ -3,21 +3,11 @@ package com.github.uncomplexco.sidekick.application.tools.slack
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
-import com.github.uncomplexco.sidekick.application.CanvasArtifactSummary
-import com.github.uncomplexco.sidekick.application.SlackArtifactRuntimeCache
-import com.github.uncomplexco.sidekick.application.SlackConversationStateService
-import com.github.uncomplexco.sidekick.application.SlackSessionKey
-import com.github.uncomplexco.sidekick.application.StoredThreadArtifactsState
-import com.github.uncomplexco.sidekick.application.buildArtifactStatePatch
-import com.github.uncomplexco.sidekick.application.createOperationKey
 import com.github.uncomplexco.sidekick.application.isConversationScopedChannel
 import com.github.uncomplexco.sidekick.application.sessions.SessionId
-import com.github.uncomplexco.sidekick.application.withDeduplicated
 import com.slack.api.methods.MethodsClient
 import com.slack.api.model.canvas.CanvasDocumentContent
-import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import java.time.Instant
 
 data class SlackCanvasRuntimeContext(
     val channelId: String?,
@@ -52,10 +42,17 @@ class SlackCanvasTools(
         val canvasId = created.canvasId
         grantConversationCanvasAccess(canvasId, targetChannelId)
         val permalink = fetchCanvasPermalink(canvasId)
-        log.debug("Created standalone Slack canvas session={} canvasId={} channelId={}", sessionId.lockKey(), canvasId, targetChannelId)
-        val result = """{"ok":true,"canvas_id":"$canvasId","permalink":${permalink?.let {
-            "\"$it\""
-        } ?: "null"},"summary":"Created canvas $canvasId"}"""
+        log.debug(
+            "Created standalone Slack canvas session={} canvasId={} channelId={}",
+            sessionId.lockKey(),
+            canvasId,
+            targetChannelId,
+        )
+        val result = """{"ok":true,"canvas_id":"$canvasId","permalink":${
+            permalink?.let {
+                "\"$it\""
+            } ?: "null"
+        },"summary":"Created canvas $canvasId"}"""
         return result
     }
 
@@ -74,7 +71,13 @@ class SlackCanvasTools(
                 req.channelIds(listOf(channelId))
             }
         }.onFailure { error ->
-            log.warn("Failed to grant Slack canvas access session={} canvasId={} channelId={}", sessionId.lockKey(), canvasId, channelId, error)
+            log.warn(
+                "Failed to grant Slack canvas access session={} canvasId={} channelId={}",
+                sessionId.lockKey(),
+                canvasId,
+                channelId,
+                error,
+            )
         }
     }
 
@@ -112,6 +115,7 @@ data class CanvasMarkdownNormalization(
     val normalizedHeadingCount: Int,
 )
 
+/*
 private fun mergeRecentCanvases(
     existing: List<CanvasArtifactSummary>,
     canvasId: String,
@@ -130,3 +134,4 @@ private fun mergeRecentCanvases(
         )
     return (listOf(next) + existing.filter { it.id != canvasId }).take(5)
 }
+*/
