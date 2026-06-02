@@ -14,6 +14,7 @@ import java.nio.file.Path
 class AgentConfig(
     @Value($$"${agent.name}") val name: String,
     @Value($$"${agent.state-directory}") val stateDir: String,
+    @Value($$"${agent.working-directory}") val workingDir: String,
 ) {
     var botUsername: String? = null
 
@@ -21,6 +22,13 @@ class AgentConfig(
         val path = Path.of(stateDir).toAbsolutePath().normalize()
         Files.createDirectories(path)
         require(Files.isDirectory(path)) { "Configured agent state directory is not a directory: $path" }
+        return path
+    }
+
+    fun workingDirectoryPath(): Path {
+        val path = Path.of(workingDir).toAbsolutePath().normalize()
+        Files.createDirectories(path)
+        require(Files.isDirectory(path)) { "Configured agent working directory is not a directory: $path" }
         return path
     }
 }
