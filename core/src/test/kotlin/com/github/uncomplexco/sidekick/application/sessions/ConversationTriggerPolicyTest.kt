@@ -134,7 +134,7 @@ class ConversationTriggerPolicyTest {
     private fun policy(): ConversationTriggerPolicy = ConversationTriggerPolicy(agentSessions())
 
     private fun agentSessions(): AgentSessions {
-        val config = AgentConfig("Sidekick", dir.resolve("state").toString())
+        val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
         return AgentSessions(
             config,
             SessionContextCompactor(

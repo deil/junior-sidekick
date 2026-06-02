@@ -122,7 +122,7 @@ class SessionContextCompactorTest {
         }
 
     private fun compactor(summarizer: RecordingSummarizer): SessionContextCompactor {
-        val config = AgentConfig("Sidekick", dir.resolve("state").toString())
+        val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
         return SessionContextCompactor(PromptBuilder(config), summarizer)
     }
 
