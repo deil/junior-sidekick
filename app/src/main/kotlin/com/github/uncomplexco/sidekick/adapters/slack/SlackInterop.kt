@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
+import com.github.uncomplexco.sidekick.application.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.sessions.ChatMessage
 import com.github.uncomplexco.sidekick.application.sessions.MessageAuthor
 import com.github.uncomplexco.sidekick.application.sessions.MessageRole
@@ -7,11 +8,13 @@ import com.github.uncomplexco.sidekick.ports.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.ReplyResult
 import com.github.uncomplexco.sidekick.ports.ReplyToMessage
 import com.slack.api.bolt.context.builtin.EventContext
+import com.slack.api.model.Attachment
 import com.slack.api.model.event.AppMentionEvent
 import com.slack.api.model.event.MessageEvent
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
+import com.slack.api.model.File as SlackFile
 
 fun replyInSlack(
     ctx: EventContext,
@@ -125,6 +128,36 @@ fun loadThreadHistory(
             )
         }
 }
+
+internal fun incomingChatFiles(
+    files: List<SlackFile>?,
+    attachments: List<Attachment>?,
+): List<IncomingChatFile> {
+    val directFiles = files.toIncomingChatFiles()
+    return directFiles.ifEmpty {
+        attachments
+            .orEmpty()
+            .flatMap { it.files.orEmpty() }
+            .toIncomingChatFiles()
+    }
+}
+
+private fun List<SlackFile>?.toIncomingChatFiles(): List<IncomingChatFile> =
+    this
+        .orEmpty()
+        .mapNotNull { file ->
+            if (file.id == null || file.urlPrivateDownload == null) return@mapNotNull null
+
+            IncomingChatFile(
+                id = file.id,
+                name = file.name,
+                title = file.title,
+                mimetype = file.mimetype,
+                filetype = file.filetype,
+                urlPrivateDownload = file.urlPrivateDownload,
+                permalink = file.permalink,
+            )
+        }
 
 internal val usernamesCache = ConcurrentHashMap<String, MessageAuthor>()
 

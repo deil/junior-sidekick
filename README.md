@@ -60,8 +60,14 @@ Additional bot token scopes required by optional Slack agent tools:
 | --- | --- |
 | `canvases:read` | `slackCanvasCreate` |
 | `canvases:write` | `slackCanvasCreate` |
-| `files:read` | `slackCanvasCreate` |
+| `files:read` | `slackCanvasCreate`, `slackFileDownload` |
 | `reactions:write` | `slackReactionAdd` |
+
+## Integrations
+
+| Integration | Purpose |
+| --- | --- |
+| [Dumphere](https://github.com/uncomplex-co/dumphere) | Publishes internal HTML and Markdown files and returns share URLs. |
 
 ## Ingredients
 

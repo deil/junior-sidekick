@@ -11,6 +11,7 @@ import com.slack.api.bolt.AppConfig
 import com.slack.api.bolt.middleware.builtin.Assistant
 import com.slack.api.model.event.AppMentionEvent
 import com.slack.api.model.event.MessageEvent
+import com.slack.api.model.event.MessageFileShareEvent
 import kotlinx.coroutines.runBlocking
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.context.annotation.Bean
@@ -19,30 +20,6 @@ import java.time.Clock
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-
-class HandledEventsDeduper(
-    private val clock: Clock = Clock.systemUTC(),
-    private val ttl: Duration = 5.minutes,
-) {
-    private val events = ConcurrentHashMap<String, Long>()
-
-    fun put(
-        channelId: String,
-        messageId: String,
-    ): Boolean {
-        cleanupExpired()
-
-        val key = "$channelId:$messageId"
-        val expiresAt = clock.millis() + ttl.inWholeMilliseconds
-        val alreadySeen = events.putIfAbsent(key, expiresAt)
-        return alreadySeen == null
-    }
-
-    fun cleanupExpired() {
-        val threshold = clock.millis()
-        events.entries.removeIf { it.value <= threshold }
-    }
-}
 
 @Configuration
 @ConditionalOnExpression(
@@ -73,8 +50,9 @@ class SlackAppFactory {
                             id = event.ts,
                             createdAtMs = slackTsToMillis(event.ts),
                             sender = toMessageAuthor(event.user, ctx),
-                            text = event.text,
+                            text = event.text!!,
                             trigger = ChatTrigger.APP_MENTION,
+                            files = incomingChatFiles(event.files, event.attachments),
                         ),
                         ChatPlatformAdapter(
                             botUsername = ctx.botUserId,
@@ -115,6 +93,44 @@ class SlackAppFactory {
                                 sender = toMessageAuthor(event.user, ctx),
                                 text = event.text,
                                 trigger = ChatTrigger.PASSIVE_MESSAGE,
+                                files = incomingChatFiles(event.files, event.attachments),
+                            ),
+                            ChatPlatformAdapter(
+                                botUsername = ctx.botUserId,
+                                historyLoader = {
+                                    if (event.threadTs != null) {
+                                        loadThreadHistory(ctx, event.threadTs, event.ts)
+                                    } else {
+                                        emptyList()
+                                    }
+                                },
+                                reply = replyInSlack(ctx, event.threadTs),
+                                activity = slackActivityIndicator(ctx, responseThreadTs),
+                            ),
+                        )
+                    }
+                }
+            }
+
+            ctx.ack()
+        }
+
+        app.event(MessageFileShareEvent::class.java) { payload, ctx ->
+            val event = payload.event
+            val files = incomingChatFiles(event.files, event.attachments)
+            if (eventDeduper.put(event.channel, event.ts)) {
+                if (event.channelType != "im") {
+                    async(app) {
+                        val responseThreadTs = event.threadTs ?: event.ts
+                        handleIncomingChatMessage.handle(
+                            event.toConversationId(),
+                            IncomingChatMessage(
+                                id = event.ts,
+                                createdAtMs = slackTsToMillis(event.ts),
+                                sender = toMessageAuthor(event.user, ctx),
+                                text = event.text!!,
+                                trigger = ChatTrigger.PASSIVE_MESSAGE,
+                                files = files,
                             ),
                             ChatPlatformAdapter(
                                 botUsername = ctx.botUserId,
@@ -149,9 +165,7 @@ internal fun buildSlackAssistant(
 
     assistant.userMessage { req, ctx ->
         val text = req.event.text
-        if (text.isNullOrBlank()) return@userMessage
-
-        if (!deduper.put(ctx.channelId, req.event.ts)) return@userMessage
+        if (text.isNullOrBlank() || !deduper.put(ctx.channelId, req.event.ts)) return@userMessage
 
         val conversationId = ChatConversationId(channelId = ctx.channelId, threadId = req.event.threadTs)
         val responseThreadTs = req.event.threadTs ?: req.event.ts
@@ -164,6 +178,40 @@ internal fun buildSlackAssistant(
                     sender = toMessageAuthor(req.event.user, ctx),
                     text = text,
                     trigger = ChatTrigger.ASSISTANT_MESSAGE,
+                    files = emptyList(),
+                ),
+                ChatPlatformAdapter(
+                    botUsername = ctx.botUserId,
+                    historyLoader = {
+                        if (req.event.threadTs != null) {
+                            loadThreadHistory(ctx, req.event.threadTs, req.event.ts)
+                        } else {
+                            emptyList()
+                        }
+                    },
+                    reply = replyInSlack(ctx, req.event.threadTs),
+                    activity = slackActivityIndicator(ctx, responseThreadTs),
+                ),
+            )
+        }
+    }
+
+    assistant.userMessageWithFiles { req, ctx ->
+        val text = req.event.text
+        if (!deduper.put(ctx.channelId, req.event.ts)) return@userMessageWithFiles
+
+        val conversationId = ChatConversationId(channelId = ctx.channelId, threadId = req.event.threadTs)
+        val responseThreadTs = req.event.threadTs ?: req.event.ts
+        runBlocking {
+            handleIncomingChatMessage.handle(
+                conversationId,
+                IncomingChatMessage(
+                    id = req.event.ts,
+                    createdAtMs = slackTsToMillis(req.event.ts),
+                    sender = toMessageAuthor(req.event.user, ctx),
+                    text = text!!,
+                    trigger = ChatTrigger.ASSISTANT_MESSAGE,
+                    files = incomingChatFiles(req.event.files, req.event.attachments),
                 ),
                 ChatPlatformAdapter(
                     botUsername = ctx.botUserId,
@@ -194,3 +242,5 @@ internal fun async(
 internal fun AppMentionEvent.toConversationId(): ChatConversationId = ChatConversationId(channel, threadTs)
 
 internal fun MessageEvent.toConversationId(): ChatConversationId = ChatConversationId(channel, threadTs)
+
+internal fun MessageFileShareEvent.toConversationId(): ChatConversationId = ChatConversationId(channel, threadTs)

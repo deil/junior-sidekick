@@ -1,9 +1,9 @@
 package com.github.uncomplexco.sidekick.usecases
 
-import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.agent.SidekickAgent
 import com.github.uncomplexco.sidekick.application.IncomingChatMessage
 import com.github.uncomplexco.sidekick.application.TurnMessage
+import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.SidekickAgent
 import com.github.uncomplexco.sidekick.application.sessions.AgentSessions
 import com.github.uncomplexco.sidekick.application.sessions.ChatConversationId
 import com.github.uncomplexco.sidekick.application.sessions.ConversationTriggerPolicy
@@ -71,6 +71,7 @@ class HandleIncomingChatMessageUsecase(
                         role = MessageRole.USER,
                         author = message.sender,
                         text = message.text,
+                        files = message.files,
                         createdAtMs = message.createdAtMs,
                         explicitMention = decision.explicitMention,
                     ),

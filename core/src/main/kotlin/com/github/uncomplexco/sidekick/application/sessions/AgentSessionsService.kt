@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.application.sessions
 
+import com.github.uncomplexco.sidekick.application.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import kotlinx.coroutines.sync.Mutex
@@ -43,6 +44,7 @@ class AgentSessions(
                 sessionId = sessionId,
                 turnId = turnId,
                 currentMessageId = message.id,
+                currentFiles = message.files,
                 compactions = state.compactions,
                 history = state.messages.filter { it.id != message.id },
             )

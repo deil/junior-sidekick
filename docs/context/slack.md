@@ -40,19 +40,34 @@ message identity = channel + ts
 
 This is the same identity used for deduplication. Do not invent a separate Slack message id; there usually is not one in the event payload.
 
-## Duplicate mention delivery
+## Events
 
-When a user mentions the bot in a channel, Slack can deliver both:
-
-- an `app_mention` event
-- a `message.*` event for the same Slack message
-
-Sidekick treats `app_mention` as the owner of explicit mention handling. The matching `message.*` event must not produce a second turn.
-
-Deduplication should use Slack message identity, not text parsing:
+Sidekick treats Slack `channel + ts` as the event identity for deduplication. Slack can emit more than one event for the same visible message, so handlers must be idempotent at that boundary.
 
 ```text
 dedupe key = channel + ts
 ```
 
-Mention text detection may be useful as a routing guard, but it is not the source of truth for whether two Slack events represent the same message.
+Event ownership:
+
+| Slack event | Sidekick trigger | When Slack emits it |
+| --- | --- | --- |
+| `app_mention` | `APP_MENTION` | Emitted when a channel/thread message mentions Sidekick, including messages with uploaded or forwarded files. |
+| `message.*` | `PASSIVE_MESSAGE` | Emitted for ordinary channel/thread messages that do not mention Sidekick. |
+| `message:file_share` | `PASSIVE_MESSAGE` | Emitted for file-share messages that do not mention Sidekick. |
+| Slack assistant message | `ASSISTANT_MESSAGE` | Emitted for direct assistant-chat messages, including messages with files. |
+
+Duplicate cases seen in practice:
+
+| Visible Slack action | Possible events | Owner |
+| --- | --- | --- |
+| Channel message mentioning Sidekick | `app_mention` and `message.*` | `app_mention` |
+
+## File Attachments
+
+| File source | Payload location |
+| --- | --- |
+| Directly attached files | `event.files` |
+| Forwarded message files | `event.attachments[].files` |
+
+When both direct files and attachment files exist, Sidekick uses direct files and ignores attachment files for that turn.

@@ -1,6 +1,8 @@
 package com.github.uncomplexco.sidekick.application.sessions
 
+import com.github.uncomplexco.sidekick.application.IncomingChatFile
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 @Serializable
 data class SessionCompaction(
@@ -17,6 +19,8 @@ class SessionMessage(
     val role: MessageRole,
     val author: MessageAuthor? = null,
     val text: String,
+    @Transient
+    val files: List<IncomingChatFile> = emptyList(),
     val createdAtMs: Long,
     val explicitMention: Boolean = false,
     var replied: Boolean? = null,
