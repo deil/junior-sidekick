@@ -15,11 +15,8 @@ import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.TurnMessage
-import com.github.uncomplexco.sidekick.application.config.AgentConfigMeh
 import com.github.uncomplexco.sidekick.application.context.PromptBuilder
 import com.github.uncomplexco.sidekick.application.sessions.TurnContext
-import com.github.uncomplexco.sidekick.application.sessions.triggers.KoogReplyDecisionClassifier
-import com.github.uncomplexco.sidekick.application.sessions.triggers.ReplyDecisionInput
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -32,7 +29,7 @@ fun interface TurnToolRegistryFactory {
 @Component
 class SidekickAgent(
     private val config: AgentConfig,
-    private val configMeh: AgentConfigMeh,
+    private val koogConfig: KoogConfig,
     private val promptBuilder: PromptBuilder,
     private val toolRegistryFactory: TurnToolRegistryFactory,
 ) {
@@ -45,24 +42,24 @@ class SidekickAgent(
 
         val agent =
             AIAgent(
-                promptExecutor = openRouterExecutor(configMeh.openRouterApiKey),
+                promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey),
                 strategy = strategy,
                 agentConfig =
                     AIAgentConfig(
                         prompt =
                             prompt(
                                 id = "sidekick-base-prompt",
-                                params = configMeh.openRouterParams(),
+                                params = koogConfig.openRouterParams(),
                             ) {
                                 system(promptBuilder.buildSystemPrompt(config.botUsername!!))
                             },
                         model =
                             LLModel(
                                 provider = LLMProvider.OpenRouter,
-                                id = configMeh.model,
-                                capabilities = configMeh.modelCapabilities(),
+                                id = koogConfig.model,
+                                capabilities = koogConfig.modelCapabilities(),
                             ),
-                        maxAgentIterations = 10,
+                        maxAgentIterations = 50,
                     ),
                 toolRegistry = toolRegistry,
             ) {
