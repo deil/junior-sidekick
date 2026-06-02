@@ -7,6 +7,7 @@ data class ReplyDecisionInput(
     val conversationContext: String? = null,
     val hasAssistantHistory: Boolean,
     val isExplicitMention: Boolean = false,
+    val isPrivateMessage: Boolean = false,
 )
 
 enum class ReplyDecisionReason {
@@ -53,7 +54,7 @@ class ReplyDecisionService(
             return ReplyDecision(false, ReplyDecisionReason.ACKNOWLEDGMENT)
         }
 
-        if (!input.hasAssistantHistory) {
+        if (!input.isPrivateMessage && !input.hasAssistantHistory) {
             return ReplyDecision(false, ReplyDecisionReason.SIDE_CONVERSATION, "assistant_not_in_thread")
         }
 

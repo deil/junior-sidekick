@@ -58,6 +58,24 @@ class ReplyDecisionServiceTest {
         }
 
     @Test
+    fun `private message without assistant history still delegates to classifier`() =
+        runBlocking {
+            val service = ReplyDecisionService(FakeClassifier(ReplyDecision(true, ReplyDecisionReason.CLASSIFIER)))
+
+            val decision =
+                service.decide(
+                    ReplyDecisionInput(
+                        text = "can you help with this?",
+                        hasAssistantHistory = false,
+                        isPrivateMessage = true,
+                    ),
+                )
+
+            assertEquals(ReplyDecisionReason.CLASSIFIER, decision.reason)
+            assertEquals(true, decision.shouldReply)
+        }
+
+    @Test
     fun `delegates subscribed decision to classifier when assistant has history`() =
         runBlocking {
             val service =

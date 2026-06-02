@@ -9,6 +9,7 @@ import com.github.uncomplexco.sidekick.application.sessions.AgentSessions
 import com.github.uncomplexco.sidekick.application.sessions.ChatConversationId
 import com.github.uncomplexco.sidekick.application.sessions.MessageRole
 import com.github.uncomplexco.sidekick.application.sessions.SessionMessage
+import com.github.uncomplexco.sidekick.application.sessions.triggers.ChatTrigger
 import com.github.uncomplexco.sidekick.application.sessions.triggers.ConversationTriggerPolicy
 import com.github.uncomplexco.sidekick.application.sessions.triggers.ReplyDecisionInput
 import com.github.uncomplexco.sidekick.application.sessions.triggers.ReplyDecisionService
@@ -46,7 +47,6 @@ class HandleIncomingChatMessageUsecase(
             }
 
             is TriggerDecision.Handle -> {
-                chat.activity.start()
                 try {
                     handle(message, decision, chat)
                 } finally {
@@ -87,12 +87,15 @@ class HandleIncomingChatMessageUsecase(
                 ReplyDecisionInput(
                     text = message.text,
                     isExplicitMention = decision.explicitMention,
+                    isPrivateMessage = message.trigger == ChatTrigger.ASSISTANT_MESSAGE,
                     conversationContext = promptBuilder.buildThreadContext(turn.compactions, turn.history),
                     hasAssistantHistory = turn.history.any { it.role == MessageRole.ASSISTANT },
                 ),
             )
 
         if (shouldReply.shouldReply) {
+            chat.activity.start()
+
             val agentReply = agent.runTurn(turn, TurnMessage(user = message.sender, text = message.text))
             val replyMessageId = chat.reply.postReply(agentReply)
 
