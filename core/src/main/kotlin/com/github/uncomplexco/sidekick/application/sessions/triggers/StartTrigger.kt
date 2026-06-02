@@ -1,5 +1,9 @@
-package com.github.uncomplexco.sidekick.application.sessions
+package com.github.uncomplexco.sidekick.application.sessions.triggers
 
+import com.github.uncomplexco.sidekick.application.sessions.AgentSessions
+import com.github.uncomplexco.sidekick.application.sessions.ChatConversationId
+import com.github.uncomplexco.sidekick.application.sessions.SessionId
+import com.github.uncomplexco.sidekick.application.sessions.toSessionId
 import org.springframework.stereotype.Component
 
 enum class ChatTrigger {

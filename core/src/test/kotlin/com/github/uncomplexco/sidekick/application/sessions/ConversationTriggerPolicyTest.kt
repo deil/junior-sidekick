@@ -1,9 +1,12 @@
 package com.github.uncomplexco.sidekick.application.sessions
 
-import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.IncomingChatMessage
+import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.context.PromptBuilder
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
+import com.github.uncomplexco.sidekick.application.sessions.triggers.ChatTrigger
+import com.github.uncomplexco.sidekick.application.sessions.triggers.ConversationTriggerPolicy
+import com.github.uncomplexco.sidekick.application.sessions.triggers.TriggerDecision
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir

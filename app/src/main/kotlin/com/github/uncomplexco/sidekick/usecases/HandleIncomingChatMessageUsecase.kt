@@ -4,12 +4,15 @@ import com.github.uncomplexco.sidekick.application.IncomingChatMessage
 import com.github.uncomplexco.sidekick.application.TurnMessage
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.SidekickAgent
+import com.github.uncomplexco.sidekick.application.context.PromptBuilder
 import com.github.uncomplexco.sidekick.application.sessions.AgentSessions
 import com.github.uncomplexco.sidekick.application.sessions.ChatConversationId
-import com.github.uncomplexco.sidekick.application.sessions.ConversationTriggerPolicy
 import com.github.uncomplexco.sidekick.application.sessions.MessageRole
 import com.github.uncomplexco.sidekick.application.sessions.SessionMessage
-import com.github.uncomplexco.sidekick.application.sessions.TriggerDecision
+import com.github.uncomplexco.sidekick.application.sessions.triggers.ConversationTriggerPolicy
+import com.github.uncomplexco.sidekick.application.sessions.triggers.ReplyDecisionInput
+import com.github.uncomplexco.sidekick.application.sessions.triggers.ReplyDecisionService
+import com.github.uncomplexco.sidekick.application.sessions.triggers.TriggerDecision
 import com.github.uncomplexco.sidekick.ports.ChatPlatformAdapter
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -20,6 +23,8 @@ class HandleIncomingChatMessageUsecase(
     private val agent: SidekickAgent,
     private val agentSessions: AgentSessions,
     private val triggerPolicy: ConversationTriggerPolicy,
+    private val replyTrigger: ReplyDecisionService,
+    private val promptBuilder: PromptBuilder,
 ) {
     suspend fun handle(
         conversationId: ChatConversationId,
@@ -77,17 +82,36 @@ class HandleIncomingChatMessageUsecase(
                     ),
             )
 
-        val agentReply = agent.runTurn(turn, TurnMessage(user = message.sender, text = message.text))
-        val replyMessageId = chat.reply.postReply(agentReply)
+        val shouldReply =
+            replyTrigger.decide(
+                ReplyDecisionInput(
+                    text = message.text,
+                    isExplicitMention = decision.explicitMention,
+                    conversationContext = promptBuilder.buildThreadContext(turn.compactions, turn.history),
+                    hasAssistantHistory = turn.history.any { it.role == MessageRole.ASSISTANT },
+                ),
+            )
 
-        agentSessions.recordAssistantReply(
-            sessionId = decision.sessionId,
-            turnId = turn.turnId,
-            text = agentReply,
-            replyId = replyMessageId.messageId,
-            createdAtMs = replyMessageId.timestamp,
-            originalMessageId = message.id,
-        )
+        if (shouldReply.shouldReply) {
+            val agentReply = agent.runTurn(turn, TurnMessage(user = message.sender, text = message.text))
+            val replyMessageId = chat.reply.postReply(agentReply)
+
+            agentSessions.recordAssistantReply(
+                sessionId = decision.sessionId,
+                turnId = turn.turnId,
+                text = agentReply,
+                replyId = replyMessageId.messageId,
+                createdAtMs = replyMessageId.timestamp,
+                originalMessageId = message.id,
+            )
+        } else {
+            log.debug("Skipping reply for message id=${message.id}: ${shouldReply.reason} ${shouldReply.detail}")
+            agentSessions.markMessageSkipped(
+                sessionId = decision.sessionId,
+                messageId = message.id,
+                reason = shouldReply.reason.toString(),
+            )
+        }
     }
 
     companion object {

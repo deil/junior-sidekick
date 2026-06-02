@@ -27,6 +27,8 @@ class AgentSessions(
         }
     private val locks = ConcurrentHashMap<String, Mutex>()
 
+    fun exists(sessionId: SessionId): Boolean = loadState(sessionId).messages.isNotEmpty()
+
     suspend fun recordIncomingMessage(
         sessionId: SessionId,
         seedHistory: Boolean,
@@ -50,7 +52,18 @@ class AgentSessions(
             )
         }
 
-    fun exists(sessionId: SessionId): Boolean = loadState(sessionId).messages.isNotEmpty()
+    suspend fun markMessageSkipped(
+        sessionId: SessionId,
+        messageId: String,
+        reason: String,
+    ) = withSessionLock(sessionId) {
+        val state = loadState(sessionId)
+        state.messages.find { it.id == messageId }?.let {
+            it.replied = false
+            it.skippedReason = reason
+        }
+        saveState(sessionId, state)
+    }
 
     suspend fun recordAssistantReply(
         sessionId: SessionId,

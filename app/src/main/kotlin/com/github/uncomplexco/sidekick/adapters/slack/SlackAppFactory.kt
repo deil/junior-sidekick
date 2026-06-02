@@ -3,7 +3,7 @@ package com.github.uncomplexco.sidekick.adapters.slack
 import com.github.uncomplexco.sidekick.application.IncomingChatMessage
 import com.github.uncomplexco.sidekick.application.SharedContext
 import com.github.uncomplexco.sidekick.application.sessions.ChatConversationId
-import com.github.uncomplexco.sidekick.application.sessions.ChatTrigger
+import com.github.uncomplexco.sidekick.application.sessions.triggers.ChatTrigger
 import com.github.uncomplexco.sidekick.ports.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
 import com.slack.api.bolt.App
@@ -16,10 +16,6 @@ import kotlinx.coroutines.runBlocking
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import java.time.Clock
-import java.util.concurrent.ConcurrentHashMap
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.minutes
 
 @Configuration
 @ConditionalOnExpression(

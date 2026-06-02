@@ -18,6 +18,8 @@ import com.github.uncomplexco.sidekick.application.TurnMessage
 import com.github.uncomplexco.sidekick.application.config.AgentConfigMeh
 import com.github.uncomplexco.sidekick.application.context.PromptBuilder
 import com.github.uncomplexco.sidekick.application.sessions.TurnContext
+import com.github.uncomplexco.sidekick.application.sessions.triggers.KoogReplyDecisionClassifier
+import com.github.uncomplexco.sidekick.application.sessions.triggers.ReplyDecisionInput
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -39,7 +41,7 @@ class SidekickAgent(
         message: TurnMessage,
     ): String {
         val toolRegistry = toolRegistryFactory.build(ctx)
-        val strategy = sidekickStrategy()
+        val strategy = sidekickStrategy(message)
 
         val agent =
             AIAgent(
@@ -79,10 +81,9 @@ class SidekickAgent(
         return agent.run(input)
     }
 
-    private fun sidekickStrategy() =
+    private fun sidekickStrategy(message: TurnMessage) =
         strategy<String, String>("sidekick") {
             val classify by node<String, ReplyRoute>("classify") { input ->
-                log.debug("classify: $input")
                 ReplyRoute(input, shouldReply = true)
             }
             val reply by nodeLLMRequest("reply")
