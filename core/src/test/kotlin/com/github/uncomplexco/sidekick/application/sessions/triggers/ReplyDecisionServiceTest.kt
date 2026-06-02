@@ -24,14 +24,14 @@ class ReplyDecisionServiceTest {
         }
 
     @Test
-    fun `named mention to someone else does not reply`() =
+    fun `slack user mention to someone else does not reply`() =
         runBlocking {
             val service = ReplyDecisionService(FakeClassifier(ReplyDecision(true, ReplyDecisionReason.CLASSIFIER)))
 
             val decision =
                 service.decide(
                     ReplyDecisionInput(
-                        text = "@alice can you check this?",
+                        text = "<@U039RPWU0V8> test",
                         hasAssistantHistory = true,
                     ),
                 )
