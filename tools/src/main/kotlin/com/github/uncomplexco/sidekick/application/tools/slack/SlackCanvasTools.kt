@@ -3,7 +3,6 @@ package com.github.uncomplexco.sidekick.application.tools.slack
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
-import com.github.uncomplexco.sidekick.application.isConversationScopedChannel
 import com.github.uncomplexco.sidekick.application.sessions.SessionId
 import com.slack.api.methods.MethodsClient
 import com.slack.api.model.canvas.CanvasDocumentContent
@@ -60,10 +59,6 @@ class SlackCanvasTools(
         canvasId: String,
         channelId: String,
     ) {
-        if (!isConversationScopedChannel(channelId)) {
-            return
-        }
-
         runCatching {
             slackClient.canvasesAccessSet { req ->
                 req.canvasId(canvasId)
