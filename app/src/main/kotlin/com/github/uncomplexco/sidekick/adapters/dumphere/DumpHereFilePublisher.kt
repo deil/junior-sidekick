@@ -16,15 +16,11 @@ class DumpHereFilePublisher(
 ) : FilePublisher {
     private val restClient = RestClient.create()
 
-    override fun publishFile(
-        path: String,
+    override fun publishContent(
+        content: String,
         title: String,
         mimeType: String,
     ): FilePublisher.Result {
-        val content =
-            runCatching { Files.readString(Path.of(path)) }
-                .getOrElse { return FilePublisher.Result.Error("Cannot read file: ${it.message}") }
-
         val request = PublishFileRequest(title, content, mimeType)
         val published =
             runCatching {
@@ -42,6 +38,18 @@ class DumpHereFilePublisher(
             } ?: return FilePublisher.Result.Error("DumpHere publish returned an empty response")
 
         return FilePublisher.Result.Ok(published.url)
+    }
+
+    override fun publishFile(
+        path: String,
+        title: String,
+        mimeType: String,
+    ): FilePublisher.Result {
+        val content =
+            runCatching { Files.readString(Path.of(path)) }
+                .getOrElse { return FilePublisher.Result.Error("Cannot read file: ${it.message}") }
+
+        return publishContent(content, title, mimeType)
     }
 }
 

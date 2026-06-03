@@ -15,6 +15,12 @@ interface FilePublisher {
         mimeType: String,
     ): Result
 
+    fun publishContent(
+        content: String,
+        title: String,
+        mimeType: String,
+    ): Result
+
     sealed interface Result {
         data class Ok(
             val url: String,
@@ -33,9 +39,9 @@ class InternalFileExchangeTools(
     @Tool
     @LLMDescription("Publish a markdown or HTML file to the internal file exchange and return a share URL.")
     fun publishFileInternally(
-        @LLMDescription("Path to the file to publish.")
+        @LLMDescription("Local path to the file to publish.")
         path: String,
-        @LLMDescription("Name of the file to publish.")
+        @LLMDescription("Name of the file.")
         title: String,
         @LLMDescription("File MIME type. Only text, HTML or Markdown files are accepted.")
         mimeType: String,
@@ -47,6 +53,42 @@ class InternalFileExchangeTools(
 
         try {
             return when (val result = filePublisher.publishFile(path, title, mimeType)) {
+                is FilePublisher.Result.Error -> {
+                    throw ToolException.ValidationFailure(result.message)
+                }
+
+                is FilePublisher.Result.Ok -> {
+                    InternalFilePublishResult(
+                        ok = true,
+                        url = result.url,
+                    )
+                }
+            }
+        } catch (ex: Throwable) {
+            return InternalFilePublishResult(
+                ok = false,
+                error = ex.message ?: "Unknown error",
+            )
+        }
+    }
+
+    @Tool
+    @LLMDescription("Publish Markdown or HTML snippet to the internal file exchange and return a share URL.")
+    fun publishSnippetInternally(
+        @LLMDescription("HTML or Markdown content to publish.")
+        content: String,
+        @LLMDescription("Name of the snippet.")
+        title: String,
+        @LLMDescription("MIME type of the content. Only text, HTML or Markdown are accepted.")
+        mimeType: String,
+    ): InternalFilePublishResult {
+        val mediaType = MediaType.parseMediaType(mimeType)
+        validate(mediaType in SUPPORTED_INTERNAL_FILE_MIME_TYPES) {
+            "Only plain text, HTML or Markdown can be published."
+        }
+
+        try {
+            return when (val result = filePublisher.publishContent(content, title, mimeType)) {
                 is FilePublisher.Result.Error -> {
                     throw ToolException.ValidationFailure(result.message)
                 }
