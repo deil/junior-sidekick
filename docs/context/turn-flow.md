@@ -1,0 +1,174 @@
+# Turn Flow
+
+Sidekick processing is easiest to reason about as durable `Session` state plus a series of `Turn`s.
+
+A chat message can start a new session or continue an existing one. If admitted, it triggers one turn. The turn records the incoming message, builds context from session state, decides whether Sidekick should reply, runs Koog when needed, delivers the reply, and records the outcome.
+
+## Core model
+
+`Session` is continuity:
+
+- Persisted and loaded across turns.
+- Identified by `SessionId(channelId, threadId)`.
+- Owns `SessionState`: messages, compactions, and inflight metadata.
+- Managed by `SessionManager`.
+- Stored through the `SessionStateStore` port.
+
+`Turn` is work:
+
+- Triggered by one admitted `IncomingChatMessage`.
+- Belongs to exactly one session.
+- Starts after turn admission returns `TriggerDecision.Handle`.
+- Has `TurnContext`: session id, turn id, current files, prior session history, and compactions.
+- Ends when Sidekick records an assistant reply or marks the incoming message skipped.
+
+## Processing stages
+
+```text
+Slack event
+  |
+  v
+Slack adapter
+  |
+  | converts Slack payloads into:
+  | - IncomingChatMessage
+  | - ChatConversationId
+  | - ChatPlatformAdapter
+  |
+  v
+Turn admission
+  |
+  | ConversationTriggerPolicy decides:
+  | - Ignore
+  | - Handle(sessionId, seedHistory, explicitMention)
+  |
+  v
+Turn processing
+  |
+  +-- SessionManager.recordIncomingMessage
+  |     |
+  |     | load or create SessionState
+  |     | seed Slack history if allowed and local state is empty
+  |     | record current user message
+  |     | compact context if needed
+  |     | save SessionState
+  |     v
+  |   TurnContext
+  |
+  +-- ReplyDecisionService
+  |     |
+  |     | deterministic reply/skip policy
+  |     | KoogReplyDecisionClassifier for ambiguous passive turns
+  |     v
+  |   ReplyDecision
+  |
+  +-- if shouldReply=false
+  |     |
+  |     v
+  |   SessionManager.markMessageSkipped
+  |     |
+  |     v
+  |   turn complete
+  |
+  +-- if shouldReply=true
+        |
+        v
+      SidekickAgent.runTurn
+        |
+        | Koog runs the agent turn and returns reply text
+        v
+      ChatPlatformAdapter.reply.postReply
+        |
+        v
+      SessionManager.recordAssistantReply
+        |
+        v
+      turn complete
+```
+
+This is not just a list of filters. It is staged conversion with stop points. Filters decide whether processing continues. Continuing stages translate data into the next stage's language.
+
+## Stage responsibilities
+
+### Slack adapter
+
+The adapter owns Slack-specific work:
+
+- Event acknowledgement.
+- Deduplication by `channel + ts`.
+- Ignoring Sidekick's own messages.
+- Ignoring Slack `message.*` events whose mention is owned by `app_mention`.
+- Mapping Slack payloads to `IncomingChatMessage`, `ChatConversationId`, and `ChatPlatformAdapter`.
+- Reply delivery through Slack.
+
+Application code should not need raw Slack payloads after this stage.
+
+### Turn admission
+
+`ConversationTriggerPolicy` decides whether a normalized chat message becomes a turn.
+
+It returns either:
+
+- `TriggerDecision.Ignore`
+- `TriggerDecision.Handle(sessionId, seedHistory, explicitMention)`
+
+Admission also selects the session. A root app mention creates a session from the message id. A thread message maps to the thread session. A direct assistant message maps to the direct-message session.
+
+### Session recording
+
+`SessionManager.recordIncomingMessage` is the start of turn processing after admission.
+
+It locks the session, loads or creates `SessionState`, optionally seeds Slack history, records the current user message, compacts context if needed, saves session state, and returns `TurnContext`.
+
+Seeded messages are context. The triggering message is the current turn input.
+
+### Reply policy
+
+`ReplyDecisionService` decides whether the turn should produce a reply.
+
+Deterministic decisions happen first:
+
+- Explicit mentions reply.
+- Empty messages skip.
+- Messages directed at another Slack user skip.
+- Acknowledgments skip.
+- Passive non-private turns without assistant history skip.
+
+Private assistant messages do not require prior assistant history. They are allowed to proceed even when the session has no assistant messages yet.
+
+Ambiguous passive turns go to `KoogReplyDecisionClassifier`.
+
+### Agent turn
+
+`SidekickAgent.runTurn` receives `TurnContext` and `TurnMessage`.
+
+It builds the prompt, runs Koog, executes tools as needed, and returns reply text. This is the point where Sidekick generates the actual answer.
+
+### Reply delivery and completion
+
+When Sidekick replies, the chat adapter posts the reply and returns the chat message id/timestamp.
+
+`SessionManager.recordAssistantReply` then marks the user message as replied, stores the assistant message, updates inflight state, saves the session, and completes the turn.
+
+When Sidekick skips, `SessionManager.markMessageSkipped` records the skip reason and completes the turn without calling Koog or posting to chat.
+
+## Boundaries
+
+A session is durable continuity. A turn is a single work unit.
+
+The turn boundary starts after `ConversationTriggerPolicy` returns `TriggerDecision.Handle`. It ends after one of:
+
+- `SessionManager.recordAssistantReply`
+- `SessionManager.markMessageSkipped`
+- an unhandled error before completion
+
+`TurnContext` is not durable session state. It is the turn-local working set derived from session state for one run.
+
+## Key files
+
+- `app/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/slack/SlackAppFactory.kt` - Slack event intake and mapping.
+- `app/src/main/kotlin/com/github/uncomplexco/sidekick/usecases/HandleIncomingChatMessageUsecase.kt` - Current turn orchestrator.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/session/SessionManager.kt` - Session state operations used during turns.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/session/Models.kt` - `SessionId`, `SessionState`, `SessionMessage`, compactions, inflight state.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnContext.kt` - Turn-local context.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/ports/SessionStateStore.kt` - Session persistence port.

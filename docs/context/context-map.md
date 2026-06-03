@@ -10,6 +10,7 @@ Hierarchical index of project context documentation for future-us and AI agents.
 
 - [terminology.md](terminology.md) – Core project terms for Sidekick conversations, chat platforms, sessions, and turns; read for naming alignment.
 - [practices.md](practices.md) – Core architectural and implementation practices for Kotlin/Spring backend code, chat adapters, use cases, sessions, turns, and tests; read for coding patterns.
+- [turn-flow.md](turn-flow.md) – Session/Turn processing model, turn boundary, and processing stages from Slack event to reply delivery; read for turn orchestration and trigger/reply-policy changes.
 
 ## Domain Specs
 
