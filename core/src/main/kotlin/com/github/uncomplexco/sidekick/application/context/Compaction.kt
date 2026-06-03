@@ -1,9 +1,8 @@
 package com.github.uncomplexco.sidekick.application.context
 
-import com.github.uncomplexco.sidekick.application.sessions.MessageRole
-import com.github.uncomplexco.sidekick.application.sessions.SessionCompaction
-import com.github.uncomplexco.sidekick.application.sessions.SessionState
-import com.github.uncomplexco.sidekick.ports.SessionContextSummarizer
+import com.github.uncomplexco.sidekick.application.core.MessageRole
+import com.github.uncomplexco.sidekick.application.session.SessionCompaction
+import com.github.uncomplexco.sidekick.application.session.SessionState
 import org.springframework.stereotype.Component
 import kotlin.math.ceil
 import kotlin.time.Clock

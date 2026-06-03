@@ -1,19 +1,19 @@
 package com.github.uncomplexco.sidekick.usecases
 
-import com.github.uncomplexco.sidekick.application.IncomingChatMessage
-import com.github.uncomplexco.sidekick.application.TurnMessage
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.SidekickAgent
 import com.github.uncomplexco.sidekick.application.context.PromptBuilder
-import com.github.uncomplexco.sidekick.application.sessions.AgentSessions
-import com.github.uncomplexco.sidekick.application.sessions.ChatConversationId
-import com.github.uncomplexco.sidekick.application.sessions.MessageRole
-import com.github.uncomplexco.sidekick.application.sessions.SessionMessage
-import com.github.uncomplexco.sidekick.application.sessions.triggers.ChatTrigger
-import com.github.uncomplexco.sidekick.application.sessions.triggers.ConversationTriggerPolicy
-import com.github.uncomplexco.sidekick.application.sessions.triggers.ReplyDecisionInput
-import com.github.uncomplexco.sidekick.application.sessions.triggers.ReplyDecisionService
-import com.github.uncomplexco.sidekick.application.sessions.triggers.TriggerDecision
+import com.github.uncomplexco.sidekick.application.core.MessageRole
+import com.github.uncomplexco.sidekick.application.session.IncomingChatMessage
+import com.github.uncomplexco.sidekick.application.session.SessionManager
+import com.github.uncomplexco.sidekick.application.session.SessionMessage
+import com.github.uncomplexco.sidekick.application.session.TurnMessage
+import com.github.uncomplexco.sidekick.application.session.triggers.ChatTrigger
+import com.github.uncomplexco.sidekick.application.session.triggers.ConversationTriggerPolicy
+import com.github.uncomplexco.sidekick.application.session.triggers.ReplyDecisionInput
+import com.github.uncomplexco.sidekick.application.session.triggers.ReplyDecisionService
+import com.github.uncomplexco.sidekick.application.session.triggers.TriggerDecision
+import com.github.uncomplexco.sidekick.ports.ChatConversationId
 import com.github.uncomplexco.sidekick.ports.ChatPlatformAdapter
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component
 class HandleIncomingChatMessageUsecase(
     private val agentConfig: AgentConfig,
     private val agent: SidekickAgent,
-    private val agentSessions: AgentSessions,
+    private val sessionManager: SessionManager,
     private val triggerPolicy: ConversationTriggerPolicy,
     private val replyTrigger: ReplyDecisionService,
     private val promptBuilder: PromptBuilder,
@@ -66,7 +66,7 @@ class HandleIncomingChatMessageUsecase(
         }
 
         val turn =
-            agentSessions.recordIncomingMessage(
+            sessionManager.recordIncomingMessage(
                 sessionId = decision.sessionId,
                 seedHistory = decision.seedHistory,
                 historyLoader = chat.historyLoader,
@@ -99,7 +99,7 @@ class HandleIncomingChatMessageUsecase(
             val agentReply = agent.runTurn(turn, TurnMessage(user = message.sender, text = message.text))
             val replyMessageId = chat.reply.postReply(agentReply)
 
-            agentSessions.recordAssistantReply(
+            sessionManager.recordAssistantReply(
                 sessionId = decision.sessionId,
                 turnId = turn.turnId,
                 text = agentReply,
@@ -109,7 +109,7 @@ class HandleIncomingChatMessageUsecase(
             )
         } else {
             log.debug("Skipping reply for message id=${message.id}: ${shouldReply.reason} ${shouldReply.detail}")
-            agentSessions.markMessageSkipped(
+            sessionManager.markMessageSkipped(
                 sessionId = decision.sessionId,
                 messageId = message.id,
                 reason = shouldReply.reason.toString(),

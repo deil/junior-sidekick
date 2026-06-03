@@ -1,9 +1,9 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
-import com.github.uncomplexco.sidekick.application.IncomingChatMessage
-import com.github.uncomplexco.sidekick.application.SharedContext
-import com.github.uncomplexco.sidekick.application.sessions.ChatConversationId
-import com.github.uncomplexco.sidekick.application.sessions.triggers.ChatTrigger
+import com.github.uncomplexco.sidekick.application.runtime.SharedContext
+import com.github.uncomplexco.sidekick.application.session.IncomingChatMessage
+import com.github.uncomplexco.sidekick.application.session.triggers.ChatTrigger
+import com.github.uncomplexco.sidekick.ports.ChatConversationId
 import com.github.uncomplexco.sidekick.ports.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
 import com.slack.api.bolt.App

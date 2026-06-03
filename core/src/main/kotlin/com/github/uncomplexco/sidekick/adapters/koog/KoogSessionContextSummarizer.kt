@@ -6,8 +6,8 @@ import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.context.PromptBuilder
-import com.github.uncomplexco.sidekick.application.sessions.SessionMessage
-import com.github.uncomplexco.sidekick.ports.SessionContextSummarizer
+import com.github.uncomplexco.sidekick.application.context.SessionContextSummarizer
+import com.github.uncomplexco.sidekick.application.session.SessionMessage
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 

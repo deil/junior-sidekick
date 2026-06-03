@@ -1,6 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.dumphere
 
-import com.github.uncomplexco.sidekick.application.tools.FilePublisher
+import com.github.uncomplexco.sidekick.application.tools.integrations.FilePublisher
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component

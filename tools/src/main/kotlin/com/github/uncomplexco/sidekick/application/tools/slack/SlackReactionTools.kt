@@ -3,8 +3,7 @@ package com.github.uncomplexco.sidekick.application.tools.slack
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
-import com.github.uncomplexco.sidekick.application.sessions.SessionId
-import com.github.uncomplexco.sidekick.application.sessions.TurnContext
+import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.slack.api.methods.MethodsClient
 import kotlinx.serialization.Serializable
 

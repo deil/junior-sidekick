@@ -1,9 +1,8 @@
-package com.github.uncomplexco.sidekick.application.sessions.triggers
+package com.github.uncomplexco.sidekick.application.session.triggers
 
-import com.github.uncomplexco.sidekick.application.sessions.AgentSessions
-import com.github.uncomplexco.sidekick.application.sessions.ChatConversationId
-import com.github.uncomplexco.sidekick.application.sessions.SessionId
-import com.github.uncomplexco.sidekick.application.sessions.toSessionId
+import com.github.uncomplexco.sidekick.application.session.SessionId
+import com.github.uncomplexco.sidekick.application.session.SessionManager
+import com.github.uncomplexco.sidekick.ports.ChatConversationId
 import org.springframework.stereotype.Component
 
 enum class ChatTrigger {
@@ -24,7 +23,7 @@ sealed interface TriggerDecision {
 
 @Component
 class ConversationTriggerPolicy(
-    private val agentSessions: AgentSessions,
+    private val sessionManager: SessionManager,
 ) {
     fun decide(
         messageId: String,
@@ -55,7 +54,7 @@ class ConversationTriggerPolicy(
                 }
 
                 val sessionId = conversationId.toSessionId()
-                if (!agentSessions.exists(sessionId)) {
+                if (!sessionManager.exists(sessionId)) {
                     return TriggerDecision.Ignore
                 }
 
@@ -74,3 +73,5 @@ private fun ChatConversationId.sessionIdForInvitedMessage(messageId: String): Se
     } else {
         SessionId(channelId, messageId)
     }
+
+internal fun ChatConversationId.toSessionId() = SessionId(channelId, threadId!!)

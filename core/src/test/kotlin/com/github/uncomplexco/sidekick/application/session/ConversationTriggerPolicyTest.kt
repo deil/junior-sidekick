@@ -1,12 +1,14 @@
-package com.github.uncomplexco.sidekick.application.sessions
+package com.github.uncomplexco.sidekick.application.session
 
-import com.github.uncomplexco.sidekick.application.IncomingChatMessage
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.context.PromptBuilder
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
-import com.github.uncomplexco.sidekick.application.sessions.triggers.ChatTrigger
-import com.github.uncomplexco.sidekick.application.sessions.triggers.ConversationTriggerPolicy
-import com.github.uncomplexco.sidekick.application.sessions.triggers.TriggerDecision
+import com.github.uncomplexco.sidekick.application.core.MessageAuthor
+import com.github.uncomplexco.sidekick.application.core.MessageRole
+import com.github.uncomplexco.sidekick.application.session.triggers.ChatTrigger
+import com.github.uncomplexco.sidekick.application.session.triggers.ConversationTriggerPolicy
+import com.github.uncomplexco.sidekick.application.session.triggers.TriggerDecision
+import com.github.uncomplexco.sidekick.adapters.files.FileSessionStateStore
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -133,10 +135,10 @@ class ConversationTriggerPolicyTest {
 
     private fun policy(): ConversationTriggerPolicy = ConversationTriggerPolicy(agentSessions())
 
-    private fun agentSessions(): AgentSessions {
+    private fun agentSessions(): SessionManager {
         val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
-        return AgentSessions(
-            config,
+        return SessionManager(
+            FileSessionStateStore(config),
             SessionContextCompactor(
                 PromptBuilder(config),
                 summarizer = { messages -> "summary for ${messages.size} messages" },

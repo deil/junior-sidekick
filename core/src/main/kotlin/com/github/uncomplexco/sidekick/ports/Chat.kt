@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.ports
 
-import com.github.uncomplexco.sidekick.application.sessions.ChatMessage
+import com.github.uncomplexco.sidekick.application.core.MessageAuthor
+import com.github.uncomplexco.sidekick.application.core.MessageRole
 import com.slack.api.methods.MethodsClient
 
 data class ReplyResult(
@@ -35,4 +36,28 @@ interface SlackClientProvider {
     fun client(): MethodsClient
 
     fun hasToken(): Boolean
+}
+
+data class ChatMessage(
+    val id: String,
+    val role: MessageRole,
+    val author: MessageAuthor?,
+    val text: String,
+    val timestamp: Long,
+)
+
+data class ChatConversationId(
+    val channelId: String,
+    val threadId: String? = null,
+) {
+    val isDM: Boolean = channelId.startsWith("D")
+    val isThread: Boolean = threadId != null
+
+    fun logLabel(): String =
+        when {
+            isDM && isThread -> "[DM/$threadId]"
+            isDM -> "[DM/$channelId]"
+            isThread -> "[#$channelId/$threadId]"
+            else -> "[#$channelId]"
+        }
 }

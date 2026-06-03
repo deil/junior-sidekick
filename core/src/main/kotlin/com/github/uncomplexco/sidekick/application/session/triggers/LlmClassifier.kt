@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application.sessions.triggers
+package com.github.uncomplexco.sidekick.application.session.triggers
 
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.model.executeStructured

@@ -1,7 +1,7 @@
-package com.github.uncomplexco.sidekick.application
+package com.github.uncomplexco.sidekick.application.session
 
-import com.github.uncomplexco.sidekick.application.sessions.MessageAuthor
-import com.github.uncomplexco.sidekick.application.sessions.triggers.ChatTrigger
+import com.github.uncomplexco.sidekick.application.core.MessageAuthor
+import com.github.uncomplexco.sidekick.application.session.triggers.ChatTrigger
 
 data class TurnMessage(
     val user: MessageAuthor,

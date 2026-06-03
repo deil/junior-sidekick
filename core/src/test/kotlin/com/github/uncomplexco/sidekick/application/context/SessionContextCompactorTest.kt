@@ -1,12 +1,11 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.sessions.MessageAuthor
-import com.github.uncomplexco.sidekick.application.sessions.MessageRole
-import com.github.uncomplexco.sidekick.application.sessions.SessionId
-import com.github.uncomplexco.sidekick.application.sessions.SessionMessage
-import com.github.uncomplexco.sidekick.application.sessions.SessionState
-import com.github.uncomplexco.sidekick.ports.SessionContextSummarizer
+import com.github.uncomplexco.sidekick.application.core.MessageAuthor
+import com.github.uncomplexco.sidekick.application.core.MessageRole
+import com.github.uncomplexco.sidekick.application.session.SessionId
+import com.github.uncomplexco.sidekick.application.session.SessionMessage
+import com.github.uncomplexco.sidekick.application.session.SessionState
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir

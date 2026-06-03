@@ -1,11 +1,11 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.TurnMessage
-import com.github.uncomplexco.sidekick.application.sessions.MessageRole
-import com.github.uncomplexco.sidekick.application.sessions.SessionCompaction
-import com.github.uncomplexco.sidekick.application.sessions.SessionMessage
-import com.github.uncomplexco.sidekick.application.sessions.TurnContext
+import com.github.uncomplexco.sidekick.application.core.MessageRole
+import com.github.uncomplexco.sidekick.application.session.SessionCompaction
+import com.github.uncomplexco.sidekick.application.session.SessionMessage
+import com.github.uncomplexco.sidekick.application.session.TurnMessage
+import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.timestamp
 import com.github.uncomplexco.sidekick.application.utils.xmlTag

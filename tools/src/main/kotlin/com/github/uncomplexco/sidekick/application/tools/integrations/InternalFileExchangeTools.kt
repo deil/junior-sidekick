@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application.tools
+package com.github.uncomplexco.sidekick.application.tools.integrations
 
 import ai.koog.agents.core.tools.ToolException
 import ai.koog.agents.core.tools.annotations.LLMDescription
@@ -7,15 +7,6 @@ import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
 import kotlinx.serialization.Serializable
 import org.springframework.http.MediaType
-import java.util.UUID
-
-class NoOpFilePublisher : FilePublisher {
-    override fun publishFile(
-        path: String,
-        title: String,
-        mimeType: String,
-    ): FilePublisher.Result = FilePublisher.Result.Error("Not implemented")
-}
 
 interface FilePublisher {
     fun publishFile(
@@ -83,4 +74,5 @@ data class InternalFilePublishResult(
     val error: String? = null,
 )
 
-private val SUPPORTED_INTERNAL_FILE_MIME_TYPES = setOf(MediaType.TEXT_MARKDOWN, MediaType.TEXT_HTML, MediaType.TEXT_PLAIN)
+private val SUPPORTED_INTERNAL_FILE_MIME_TYPES =
+    setOf(MediaType.TEXT_MARKDOWN, MediaType.TEXT_HTML, MediaType.TEXT_PLAIN)

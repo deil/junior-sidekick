@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application.tools
+package com.github.uncomplexco.sidekick.application.tools.integrations
 
 import ai.koog.agents.core.tools.ToolException
 import org.junit.jupiter.api.Test

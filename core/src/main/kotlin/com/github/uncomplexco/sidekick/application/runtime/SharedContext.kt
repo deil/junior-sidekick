@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application
+package com.github.uncomplexco.sidekick.application.runtime
 
 import com.slack.api.methods.MethodsClient
 import org.springframework.stereotype.Component
