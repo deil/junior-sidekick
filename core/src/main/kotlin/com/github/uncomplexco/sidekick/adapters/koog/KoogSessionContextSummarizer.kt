@@ -5,8 +5,9 @@ import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
-import com.github.uncomplexco.sidekick.application.context.PromptBuilder
 import com.github.uncomplexco.sidekick.application.context.SessionContextSummarizer
+import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
+import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.session.SessionFileRef
 import com.github.uncomplexco.sidekick.application.session.SessionId
 import com.github.uncomplexco.sidekick.application.session.SessionMessage
@@ -16,7 +17,7 @@ import org.springframework.stereotype.Component
 @Component
 class KoogSessionContextSummarizer(
     private val config: KoogConfig,
-    private val promptBuilder: PromptBuilder,
+    private val turnPromptBuilder: TurnPromptBuilder,
 ) : SessionContextSummarizer {
     override suspend fun summarize(
         sessionId: SessionId,
@@ -24,7 +25,7 @@ class KoogSessionContextSummarizer(
         files: List<SessionFileRef>,
     ): String {
         val transcript =
-            promptBuilder
+            turnPromptBuilder
                 .buildThreadContext(
                     sessionId = sessionId,
                     compactions = emptyList(),

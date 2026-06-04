@@ -1,14 +1,14 @@
 package com.github.uncomplexco.sidekick.application.session
 
+import com.github.uncomplexco.sidekick.adapters.files.FileSessionStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.context.PromptBuilder
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
+import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.core.MessageAuthor
 import com.github.uncomplexco.sidekick.application.core.MessageRole
 import com.github.uncomplexco.sidekick.application.session.triggers.ChatTrigger
 import com.github.uncomplexco.sidekick.application.session.triggers.ConversationTriggerPolicy
 import com.github.uncomplexco.sidekick.application.session.triggers.TriggerDecision
-import com.github.uncomplexco.sidekick.adapters.files.FileSessionStateStore
 import com.github.uncomplexco.sidekick.ports.ChatConversationId
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
@@ -143,7 +143,7 @@ class ConversationTriggerPolicyTest {
         return SessionManager(
             FileSessionStateStore(config),
             SessionContextCompactor(
-                PromptBuilder(config),
+                TurnPromptBuilder(config),
                 summarizer = { _, messages, _ -> "summary for ${messages.size} messages" },
             ),
         )

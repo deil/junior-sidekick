@@ -2,7 +2,7 @@ package com.github.uncomplexco.sidekick.usecases
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.SidekickAgent
-import com.github.uncomplexco.sidekick.application.context.PromptBuilder
+import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.core.MessageRole
 import com.github.uncomplexco.sidekick.application.session.IncomingChatMessage
 import com.github.uncomplexco.sidekick.application.session.SessionManager
@@ -24,7 +24,7 @@ class HandleIncomingChatMessageUsecase(
     private val sessionManager: SessionManager,
     private val triggerPolicy: ConversationTriggerPolicy,
     private val replyTrigger: ReplyDecisionService,
-    private val promptBuilder: PromptBuilder,
+    private val turnPromptBuilder: TurnPromptBuilder,
 ) {
     suspend fun handle(
         conversationId: ChatConversationId,
@@ -92,7 +92,7 @@ class HandleIncomingChatMessageUsecase(
                     isExplicitMention = decision.explicitMention,
                     isPrivateMessage = message.trigger == ChatTrigger.ASSISTANT_MESSAGE,
                     conversationContext =
-                        promptBuilder.buildThreadContext(
+                        turnPromptBuilder.buildThreadContext(
                             turn.sessionId,
                             turn.compactions,
                             turn.history,

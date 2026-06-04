@@ -14,7 +14,8 @@ import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
-import com.github.uncomplexco.sidekick.application.context.PromptBuilder
+import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
+import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.session.SessionMessage
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.ports.ChatPlatformAdapter
@@ -31,7 +32,8 @@ fun interface TurnToolRegistryFactory {
 class SidekickAgent(
     private val config: AgentConfig,
     private val koogConfig: KoogConfig,
-    private val promptBuilder: PromptBuilder,
+    private val systemPromptBuilder: SystemPromptBuilder,
+    private val turnPromptBuilder: TurnPromptBuilder,
     private val toolRegistryFactory: TurnToolRegistryFactory,
 ) {
     suspend fun runTurn(
@@ -53,7 +55,7 @@ class SidekickAgent(
                                 id = "sidekick-base-prompt",
                                 params = koogConfig.openRouterParams(),
                             ) {
-                                system(promptBuilder.buildSystemPrompt(config.botUsername!!))
+                                system(systemPromptBuilder.buildSystemPrompt(config.botUsername!!))
                             },
                         model =
                             LLModel(
@@ -78,7 +80,7 @@ class SidekickAgent(
                 }
             }
 
-        val input = promptBuilder.buildUserTurnPrompt(message, ctx)
+        val input = turnPromptBuilder.buildSessionTurnPrompt(message, ctx)
         return agent.run(input, ctx.sessionId.lockKey())
     }
 

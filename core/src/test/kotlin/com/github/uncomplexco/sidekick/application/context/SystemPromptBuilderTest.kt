@@ -1,6 +1,5 @@
 package com.github.uncomplexco.sidekick.application.context
 
-import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.core.MessageAuthor
 import com.github.uncomplexco.sidekick.application.core.MessageRole
@@ -10,11 +9,10 @@ import com.github.uncomplexco.sidekick.application.session.SessionMessage
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertTrue
 
-class PromptBuilderTest {
+class TurnPromptBuilderTest {
     @TempDir
     lateinit var dir: Path
 
@@ -22,7 +20,11 @@ class PromptBuilderTest {
     fun `renders attached file virtual path`() {
         val sessionId = SessionId("C123", "1700000000.000")
 
-        val prompt = builder().buildUserTurnPrompt(message(fileIds = listOf("F1")), context(sessionId, file("F1", "session:/files/note.txt")))
+        val prompt =
+            builder().buildSessionTurnPrompt(
+                message(fileIds = listOf("F1")),
+                context(sessionId, file("F1", "session:/files/note.txt")),
+            )
 
         assertTrue(prompt.contains("local_path: session:/files/note.txt"), prompt)
     }
@@ -31,14 +33,18 @@ class PromptBuilderTest {
     fun `renders attached file metadata`() {
         val sessionId = SessionId("C123", "1700000000.000")
 
-        val prompt = builder().buildUserTurnPrompt(message(fileIds = listOf("F1")), context(sessionId, file("F1", "session:/files/note.txt")))
+        val prompt =
+            builder().buildSessionTurnPrompt(
+                message(fileIds = listOf("F1")),
+                context(sessionId, file("F1", "session:/files/note.txt")),
+            )
 
         assertTrue(prompt.contains("filename: note.txt"), prompt)
         assertTrue(prompt.contains("mime_type: text/plain"), prompt)
     }
 
-    private fun builder(): PromptBuilder =
-        PromptBuilder(
+    private fun builder(): TurnPromptBuilder =
+        TurnPromptBuilder(
             AgentConfig(
                 name = "Sidekick",
                 stateDir = dir.resolve("state").toString(),
@@ -82,14 +88,4 @@ class PromptBuilderTest {
             urlPrivateDownload = "https://files.slack.com/files-pri/T-F/download/file",
             localPath = localPath,
         )
-
-    private fun writeSessionFile(
-        sessionId: SessionId,
-        localPath: String,
-        bytes: ByteArray,
-    ) {
-        val path = sessionId.folder(dir.resolve("state")).resolve(localPath)
-        Files.createDirectories(path.parent)
-        Files.write(path, bytes)
-    }
 }

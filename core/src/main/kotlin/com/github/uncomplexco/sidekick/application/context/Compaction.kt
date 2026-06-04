@@ -11,7 +11,7 @@ import kotlin.uuid.Uuid
 
 @Component
 class SessionContextCompactor(
-    private val promptBuilder: PromptBuilder,
+    private val turnPromptBuilder: TurnPromptBuilder,
     private val summarizer: SessionContextSummarizer,
 ) {
     suspend fun compactIfNeeded(state: SessionState) {
@@ -43,7 +43,13 @@ class SessionContextCompactor(
     private fun estimateTokenCount(state: SessionState): Int =
         ceil(
             (
-                promptBuilder.buildThreadContext(state.id, state.compactions, state.messages, emptyList())?.length
+                turnPromptBuilder
+                    .buildThreadContext(
+                        state.id,
+                        state.compactions,
+                        state.messages,
+                        emptyList(),
+                    )?.length
                     ?: 0
             ) / TOKEN_ESTIMATE_CHARS.toDouble(),
         ).toInt()
