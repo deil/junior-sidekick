@@ -17,6 +17,7 @@ import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.context.PromptBuilder
 import com.github.uncomplexco.sidekick.application.session.SessionMessage
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.ports.ChatPlatformAdapter
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -36,6 +37,7 @@ class SidekickAgent(
     suspend fun runTurn(
         ctx: TurnContext,
         message: SessionMessage,
+        chat: ChatPlatformAdapter,
     ): String {
         val toolRegistry = toolRegistryFactory.build(ctx)
         val strategy = sidekickStrategy(message)
@@ -64,12 +66,14 @@ class SidekickAgent(
                 toolRegistry = toolRegistry,
             ) {
                 handleEvents {
-                    onToolCallStarting { ctx ->
-                        log.debug("onToolCallStarting: ${ctx.toolName}")
+                    onToolCallStarting { toolCall ->
+                        log.debug("onToolCallStarting: ${toolCall.toolName}")
+                        chat.activity.start("Executing ${toolCall.toolName}...")
                     }
 
-                    onToolCallCompleted { ctx ->
-                        log.debug("onToolCallCompleted: {} -> {}", ctx.toolName, ctx.toolResult)
+                    onToolCallCompleted { toolCall ->
+                        log.debug("onToolCallCompleted: {} -> {}", toolCall.toolName, toolCall.toolResult)
+                        chat.activity.clear()
                     }
                 }
             }

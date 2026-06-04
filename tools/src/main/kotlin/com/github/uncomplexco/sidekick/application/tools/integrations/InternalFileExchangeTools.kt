@@ -37,13 +37,15 @@ class InternalFileExchangeTools(
     private val filePublisher: FilePublisher,
 ) : ToolSet {
     @Tool
-    @LLMDescription("Publish a markdown or HTML file to the internal file exchange and return a share URL.")
+    @LLMDescription(
+        "Publish an existing local file to the internal file exchange and returns a secure share URL. Use this for files that exist locally or attached files that are already downloaded.",
+    )
     fun publishFileInternally(
         @LLMDescription("Local path to the file to publish.")
         path: String,
         @LLMDescription("Name of the file.")
         title: String,
-        @LLMDescription("File MIME type. Only text, HTML or Markdown files are accepted.")
+        @LLMDescription("File MIME type. Only text files are accepted.")
         mimeType: String,
     ): InternalFilePublishResult {
         val mediaType = MediaType.parseMediaType(mimeType)
@@ -73,7 +75,9 @@ class InternalFileExchangeTools(
     }
 
     @Tool
-    @LLMDescription("Publish Markdown or HTML snippet to the internal file exchange and return a share URL.")
+    @LLMDescription(
+        "Publish new inline Markdown/HTML/text content to the internal file exchange and return a share URL. Do not use this for files with known local path unless you intentionally transformed or extracted content.",
+    )
     fun publishSnippetInternally(
         @LLMDescription("HTML or Markdown content to publish.")
         content: String,

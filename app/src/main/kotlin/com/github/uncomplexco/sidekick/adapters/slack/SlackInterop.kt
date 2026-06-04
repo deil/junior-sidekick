@@ -50,17 +50,21 @@ fun slackActivityIndicator(
     threadTs: String,
 ): ChatActivityIndicator =
     object : ChatActivityIndicator {
-        override fun start() {
+        override fun start(text: String?) {
             setStatus(
                 status = slackAssistantStatusTexts.random(),
                 loadingMessages =
-                    listOf(
-                        "Reading what everyone said...",
-                        "Checking the important bits...",
-                        "Turning context into an answer...",
-                        "Avoiding confident nonsense...",
-                        "Making it Slack-sized...",
-                    ),
+                    if (!text.isNullOrBlank()) {
+                        listOf(text)
+                    } else {
+                        listOf(
+                            "Reading what everyone said...",
+                            "Checking the important bits...",
+                            "Turning context into an answer...",
+                            "Avoiding confident nonsense...",
+                            "Making it Slack-sized...",
+                        )
+                    },
             )
         }
 

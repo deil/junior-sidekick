@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.agent
 
 import ai.koog.prompt.executor.clients.openai.OpenAIChatParams
+import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.llm.LLMCapability
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -40,9 +41,11 @@ class KoogConfig(
 ) {
     val provider = "google-vertex"
     val model = "google/gemini-3-flash-preview"
+    val reasoningEffort = ReasoningEffort.MEDIUM
 
     fun openRouterParams(): OpenAIChatParams =
         OpenAIChatParams(
+            reasoningEffort = reasoningEffort,
             additionalProperties =
                 mapOf(
                     "provider" to

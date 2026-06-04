@@ -27,6 +27,7 @@ internal fun renderFileAttachments(
                 /*appendLine("encoding: base64")
                 appendLine("truncated: ${data.truncated}")
                 appendLine("<data_base64>${data.text}</data_base64>")*/
+                appendLine("local_path: ${escapeXml(it.localPath)}")
                 appendLine("</attachment>")
             }
         },

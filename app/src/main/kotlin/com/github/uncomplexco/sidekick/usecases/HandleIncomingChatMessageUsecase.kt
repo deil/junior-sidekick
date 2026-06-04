@@ -105,7 +105,7 @@ class HandleIncomingChatMessageUsecase(
         if (shouldReply.shouldReply) {
             chat.activity.start()
 
-            val agentReply = agent.runTurn(turn, currentMessage)
+            val agentReply = agent.runTurn(turn, currentMessage, chat)
             val replyMessageId = chat.reply.postReply(agentReply)
 
             sessionManager.recordAssistantReply(

@@ -6,10 +6,14 @@ import com.github.uncomplexco.sidekick.application.session.triggers.ChatTrigger
 import com.github.uncomplexco.sidekick.ports.ChatConversationId
 import com.github.uncomplexco.sidekick.ports.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
+import com.slack.api.app_backend.events.payload.EventsApiPayload
 import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
+import com.slack.api.bolt.context.builtin.EventContext
+import com.slack.api.bolt.handler.BoltEventHandler
 import com.slack.api.bolt.middleware.builtin.Assistant
 import com.slack.api.model.event.AppMentionEvent
+import com.slack.api.model.event.MessageChangedEvent
 import com.slack.api.model.event.MessageEvent
 import com.slack.api.model.event.MessageFileShareEvent
 import kotlinx.coroutines.runBlocking
@@ -35,8 +39,13 @@ class SlackAppFactory {
 
         app.assistant(buildSlackAssistant(app, eventDeduper, handleIncomingChatMessage, slackFileIngestor))
 
+        app.event(MessageChangedEvent::class.java) { payload, ctx ->
+            ctx.ack()
+        }
+
         app.event(AppMentionEvent::class.java) { payload, ctx ->
             val event = payload.event
+            log.debug("AppMentionEvent in ${event.channel}")
             if (!event.text.isNullOrBlank() && eventDeduper.put(event.channel, event.ts)) {
                 async(app) {
                     val conversationId = event.toConversationId()
@@ -116,6 +125,7 @@ class SlackAppFactory {
 
         app.event(MessageFileShareEvent::class.java) { payload, ctx ->
             val event = payload.event
+            log.debug("MessageFileShareEvent in ${event.channel}")
             val files = incomingChatFiles(event.files, event.attachments)
             if (eventDeduper.put(event.channel, event.ts)) {
                 if (event.channelType != "im") {
@@ -128,7 +138,16 @@ class SlackAppFactory {
                                 createdAtMs = slackTsToMillis(event.ts),
                                 sender = toMessageAuthor(event.user, ctx),
                                 text = event.text.orEmpty(),
-                                trigger = ChatTrigger.PASSIVE_MESSAGE,
+                                trigger =
+                                    if (containsMention(
+                                            event.text,
+                                            ctx.botUserId,
+                                        )
+                                    ) {
+                                        ChatTrigger.APP_MENTION
+                                    } else {
+                                        ChatTrigger.PASSIVE_MESSAGE
+                                    },
                                 files = files,
                             ),
                             ChatPlatformAdapter(
@@ -140,7 +159,7 @@ class SlackAppFactory {
                                         emptyList()
                                     }
                                 },
-                                reply = replyInSlack(ctx, event.threadTs),
+                                reply = replyInSlack(ctx, responseThreadTs),
                                 activity = slackActivityIndicator(ctx, responseThreadTs),
                                 fileIngestor = slackFileIngestor::ingest,
                             ),

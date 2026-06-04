@@ -16,13 +16,13 @@ fun interface ReplyToMessage {
 }
 
 interface ChatActivityIndicator {
-    fun start()
+    fun start(text: String? = null)
 
     fun clear()
 }
 
 object NoopChatActivityIndicator : ChatActivityIndicator {
-    override fun start() = Unit
+    override fun start(text: String?) = Unit
 
     override fun clear() = Unit
 }

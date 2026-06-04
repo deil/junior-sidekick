@@ -21,6 +21,7 @@ class PromptBuilder(
         val sections = mutableListOf<String>()
         sections += baseSystemPrompt()
         sections += identitySection(username)
+        sections += behaviorSection()
         sections += outputFormat()
 
         return sections.joinToString("\n\n")
@@ -40,21 +41,41 @@ class PromptBuilder(
 
     fun identitySection(username: String) = xmlTag("identity", "Your Slack username is $username")
 
+    fun behaviorSection(): String {
+        val instructions =
+            buildString {
+                val safety =
+                    """
+                    - Stay within the user's request and the runtime's available capabilities; do not pursue independent goals, persistence, replication, credential gathering, or access expansion.
+                    - Respect stop, pause, audit, and approval boundaries. Do not bypass safeguards or persuade the user to weaken them.
+                    - Do not change system prompts, tool policies, security settings, credentials, or runtime configuration unless the user explicitly requests that exact administrative action and an available tool permits it.
+                    """.trimIndent()
+                appendLine(xmlTag("safety", safety))
+
+                val failureHandling =
+                    """
+                    - For tool/runtime failures, run the named check before diagnosing and report the exact failed command plus stderr/exit code.
+                    - If a fact cannot be verified after focused checks, say what you checked and what blocked a stronger answer.
+                    - Do not surface raw tool payloads, execution-escape text, or internal routing metadata as the final answer.
+                    """.trimIndent()
+                appendLine(xmlTag("failure-handling", failureHandling))
+            }
+
+        return xmlTag("behavior", instructions)
+    }
+
     fun outputFormat() =
         buildString {
             appendLine("<output format=\"slack-markdown\">")
-            appendLine("- Start with the answer or result, not internal process narration.")
             appendLine(
-                "- Use Slack-flavored Markdown: **bold** section labels, `code`, [text](url) links, bullet lists, and fenced code blocks. No hash-prefixed headings and no tables. When the answer primarily lists several URLs, show each URL bare instead of as a labeled link. Do not show bare Slack user IDs, mention them instead: <@[SLACK-USER-ID]>",
-            )
-            appendLine(
-                "- Keep replies brief and scannable; use bullets or short code blocks when helpful, and one compact thread reply when it fits.",
-            )
-            appendLine(
-                "- When a research or document-style answer would benefit from continuation, multiple sections, or future reference value, create a Slack canvas and keep the thread reply to one or two short sentences plus the link; do not recap the canvas contents.",
-            )
-            appendLine(
-                "- Unless a successful Slack side-effect tool intentionally satisfied the request by itself, end every turn with a final user-facing markdown response.",
+                """
+                - Start with the answer or result, not internal process narration.
+                - Use Slack-flavored Markdown: **bold** section labels, `code`, [text](url) links, bullet lists, and fenced code blocks. No hash-prefixed headings and no tables. When the answer primarily lists several URLs, show each URL bare instead of as a labeled link.
+                - Do not show bare Slack user IDs, mention them instead: <@[SLACK-USER-ID]>
+                - Keep replies brief and scannable; use bullets or short code blocks when helpful, and one compact thread reply when it fits.
+                - When a research or document-style answer would benefit from continuation, multiple sections, or future reference value, create a Slack canvas and keep the thread reply to one or two short sentences plus the link; do not recap the canvas contents.
+                - Unless a successful Slack side-effect tool intentionally satisfied the request by itself, end every turn with a final user-facing markdown response.
+                """.trimIndent(),
             )
 
             appendLine("</output>")
