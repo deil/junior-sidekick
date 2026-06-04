@@ -24,9 +24,9 @@ internal fun renderFileAttachments(
                 appendLine("filename: ${escapeXml(it.name)}")
                 appendLine("public_share_url: ${escapeXml(it.displayName)}")
                 appendLine("mime_type: ${escapeXml(it.mimetype!!)}")
-                appendLine("encoding: base64")
+                /*appendLine("encoding: base64")
                 appendLine("truncated: ${data.truncated}")
-                appendLine("<data_base64>${data.text}</data_base64>")
+                appendLine("<data_base64>${data.text}</data_base64>")*/
                 appendLine("</attachment>")
             }
         },

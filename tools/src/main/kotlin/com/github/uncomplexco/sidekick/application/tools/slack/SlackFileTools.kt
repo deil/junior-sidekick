@@ -6,6 +6,7 @@ import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
 import com.github.uncomplexco.sidekick.application.session.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.session.SessionFileRef
+import com.github.uncomplexco.sidekick.application.tools.WorkspaceFiles
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import kotlinx.serialization.Serializable
 import java.net.URI
@@ -28,17 +29,20 @@ class SlackFileTools(
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build(),
 ) : ToolSet {
+    private val files = WorkspaceFiles(dataDirectory)
+
     @Tool
     @LLMDescription(
-        "Read the single markdown, HTML, or plain text file attached to the current inbound Slack message and return its text. Only uses files from the current runtime context; does not resolve arbitrary Slack links from message text.",
+        "Read a file attached to the current thread. If the file does not exist, a error is returned.",
     )
-    fun slackFileDownload(
+    fun slackFileRead(
         @LLMDescription("ID or permalink of the file") fileId: String,
-    ): SlackFileDownloadResult {
+        @LLMDescription("The line number to start reading from (1-indexed)") offset: Int? = null,
+        @LLMDescription("The maximum number of lines to read (defaults to 2000)") limit: Int? = null,
+    ): String {
         /*
         validate(ctx.currentFiles.isNotEmpty()) { "No Slack file is attached to the current message." }
         validate(ctx.currentFiles.size == 1) { "Sorry, only one file at a time." }
-         */
         val file = ctx.sessionFiles.find { it.id == fileId || it.displayName == fileId }!!
         validate(isSupportedSlackTextFile(file)) { "Only markdown, HTML, and plain text Slack files are supported." }
         val downloadUrl = requireNotNull(file.urlPrivateDownload) { "Slack file does not include a private download URL." }
@@ -69,6 +73,11 @@ class SlackFileTools(
             size = body.size.toLong(),
             path = target.toString(),
         )
+         */
+
+        val file = ctx.sessionFiles.find { it.id == fileId || it.displayName == fileId }!!
+        validate(isSupportedSlackTextFile(file)) { "Only markdown, HTML, and plain text Slack files are supported." }
+        return files.read(file.localPath, offset, limit)
     }
 }
 

@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools
 
 import ai.koog.agents.core.tools.ToolRegistry
+import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.TurnToolRegistryFactory
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
@@ -32,6 +33,6 @@ class DefaultTurnToolRegistryFactory(
                     ctx,
                 ).asTools(),
             )
-            tools(SlackFileTools(ctx, slackBotToken, agentConfig.workingDirectoryPath().resolve("tmp")).asTools())
+            tools(SlackFileTools(ctx, slackBotToken, ctx.sessionId.folder(agentConfig.stateDirectoryPath())).asTools())
         }
 }
