@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.adapters.files
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.session.SessionCompaction
+import com.github.uncomplexco.sidekick.application.session.SessionFileRef
 import com.github.uncomplexco.sidekick.application.session.SessionId
 import com.github.uncomplexco.sidekick.application.session.SessionInFlightState
 import com.github.uncomplexco.sidekick.application.session.SessionMessage
@@ -33,6 +34,7 @@ class FileSessionStateStore(
 
     override fun load(id: SessionId): SessionState {
         val folder = id.folder(config.stateDirectoryPath())
+        val files = loadJsonl<SessionFileRef>(folder.resolve("files.jsonl"))
         val compactions = loadJsonl<SessionCompaction>(folder.resolve("compactions.jsonl"))
         val messages = loadJsonl<SessionMessage>(folder.resolve("messages.jsonl"))
 
@@ -45,6 +47,7 @@ class FileSessionStateStore(
 
         return SessionState(
             id = id,
+            files = files.toMutableList(),
             compactions = compactions.sortedBy { it.createdAtMs }.toMutableList(),
             messages = messages.sortedBy { it.createdAtMs }.toMutableList(),
             inflight = inflight,
@@ -57,6 +60,7 @@ class FileSessionStateStore(
     ) {
         val folder = id.folder(config.stateDirectoryPath())
         Files.createDirectories(folder)
+        writeJsonl(folder.resolve("files.jsonl"), state.files)
         writeJsonl(folder.resolve("compactions.jsonl"), state.compactions)
         writeJsonl(folder.resolve("messages.jsonl"), state.messages)
         writeJson(folder.resolve("inflight.json"), SessionInFlightState.serializer(), state.inflight)
@@ -118,7 +122,7 @@ class FileSessionStateStore(
     }
 }
 
-internal fun SessionId.folder(stateRoot: Path): Path {
+fun SessionId.folder(stateRoot: Path): Path {
     val conversationFolder = sanitizePathSegment(channelId)
     return if (threadId.isNullOrBlank()) {
         stateRoot.resolve("slack/channels").resolve(conversationFolder).resolve("session")

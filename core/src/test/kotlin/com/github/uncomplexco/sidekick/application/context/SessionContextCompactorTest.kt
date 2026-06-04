@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.context
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.core.MessageAuthor
 import com.github.uncomplexco.sidekick.application.core.MessageRole
+import com.github.uncomplexco.sidekick.application.session.SessionFileRef
 import com.github.uncomplexco.sidekick.application.session.SessionId
 import com.github.uncomplexco.sidekick.application.session.SessionMessage
 import com.github.uncomplexco.sidekick.application.session.SessionState
@@ -128,6 +129,7 @@ class SessionContextCompactorTest {
     private fun state(messages: List<SessionMessage>): SessionState =
         SessionState(
             id = SessionId("C123", "1700000000.000"),
+            files = mutableListOf(),
             messages = messages.toMutableList(),
         )
 
@@ -142,6 +144,7 @@ class SessionContextCompactorTest {
             role = role,
             author = MessageAuthor(username = "user", fullName = "User"),
             text = text,
+            fileIds = emptyList(),
             createdAtMs = createdAtMs,
         )
 
@@ -150,7 +153,11 @@ class SessionContextCompactorTest {
     private class RecordingSummarizer : SessionContextSummarizer {
         val batches = mutableListOf<List<String>>()
 
-        override suspend fun summarize(messages: List<SessionMessage>): String {
+        override suspend fun summarize(
+            sessionId: SessionId,
+            messages: List<SessionMessage>,
+            files: List<SessionFileRef>,
+        ): String {
             batches += messages.map { it.id }
             return "summary for ${messages.first().id}..${messages.last().id}"
         }

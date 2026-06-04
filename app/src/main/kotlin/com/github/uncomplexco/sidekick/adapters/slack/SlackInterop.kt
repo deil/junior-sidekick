@@ -1,6 +1,8 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
+import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.session.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.session.SessionId
 import com.github.uncomplexco.sidekick.ports.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.ReplyResult
 import com.github.uncomplexco.sidekick.ports.ReplyToMessage
@@ -8,6 +10,13 @@ import com.slack.api.bolt.context.builtin.EventContext
 import com.slack.api.model.Attachment
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.nio.file.Files
+import java.nio.file.Path
+import java.time.Duration
 import com.slack.api.model.File as SlackFile
 
 fun replyInSlack(
@@ -103,22 +112,84 @@ internal fun incomingChatFiles(
     }
 }
 
+class SlackFileIngestor(
+    private val slackBotToken: String,
+    private val stateRoot: Path,
+    private val httpClient: HttpClient =
+        HttpClient
+            .newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build(),
+) {
+    fun ingest(
+        sessionId: SessionId,
+        files: List<IncomingChatFile>,
+    ): List<IncomingChatFile> =
+        files
+            .take(MAX_MESSAGE_FILES)
+            .mapNotNull { file ->
+                val localPath = download(sessionId, file) ?: return@mapNotNull null
+                file.copy(localPath = localPath)
+            }
+
+    private fun download(
+        sessionId: SessionId,
+        file: IncomingChatFile,
+    ): String? =
+        runCatching {
+            val response =
+                httpClient.send(
+                    HttpRequest
+                        .newBuilder(URI.create(file.urlPrivateDownload))
+                        .timeout(Duration.ofSeconds(30))
+                        .header("Authorization", "Bearer $slackBotToken")
+                        .GET()
+                        .build(),
+                    HttpResponse.BodyHandlers.ofByteArray(),
+                )
+            check(response.statusCode() in 200..299) { "Slack file download failed with HTTP ${response.statusCode()}." }
+
+            val sessionFolder = sessionId.folder(stateRoot)
+            val folder = sessionFolder.resolve("files")
+            Files.createDirectories(folder)
+            val target = folder.resolve(downloadFileName(file))
+            Files.write(target, response.body())
+            sessionFolder.relativize(target).toString()
+        }.getOrElse {
+            log.warn("Slack file ingest failed for file id={}", file.id, it)
+            null
+        }
+}
+
 private fun List<SlackFile>?.toIncomingChatFiles(): List<IncomingChatFile> =
     this
         .orEmpty()
+        .take(MAX_MESSAGE_FILES)
         .mapNotNull { file ->
             if (file.id == null || file.urlPrivateDownload == null) return@mapNotNull null
 
             IncomingChatFile(
                 id = file.id,
                 name = file.name,
-                title = file.title,
                 mimetype = file.mimetype,
                 filetype = file.filetype,
-                urlPrivateDownload = file.urlPrivateDownload,
                 permalink = file.permalink,
+                urlPrivateDownload = file.urlPrivateDownload,
+                localPath = null,
             )
         }
+
+internal fun downloadFileName(file: IncomingChatFile): String {
+    val rawName = file.name ?: file.id
+    return "${sanitizeFileName(file.id)}-${sanitizeFileName(rawName)}"
+}
+
+private fun sanitizeFileName(value: String): String =
+    value
+        .replace(Regex("[^A-Za-z0-9._-]"), "_")
+        .trim('.', '_')
+        .ifBlank { "file" }
 
 internal fun slackTsToMillis(ts: String): Long = (ts.toDouble().times(1000)).toLong()
 
@@ -133,3 +204,5 @@ internal fun containsMention(
 ): Boolean = text.contains("<@$username>")
 
 internal val log: Logger = LoggerFactory.getLogger(SlackAppFactory::class.java)
+
+private const val MAX_MESSAGE_FILES = 3

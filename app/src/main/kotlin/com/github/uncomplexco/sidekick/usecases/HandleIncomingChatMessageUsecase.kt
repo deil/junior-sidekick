@@ -7,7 +7,6 @@ import com.github.uncomplexco.sidekick.application.core.MessageRole
 import com.github.uncomplexco.sidekick.application.session.IncomingChatMessage
 import com.github.uncomplexco.sidekick.application.session.SessionManager
 import com.github.uncomplexco.sidekick.application.session.SessionMessage
-import com.github.uncomplexco.sidekick.application.session.TurnMessage
 import com.github.uncomplexco.sidekick.application.session.triggers.ChatTrigger
 import com.github.uncomplexco.sidekick.application.session.triggers.ConversationTriggerPolicy
 import com.github.uncomplexco.sidekick.application.session.triggers.ReplyDecisionInput
@@ -48,7 +47,7 @@ class HandleIncomingChatMessageUsecase(
 
             is TriggerDecision.Handle -> {
                 try {
-                    handle(message, decision, chat)
+                    handle(message.copy(files = message.files.take(MAX_MESSAGE_FILES)), decision, chat)
                 } finally {
                     chat.activity.clear()
                 }
@@ -65,21 +64,25 @@ class HandleIncomingChatMessageUsecase(
             agentConfig.botUsername = chat.botUsername
         }
 
+        val attachedFiles = chat.fileIngestor.ingest(decision.sessionId, message.files.take(MAX_MESSAGE_FILES))
+        val currentMessage =
+            SessionMessage(
+                id = message.id,
+                role = MessageRole.USER,
+                author = message.sender,
+                text = message.text,
+                fileIds = attachedFiles.map { it.id },
+                createdAtMs = message.createdAtMs,
+                explicitMention = decision.explicitMention,
+            )
+
         val turn =
             sessionManager.recordIncomingMessage(
                 sessionId = decision.sessionId,
                 seedHistory = decision.seedHistory,
                 historyLoader = chat.historyLoader,
-                message =
-                    SessionMessage(
-                        id = message.id,
-                        role = MessageRole.USER,
-                        author = message.sender,
-                        text = message.text,
-                        files = message.files,
-                        createdAtMs = message.createdAtMs,
-                        explicitMention = decision.explicitMention,
-                    ),
+                message = currentMessage,
+                files = attachedFiles,
             )
 
         val shouldReply =
@@ -88,7 +91,13 @@ class HandleIncomingChatMessageUsecase(
                     text = message.text,
                     isExplicitMention = decision.explicitMention,
                     isPrivateMessage = message.trigger == ChatTrigger.ASSISTANT_MESSAGE,
-                    conversationContext = promptBuilder.buildThreadContext(turn.compactions, turn.history),
+                    conversationContext =
+                        promptBuilder.buildThreadContext(
+                            turn.sessionId,
+                            turn.compactions,
+                            turn.history,
+                            turn.sessionFiles,
+                        ),
                     hasAssistantHistory = turn.history.any { it.role == MessageRole.ASSISTANT },
                 ),
             )
@@ -96,7 +105,7 @@ class HandleIncomingChatMessageUsecase(
         if (shouldReply.shouldReply) {
             chat.activity.start()
 
-            val agentReply = agent.runTurn(turn, TurnMessage(user = message.sender, text = message.text))
+            val agentReply = agent.runTurn(turn, currentMessage)
             val replyMessageId = chat.reply.postReply(agentReply)
 
             sessionManager.recordAssistantReply(
@@ -118,6 +127,7 @@ class HandleIncomingChatMessageUsecase(
     }
 
     companion object {
+        private const val MAX_MESSAGE_FILES = 3
         private val log = LoggerFactory.getLogger(HandleIncomingChatMessageUsecase::class.java)
     }
 }

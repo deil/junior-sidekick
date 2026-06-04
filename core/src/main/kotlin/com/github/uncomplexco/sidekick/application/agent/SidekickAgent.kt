@@ -15,7 +15,7 @@ import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.context.PromptBuilder
-import com.github.uncomplexco.sidekick.application.session.TurnMessage
+import com.github.uncomplexco.sidekick.application.session.SessionMessage
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -35,7 +35,7 @@ class SidekickAgent(
 ) {
     suspend fun runTurn(
         ctx: TurnContext,
-        message: TurnMessage,
+        message: SessionMessage,
     ): String {
         val toolRegistry = toolRegistryFactory.build(ctx)
         val strategy = sidekickStrategy(message)
@@ -75,10 +75,10 @@ class SidekickAgent(
             }
 
         val input = promptBuilder.buildUserTurnPrompt(message, ctx)
-        return agent.run(input)
+        return agent.run(input, ctx.sessionId.lockKey())
     }
 
-    private fun sidekickStrategy(message: TurnMessage) =
+    private fun sidekickStrategy(message: SessionMessage) =
         strategy<String, String>("sidekick") {
             val classify by node<String, ReplyRoute>("classify") { input ->
                 ReplyRoute(input, shouldReply = true)

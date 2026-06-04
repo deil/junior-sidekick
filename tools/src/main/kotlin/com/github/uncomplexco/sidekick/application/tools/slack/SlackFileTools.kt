@@ -5,6 +5,7 @@ import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
 import com.github.uncomplexco.sidekick.application.session.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.session.SessionFileRef
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import kotlinx.serialization.Serializable
 import java.net.URI
@@ -31,11 +32,14 @@ class SlackFileTools(
     @LLMDescription(
         "Read the single markdown, HTML, or plain text file attached to the current inbound Slack message and return its text. Only uses files from the current runtime context; does not resolve arbitrary Slack links from message text.",
     )
-    fun slackFileDownload(): SlackFileDownloadResult {
+    fun slackFileDownload(
+        @LLMDescription("ID or permalink of the file") fileId: String,
+    ): SlackFileDownloadResult {
+        /*
         validate(ctx.currentFiles.isNotEmpty()) { "No Slack file is attached to the current message." }
         validate(ctx.currentFiles.size == 1) { "Sorry, only one file at a time." }
-
-        val file = ctx.currentFiles.single()
+         */
+        val file = ctx.sessionFiles.find { it.id == fileId || it.displayName == fileId }!!
         validate(isSupportedSlackTextFile(file)) { "Only markdown, HTML, and plain text Slack files are supported." }
         val downloadUrl = requireNotNull(file.urlPrivateDownload) { "Slack file does not include a private download URL." }
 
@@ -79,7 +83,7 @@ data class SlackFileDownloadResult(
     val path: String,
 )
 
-fun isSupportedSlackTextFile(file: IncomingChatFile): Boolean {
+fun isSupportedSlackTextFile(file: SessionFileRef): Boolean {
     val mimetype = file.mimetype?.lowercase()
     val filetype = file.filetype?.lowercase()
     val name = file.name?.lowercase().orEmpty()
@@ -92,7 +96,7 @@ fun isSupportedSlackTextFile(file: IncomingChatFile): Boolean {
         name.endsWith(".txt")
 }
 
-fun downloadFileName(file: IncomingChatFile): String {
+fun downloadFileName(file: SessionFileRef): String {
     val rawName = file.name ?: file.id
     return "${sanitizeFileName(file.id)}-${sanitizeFileName(rawName)}"
 }

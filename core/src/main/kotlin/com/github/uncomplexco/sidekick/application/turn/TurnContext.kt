@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.turn
 
 import com.github.uncomplexco.sidekick.application.session.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.session.SessionCompaction
+import com.github.uncomplexco.sidekick.application.session.SessionFileRef
 import com.github.uncomplexco.sidekick.application.session.SessionId
 import com.github.uncomplexco.sidekick.application.session.SessionMessage
 
@@ -10,6 +11,7 @@ data class TurnContext(
     val turnId: String,
     val currentMessageId: String,
     val currentFiles: List<IncomingChatFile>,
+    val sessionFiles: List<SessionFileRef>,
     val compactions: List<SessionCompaction>,
     val history: List<SessionMessage>,
 )

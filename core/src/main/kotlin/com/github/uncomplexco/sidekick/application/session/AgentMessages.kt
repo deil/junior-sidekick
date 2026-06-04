@@ -3,19 +3,14 @@ package com.github.uncomplexco.sidekick.application.session
 import com.github.uncomplexco.sidekick.application.core.MessageAuthor
 import com.github.uncomplexco.sidekick.application.session.triggers.ChatTrigger
 
-data class TurnMessage(
-    val user: MessageAuthor,
-    val text: String,
-)
-
 data class IncomingChatFile(
     val id: String,
-    val name: String?,
-    val title: String?,
+    val name: String,
     val mimetype: String?,
     val filetype: String?,
     val urlPrivateDownload: String,
-    val permalink: String?,
+    val permalink: String,
+    val localPath: String?,
 )
 
 data class IncomingChatMessage(

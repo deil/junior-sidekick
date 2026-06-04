@@ -9,6 +9,7 @@ import com.github.uncomplexco.sidekick.application.session.triggers.ChatTrigger
 import com.github.uncomplexco.sidekick.application.session.triggers.ConversationTriggerPolicy
 import com.github.uncomplexco.sidekick.application.session.triggers.TriggerDecision
 import com.github.uncomplexco.sidekick.adapters.files.FileSessionStateStore
+import com.github.uncomplexco.sidekick.ports.ChatConversationId
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -99,8 +100,10 @@ class ConversationTriggerPolicyTest {
                         role = MessageRole.USER,
                         author = author(),
                         text = "existing",
+                        fileIds = emptyList(),
                         createdAtMs = 1,
                     ),
+                files = emptyList(),
             )
             val policy = ConversationTriggerPolicy(agentSessions)
             val message = message(ChatTrigger.PASSIVE_MESSAGE)
@@ -141,7 +144,7 @@ class ConversationTriggerPolicyTest {
             FileSessionStateStore(config),
             SessionContextCompactor(
                 PromptBuilder(config),
-                summarizer = { messages -> "summary for ${messages.size} messages" },
+                summarizer = { _, messages, _ -> "summary for ${messages.size} messages" },
             ),
         )
     }

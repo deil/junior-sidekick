@@ -7,6 +7,8 @@ import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.context.PromptBuilder
 import com.github.uncomplexco.sidekick.application.context.SessionContextSummarizer
+import com.github.uncomplexco.sidekick.application.session.SessionFileRef
+import com.github.uncomplexco.sidekick.application.session.SessionId
 import com.github.uncomplexco.sidekick.application.session.SessionMessage
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -16,8 +18,19 @@ class KoogSessionContextSummarizer(
     private val config: KoogConfig,
     private val promptBuilder: PromptBuilder,
 ) : SessionContextSummarizer {
-    override suspend fun summarize(messages: List<SessionMessage>): String {
-        val transcript = promptBuilder.buildThreadContext(compactions = emptyList(), history = messages).orEmpty()
+    override suspend fun summarize(
+        sessionId: SessionId,
+        messages: List<SessionMessage>,
+        files: List<SessionFileRef>,
+    ): String {
+        val transcript =
+            promptBuilder
+                .buildThreadContext(
+                    sessionId = sessionId,
+                    compactions = emptyList(),
+                    history = messages,
+                    sessionFiles = files,
+                ).orEmpty()
         log.debug("Starting session context summarization for {} messages", messages.size)
 
         return runCatching {

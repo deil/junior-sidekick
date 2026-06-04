@@ -19,12 +19,14 @@ class SessionManager(
     suspend fun recordIncomingMessage(
         sessionId: SessionId,
         seedHistory: Boolean,
-        historyLoader: () -> List<ChatMessage>,
+        historyLoader: (SessionId) -> List<ChatMessage>,
         message: SessionMessage,
+        files: List<IncomingChatFile>,
     ): TurnContext =
         store.withSessionLock(sessionId) {
             val turnId = generateTurnId()
             val state = loadOrSeedState(sessionId, seedHistory, historyLoader)
+            upsertFiles(state.files, files.map { it.toSessionFileRef() })
             upsertMessage(state.messages, message)
             contextCompactor.compactIfNeeded(state)
             store.save(sessionId, state)
@@ -33,7 +35,8 @@ class SessionManager(
                 sessionId = sessionId,
                 turnId = turnId,
                 currentMessageId = message.id,
-                currentFiles = message.files,
+                currentFiles = files,
+                sessionFiles = state.files,
                 compactions = state.compactions,
                 history = state.messages.filter { it.id != message.id },
             )
@@ -70,6 +73,7 @@ class SessionManager(
                 id = replyId,
                 role = MessageRole.ASSISTANT,
                 text = normalizeMessageText(text),
+                fileIds = emptyList(),
                 createdAtMs = createdAtMs,
                 replied = true,
             ),
@@ -99,22 +103,34 @@ class SessionManager(
         }
     }
 
+    private fun upsertFiles(
+        files: MutableList<SessionFileRef>,
+        newFiles: List<SessionFileRef>,
+    ) {
+        newFiles.forEach { file ->
+            if (files.any { it.id == file.id }) return@forEach
+            files += file
+        }
+    }
+
     private fun loadOrSeedState(
         sessionId: SessionId,
         seedHistory: Boolean,
-        historyLoader: () -> List<ChatMessage>,
+        historyLoader: (SessionId) -> List<ChatMessage>,
     ): SessionState {
         val state = store.load(sessionId)
         if (state.messages.isEmpty() && seedHistory) {
-            val seededHistory = historyLoader()
+            val seededHistory = historyLoader(sessionId)
             seededHistory
                 .sortedBy { it.timestamp }
                 .map {
+                    upsertFiles(state.files, it.files.map { file -> file.toSessionFileRef() })
                     SessionMessage(
                         id = it.id,
                         role = it.role,
                         author = it.author,
                         text = it.text,
+                        fileIds = it.files.map { file -> file.id },
                         createdAtMs = it.timestamp,
                     )
                 }.forEach { state.messages.add(it) }
@@ -128,6 +144,17 @@ class SessionManager(
         "${prefix}_${System.currentTimeMillis()}_${Uuid.generateV7().toString().replace("-", "").take(8)}"
 
     private fun normalizeMessageText(text: String): String = text.trim().replace(Regex("\\s+"), " ").take(CONTEXT_MAX_MESSAGE_CHARS)
+
+    private fun IncomingChatFile.toSessionFileRef(): SessionFileRef =
+        SessionFileRef(
+            id = id,
+            name = name,
+            mimetype = mimetype,
+            filetype = filetype,
+            displayName = permalink,
+            urlPrivateDownload = urlPrivateDownload,
+            localPath = localPath!!,
+        )
 
     companion object {
         private const val CONTEXT_MAX_MESSAGE_CHARS = 3200

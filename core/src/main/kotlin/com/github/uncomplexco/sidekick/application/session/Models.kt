@@ -3,7 +3,6 @@ package com.github.uncomplexco.sidekick.application.session
 import com.github.uncomplexco.sidekick.application.core.MessageAuthor
 import com.github.uncomplexco.sidekick.application.core.MessageRole
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
 
 data class SessionId(
     val channelId: String,
@@ -19,9 +18,21 @@ data class SessionId(
 
 data class SessionState(
     val id: SessionId,
+    var files: MutableList<SessionFileRef>,
     var compactions: MutableList<SessionCompaction> = mutableListOf(),
     var messages: MutableList<SessionMessage> = mutableListOf(),
     var inflight: SessionInFlightState = SessionInFlightState(),
+)
+
+@Serializable
+data class SessionFileRef(
+    val id: String,
+    val name: String,
+    val displayName: String = id,
+    val mimetype: String?,
+    val filetype: String?,
+    val urlPrivateDownload: String,
+    val localPath: String,
 )
 
 @Serializable
@@ -30,8 +41,7 @@ class SessionMessage(
     val role: MessageRole,
     val author: MessageAuthor? = null,
     val text: String,
-    @Transient
-    val files: List<IncomingChatFile> = emptyList(),
+    val fileIds: List<String> = mutableListOf(),
     val createdAtMs: Long,
     val explicitMention: Boolean = false,
     var replied: Boolean? = null,

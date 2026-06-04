@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.application.core.MessageRole
+import com.github.uncomplexco.sidekick.application.session.SessionId
 import com.github.uncomplexco.sidekick.ports.ChatMessage
 import com.slack.api.bolt.context.builtin.EventContext
 
@@ -8,6 +9,8 @@ fun loadThreadHistory(
     ctx: EventContext,
     threadTs: String,
     currentTs: String?,
+    sessionId: SessionId,
+    fileIngestor: SlackFileIngestor,
 ): List<ChatMessage> {
     val response =
         ctx.client().conversationsReplies { req ->
@@ -23,7 +26,10 @@ fun loadThreadHistory(
         .orEmpty()
         .mapNotNull {
             val text = it.text.trim()
-            if (text.isBlank() || (currentTs != null && it.ts == currentTs)) return@mapNotNull null
+            if (currentTs != null && it.ts == currentTs) return@mapNotNull null
+
+            val files = fileIngestor.ingest(sessionId, incomingChatFiles(it.files, it.attachments))
+            if (text.isBlank() && files.isEmpty()) return@mapNotNull null
 
             val botMessage = it.botId != null && it.botId == ctx.botUserId
 
@@ -33,6 +39,7 @@ fun loadThreadHistory(
                 author = if (!botMessage) toMessageAuthor(it.user, ctx) else null,
                 text = text,
                 timestamp = slackTsToMillis(it.ts),
+                files = files,
             )
         }
 }

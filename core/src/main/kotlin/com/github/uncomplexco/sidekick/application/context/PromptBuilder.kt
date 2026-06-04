@@ -3,8 +3,9 @@ package com.github.uncomplexco.sidekick.application.context
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.core.MessageRole
 import com.github.uncomplexco.sidekick.application.session.SessionCompaction
+import com.github.uncomplexco.sidekick.application.session.SessionFileRef
+import com.github.uncomplexco.sidekick.application.session.SessionId
 import com.github.uncomplexco.sidekick.application.session.SessionMessage
-import com.github.uncomplexco.sidekick.application.session.TurnMessage
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.timestamp
@@ -60,20 +61,35 @@ class PromptBuilder(
         }
 
     fun buildUserTurnPrompt(
-        message: TurnMessage,
+        message: SessionMessage,
         ctx: TurnContext,
     ): String =
         buildString {
             if (ctx.history.isNotEmpty()) {
-                appendLine(buildThreadContext(ctx.compactions, ctx.history))
+                appendLine(buildThreadContext(ctx.sessionId, ctx.compactions, ctx.history, ctx.sessionFiles))
             }
 
-            append(xmlTag("current-instruction", "[${message.user.username}] ${message.text}"))
+            append(xmlTag("current-instruction", "[${message.author!!.username}] ${message.text}"))
+
+            if (message.fileIds.isNotEmpty()) {
+                appendLine(
+                    renderFileAttachments(
+                        ctx.sessionId,
+                        message.fileIds.map { fileId ->
+                            ctx.sessionFiles.find { file -> file.id == fileId }!!
+                        },
+                        config.stateDirectoryPath(),
+                        MAX_ATTACHMENT_BASE64_CHARS,
+                    ),
+                )
+            }
         }
 
     fun buildThreadContext(
+        sessionId: SessionId,
         compactions: List<SessionCompaction>,
         history: List<SessionMessage>,
+        sessionFiles: List<SessionFileRef>,
     ): String? {
         if (history.isEmpty() && compactions.isEmpty()) {
             return null
@@ -94,7 +110,18 @@ class PromptBuilder(
             lines += "</thread-compactions>"
         }
 
-        val transcript = history.mapIndexed { idx, message -> renderSessionMessage(idx, message) }.joinToString("\n")
+        val transcript =
+            history
+                .mapIndexed { idx, message ->
+                    renderSessionMessage(
+                        idx,
+                        message,
+                        sessionId,
+                        message.fileIds.mapNotNull { fileId ->
+                            sessionFiles.find { file -> file.id == fileId }
+                        },
+                    )
+                }.joinToString("\n")
         lines += xmlTag("thread-transcript", transcript)
 
         return lines.joinToString("\n")
@@ -103,15 +130,19 @@ class PromptBuilder(
     private fun renderSessionMessage(
         idx: Int,
         message: SessionMessage,
+        sessionId: SessionId,
+        attachedFiles: List<SessionFileRef>,
     ): String {
         val lines = mutableListOf<String>()
 
         val authorUsername = message.author?.username ?: message.role.name.lowercase()
 
         lines +=
-            "<message id=\"${message.id}\" sent_at=\"${ofEpochMilli(
-                message.createdAtMs,
-            )}\" role=\"${message.role.name.lowercase()}\" author=\"${escapeXml(authorUsername)}\">"
+            "<message id=\"${message.id}\" sent_at=\"${
+                ofEpochMilli(
+                    message.createdAtMs,
+                )
+            }\" role=\"${message.role.name.lowercase()}\" author=\"${escapeXml(authorUsername)}\">"
 
         val markers = mutableListOf<String>()
         if (message.replied == false) {
@@ -124,11 +155,20 @@ class PromptBuilder(
 
         val markerSuffix = if (markers.isEmpty()) "" else " (${markers.joinToString("; ")})"
         val displayName =
-            message.author?.username ?: if (message.role == MessageRole.ASSISTANT) config.name else message.role.name.lowercase()
+            message.author?.username
+                ?: if (message.role == MessageRole.ASSISTANT) config.name else message.role.name.lowercase()
         lines += "[${message.role.name.lowercase()}] $displayName: ${message.text}$markerSuffix"
+
+        if (attachedFiles.isNotEmpty()) {
+            lines += renderFileAttachments(sessionId, attachedFiles, config.stateDirectoryPath(), MAX_ATTACHMENT_BASE64_CHARS)
+        }
 
         lines += "</message>"
 
         return lines.joinToString("\n")
+    }
+
+    companion object {
+        private const val MAX_ATTACHMENT_BASE64_CHARS = 120_000
     }
 }

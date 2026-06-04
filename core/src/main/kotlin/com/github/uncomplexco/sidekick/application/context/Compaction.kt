@@ -25,7 +25,7 @@ class SessionContextCompactor(
 
             val batchSize = minOf(COMPACTION_BATCH_SIZE, compactableCount)
             val batch = state.messages.take(batchSize)
-            val summary = summarizer.summarize(batch)
+            val summary = summarizer.summarize(state.id, batch, state.files)
 
             state.compactions +=
                 SessionCompaction(
@@ -43,7 +43,7 @@ class SessionContextCompactor(
     private fun estimateTokenCount(state: SessionState): Int =
         ceil(
             (
-                promptBuilder.buildThreadContext(state.compactions, state.messages)?.length
+                promptBuilder.buildThreadContext(state.id, state.compactions, state.messages, emptyList())?.length
                     ?: 0
             ) / TOKEN_ESTIMATE_CHARS.toDouble(),
         ).toInt()

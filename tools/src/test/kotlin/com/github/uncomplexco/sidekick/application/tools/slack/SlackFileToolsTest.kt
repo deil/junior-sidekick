@@ -30,10 +30,9 @@ class SlackFileToolsTest {
         IncomingChatFile(
             id = id,
             name = name,
-            title = null,
             mimetype = mimetype,
             filetype = filetype,
             urlPrivateDownload = "https://files.slack.com/files-pri/T-F/download/file",
-            permalink = null,
+            localPath = null,
         )
 }
