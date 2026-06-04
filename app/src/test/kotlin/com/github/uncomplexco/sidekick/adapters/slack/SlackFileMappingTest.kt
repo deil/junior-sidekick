@@ -51,7 +51,7 @@ class SlackFileMappingTest {
     }
 
     @Test
-    fun `ingested file path is relative to session folder`() {
+    fun `ingested file path is session based`() {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/F1") { exchange ->
             val body = "hello".toByteArray()
@@ -71,8 +71,8 @@ class SlackFileMappingTest {
 
             val ingested = ingestor.ingest(sessionId, listOf(file)).single()
 
-            assertEquals("files/F1-F1.md", ingested.localPath)
-            assertTrue(Files.exists(sessionId.folder(dir).resolve(ingested.localPath!!)))
+            assertEquals("session:/attachments/F1-F1.md", ingested.localPath)
+            assertTrue(Files.exists(sessionId.folder(dir).resolve("attachments/F1-F1.md")))
         } finally {
             server.stop(0)
         }
@@ -91,6 +91,7 @@ class SlackFileMappingTest {
             .name("$id.md")
             .mimetype("text/markdown")
             .filetype("markdown")
+            .permalink("https://slack.example/files/$id")
             .urlPrivateDownload(urlPrivateDownload)
             .build()
 }

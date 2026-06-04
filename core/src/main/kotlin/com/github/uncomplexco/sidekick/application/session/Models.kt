@@ -2,6 +2,8 @@ package com.github.uncomplexco.sidekick.application.session
 
 import com.github.uncomplexco.sidekick.application.core.MessageAuthor
 import com.github.uncomplexco.sidekick.application.core.MessageRole
+import com.github.uncomplexco.sidekick.application.core.VirtualPath
+import com.github.uncomplexco.sidekick.application.core.toSessionBasedPath
 import kotlinx.serialization.Serializable
 
 data class SessionId(
@@ -32,7 +34,7 @@ data class SessionFileRef(
     val mimetype: String?,
     val filetype: String?,
     val urlPrivateDownload: String,
-    val localPath: String,
+    val localPath: VirtualPath,
 )
 
 @Serializable

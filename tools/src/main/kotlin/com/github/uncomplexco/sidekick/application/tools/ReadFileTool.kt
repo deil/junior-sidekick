@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.tools
 import ai.koog.agents.core.tools.Tool
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.serialization.typeToken
+import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFiles
 import kotlinx.serialization.Serializable
 
 class ReadFileTool(

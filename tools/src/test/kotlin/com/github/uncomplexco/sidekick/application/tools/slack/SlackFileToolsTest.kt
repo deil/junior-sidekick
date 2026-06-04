@@ -1,6 +1,6 @@
 package com.github.uncomplexco.sidekick.application.tools.slack
 
-import com.github.uncomplexco.sidekick.application.session.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.session.SessionFileRef
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -23,16 +23,17 @@ class SlackFileToolsTest {
 
     private fun file(
         id: String = "F123",
-        name: String? = null,
+        name: String = "file.txt",
         mimetype: String? = null,
         filetype: String? = null,
-    ): IncomingChatFile =
-        IncomingChatFile(
+    ): SessionFileRef =
+        SessionFileRef(
             id = id,
             name = name,
+            displayName = "https://slack.example/files/$id",
             mimetype = mimetype,
             filetype = filetype,
             urlPrivateDownload = "https://files.slack.com/files-pri/T-F/download/file",
-            localPath = null,
+            localPath = "session:/files/$id-$name",
         )
 }

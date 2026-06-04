@@ -1,14 +1,21 @@
 package com.github.uncomplexco.sidekick.application.tools.integrations
 
 import ai.koog.agents.core.tools.ToolException
+import com.github.uncomplexco.sidekick.application.session.SessionId
+import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
 import kotlin.test.assertTrue
 
 class InternalFileExchangeToolsTest {
+    @TempDir
+    lateinit var dir: Path
+
     @Test
     fun `publishes markdown file with fake internal URL`() {
-        val result = tools().publishFileInternally("/workspace/tmp/file.md", "file.md", "text/markdown")
+        val result = tools().publishFileInternally("session:/tmp/file.md", "file.md", "text/markdown")
 
         assertTrue(result.ok)
         assertTrue(result.url!!.startsWith("https://files.internal/"))
@@ -16,7 +23,7 @@ class InternalFileExchangeToolsTest {
 
     @Test
     fun `accepts plain text files`() {
-        val result = tools().publishFileInternally("/workspace/tmp/file.txt", "file.txt", "text/plain")
+        val result = tools().publishFileInternally("session:/tmp/file.txt", "file.txt", "text/plain")
 
         assertTrue(result.ok)
         assertTrue(result.url!!.startsWith("https://files.internal/"))
@@ -25,7 +32,7 @@ class InternalFileExchangeToolsTest {
     @Test
     fun `rejects unsupported mime types`() {
         assertThrows<ToolException.ValidationFailure> {
-            tools().publishFileInternally("/workspace/tmp/file.pdf", "file.pdf", "application/pdf")
+            tools().publishFileInternally("session:/tmp/file.pdf", "file.pdf", "application/pdf")
         }
     }
 
@@ -37,6 +44,22 @@ class InternalFileExchangeToolsTest {
                     title: String,
                     mimeType: String,
                 ): FilePublisher.Result = FilePublisher.Result.Ok("https://files.internal/$title")
+
+                override fun publishContent(
+                    content: String,
+                    title: String,
+                    mimeType: String,
+                ): FilePublisher.Result = FilePublisher.Result.Ok("https://files.internal/$title")
             },
+            TurnContext(
+                sessionId = SessionId("C123", "1700000000.000"),
+                turnId = "turn",
+                currentMessageId = "m1",
+                currentFiles = emptyList(),
+                sessionFiles = emptyList(),
+                compactions = emptyList(),
+                history = emptyList(),
+            ),
+            dir,
         )
 }

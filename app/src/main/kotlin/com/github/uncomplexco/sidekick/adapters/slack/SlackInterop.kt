@@ -1,6 +1,9 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.adapters.files.folder
+import com.github.uncomplexco.sidekick.application.core.VirtualPath
+import com.github.uncomplexco.sidekick.application.core.sessionPath
+import com.github.uncomplexco.sidekick.application.core.toSessionBasedPath
 import com.github.uncomplexco.sidekick.application.session.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.session.SessionId
 import com.github.uncomplexco.sidekick.ports.ChatActivityIndicator
@@ -17,6 +20,7 @@ import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+import kotlin.io.path.absolutePathString
 import com.slack.api.model.File as SlackFile
 
 fun replyInSlack(
@@ -134,7 +138,7 @@ class SlackFileIngestor(
             .take(MAX_MESSAGE_FILES)
             .mapNotNull { file ->
                 val localPath = download(sessionId, file) ?: return@mapNotNull null
-                file.copy(localPath = localPath)
+                file.copy(localPath = localPath.toSessionBasedPath())
             }
 
     private fun download(
@@ -155,11 +159,11 @@ class SlackFileIngestor(
             check(response.statusCode() in 200..299) { "Slack file download failed with HTTP ${response.statusCode()}." }
 
             val sessionFolder = sessionId.folder(stateRoot)
-            val folder = sessionFolder.resolve("files")
+            val folder = sessionFolder.resolve("attachments")
             Files.createDirectories(folder)
             val target = folder.resolve(downloadFileName(file))
             Files.write(target, response.body())
-            sessionFolder.relativize(target).toString()
+            return@runCatching sessionFolder.relativize(target).toString()
         }.getOrElse {
             log.warn("Slack file ingest failed for file id={}", file.id, it)
             null

@@ -5,8 +5,13 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
+import com.github.uncomplexco.sidekick.adapters.files.folder
+import com.github.uncomplexco.sidekick.application.core.VirtualPath
+import com.github.uncomplexco.sidekick.application.tools.files.parseVirtualPath
+import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import kotlinx.serialization.Serializable
 import org.springframework.http.MediaType
+import java.nio.file.Path
 
 interface FilePublisher {
     fun publishFile(
@@ -35,6 +40,8 @@ interface FilePublisher {
 @LLMDescription("Internal file exchange tools")
 class InternalFileExchangeTools(
     private val filePublisher: FilePublisher,
+    private val ctx: TurnContext,
+    private val dataDirectory: Path,
 ) : ToolSet {
     @Tool
     @LLMDescription(
@@ -42,7 +49,7 @@ class InternalFileExchangeTools(
     )
     fun publishFileInternally(
         @LLMDescription("Local path to the file to publish.")
-        path: String,
+        path: VirtualPath,
         @LLMDescription("Name of the file.")
         title: String,
         @LLMDescription("File MIME type. Only text files are accepted.")
@@ -54,7 +61,8 @@ class InternalFileExchangeTools(
         }
 
         try {
-            return when (val result = filePublisher.publishFile(path, title, mimeType)) {
+            val realPath = parseVirtualPath(path, ctx.sessionId.folder(dataDirectory))
+            return when (val result = filePublisher.publishFile(realPath, title, mimeType)) {
                 is FilePublisher.Result.Error -> {
                     throw ToolException.ValidationFailure(result.message)
                 }

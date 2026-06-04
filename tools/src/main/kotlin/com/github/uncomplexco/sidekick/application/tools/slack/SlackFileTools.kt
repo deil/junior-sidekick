@@ -1,19 +1,17 @@
 package com.github.uncomplexco.sidekick.application.tools.slack
 
+import ai.koog.agents.core.tools.ToolException
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
-import com.github.uncomplexco.sidekick.application.session.IncomingChatFile
+import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.session.SessionFileRef
-import com.github.uncomplexco.sidekick.application.tools.WorkspaceFiles
+import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFiles
+import com.github.uncomplexco.sidekick.application.tools.files.parseVirtualPath
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import kotlinx.serialization.Serializable
-import java.net.URI
 import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 
@@ -77,7 +75,10 @@ class SlackFileTools(
 
         val file = ctx.sessionFiles.find { it.id == fileId || it.displayName == fileId }!!
         validate(isSupportedSlackTextFile(file)) { "Only markdown, HTML, and plain text Slack files are supported." }
-        return files.read(file.localPath, offset, limit)
+
+        val sessionRoot = ctx.sessionId.folder(dataDirectory)
+        val realPath = parseVirtualPath(file.localPath, sessionRoot)
+        return files.read(realPath, offset, limit, sessionRoot.toString())
     }
 }
 
