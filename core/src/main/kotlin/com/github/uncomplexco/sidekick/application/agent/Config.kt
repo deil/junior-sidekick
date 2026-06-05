@@ -39,8 +39,8 @@ class KoogConfig(
     @Value($$"${adapters.open-router.api-key}")
     val openRouterApiKey: String,
 ) {
-    val provider = "google-vertex"
-    val model = "google/gemini-3-flash-preview"
+    val provider = "azure"
+    val model = "openai/gpt-5.4-mini"
     val reasoningEffort = ReasoningEffort.MEDIUM
 
     fun openRouterParams(): OpenAIChatParams =
