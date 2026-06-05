@@ -64,6 +64,11 @@ class HandleIncomingChatMessageUsecase(
             agentConfig.botUsername = chat.botUsername
         }
 
+        if (message.files.isNotEmpty()) {
+            val text = message.files.map { file -> "File: ${file.name} ${file.filetype} ${file.mimetype}" }
+            log.debug("Attached files: ${text.joinToString(", ")}")
+        }
+
         val attachedFiles = chat.fileIngestor.ingest(decision.sessionId, message.files.take(MAX_MESSAGE_FILES))
         val currentMessage =
             SessionMessage(

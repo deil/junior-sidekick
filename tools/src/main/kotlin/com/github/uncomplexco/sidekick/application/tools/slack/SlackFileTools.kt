@@ -11,6 +11,9 @@ import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFiles
 import com.github.uncomplexco.sidekick.application.tools.files.parseVirtualPath
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import kotlinx.serialization.Serializable
+import org.slf4j.LoggerFactory
+import org.springframework.util.MimeType
+import org.springframework.util.MimeTypeUtils
 import java.net.http.HttpClient
 import java.nio.file.Path
 import java.time.Duration
@@ -28,6 +31,10 @@ class SlackFileTools(
             .build(),
 ) : ToolSet {
     private val files = WorkspaceFiles(dataDirectory)
+
+    companion object {
+        private val log = LoggerFactory.getLogger(SlackFileTools::class.java)
+    }
 
     @Tool
     @LLMDescription(
@@ -74,7 +81,7 @@ class SlackFileTools(
          */
 
         val file = ctx.sessionFiles.find { it.id == fileId || it.displayName == fileId }!!
-        validate(isSupportedSlackTextFile(file)) { "Only markdown, HTML, and plain text Slack files are supported." }
+        validate(isSupportedSlackTextFile(file)) { "Only text Slack files are supported." }
 
         val sessionRoot = ctx.sessionId.folder(dataDirectory)
         val realPath = parseVirtualPath(file.localPath, sessionRoot)
@@ -94,16 +101,8 @@ data class SlackFileDownloadResult(
 )
 
 fun isSupportedSlackTextFile(file: SessionFileRef): Boolean {
-    val mimetype = file.mimetype?.lowercase()
-    val filetype = file.filetype?.lowercase()
-    val name = file.name?.lowercase().orEmpty()
-    return mimetype in SUPPORTED_SLACK_TEXT_MIMETYPES ||
-        filetype in SUPPORTED_SLACK_TEXT_FILETYPES ||
-        name.endsWith(".md") ||
-        name.endsWith(".markdown") ||
-        name.endsWith(".html") ||
-        name.endsWith(".htm") ||
-        name.endsWith(".txt")
+    val mime = MimeType.valueOf(file.mimetype!!.lowercase())
+    return mime.type == "text" || SUPPORTED_SLACK_TEXT_MIMETYPES.contains(mime)
 }
 
 fun downloadFileName(file: SessionFileRef): String {
@@ -117,6 +116,11 @@ private fun sanitizeFileName(value: String): String =
         .trim('.', '_')
         .ifBlank { "file" }
 
-private val SUPPORTED_SLACK_TEXT_MIMETYPES = setOf("text/markdown", "text/html", "text/plain")
+private val SUPPORTED_SLACK_TEXT_MIMETYPES =
+    setOf(
+        MimeTypeUtils.APPLICATION_JSON,
+        MimeTypeUtils.APPLICATION_XML,
+        MimeTypeUtils.TEXT_XML,
+    )
 
 private val SUPPORTED_SLACK_TEXT_FILETYPES = setOf("markdown", "md", "html", "text", "txt", "plain_text")

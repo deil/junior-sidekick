@@ -73,6 +73,11 @@ class SidekickAgent(
                         chat.activity.start("Executing ${toolCall.toolName}...")
                     }
 
+                    onToolCallFailed { toolCall ->
+                        log.debug("onToolCallFailed: {} -> {}", toolCall.toolName, toolCall.message)
+                        chat.activity.clear()
+                    }
+
                     onToolCallCompleted { toolCall ->
                         log.debug("onToolCallCompleted: {} -> {}", toolCall.toolName, toolCall.toolResult)
                         chat.activity.clear()
