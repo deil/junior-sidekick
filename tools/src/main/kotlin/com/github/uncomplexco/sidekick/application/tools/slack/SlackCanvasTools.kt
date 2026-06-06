@@ -3,7 +3,7 @@ package com.github.uncomplexco.sidekick.application.tools.slack
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
-import com.github.uncomplexco.sidekick.application.session.SessionId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.slack.api.methods.MethodsClient
 import com.slack.api.model.canvas.CanvasDocumentContent
 import org.slf4j.LoggerFactory
@@ -15,7 +15,7 @@ data class SlackCanvasRuntimeContext(
 @LLMDescription("Slack canvas tools for long-form artifacts tracked in the current thread")
 class SlackCanvasTools(
     private val slackClient: MethodsClient,
-    private val sessionId: SessionId,
+    private val conversationId: ConversationId,
 ) : ToolSet {
     @Tool
     @LLMDescription(
@@ -27,7 +27,7 @@ class SlackCanvasTools(
         @LLMDescription("Canvas markdown body content.")
         markdown: String,
     ): String {
-        val targetChannelId = sessionId.channelId
+        val targetChannelId = conversationId.channelId
         val normalized = normalizeCanvasMarkdown(markdown)
         val created =
             slackClient.canvasesCreate { req ->
@@ -43,7 +43,7 @@ class SlackCanvasTools(
         val permalink = fetchCanvasPermalink(canvasId)
         log.debug(
             "Created standalone Slack canvas session={} canvasId={} channelId={}",
-            sessionId.lockKey(),
+            conversationId.lockKey(),
             canvasId,
             targetChannelId,
         )
@@ -68,7 +68,7 @@ class SlackCanvasTools(
         }.onFailure { error ->
             log.warn(
                 "Failed to grant Slack canvas access session={} canvasId={} channelId={}",
-                sessionId.lockKey(),
+                conversationId.lockKey(),
                 canvasId,
                 channelId,
                 error,

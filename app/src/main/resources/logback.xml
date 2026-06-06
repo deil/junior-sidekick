@@ -6,6 +6,10 @@
         </encoder>
     </appender>
 
+    <logger name="sidekick" level="DEBUG" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
     <logger name="com.github.uncomplexco" level="DEBUG" additivity="false">
         <appender-ref ref="CONSOLE"/>
     </logger>

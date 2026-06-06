@@ -1,11 +1,11 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.core.MessageAuthor
-import com.github.uncomplexco.sidekick.application.core.MessageRole
-import com.github.uncomplexco.sidekick.application.session.SessionFileRef
-import com.github.uncomplexco.sidekick.application.session.SessionId
-import com.github.uncomplexco.sidekick.application.session.SessionMessage
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
+import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -18,12 +18,12 @@ class TurnPromptBuilderTest {
 
     @Test
     fun `renders attached file virtual path`() {
-        val sessionId = SessionId("C123", "1700000000.000")
+        val conversationId = ConversationId("C123", "1700000000.000")
 
         val prompt =
             builder().buildSessionTurnPrompt(
                 message(fileIds = listOf("F1")),
-                context(sessionId, file("F1", "session:/files/note.txt")),
+                context(conversationId, file("F1", "session:/files/note.txt")),
             )
 
         assertTrue(prompt.contains("local_path: session:/files/note.txt"), prompt)
@@ -31,12 +31,12 @@ class TurnPromptBuilderTest {
 
     @Test
     fun `renders attached file metadata`() {
-        val sessionId = SessionId("C123", "1700000000.000")
+        val conversationId = ConversationId("C123", "1700000000.000")
 
         val prompt =
             builder().buildSessionTurnPrompt(
                 message(fileIds = listOf("F1")),
-                context(sessionId, file("F1", "session:/files/note.txt")),
+                context(conversationId, file("F1", "session:/files/note.txt")),
             )
 
         assertTrue(prompt.contains("filename: note.txt"), prompt)
@@ -53,11 +53,11 @@ class TurnPromptBuilderTest {
         )
 
     private fun context(
-        sessionId: SessionId,
+        conversationId: ConversationId,
         file: SessionFileRef,
     ): TurnContext =
         TurnContext(
-            sessionId = sessionId,
+            conversationId = conversationId,
             turnId = "turn",
             currentMessageId = "m1",
             currentFiles = emptyList(),
@@ -69,7 +69,7 @@ class TurnPromptBuilderTest {
     private fun message(fileIds: List<String>): SessionMessage =
         SessionMessage(
             id = "m1",
-            role = MessageRole.USER,
+            role = SessionMessageRole.USER,
             author = MessageAuthor(username = "alice", fullName = "Alice"),
             text = "read this",
             fileIds = fileIds,

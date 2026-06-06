@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application.agent
+package com.github.uncomplexco.sidekick.application.turn
 
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
@@ -14,11 +14,13 @@ import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.KoogConfig
+import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
-import com.github.uncomplexco.sidekick.application.session.SessionMessage
-import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.ports.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -86,7 +88,7 @@ class SidekickAgent(
             }
 
         val input = turnPromptBuilder.buildSessionTurnPrompt(message, ctx)
-        return agent.run(input, ctx.sessionId.lockKey())
+        return agent.run(input, ctx.conversationId.lockKey())
     }
 
     private fun sidekickStrategy(message: SessionMessage) =

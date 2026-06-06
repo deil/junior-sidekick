@@ -1,12 +1,12 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.core.MessageAuthor
-import com.github.uncomplexco.sidekick.application.core.MessageRole
-import com.github.uncomplexco.sidekick.application.session.SessionFileRef
-import com.github.uncomplexco.sidekick.application.session.SessionId
-import com.github.uncomplexco.sidekick.application.session.SessionMessage
-import com.github.uncomplexco.sidekick.application.session.SessionState
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationState
+import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
+import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -108,7 +108,7 @@ class SessionContextCompactorTest {
                             message(
                                 id = "m$it",
                                 createdAtMs = it.toLong(),
-                                role = if (it % 3 == 0) MessageRole.ASSISTANT else MessageRole.USER,
+                                role = if (it % 3 == 0) SessionMessageRole.ASSISTANT else SessionMessageRole.USER,
                                 text = longText(),
                             )
                         },
@@ -126,9 +126,9 @@ class SessionContextCompactorTest {
         return SessionContextCompactor(TurnPromptBuilder(config), summarizer)
     }
 
-    private fun state(messages: List<SessionMessage>): SessionState =
-        SessionState(
-            id = SessionId("C123", "1700000000.000"),
+    private fun state(messages: List<SessionMessage>): ConversationState =
+        ConversationState(
+            id = ConversationId("C123", "1700000000.000"),
             files = mutableListOf(),
             messages = messages.toMutableList(),
         )
@@ -136,7 +136,7 @@ class SessionContextCompactorTest {
     private fun message(
         id: String,
         createdAtMs: Long,
-        role: MessageRole = MessageRole.USER,
+        role: SessionMessageRole = SessionMessageRole.USER,
         text: String,
     ): SessionMessage =
         SessionMessage(
@@ -154,7 +154,7 @@ class SessionContextCompactorTest {
         val batches = mutableListOf<List<String>>()
 
         override suspend fun summarize(
-            sessionId: SessionId,
+            conversationId: ConversationId,
             messages: List<SessionMessage>,
             files: List<SessionFileRef>,
         ): String {

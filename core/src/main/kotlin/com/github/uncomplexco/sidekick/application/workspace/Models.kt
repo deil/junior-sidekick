@@ -1,18 +1,6 @@
-package com.github.uncomplexco.sidekick.application.core
+package com.github.uncomplexco.sidekick.application.workspace
 
-import kotlinx.serialization.Serializable
 import java.nio.file.Path
-
-enum class MessageRole {
-    USER,
-    ASSISTANT,
-}
-
-@Serializable
-data class MessageAuthor(
-    val username: String,
-    val fullName: String?,
-)
 
 typealias AbsolutePath = String
 typealias VirtualPath = String
@@ -23,3 +11,14 @@ fun sessionPath(
 ): VirtualPath = sessionRoot.relativize(Path.of(path)).toString().toSessionBasedPath()
 
 fun String.toSessionBasedPath(): VirtualPath = "session:/$this"
+
+fun parseVirtualPath(
+    path: VirtualPath,
+    sessionRoot: Path,
+): String {
+    if (path.startsWith("session:/")) {
+        return sessionRoot.resolve(path.removePrefix("session:/")).toString()
+    }
+
+    return path
+}

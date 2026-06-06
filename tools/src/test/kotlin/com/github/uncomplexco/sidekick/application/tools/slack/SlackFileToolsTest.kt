@@ -1,6 +1,6 @@
 package com.github.uncomplexco.sidekick.application.tools.slack
 
-import com.github.uncomplexco.sidekick.application.session.SessionFileRef
+import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -10,8 +10,8 @@ class SlackFileToolsTest {
     @Test
     fun `supports html markdown and text files`() {
         assertTrue(isSupportedSlackTextFile(file(mimetype = "text/html")))
-        assertTrue(isSupportedSlackTextFile(file(filetype = "markdown")))
-        assertTrue(isSupportedSlackTextFile(file(name = "note.txt")))
+        assertTrue(isSupportedSlackTextFile(file(mimetype = "text/markdown", filetype = "markdown")))
+        assertTrue(isSupportedSlackTextFile(file(mimetype = "text/plain", name = "note.txt")))
 
         assertFalse(isSupportedSlackTextFile(file(mimetype = "application/pdf", filetype = "pdf", name = "note.pdf")))
     }

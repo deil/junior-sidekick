@@ -1,14 +1,14 @@
 package com.github.uncomplexco.sidekick.adapters.files
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.session.SessionCompaction
-import com.github.uncomplexco.sidekick.application.session.SessionFileRef
-import com.github.uncomplexco.sidekick.application.session.SessionId
-import com.github.uncomplexco.sidekick.application.session.SessionInFlightState
-import com.github.uncomplexco.sidekick.application.session.SessionMessage
-import com.github.uncomplexco.sidekick.application.session.SessionState
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationInFlightState
+import com.github.uncomplexco.sidekick.application.conversation.ConversationState
+import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
+import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
-import com.github.uncomplexco.sidekick.ports.SessionStateStore
+import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.KSerializer
@@ -20,9 +20,9 @@ import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
-class FileSessionStateStore(
+class FilesystemConversationStateStore(
     private val config: AgentConfig,
-) : SessionStateStore {
+) : ConversationStateStore {
     private val locks = ConcurrentHashMap<String, Mutex>()
     private val json =
         Json {
@@ -30,9 +30,9 @@ class FileSessionStateStore(
             encodeDefaults = true
         }
 
-    override fun exists(id: SessionId): Boolean = load(id).messages.isNotEmpty()
+    override fun exists(id: ConversationId): Boolean = load(id).messages.isNotEmpty()
 
-    override fun load(id: SessionId): SessionState {
+    override fun load(id: ConversationId): ConversationState {
         val folder = id.folder(config.stateDirectoryPath())
         val files = loadJsonl<SessionFileRef>(folder.resolve("files.jsonl"))
         val compactions = loadJsonl<SessionCompaction>(folder.resolve("compactions.jsonl"))
@@ -41,11 +41,11 @@ class FileSessionStateStore(
         val inflight =
             loadJson(
                 folder.resolve("inflight.json"),
-                SessionInFlightState.serializer(),
-                SessionInFlightState(),
+                ConversationInFlightState.serializer(),
+                ConversationInFlightState(),
             )
 
-        return SessionState(
+        return ConversationState(
             id = id,
             files = files.toMutableList(),
             compactions = compactions.sortedBy { it.createdAtMs }.toMutableList(),
@@ -55,19 +55,19 @@ class FileSessionStateStore(
     }
 
     override fun save(
-        id: SessionId,
-        state: SessionState,
+        id: ConversationId,
+        state: ConversationState,
     ) {
         val folder = id.folder(config.stateDirectoryPath())
         Files.createDirectories(folder)
         writeJsonl(folder.resolve("files.jsonl"), state.files)
         writeJsonl(folder.resolve("compactions.jsonl"), state.compactions)
         writeJsonl(folder.resolve("messages.jsonl"), state.messages)
-        writeJson(folder.resolve("inflight.json"), SessionInFlightState.serializer(), state.inflight)
+        writeJson(folder.resolve("inflight.json"), ConversationInFlightState.serializer(), state.inflight)
     }
 
     override suspend fun <T> withSessionLock(
-        id: SessionId,
+        id: ConversationId,
         block: suspend () -> T,
     ): T {
         val lock = locks.computeIfAbsent(id.lockKey()) { Mutex() }
@@ -122,7 +122,7 @@ class FileSessionStateStore(
     }
 }
 
-fun SessionId.folder(stateRoot: Path): Path {
+fun ConversationId.folder(stateRoot: Path): Path {
     val conversationFolder = sanitizePathSegment(channelId)
     return if (threadId.isNullOrBlank()) {
         stateRoot.resolve("slack/channels").resolve(conversationFolder).resolve("session")

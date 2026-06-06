@@ -1,38 +1,38 @@
-package com.github.uncomplexco.sidekick.application.session
+package com.github.uncomplexco.sidekick.application.conversation
 
+import com.github.uncomplexco.sidekick.application.chat.ChatMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
-import com.github.uncomplexco.sidekick.application.core.MessageRole
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.ports.ChatMessage
-import com.github.uncomplexco.sidekick.ports.SessionStateStore
+import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import org.springframework.stereotype.Component
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @Component
 class SessionManager(
-    private val store: SessionStateStore,
+    private val store: ConversationStateStore,
     private val contextCompactor: SessionContextCompactor,
 ) {
-    fun exists(sessionId: SessionId): Boolean = store.exists(sessionId)
+    fun exists(conversationId: ConversationId): Boolean = store.exists(conversationId)
 
     suspend fun recordIncomingMessage(
-        sessionId: SessionId,
+        conversationId: ConversationId,
         seedHistory: Boolean,
-        historyLoader: (SessionId) -> List<ChatMessage>,
+        historyLoader: (ConversationId) -> List<ChatMessage>,
         message: SessionMessage,
         files: List<IncomingChatFile>,
     ): TurnContext =
-        store.withSessionLock(sessionId) {
+        store.withSessionLock(conversationId) {
             val turnId = generateTurnId()
-            val state = loadOrSeedState(sessionId, seedHistory, historyLoader)
+            val state = loadOrSeedState(conversationId, seedHistory, historyLoader)
             upsertFiles(state.files, files.map { it.toSessionFileRef() })
             upsertMessage(state.messages, message)
             contextCompactor.compactIfNeeded(state)
-            store.save(sessionId, state)
+            store.save(conversationId, state)
 
             TurnContext(
-                sessionId = sessionId,
+                conversationId = conversationId,
                 turnId = turnId,
                 currentMessageId = message.id,
                 currentFiles = files,
@@ -43,27 +43,27 @@ class SessionManager(
         }
 
     suspend fun markMessageSkipped(
-        sessionId: SessionId,
+        conversationId: ConversationId,
         messageId: String,
         reason: String,
-    ) = store.withSessionLock(sessionId) {
-        val state = store.load(sessionId)
+    ) = store.withSessionLock(conversationId) {
+        val state = store.load(conversationId)
         state.messages.find { it.id == messageId }?.let {
             it.replied = false
             it.skippedReason = reason
         }
-        store.save(sessionId, state)
+        store.save(conversationId, state)
     }
 
     suspend fun recordAssistantReply(
-        sessionId: SessionId,
+        conversationId: ConversationId,
         turnId: String,
         text: String,
         replyId: String,
         createdAtMs: Long,
         originalMessageId: String,
-    ) = store.withSessionLock(sessionId) {
-        val state = store.load(sessionId)
+    ) = store.withSessionLock(conversationId) {
+        val state = store.load(conversationId)
 
         state.messages.find { it.id == originalMessageId }?.replied = true
 
@@ -71,7 +71,7 @@ class SessionManager(
             state.messages,
             SessionMessage(
                 id = replyId,
-                role = MessageRole.ASSISTANT,
+                role = SessionMessageRole.ASSISTANT,
                 text = normalizeMessageText(text),
                 fileIds = emptyList(),
                 createdAtMs = createdAtMs,
@@ -87,7 +87,7 @@ class SessionManager(
                 )
         }
 
-        store.save(sessionId, state)
+        store.save(conversationId, state)
     }
 
     private fun upsertMessage(
@@ -114,13 +114,13 @@ class SessionManager(
     }
 
     private fun loadOrSeedState(
-        sessionId: SessionId,
+        conversationId: ConversationId,
         seedHistory: Boolean,
-        historyLoader: (SessionId) -> List<ChatMessage>,
-    ): SessionState {
-        val state = store.load(sessionId)
+        historyLoader: (ConversationId) -> List<ChatMessage>,
+    ): ConversationState {
+        val state = store.load(conversationId)
         if (state.messages.isEmpty() && seedHistory) {
-            val seededHistory = historyLoader(sessionId)
+            val seededHistory = historyLoader(conversationId)
             seededHistory
                 .sortedBy { it.timestamp }
                 .map {

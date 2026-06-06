@@ -1,7 +1,7 @@
-package com.github.uncomplexco.sidekick.application.session
+package com.github.uncomplexco.sidekick.application.chat
 
-import com.github.uncomplexco.sidekick.application.core.MessageAuthor
-import com.github.uncomplexco.sidekick.application.session.triggers.ChatTrigger
+import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
+import com.github.uncomplexco.sidekick.application.conversation.triggers.ChatMessageType
 
 data class IncomingChatFile(
     val id: String,
@@ -13,11 +13,11 @@ data class IncomingChatFile(
     val localPath: String?,
 )
 
-data class IncomingChatMessage(
+data class InboundMessage(
     val id: String,
     val createdAtMs: Long,
     val sender: MessageAuthor,
     val text: String,
-    val trigger: ChatTrigger,
+    val type: ChatMessageType,
     val files: List<IncomingChatFile> = emptyList(),
 )

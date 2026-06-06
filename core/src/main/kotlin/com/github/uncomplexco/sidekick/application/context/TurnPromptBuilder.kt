@@ -1,11 +1,11 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.core.MessageRole
-import com.github.uncomplexco.sidekick.application.session.SessionCompaction
-import com.github.uncomplexco.sidekick.application.session.SessionFileRef
-import com.github.uncomplexco.sidekick.application.session.SessionId
-import com.github.uncomplexco.sidekick.application.session.SessionMessage
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
+import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.timestamp
@@ -23,7 +23,7 @@ class TurnPromptBuilder(
     ): String =
         buildString {
             if (ctx.history.isNotEmpty()) {
-                appendLine(buildThreadContext(ctx.sessionId, ctx.compactions, ctx.history, ctx.sessionFiles))
+                appendLine(buildThreadContext(ctx.conversationId, ctx.compactions, ctx.history, ctx.sessionFiles))
             }
 
             append(
@@ -41,7 +41,7 @@ class TurnPromptBuilder(
             if (message.fileIds.isNotEmpty()) {
                 appendLine(
                     renderFileAttachments(
-                        ctx.sessionId,
+                        ctx.conversationId,
                         message.fileIds.map { fileId ->
                             ctx.sessionFiles.find { file -> file.id == fileId }!!
                         },
@@ -53,7 +53,7 @@ class TurnPromptBuilder(
         }
 
     fun buildThreadContext(
-        sessionId: SessionId,
+        conversationId: ConversationId,
         compactions: List<SessionCompaction>,
         history: List<SessionMessage>,
         sessionFiles: List<SessionFileRef>,
@@ -83,7 +83,7 @@ class TurnPromptBuilder(
                     renderSessionMessage(
                         idx,
                         message,
-                        sessionId,
+                        conversationId,
                         message.fileIds.mapNotNull { fileId ->
                             sessionFiles.find { file -> file.id == fileId }
                         },
@@ -97,7 +97,7 @@ class TurnPromptBuilder(
     private fun renderSessionMessage(
         idx: Int,
         message: SessionMessage,
-        sessionId: SessionId,
+        conversationId: ConversationId,
         attachedFiles: List<SessionFileRef>,
     ): String {
         val lines = mutableListOf<String>()
@@ -123,11 +123,11 @@ class TurnPromptBuilder(
         val markerSuffix = if (markers.isEmpty()) "" else " (${markers.joinToString("; ")})"
         val displayName =
             message.author?.username
-                ?: if (message.role == MessageRole.ASSISTANT) config.name else message.role.name.lowercase()
+                ?: if (message.role == SessionMessageRole.ASSISTANT) config.name else message.role.name.lowercase()
         lines += "[${message.role.name.lowercase()}] $displayName: ${message.text}$markerSuffix"
 
         if (attachedFiles.isNotEmpty()) {
-            lines += renderFileAttachments(sessionId, attachedFiles, config.stateDirectoryPath(), MAX_ATTACHMENT_BASE64_CHARS)
+            lines += renderFileAttachments(conversationId, attachedFiles, config.stateDirectoryPath(), MAX_ATTACHMENT_BASE64_CHARS)
         }
 
         lines += "</message>"

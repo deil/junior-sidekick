@@ -1,6 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
-import com.github.uncomplexco.sidekick.application.core.MessageAuthor
+import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.slack.api.bolt.context.builtin.EventContext
 import java.util.concurrent.ConcurrentHashMap
 

@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools.integrations
 
 import ai.koog.agents.core.tools.ToolException
-import com.github.uncomplexco.sidekick.application.session.SessionId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -52,7 +52,7 @@ class InternalFileExchangeToolsTest {
                 ): FilePublisher.Result = FilePublisher.Result.Ok("https://files.internal/$title")
             },
             TurnContext(
-                sessionId = SessionId("C123", "1700000000.000"),
+                conversationId = ConversationId("C123", "1700000000.000"),
                 turnId = "turn",
                 currentMessageId = "m1",
                 currentFiles = emptyList(),

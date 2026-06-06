@@ -1,8 +1,8 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.adapters.files.folder
-import com.github.uncomplexco.sidekick.application.session.SessionFileRef
-import com.github.uncomplexco.sidekick.application.session.SessionId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
 import java.nio.file.Files
@@ -10,7 +10,7 @@ import java.nio.file.Path
 import java.util.Base64
 
 internal fun renderFileAttachments(
-    sessionId: SessionId,
+    conversationId: ConversationId,
     files: List<SessionFileRef>,
     basePath: Path,
     maxChars: Int,
@@ -18,7 +18,7 @@ internal fun renderFileAttachments(
     xmlTag(
         "attachments",
         files.joinToString("\n") {
-            val data = fileDataBase64(sessionId, it, basePath, maxChars)
+            val data = fileDataBase64(conversationId, it, basePath, maxChars)
             buildString {
                 appendLine("<attachment id=\"${escapeXml(it.id)}\">")
                 appendLine("filename: ${escapeXml(it.name)}")
@@ -34,12 +34,12 @@ internal fun renderFileAttachments(
     )
 
 private fun fileDataBase64(
-    sessionId: SessionId,
+    conversationId: ConversationId,
     file: SessionFileRef,
     basePath: Path,
     maxChars: Int,
 ): FileDataBase64 {
-    val sessionFolder = sessionId.folder(basePath).normalize()
+    val sessionFolder = conversationId.folder(basePath).normalize()
     val filePath = sessionFolder.resolve(file.localPath).normalize()
     if (!filePath.startsWith(sessionFolder) || !Files.exists(filePath)) {
         return FileDataBase64("", truncated = false)

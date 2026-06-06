@@ -1,15 +1,14 @@
 package com.github.uncomplexco.sidekick.application.tools.slack
 
-import ai.koog.agents.core.tools.ToolException
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
 import com.github.uncomplexco.sidekick.adapters.files.folder
-import com.github.uncomplexco.sidekick.application.session.SessionFileRef
+import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFiles
-import com.github.uncomplexco.sidekick.application.tools.files.parseVirtualPath
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.application.workspace.parseVirtualPath
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 import org.springframework.util.MimeType
@@ -83,7 +82,7 @@ class SlackFileTools(
         val file = ctx.sessionFiles.find { it.id == fileId || it.displayName == fileId }!!
         validate(isSupportedSlackTextFile(file)) { "Only text Slack files are supported." }
 
-        val sessionRoot = ctx.sessionId.folder(dataDirectory)
+        val sessionRoot = ctx.conversationId.folder(dataDirectory)
         val realPath = parseVirtualPath(file.localPath, sessionRoot)
         return files.read(realPath, offset, limit, sessionRoot.toString())
     }

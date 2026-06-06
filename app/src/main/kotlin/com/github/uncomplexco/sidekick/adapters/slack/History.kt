@@ -1,15 +1,15 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
-import com.github.uncomplexco.sidekick.application.core.MessageRole
-import com.github.uncomplexco.sidekick.application.session.SessionId
-import com.github.uncomplexco.sidekick.ports.ChatMessage
+import com.github.uncomplexco.sidekick.application.chat.ChatMessage
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.slack.api.bolt.context.builtin.EventContext
 
 fun loadThreadHistory(
     ctx: EventContext,
     threadTs: String,
     currentTs: String?,
-    sessionId: SessionId,
+    conversationId: ConversationId,
     fileIngestor: SlackFileIngestor,
 ): List<ChatMessage> {
     val response =
@@ -28,14 +28,14 @@ fun loadThreadHistory(
             val text = it.text.trim()
             if (currentTs != null && it.ts == currentTs) return@mapNotNull null
 
-            val files = fileIngestor.ingest(sessionId, incomingChatFiles(it.files, it.attachments))
+            val files = fileIngestor.ingest(conversationId, incomingChatFiles(it.files, it.attachments))
             if (text.isBlank() && files.isEmpty()) return@mapNotNull null
 
             val botMessage = it.botId != null && it.botId == ctx.botUserId
 
             return@mapNotNull ChatMessage(
                 id = it.ts,
-                role = if (botMessage) MessageRole.ASSISTANT else MessageRole.USER,
+                role = if (botMessage) SessionMessageRole.ASSISTANT else SessionMessageRole.USER,
                 author = if (!botMessage) toMessageAuthor(it.user, ctx) else null,
                 text = text,
                 timestamp = slackTsToMillis(it.ts),

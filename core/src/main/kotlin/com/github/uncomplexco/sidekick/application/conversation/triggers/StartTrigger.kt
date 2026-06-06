@@ -1,11 +1,11 @@
-package com.github.uncomplexco.sidekick.application.session.triggers
+package com.github.uncomplexco.sidekick.application.conversation.triggers
 
-import com.github.uncomplexco.sidekick.application.session.SessionId
-import com.github.uncomplexco.sidekick.application.session.SessionManager
-import com.github.uncomplexco.sidekick.ports.ChatConversationId
+import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import org.springframework.stereotype.Component
 
-enum class ChatTrigger {
+enum class ChatMessageType {
     APP_MENTION,
     PASSIVE_MESSAGE,
     ASSISTANT_MESSAGE,
@@ -15,7 +15,7 @@ sealed interface TriggerDecision {
     data object Ignore : TriggerDecision
 
     data class Handle(
-        val sessionId: SessionId,
+        val conversationId: ConversationId,
         val seedHistory: Boolean,
         val explicitMention: Boolean,
     ) : TriggerDecision
@@ -27,28 +27,28 @@ class ConversationTriggerPolicy(
 ) {
     fun decide(
         messageId: String,
-        trigger: ChatTrigger,
+        trigger: ChatMessageType,
         conversationId: ChatConversationId,
     ): TriggerDecision =
         when (trigger) {
-            ChatTrigger.APP_MENTION -> {
+            ChatMessageType.APP_MENTION -> {
                 TriggerDecision.Handle(
-                    sessionId = conversationId.sessionIdForInvitedMessage(messageId),
+                    conversationId = conversationId.sessionIdForInvitedMessage(messageId),
                     seedHistory = conversationId.isThread,
                     explicitMention = true,
                 )
             }
 
-            ChatTrigger.ASSISTANT_MESSAGE,
+            ChatMessageType.ASSISTANT_MESSAGE,
             -> {
                 TriggerDecision.Handle(
-                    sessionId = conversationId.toSessionId(),
+                    conversationId = conversationId.toSessionId(),
                     seedHistory = true,
                     explicitMention = false,
                 )
             }
 
-            ChatTrigger.PASSIVE_MESSAGE -> {
+            ChatMessageType.PASSIVE_MESSAGE -> {
                 if (!conversationId.isThread) {
                     return TriggerDecision.Ignore
                 }
@@ -59,7 +59,7 @@ class ConversationTriggerPolicy(
                 }
 
                 TriggerDecision.Handle(
-                    sessionId = sessionId,
+                    conversationId = sessionId,
                     seedHistory = false,
                     explicitMention = false,
                 )
@@ -67,11 +67,11 @@ class ConversationTriggerPolicy(
         }
 }
 
-private fun ChatConversationId.sessionIdForInvitedMessage(messageId: String): SessionId =
+private fun ChatConversationId.sessionIdForInvitedMessage(messageId: String): ConversationId =
     if (isThread) {
         toSessionId()
     } else {
-        SessionId(channelId, messageId)
+        ConversationId(channelId, messageId)
     }
 
-internal fun ChatConversationId.toSessionId() = SessionId(channelId, threadId!!)
+internal fun ChatConversationId.toSessionId() = ConversationId(channelId, threadId!!)

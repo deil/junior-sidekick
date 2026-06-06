@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application.session.triggers
+package com.github.uncomplexco.sidekick.application.conversation.triggers
 
 import org.springframework.stereotype.Service
 

@@ -1,9 +1,10 @@
-package com.github.uncomplexco.sidekick.application.session.triggers
+package com.github.uncomplexco.sidekick.application.conversation.triggers
 
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.model.executeStructured
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import kotlinx.serialization.Serializable
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service
 
 @Service
 class KoogReplyDecisionClassifier(
+    private val agentConfig: AgentConfig,
     private val config: KoogConfig,
 ) : ReplyDecisionClassifier {
     override suspend fun classify(input: ReplyDecisionInput): ReplyDecision {
@@ -30,7 +32,7 @@ class KoogReplyDecisionClassifier(
                 id = "sidekick-reply-decision",
                 params = config.openRouterParams(),
             ) {
-                system(buildRouterSystemPrompt())
+                system(buildRouterSystemPrompt(agentConfig.name))
                 user(buildRouterPrompt(input.text, historyText))
             }
 
@@ -64,12 +66,12 @@ class KoogReplyDecisionClassifier(
         }
     }
 
-    private fun buildRouterSystemPrompt(): String =
+    private fun buildRouterSystemPrompt(agentName: String): String =
         listOf(
-            "You are a message router for a Slack assistant named HeyTech in a subscribed Slack thread.",
-            "Decide whether HeyTech should reply to the latest message.",
+            "You are a message router for a Slack assistant named $agentName in a subscribed Slack thread.",
+            "Decide whether $agentName should reply to the latest message.",
             "Subscribed threads are passive by default.",
-            "Reply true only when the latest message is clearly aimed at HeyTech.",
+            "Reply true only when the latest message is clearly aimed at $agentName.",
             "Use who currently has the conversation floor, not just topic overlap.",
             "Acknowledgments, status chatter, and human-to-human coordination should be shouldReply=false.",
             "When uncertain, prefer shouldReply=false with low confidence.",

@@ -1,15 +1,14 @@
-package com.github.uncomplexco.sidekick.application.session
+package com.github.uncomplexco.sidekick.application.conversation
 
-import com.github.uncomplexco.sidekick.adapters.files.FileSessionStateStore
+import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
+import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
-import com.github.uncomplexco.sidekick.application.core.MessageAuthor
-import com.github.uncomplexco.sidekick.application.core.MessageRole
-import com.github.uncomplexco.sidekick.application.session.triggers.ChatTrigger
-import com.github.uncomplexco.sidekick.application.session.triggers.ConversationTriggerPolicy
-import com.github.uncomplexco.sidekick.application.session.triggers.TriggerDecision
-import com.github.uncomplexco.sidekick.ports.ChatConversationId
+import com.github.uncomplexco.sidekick.application.conversation.triggers.ChatMessageType
+import com.github.uncomplexco.sidekick.application.conversation.triggers.ConversationTriggerPolicy
+import com.github.uncomplexco.sidekick.application.conversation.triggers.TriggerDecision
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -26,15 +25,15 @@ class ConversationTriggerPolicyTest {
     fun `app mention in channel root creates session from message id`() {
         // Arrange
         val policy = policy()
-        val message = message(ChatTrigger.APP_MENTION, id = "1700000000.001")
+        val message = message(ChatMessageType.APP_MENTION, id = "1700000000.001")
         val conversationId = ChatConversationId(channelId = "C123")
 
         // Act
-        val decision = policy.decide(message.id, message.trigger, conversationId)
+        val decision = policy.decide(message.id, message.type, conversationId)
 
         // Assert
         val handle = assertIs<TriggerDecision.Handle>(decision)
-        assertEquals(SessionId("C123", "1700000000.001"), handle.sessionId)
+        assertEquals(ConversationId("C123", "1700000000.001"), handle.conversationId)
         assertEquals(false, handle.seedHistory)
         assertEquals(true, handle.explicitMention)
     }
@@ -43,15 +42,15 @@ class ConversationTriggerPolicyTest {
     fun `app mention in thread continues thread session and seeds history`() {
         // Arrange
         val policy = policy()
-        val message = message(ChatTrigger.APP_MENTION)
+        val message = message(ChatMessageType.APP_MENTION)
         val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
 
         // Act
-        val decision = policy.decide(message.id, message.trigger, conversationId)
+        val decision = policy.decide(message.id, message.type, conversationId)
 
         // Assert
         val handle = assertIs<TriggerDecision.Handle>(decision)
-        assertEquals(SessionId("C123", "1700000000.000"), handle.sessionId)
+        assertEquals(ConversationId("C123", "1700000000.000"), handle.conversationId)
         assertEquals(true, handle.seedHistory)
         assertEquals(true, handle.explicitMention)
     }
@@ -60,11 +59,11 @@ class ConversationTriggerPolicyTest {
     fun `passive channel root message is ignored`() {
         // Arrange
         val policy = policy()
-        val message = message(ChatTrigger.PASSIVE_MESSAGE)
+        val message = message(ChatMessageType.PASSIVE_MESSAGE)
         val conversationId = ChatConversationId(channelId = "C123")
 
         // Act
-        val decision = policy.decide(message.id, message.trigger, conversationId)
+        val decision = policy.decide(message.id, message.type, conversationId)
 
         // Assert
         assertSame(TriggerDecision.Ignore, decision)
@@ -74,11 +73,11 @@ class ConversationTriggerPolicyTest {
     fun `passive thread message without existing session is ignored`() {
         // Arrange
         val policy = policy()
-        val message = message(ChatTrigger.PASSIVE_MESSAGE)
+        val message = message(ChatMessageType.PASSIVE_MESSAGE)
         val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
 
         // Act
-        val decision = policy.decide(message.id, message.trigger, conversationId)
+        val decision = policy.decide(message.id, message.type, conversationId)
 
         // Assert
         assertSame(TriggerDecision.Ignore, decision)
@@ -89,15 +88,15 @@ class ConversationTriggerPolicyTest {
         runBlocking {
             // Arrange
             val agentSessions = agentSessions()
-            val sessionId = SessionId("C123", "1700000000.000")
+            val sessionId = ConversationId("C123", "1700000000.000")
             agentSessions.recordIncomingMessage(
-                sessionId = sessionId,
+                conversationId = sessionId,
                 seedHistory = false,
                 historyLoader = { emptyList() },
                 message =
                     SessionMessage(
                         id = "seed",
-                        role = MessageRole.USER,
+                        role = SessionMessageRole.USER,
                         author = author(),
                         text = "existing",
                         fileIds = emptyList(),
@@ -106,15 +105,15 @@ class ConversationTriggerPolicyTest {
                 files = emptyList(),
             )
             val policy = ConversationTriggerPolicy(agentSessions)
-            val message = message(ChatTrigger.PASSIVE_MESSAGE)
+            val message = message(ChatMessageType.PASSIVE_MESSAGE)
             val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
 
             // Act
-            val decision = policy.decide(message.id, message.trigger, conversationId)
+            val decision = policy.decide(message.id, message.type, conversationId)
 
             // Assert
             val handle = assertIs<TriggerDecision.Handle>(decision)
-            assertEquals(sessionId, handle.sessionId)
+            assertEquals(sessionId, handle.conversationId)
             assertEquals(false, handle.seedHistory)
             assertEquals(false, handle.explicitMention)
         }
@@ -123,15 +122,15 @@ class ConversationTriggerPolicyTest {
     fun `assistant message continues thread session and seeds history`() {
         // Arrange
         val policy = policy()
-        val message = message(ChatTrigger.ASSISTANT_MESSAGE)
+        val message = message(ChatMessageType.ASSISTANT_MESSAGE)
         val conversationId = ChatConversationId(channelId = "D123", threadId = "1700000000.000")
 
         // Act
-        val decision = policy.decide(message.id, message.trigger, conversationId)
+        val decision = policy.decide(message.id, message.type, conversationId)
 
         // Assert
         val handle = assertIs<TriggerDecision.Handle>(decision)
-        assertEquals(SessionId("D123", "1700000000.000"), handle.sessionId)
+        assertEquals(ConversationId("D123", "1700000000.000"), handle.conversationId)
         assertEquals(true, handle.seedHistory)
         assertEquals(false, handle.explicitMention)
     }
@@ -141,7 +140,7 @@ class ConversationTriggerPolicyTest {
     private fun agentSessions(): SessionManager {
         val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
         return SessionManager(
-            FileSessionStateStore(config),
+            FilesystemConversationStateStore(config),
             SessionContextCompactor(
                 TurnPromptBuilder(config),
                 summarizer = { _, messages, _ -> "summary for ${messages.size} messages" },
@@ -150,15 +149,15 @@ class ConversationTriggerPolicyTest {
     }
 
     private fun message(
-        trigger: ChatTrigger,
+        trigger: ChatMessageType,
         id: String = "1700000000.002",
-    ): IncomingChatMessage =
-        IncomingChatMessage(
+    ): InboundMessage =
+        InboundMessage(
             id = id,
             createdAtMs = 2,
             sender = author(),
             text = "hello",
-            trigger = trigger,
+            type = trigger,
         )
 
     private fun author(): MessageAuthor = MessageAuthor(username = "U123", fullName = "User")

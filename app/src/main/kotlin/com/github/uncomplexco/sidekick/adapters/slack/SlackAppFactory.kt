@@ -1,16 +1,13 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
+import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.conversation.triggers.ChatMessageType
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
-import com.github.uncomplexco.sidekick.application.session.IncomingChatMessage
-import com.github.uncomplexco.sidekick.application.session.triggers.ChatTrigger
-import com.github.uncomplexco.sidekick.ports.ChatConversationId
-import com.github.uncomplexco.sidekick.ports.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
-import com.slack.api.app_backend.events.payload.EventsApiPayload
 import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
-import com.slack.api.bolt.context.builtin.EventContext
-import com.slack.api.bolt.handler.BoltEventHandler
 import com.slack.api.bolt.middleware.builtin.Assistant
 import com.slack.api.model.event.AppMentionEvent
 import com.slack.api.model.event.MessageChangedEvent
@@ -52,12 +49,12 @@ class SlackAppFactory {
                     val responseThreadTs = event.threadTs ?: event.ts
                     handleIncomingChatMessage.handle(
                         conversationId,
-                        IncomingChatMessage(
+                        InboundMessage(
                             id = event.ts,
                             createdAtMs = slackTsToMillis(event.ts),
                             sender = toMessageAuthor(event.user, ctx),
                             text = event.text!!,
-                            trigger = ChatTrigger.APP_MENTION,
+                            type = ChatMessageType.APP_MENTION,
                             files = incomingChatFiles(event.files, event.attachments),
                         ),
                         ChatPlatformAdapter(
@@ -94,12 +91,12 @@ class SlackAppFactory {
                         val responseThreadTs = event.threadTs ?: event.ts
                         handleIncomingChatMessage.handle(
                             event.toConversationId(),
-                            IncomingChatMessage(
+                            InboundMessage(
                                 id = event.ts,
                                 createdAtMs = slackTsToMillis(event.ts),
                                 sender = toMessageAuthor(event.user, ctx),
                                 text = event.text,
-                                trigger = ChatTrigger.PASSIVE_MESSAGE,
+                                type = ChatMessageType.PASSIVE_MESSAGE,
                                 files = incomingChatFiles(event.files, event.attachments),
                             ),
                             ChatPlatformAdapter(
@@ -133,20 +130,20 @@ class SlackAppFactory {
                         val responseThreadTs = event.threadTs ?: event.ts
                         handleIncomingChatMessage.handle(
                             event.toConversationId(),
-                            IncomingChatMessage(
+                            InboundMessage(
                                 id = event.ts,
                                 createdAtMs = slackTsToMillis(event.ts),
                                 sender = toMessageAuthor(event.user, ctx),
                                 text = event.text.orEmpty(),
-                                trigger =
+                                type =
                                     if (containsMention(
                                             event.text,
                                             ctx.botUserId,
                                         )
                                     ) {
-                                        ChatTrigger.APP_MENTION
+                                        ChatMessageType.APP_MENTION
                                     } else {
-                                        ChatTrigger.PASSIVE_MESSAGE
+                                        ChatMessageType.PASSIVE_MESSAGE
                                     },
                                 files = files,
                             ),
@@ -192,12 +189,12 @@ internal fun buildSlackAssistant(
         runBlocking {
             handleIncomingChatMessage.handle(
                 conversationId,
-                IncomingChatMessage(
+                InboundMessage(
                     id = req.event.ts,
                     createdAtMs = slackTsToMillis(req.event.ts),
                     sender = toMessageAuthor(req.event.user, ctx),
                     text = text,
-                    trigger = ChatTrigger.ASSISTANT_MESSAGE,
+                    type = ChatMessageType.ASSISTANT_MESSAGE,
                     files = emptyList(),
                 ),
                 ChatPlatformAdapter(
@@ -226,12 +223,12 @@ internal fun buildSlackAssistant(
         runBlocking {
             handleIncomingChatMessage.handle(
                 conversationId,
-                IncomingChatMessage(
+                InboundMessage(
                     id = req.event.ts,
                     createdAtMs = slackTsToMillis(req.event.ts),
                     sender = toMessageAuthor(req.event.user, ctx),
                     text = text.orEmpty(),
-                    trigger = ChatTrigger.ASSISTANT_MESSAGE,
+                    type = ChatMessageType.ASSISTANT_MESSAGE,
                     files = incomingChatFiles(req.event.files, req.event.attachments),
                 ),
                 ChatPlatformAdapter(

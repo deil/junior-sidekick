@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.adapters.files.folder
-import com.github.uncomplexco.sidekick.application.session.SessionId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.slack.api.model.Attachment
 import com.slack.api.model.File
 import com.sun.net.httpserver.HttpServer
@@ -61,7 +61,7 @@ class SlackFileMappingTest {
         server.start()
 
         try {
-            val sessionId = SessionId("C123", "1700000000.000")
+            val conversationId = ConversationId("C123", "1700000000.000")
             val ingestor = SlackFileIngestor("token", dir)
             val file =
                 incomingChatFiles(
@@ -69,17 +69,16 @@ class SlackFileMappingTest {
                     attachments = emptyList(),
                 ).single()
 
-            val ingested = ingestor.ingest(sessionId, listOf(file)).single()
+            val ingested = ingestor.ingest(conversationId, listOf(file)).single()
 
             assertEquals("session:/attachments/F1-F1.md", ingested.localPath)
-            assertTrue(Files.exists(sessionId.folder(dir).resolve("attachments/F1-F1.md")))
+            assertTrue(Files.exists(conversationId.folder(dir).resolve("attachments/F1-F1.md")))
         } finally {
             server.stop(0)
         }
     }
 
-    private fun slackFile(id: String): File =
-        slackFile(id, "https://files.slack.com/$id")
+    private fun slackFile(id: String): File = slackFile(id, "https://files.slack.com/$id")
 
     private fun slackFile(
         id: String,

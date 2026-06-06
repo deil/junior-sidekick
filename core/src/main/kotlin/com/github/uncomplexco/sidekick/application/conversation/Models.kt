@@ -1,12 +1,9 @@
-package com.github.uncomplexco.sidekick.application.session
+package com.github.uncomplexco.sidekick.application.conversation
 
-import com.github.uncomplexco.sidekick.application.core.MessageAuthor
-import com.github.uncomplexco.sidekick.application.core.MessageRole
-import com.github.uncomplexco.sidekick.application.core.VirtualPath
-import com.github.uncomplexco.sidekick.application.core.toSessionBasedPath
+import com.github.uncomplexco.sidekick.application.workspace.VirtualPath
 import kotlinx.serialization.Serializable
 
-data class SessionId(
+data class ConversationId(
     val channelId: String,
     val threadId: String,
 ) {
@@ -18,12 +15,12 @@ data class SessionId(
         }
 }
 
-data class SessionState(
-    val id: SessionId,
+data class ConversationState(
+    val id: ConversationId,
     var files: MutableList<SessionFileRef>,
     var compactions: MutableList<SessionCompaction> = mutableListOf(),
     var messages: MutableList<SessionMessage> = mutableListOf(),
-    var inflight: SessionInFlightState = SessionInFlightState(),
+    var inflight: ConversationInFlightState = ConversationInFlightState(),
 )
 
 @Serializable
@@ -40,7 +37,7 @@ data class SessionFileRef(
 @Serializable
 class SessionMessage(
     val id: String,
-    val role: MessageRole,
+    val role: SessionMessageRole,
     val author: MessageAuthor? = null,
     val text: String,
     val fileIds: List<String> = mutableListOf(),
@@ -60,7 +57,7 @@ data class SessionCompaction(
 )
 
 @Serializable
-data class SessionInFlightState(
+data class ConversationInFlightState(
     val activeTurnId: String? = null,
     val lastCompletedAtMs: Long? = null,
 )

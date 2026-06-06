@@ -1,8 +1,8 @@
 package com.github.uncomplexco.sidekick.application.context
 
-import com.github.uncomplexco.sidekick.application.core.MessageRole
-import com.github.uncomplexco.sidekick.application.session.SessionCompaction
-import com.github.uncomplexco.sidekick.application.session.SessionState
+import com.github.uncomplexco.sidekick.application.conversation.ConversationState
+import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import org.springframework.stereotype.Component
 import kotlin.math.ceil
 import kotlin.time.Clock
@@ -14,7 +14,7 @@ class SessionContextCompactor(
     private val turnPromptBuilder: TurnPromptBuilder,
     private val summarizer: SessionContextSummarizer,
 ) {
-    suspend fun compactIfNeeded(state: SessionState) {
+    suspend fun compactIfNeeded(state: ConversationState) {
         var estimatedTokens = estimateTokenCount(state)
         if (estimatedTokens <= COMPACTION_TRIGGER_TOKENS) {
             return
@@ -33,14 +33,14 @@ class SessionContextCompactor(
                     createdAtMs = Clock.System.now().toEpochMilliseconds(),
                     summary = summary,
                     coveredMessageIds = batch.map { it.id },
-                    assistantMessageCount = batch.count { it.role == MessageRole.ASSISTANT },
+                    assistantMessageCount = batch.count { it.role == SessionMessageRole.ASSISTANT },
                 )
             state.messages = state.messages.drop(batchSize).toMutableList()
             estimatedTokens = estimateTokenCount(state)
         }
     }
 
-    private fun estimateTokenCount(state: SessionState): Int =
+    private fun estimateTokenCount(state: ConversationState): Int =
         ceil(
             (
                 turnPromptBuilder

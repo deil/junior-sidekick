@@ -23,7 +23,7 @@ class SlackReactionTools(
         val normalizedEmoji = normalizeSlackReactionEmoji(emoji)
         val response =
             slackClient.reactionsAdd { req ->
-                req.channel(ctx.sessionId.channelId)
+                req.channel(ctx.conversationId.channelId)
                 req.timestamp(ctx.currentMessageId)
                 req.name(normalizedEmoji)
             }
@@ -33,7 +33,7 @@ class SlackReactionTools(
 
         return SlackReactionAddedResult(
             ok = true,
-            channelId = ctx.sessionId.channelId,
+            channelId = ctx.conversationId.channelId,
             messageTs = ctx.currentMessageId,
             emoji = normalizedEmoji,
         )

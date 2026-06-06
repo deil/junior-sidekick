@@ -1,13 +1,13 @@
 package com.github.uncomplexco.sidekick.application.turn
 
-import com.github.uncomplexco.sidekick.application.session.IncomingChatFile
-import com.github.uncomplexco.sidekick.application.session.SessionCompaction
-import com.github.uncomplexco.sidekick.application.session.SessionFileRef
-import com.github.uncomplexco.sidekick.application.session.SessionId
-import com.github.uncomplexco.sidekick.application.session.SessionMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
+import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 
 data class TurnContext(
-    val sessionId: SessionId,
+    val conversationId: ConversationId,
     val turnId: String,
     val currentMessageId: String,
     val currentFiles: List<IncomingChatFile>,
