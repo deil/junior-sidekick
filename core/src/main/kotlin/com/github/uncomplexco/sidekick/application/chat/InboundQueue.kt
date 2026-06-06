@@ -14,7 +14,7 @@ class InboundMessagesQueue(
     private val scope: CoroutineScope,
     private val turnExecutor: TurnExecutor,
 ) : DisposableBean {
-    private val queue = HashMap<ChatConversationId, MutableList<InboundMessage>>()
+    private val queue = HashMap<BatchKey, MutableList<InboundMessage>>()
 
     suspend fun enqueue(
         conversationId: ChatConversationId,
@@ -23,12 +23,14 @@ class InboundMessagesQueue(
     ) {
         log.debug("{} @{}: {}", conversationId.logLabel(), message.sender.username, message.text)
 
+        val key = batchKeyFor(conversationId, message)
+
         synchronized(queue) {
-            if (queue.containsKey(conversationId)) {
-                queue[conversationId]!!.add(message)
+            if (queue.containsKey(key)) {
+                queue[key]!!.add(message)
             } else {
-                queue[conversationId] = mutableListOf(message)
-                startQueueConsumer(conversationId, chat)
+                queue[key] = mutableListOf(message)
+                startQueueConsumer(key, chat)
             }
         }
     }
@@ -38,29 +40,30 @@ class InboundMessagesQueue(
     }
 
     private fun startQueueConsumer(
-        conversationId: ChatConversationId,
+        key: BatchKey,
         chat: ChatPlatformAdapter,
     ) = scope.launch(Dispatchers.Default) {
-        log.info("${conversationId.logLabel()} startMessagesConsumer()")
+        log.info("${key.conversationId.logLabel()} startMessagesConsumer()")
+
         while (true) {
-            val messages = drain(conversationId) ?: break
+            val messages = drain(key) ?: break
 
             try {
-                turnExecutor.run(conversationId, messages, chat)
+                turnExecutor.run(key.conversationId, messages, chat)
             } catch (e: Exception) {
-                log.error("${conversationId.logLabel()}: error processing messages: ${e.message}", e)
+                log.error("${key.conversationId.logLabel()}: error processing messages: ${e.message}", e)
             }
         }
 
-        log.info("${conversationId.logLabel()}: startMessagesConsumer() exited")
+        log.info("${key.conversationId.logLabel()}: startMessagesConsumer() exited")
     }
 
-    private fun drain(conversationId: ChatConversationId) =
+    private fun drain(key: BatchKey) =
         synchronized(queue) {
-            val messages = queue[conversationId] ?: return@synchronized null
+            val messages = queue[key] ?: return@synchronized null
             if (messages.isEmpty()) {
-                log.info("${conversationId.logLabel()}: messages queue empty")
-                queue.remove(conversationId)
+                log.info("${key.conversationId.logLabel()}: messages queue empty")
+                queue.remove(key)
                 return@synchronized null
             }
 
@@ -73,4 +76,31 @@ class InboundMessagesQueue(
     companion object {
         private val log = LoggerFactory.getLogger("sidekick.session-messages-queue")
     }
+}
+
+internal fun batchKeyFor(
+    chatConversationId: ChatConversationId,
+    message: InboundMessage,
+): BatchKey =
+    if (chatConversationId.isThread) {
+        BatchKey.Thread(chatConversationId)
+    } else {
+        BatchKey.Single(chatConversationId, message.id)
+    }
+
+internal sealed interface BatchKey {
+    val conversationId: ChatConversationId
+    val threadId: String
+
+    data class Thread(
+        override val conversationId: ChatConversationId,
+    ) : BatchKey {
+        override val threadId: String
+            get() = conversationId.threadId!!
+    }
+
+    data class Single(
+        override val conversationId: ChatConversationId,
+        override val threadId: String,
+    ) : BatchKey
 }

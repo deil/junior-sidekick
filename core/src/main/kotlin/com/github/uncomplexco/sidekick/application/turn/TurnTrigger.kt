@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.turn
 
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
+import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import org.springframework.stereotype.Component
@@ -20,6 +21,36 @@ sealed interface TurnTriggerDecision {
 class InboundMessageFilter(
     private val conversations: SessionManager,
 ) {
+    fun shouldTriggerTurn(
+        chatConversationId: ChatConversationId,
+        messages: List<InboundMessage>,
+    ): TurnTriggerDecision {
+        val handles =
+            messages
+                .map { message ->
+                    shouldTriggerTurn(
+                        chatConversationId = chatConversationId,
+                        trigger = message.type,
+                        messageId = message.id,
+                    )
+                }.filterIsInstance<TurnTriggerDecision.ShouldHandle>()
+
+        if (handles.isEmpty()) {
+            return TurnTriggerDecision.Ignore
+        }
+
+        val conversationIds = handles.map { it.conversationId }.distinct()
+        require(conversationIds.size == 1) {
+            "Inbound batch resolved to multiple conversations: $conversationIds"
+        }
+
+        return TurnTriggerDecision.ShouldHandle(
+            conversationId = handles.first().conversationId,
+            seedHistory = handles.any { it.seedHistory },
+            explicitMention = handles.any { it.explicitMention },
+        )
+    }
+
     fun shouldTriggerTurn(
         chatConversationId: ChatConversationId,
         trigger: ChatMessageType,

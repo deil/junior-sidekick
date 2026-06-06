@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component
 @Component
 class TurnExecutor(
     private val agentConfig: AgentConfig,
-    private val triggerPolicy: InboundMessageFilter,
+    private val turnTrigger: InboundMessageFilter,
     private val sessionManager: SessionManager,
     private val replyTrigger: ReplyDecisionService,
     private val turnPromptBuilder: TurnPromptBuilder,
@@ -26,26 +26,23 @@ class TurnExecutor(
         messages: List<InboundMessage>,
         chat: ChatPlatformAdapter,
     ) {
-        messages.forEach { message ->
-            val decision =
-                triggerPolicy.shouldTriggerTurn(
-                    messageId = message.id,
-                    trigger = message.type,
-                    chatConversationId = conversationId,
-                )
-            when (decision) {
+        val decision =
+            when (val triggerDecision = turnTrigger.shouldTriggerTurn(conversationId, messages)) {
                 TurnTriggerDecision.Ignore -> {
-                    log.debug("{} ignored trigger={}", conversationId.logLabel(), message.type)
-                    return@forEach
+                    log.debug("{} ignored batch size={}", conversationId.logLabel(), messages.size)
+                    return
                 }
 
                 is TurnTriggerDecision.ShouldHandle -> {
-                    try {
-                        handle(message.copy(files = message.files.take(MAX_MESSAGE_FILES)), decision, chat)
-                    } finally {
-                        chat.activity.clear()
-                    }
+                    triggerDecision
                 }
+            }
+
+        messages.forEach { message ->
+            try {
+                handle(message.copy(files = message.files.take(MAX_MESSAGE_FILES)), decision, chat)
+            } finally {
+                chat.activity.clear()
             }
         }
     }

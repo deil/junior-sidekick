@@ -16,6 +16,7 @@ import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertSame
+import kotlin.test.assertFailsWith
 
 class InboundMessageFilterTest {
     @TempDir
@@ -133,6 +134,140 @@ class InboundMessageFilterTest {
         assertEquals(ConversationId("D123", "1700000000.000"), handle.conversationId)
         assertEquals(true, handle.seedHistory)
         assertEquals(false, handle.explicitMention)
+    }
+
+    @Test
+    fun `empty batch is ignored`() {
+        // Arrange
+        val policy = policy()
+        val conversationId = ChatConversationId(channelId = "C123")
+        val messages = emptyList<InboundMessage>()
+
+        // Act
+        val decision = policy.shouldTriggerTurn(conversationId, messages)
+
+        // Assert
+        assertSame(TurnTriggerDecision.Ignore, decision)
+    }
+
+    @Test
+    fun `batch with only ignored messages is ignored`() {
+        // Arrange
+        val policy = policy()
+        val conversationId = ChatConversationId(channelId = "C123")
+        val messages =
+            listOf(
+                message(ChatMessageType.PASSIVE_MESSAGE, id = "1700000000.001"),
+                message(ChatMessageType.PASSIVE_MESSAGE, id = "1700000000.002"),
+            )
+
+        // Act
+        val decision =
+            policy.shouldTriggerTurn(conversationId, messages)
+
+        // Assert
+        assertSame(TurnTriggerDecision.Ignore, decision)
+    }
+
+    @Test
+    fun `passive thread batch with existing conversation continues without seeding`() =
+        runBlocking {
+            // Arrange
+            val agentSessions = agentSessions()
+            val conversationId = ConversationId("C123", "1700000000.000")
+            agentSessions.recordIncomingMessage(
+                conversationId = conversationId,
+                seedHistory = false,
+                historyLoader = { emptyList() },
+                message =
+                    SessionMessage(
+                        id = "seed",
+                        role = SessionMessageRole.USER,
+                        author = author(),
+                        text = "existing",
+                        fileIds = emptyList(),
+                        createdAtMs = 1,
+                    ),
+                files = emptyList(),
+            )
+            val policy = InboundMessageFilter(agentSessions)
+            val chatConversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
+            val messages =
+                listOf(
+                    message(ChatMessageType.PASSIVE_MESSAGE, id = "1700000000.001"),
+                    message(ChatMessageType.PASSIVE_MESSAGE, id = "1700000000.002"),
+                )
+
+            // Act
+            val decision =
+                policy.shouldTriggerTurn(chatConversationId, messages)
+
+            // Assert
+            val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+            assertEquals(conversationId, handle.conversationId)
+            assertEquals(false, handle.seedHistory)
+            assertEquals(false, handle.explicitMention)
+        }
+
+    @Test
+    fun `thread batch aggregates explicit mention and seed history with any true`() {
+        // Arrange
+        val policy = policy()
+        val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
+        val messages =
+            listOf(
+                message(ChatMessageType.PASSIVE_MESSAGE, id = "1700000000.001"),
+                message(ChatMessageType.EXPLICIT_MENTION, id = "1700000000.002"),
+            )
+
+        // Act
+        val decision =
+            policy.shouldTriggerTurn(conversationId, messages)
+
+        // Assert
+        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+        assertEquals(ConversationId("C123", "1700000000.000"), handle.conversationId)
+        assertEquals(true, handle.seedHistory)
+        assertEquals(true, handle.explicitMention)
+    }
+
+    @Test
+    fun `batch ignores ignored messages when at least one message should handle`() {
+        // Arrange
+        val policy = policy()
+        val conversationId = ChatConversationId(channelId = "C123")
+        val messages =
+            listOf(
+                message(ChatMessageType.PASSIVE_MESSAGE, id = "1700000000.001"),
+                message(ChatMessageType.EXPLICIT_MENTION, id = "1700000000.002"),
+            )
+
+        // Act
+        val decision =
+            policy.shouldTriggerTurn(conversationId, messages)
+
+        // Assert
+        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+        assertEquals(ConversationId("C123", "1700000000.002"), handle.conversationId)
+        assertEquals(false, handle.seedHistory)
+        assertEquals(true, handle.explicitMention)
+    }
+
+    @Test
+    fun `batch with multiple handled conversation ids is rejected`() {
+        // Arrange
+        val policy = policy()
+        val conversationId = ChatConversationId(channelId = "C123")
+        val messages =
+            listOf(
+                message(ChatMessageType.EXPLICIT_MENTION, id = "1700000000.001"),
+                message(ChatMessageType.EXPLICIT_MENTION, id = "1700000000.002"),
+            )
+
+        // Act / Assert
+        assertFailsWith<IllegalArgumentException> {
+            policy.shouldTriggerTurn(conversationId, messages)
+        }
     }
 
     private fun policy(): InboundMessageFilter = InboundMessageFilter(agentSessions())
