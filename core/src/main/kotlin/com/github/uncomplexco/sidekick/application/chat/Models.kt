@@ -1,7 +1,6 @@
 package com.github.uncomplexco.sidekick.application.chat
 
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
-import com.github.uncomplexco.sidekick.application.conversation.triggers.ChatMessageType
 
 data class IncomingChatFile(
     val id: String,

@@ -1,9 +1,9 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
+import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
-import com.github.uncomplexco.sidekick.application.conversation.triggers.ChatMessageType
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
 import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
 import com.slack.api.bolt.App
@@ -53,8 +53,8 @@ class SlackAppFactory {
                             id = event.ts,
                             createdAtMs = slackTsToMillis(event.ts),
                             sender = toMessageAuthor(event.user, ctx),
-                            text = event.text!!,
-                            type = ChatMessageType.APP_MENTION,
+                            text = event.text!!.trim(),
+                            type = ChatMessageType.EXPLICIT_MENTION,
                             files = incomingChatFiles(event.files, event.attachments),
                         ),
                         ChatPlatformAdapter(
@@ -95,7 +95,7 @@ class SlackAppFactory {
                                 id = event.ts,
                                 createdAtMs = slackTsToMillis(event.ts),
                                 sender = toMessageAuthor(event.user, ctx),
-                                text = event.text,
+                                text = event.text.trim(),
                                 type = ChatMessageType.PASSIVE_MESSAGE,
                                 files = incomingChatFiles(event.files, event.attachments),
                             ),
@@ -134,14 +134,14 @@ class SlackAppFactory {
                                 id = event.ts,
                                 createdAtMs = slackTsToMillis(event.ts),
                                 sender = toMessageAuthor(event.user, ctx),
-                                text = event.text.orEmpty(),
+                                text = event.text.orEmpty().trim(),
                                 type =
                                     if (containsMention(
                                             event.text,
                                             ctx.botUserId,
                                         )
                                     ) {
-                                        ChatMessageType.APP_MENTION
+                                        ChatMessageType.EXPLICIT_MENTION
                                     } else {
                                         ChatMessageType.PASSIVE_MESSAGE
                                     },
@@ -193,7 +193,7 @@ internal fun buildSlackAssistant(
                     id = req.event.ts,
                     createdAtMs = slackTsToMillis(req.event.ts),
                     sender = toMessageAuthor(req.event.user, ctx),
-                    text = text,
+                    text = text.trim(),
                     type = ChatMessageType.ASSISTANT_MESSAGE,
                     files = emptyList(),
                 ),
@@ -227,7 +227,7 @@ internal fun buildSlackAssistant(
                     id = req.event.ts,
                     createdAtMs = slackTsToMillis(req.event.ts),
                     sender = toMessageAuthor(req.event.user, ctx),
-                    text = text.orEmpty(),
+                    text = text.orEmpty().trim(),
                     type = ChatMessageType.ASSISTANT_MESSAGE,
                     files = incomingChatFiles(req.event.files, req.event.attachments),
                 ),

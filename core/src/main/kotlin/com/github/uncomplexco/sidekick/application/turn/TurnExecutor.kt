@@ -2,24 +2,20 @@ package com.github.uncomplexco.sidekick.application.turn
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
+import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
-import com.github.uncomplexco.sidekick.application.conversation.triggers.ChatMessageType
-import com.github.uncomplexco.sidekick.application.conversation.triggers.ConversationTriggerPolicy
-import com.github.uncomplexco.sidekick.application.conversation.triggers.ReplyDecisionInput
-import com.github.uncomplexco.sidekick.application.conversation.triggers.ReplyDecisionService
-import com.github.uncomplexco.sidekick.application.conversation.triggers.TriggerDecision
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Component
 class TurnExecutor(
     private val agentConfig: AgentConfig,
-    private val triggerPolicy: ConversationTriggerPolicy,
+    private val triggerPolicy: InboundMessageFilter,
     private val sessionManager: SessionManager,
     private val replyTrigger: ReplyDecisionService,
     private val turnPromptBuilder: TurnPromptBuilder,
@@ -32,18 +28,18 @@ class TurnExecutor(
     ) {
         messages.forEach { message ->
             val decision =
-                triggerPolicy.decide(
+                triggerPolicy.shouldTriggerTurn(
                     messageId = message.id,
                     trigger = message.type,
-                    conversationId = conversationId,
+                    chatConversationId = conversationId,
                 )
             when (decision) {
-                TriggerDecision.Ignore -> {
+                TurnTriggerDecision.Ignore -> {
                     log.debug("{} ignored trigger={}", conversationId.logLabel(), message.type)
                     return@forEach
                 }
 
-                is TriggerDecision.Handle -> {
+                is TurnTriggerDecision.ShouldHandle -> {
                     try {
                         handle(message.copy(files = message.files.take(MAX_MESSAGE_FILES)), decision, chat)
                     } finally {
@@ -56,7 +52,7 @@ class TurnExecutor(
 
     private suspend fun handle(
         message: InboundMessage,
-        decision: TriggerDecision.Handle,
+        decision: TurnTriggerDecision.ShouldHandle,
         chat: ChatPlatformAdapter,
     ) {
         if (agentConfig.botUsername == null) {
@@ -96,7 +92,7 @@ class TurnExecutor(
             )
 
         val shouldReply =
-            replyTrigger.decide(
+            replyTrigger.shouldReply(
                 ReplyDecisionInput(
                     text = message.text,
                     isExplicitMention = decision.explicitMention,

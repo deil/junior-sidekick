@@ -3,12 +3,12 @@ package com.github.uncomplexco.sidekick.application.conversation
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
+import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
-import com.github.uncomplexco.sidekick.application.conversation.triggers.ChatMessageType
-import com.github.uncomplexco.sidekick.application.conversation.triggers.ConversationTriggerPolicy
-import com.github.uncomplexco.sidekick.application.conversation.triggers.TriggerDecision
+import com.github.uncomplexco.sidekick.application.turn.InboundMessageFilter
+import com.github.uncomplexco.sidekick.application.turn.TurnTriggerDecision
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -17,7 +17,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertSame
 
-class ConversationTriggerPolicyTest {
+class InboundMessageFilterTest {
     @TempDir
     lateinit var dir: Path
 
@@ -25,14 +25,14 @@ class ConversationTriggerPolicyTest {
     fun `app mention in channel root creates session from message id`() {
         // Arrange
         val policy = policy()
-        val message = message(ChatMessageType.APP_MENTION, id = "1700000000.001")
+        val message = message(ChatMessageType.EXPLICIT_MENTION, id = "1700000000.001")
         val conversationId = ChatConversationId(channelId = "C123")
 
         // Act
-        val decision = policy.decide(message.id, message.type, conversationId)
+        val decision = policy.shouldTriggerTurn(conversationId, message.type, message.id)
 
         // Assert
-        val handle = assertIs<TriggerDecision.Handle>(decision)
+        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
         assertEquals(ConversationId("C123", "1700000000.001"), handle.conversationId)
         assertEquals(false, handle.seedHistory)
         assertEquals(true, handle.explicitMention)
@@ -42,14 +42,14 @@ class ConversationTriggerPolicyTest {
     fun `app mention in thread continues thread session and seeds history`() {
         // Arrange
         val policy = policy()
-        val message = message(ChatMessageType.APP_MENTION)
+        val message = message(ChatMessageType.EXPLICIT_MENTION)
         val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
 
         // Act
-        val decision = policy.decide(message.id, message.type, conversationId)
+        val decision = policy.shouldTriggerTurn(conversationId, message.type, message.id)
 
         // Assert
-        val handle = assertIs<TriggerDecision.Handle>(decision)
+        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
         assertEquals(ConversationId("C123", "1700000000.000"), handle.conversationId)
         assertEquals(true, handle.seedHistory)
         assertEquals(true, handle.explicitMention)
@@ -63,10 +63,10 @@ class ConversationTriggerPolicyTest {
         val conversationId = ChatConversationId(channelId = "C123")
 
         // Act
-        val decision = policy.decide(message.id, message.type, conversationId)
+        val decision = policy.shouldTriggerTurn(conversationId, message.type, message.id)
 
         // Assert
-        assertSame(TriggerDecision.Ignore, decision)
+        assertSame(TurnTriggerDecision.Ignore, decision)
     }
 
     @Test
@@ -77,10 +77,10 @@ class ConversationTriggerPolicyTest {
         val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
 
         // Act
-        val decision = policy.decide(message.id, message.type, conversationId)
+        val decision = policy.shouldTriggerTurn(conversationId, message.type, message.id)
 
         // Assert
-        assertSame(TriggerDecision.Ignore, decision)
+        assertSame(TurnTriggerDecision.Ignore, decision)
     }
 
     @Test
@@ -104,15 +104,15 @@ class ConversationTriggerPolicyTest {
                     ),
                 files = emptyList(),
             )
-            val policy = ConversationTriggerPolicy(agentSessions)
+            val policy = InboundMessageFilter(agentSessions)
             val message = message(ChatMessageType.PASSIVE_MESSAGE)
             val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
 
             // Act
-            val decision = policy.decide(message.id, message.type, conversationId)
+            val decision = policy.shouldTriggerTurn(conversationId, message.type, message.id)
 
             // Assert
-            val handle = assertIs<TriggerDecision.Handle>(decision)
+            val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
             assertEquals(sessionId, handle.conversationId)
             assertEquals(false, handle.seedHistory)
             assertEquals(false, handle.explicitMention)
@@ -126,16 +126,16 @@ class ConversationTriggerPolicyTest {
         val conversationId = ChatConversationId(channelId = "D123", threadId = "1700000000.000")
 
         // Act
-        val decision = policy.decide(message.id, message.type, conversationId)
+        val decision = policy.shouldTriggerTurn(conversationId, message.type, message.id)
 
         // Assert
-        val handle = assertIs<TriggerDecision.Handle>(decision)
+        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
         assertEquals(ConversationId("D123", "1700000000.000"), handle.conversationId)
         assertEquals(true, handle.seedHistory)
         assertEquals(false, handle.explicitMention)
     }
 
-    private fun policy(): ConversationTriggerPolicy = ConversationTriggerPolicy(agentSessions())
+    private fun policy(): InboundMessageFilter = InboundMessageFilter(agentSessions())
 
     private fun agentSessions(): SessionManager {
         val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())

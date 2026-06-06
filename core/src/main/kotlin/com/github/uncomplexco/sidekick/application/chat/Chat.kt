@@ -33,15 +33,6 @@ interface SlackClientProvider {
     fun hasToken(): Boolean
 }
 
-data class ChatMessage(
-    val id: String,
-    val role: SessionMessageRole,
-    val author: MessageAuthor?,
-    val text: String,
-    val timestamp: Long,
-    val files: List<IncomingChatFile>,
-)
-
 data class ChatConversationId(
     val channelId: String,
     val threadId: String? = null,
@@ -56,4 +47,19 @@ data class ChatConversationId(
             isThread -> "[#$channelId/$threadId]"
             else -> "[#$channelId]"
         }
+}
+
+data class ChatMessage(
+    val id: String,
+    val role: SessionMessageRole,
+    val author: MessageAuthor?,
+    val text: String,
+    val timestamp: Long,
+    val files: List<IncomingChatFile>,
+)
+
+enum class ChatMessageType {
+    EXPLICIT_MENTION,
+    PASSIVE_MESSAGE,
+    ASSISTANT_MESSAGE,
 }
