@@ -52,7 +52,7 @@ Event ownership:
 
 | Slack event | Sidekick trigger | When Slack emits it |
 | --- | --- | --- |
-| `app_mention` | `APP_MENTION` | Emitted when a channel/thread message mentions Sidekick, including messages with uploaded or forwarded files. |
+| `app_mention` | `EXPLICIT_MENTION` | Emitted when a channel/thread message mentions Sidekick, including messages with uploaded or forwarded files. |
 | `message.*` | `PASSIVE_MESSAGE` | Emitted for ordinary channel/thread messages that do not mention Sidekick. |
 | `message:file_share` | `PASSIVE_MESSAGE` | Emitted for file-share messages that do not mention Sidekick. |
 | Slack assistant message | `ASSISTANT_MESSAGE` | Emitted for direct assistant-chat messages, including messages with files. |

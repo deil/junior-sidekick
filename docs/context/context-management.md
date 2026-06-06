@@ -93,6 +93,6 @@ Sidekick does not use an external tokenizer for compaction decisions. Prompt-con
 
 ## Key files
 
-- [PromptBuilder.kt](/Users/anton/projects/sidekick/src/main/kotlin/com/github/uncomplexco/sidekick/application/context/PromptBuilder.kt) – Builds the system prompt, thread context, compaction blocks, transcript, and current-message prompt structure.
-- [SessionContextCompactor.kt](/Users/anton/projects/sidekick/src/main/kotlin/com/github/uncomplexco/sidekick/application/context/SessionContextCompactor.kt) – Owns context-size estimation, compaction trigger hysteresis, batch rewriting, and summarization fallback.
-- [SessionState.kt](/Users/anton/projects/sidekick/src/main/kotlin/com/github/uncomplexco/sidekick/application/sessions/SessionState.kt) – Defines persisted session messages, compactions, and in-flight state.
+- [SystemPromptBuilder.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/context/SystemPromptBuilder.kt) and [TurnPromptBuilder.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/context/TurnPromptBuilder.kt) – Build the system prompt, thread context, compaction blocks, transcript, and current-message prompt structure.
+- [Compaction.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/context/Compaction.kt) – Owns context-size estimation, compaction trigger hysteresis, batch rewriting, and summarization fallback.
+- [Models.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/conversation/Models.kt) – Defines persisted session messages, compactions, and in-flight state.

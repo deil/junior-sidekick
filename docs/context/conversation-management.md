@@ -14,12 +14,12 @@ Slack can deliver more than one event for the same user message. A channel menti
 
 App mentions are always explicit turns. Plain message events are only allowed through when they are not Sidekick's own message and do not contain a Sidekick mention, because mentions are handled through the `app_mention` path.
 
-The Slack adapter maps Slack events into `ChatConversationId`, `IncomingChatMessage`, and `ChatPlatformAdapter`. `ConversationTriggerPolicy` owns the decision to handle or ignore the message.
+The Slack adapter maps Slack events into `ChatConversationId`, `InboundMessage`, and `ChatPlatformAdapter`. `InboundMessageFilter` owns the decision to handle or ignore the message.
 
 ```text
 Slack event
   |
-  +-- app_mention --------------------> trigger=APP_MENTION
+  +-- app_mention --------------------> trigger=EXPLICIT_MENTION
   |
   +-- message.*, contains Sidekick ----> ignored here; app_mention owns it
   |
@@ -29,7 +29,7 @@ Slack event
   |
   +-- Slack assistant chat ------------> trigger=ASSISTANT_MESSAGE
   |
-  +-- ConversationTriggerPolicy -------> Ignore or Handle
+  +-- InboundMessageFilter -------> Ignore or Handle
 ```
 
 ## Session identity
@@ -37,13 +37,13 @@ Slack event
 Thread-scoped Slack events map to the Slack thread session:
 
 ```text
-SessionId(channelId, threadTs)
+ConversationId(channelId, threadTs)
 ```
 
 Root channel app mentions and root channel messages start a new Sidekick session keyed by the root message itself:
 
 ```text
-SessionId(channelId, messageTs)
+ConversationId(channelId, messageTs)
 ```
 
 That distinction matters. A root app mention has no prior thread context; Sidekick's reply creates the Slack thread. A thread event can have existing human history, so Sidekick can bootstrap local state from Slack.
@@ -51,23 +51,23 @@ That distinction matters. A root app mention has no prior thread context; Sideki
 Direct messages use the Slack DM channel as the session:
 
 ```text
-SessionId(dmChannelId, "")
+ConversationId(dmChannelId, "")
 ```
 
 ```text
 Root channel mention
   Slack:  channel=C123, ts=M1, thread_ts=null
-  State:  SessionId(C123, M1)
+  State:  ConversationId(C123, M1)
   Reply:  posted with thread_ts=M1
 
 Thread message or thread mention
   Slack:  channel=C123, ts=M2, thread_ts=T1
-  State:  SessionId(C123, T1)
+  State:  ConversationId(C123, T1)
   Reply:  posted with thread_ts=T1
 
 Direct message
   Slack:  channel=D123, ts=M3, thread_ts=null
-  State:  SessionId(D123, "")
+  State:  ConversationId(D123, "")
   Reply:  posted to D123
 ```
 
@@ -75,7 +75,7 @@ Direct message
 
 Sidekick's persisted session state is the source of continuity after a session exists locally. Slack thread history is only bootstrap material.
 
-Future-us: `seedHistory` is the current mechanical flag on `TriggerDecision.Handle`. The deeper domain concept may be whether Sidekick is joining a session or continuing one; rename this when that language hardens enough to pay rent.
+Future-us: `seedHistory` is the current mechanical flag on `TurnTriggerDecision.ShouldHandle`. The deeper domain concept may be whether Sidekick is joining a session or continuing one; rename this when that language hardens enough to pay rent.
 
 The seeding rule is:
 
@@ -83,7 +83,7 @@ The seeding rule is:
 Seed from Slack only when the trigger decision allows seeding, local session history is empty, and the incoming conversation is thread-scoped.
 ```
 
-In practice, the adapter passes a history loader on every interaction, but the loader returns Slack history only when Slack provides a `thread_ts`. `ConversationTriggerPolicy` decides whether the turn may seed history; `AgentSessions` decides whether local history is empty before calling the loader.
+In practice, the adapter passes a history loader on every interaction, but the loader returns Slack history only when Slack provides a `thread_ts`. `InboundMessageFilter` decides whether the turn may seed history; `SessionManager` decides whether local history is empty before calling the loader.
 
 This keeps the model stable:
 
@@ -94,13 +94,13 @@ This keeps the model stable:
 ```text
 Incoming turn
   |
-  +-- ConversationTriggerPolicy
+  +-- InboundMessageFilter
         |
         +-- Ignore ----------------------------> stop
         |
         +-- Handle(seedHistory=false) ---------> use local history only
         |
-        +-- Handle(seedHistory=true) ----------> AgentSessions checks local state
+        +-- Handle(seedHistory=true) ----------> SessionManager checks local state
                                                   |
                                                   +-- has messages ------------> use local history
                                                   |
@@ -130,7 +130,7 @@ Session state is stored under the configured agent state directory, not the work
 
 Incoming user messages and assistant replies are both persisted. Assistant replies are normalized before storage: leading/trailing whitespace is trimmed, whitespace runs collapse to one space, and text is capped at 3200 characters.
 
-`AgentSessions` stores live session messages directly. It does not compact session history.
+`SessionManager` stores live session messages directly. It does not compact session history.
 
 ## Gotchas
 
@@ -148,5 +148,5 @@ Seeded human messages may have weaker author data than live incoming messages de
 
 ## Key files
 
-- [ConversationTriggerPolicy.kt](/Users/anton/projects/sidekick/src/main/kotlin/com/github/uncomplexco/sidekick/application/sessions/ConversationTriggerPolicy.kt) – Trigger decisions for app mentions, passive messages, and assistant messages.
-- [HandleIncomingChatMessageUsecase.kt](/Users/anton/projects/sidekick/src/main/kotlin/com/github/uncomplexco/sidekick/usecases/HandleIncomingChatMessageUsecase.kt) – Conversation use case that records incoming messages, runs Sidekick, posts replies, and records assistant output.
+- [InboundMessageFilter.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnTrigger.kt) – Trigger decisions for app mentions, passive messages, and assistant messages.
+- [HandleIncomingChatMessageUsecase.kt](../../app/src/main/kotlin/com/github/uncomplexco/sidekick/usecases/HandleIncomingChatMessageUsecase.kt) – Conversation use case that records incoming messages, runs Sidekick, posts replies, and records assistant output.
