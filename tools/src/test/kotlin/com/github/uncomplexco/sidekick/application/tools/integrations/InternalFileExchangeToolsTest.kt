@@ -54,7 +54,7 @@ class InternalFileExchangeToolsTest {
             TurnContext(
                 conversationId = ConversationId("C123", "1700000000.000"),
                 turnId = "turn",
-                currentMessageId = "m1",
+                currentMessageIds = listOf("m1"),
                 currentFiles = emptyList(),
                 sessionFiles = emptyList(),
                 compactions = emptyList(),
