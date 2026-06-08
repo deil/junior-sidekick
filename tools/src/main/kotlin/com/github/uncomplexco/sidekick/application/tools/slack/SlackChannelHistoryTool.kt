@@ -64,7 +64,7 @@ class SlackChannelHistoryTool(
             history.messages.orEmpty().map { message ->
                 SlackChannelHistoryMessage(
                     id = message.ts,
-                    sentAt_utc = slackMessageTsToUtc(message.ts),
+                    sentAt = slackMessageTsToUtc(message.ts),
                     user = message.user,
                     username = message.username,
                     botId = message.botId,
@@ -79,8 +79,8 @@ class SlackChannelHistoryTool(
         return SlackChannelHistoryResult(
             ok = true,
             channelId = slackChannel.id,
-            channelName = slackChannel.name,
-            createdAt_utc = slackTsToUtc(slackChannel.created),
+            channelName = slackChannel.nameNormalized,
+            createdAt = slackTsToUtc(slackChannel.created),
             isArchived = slackChannel.isArchived,
             topic = slackChannel.topic.value,
             oldest = oldest,
@@ -105,8 +105,9 @@ fun normalizeLimit(limit: Int?): Int {
 data class SlackChannelHistoryResult(
     val ok: Boolean,
     val channelId: String,
-    val channelName: String?,
-    val createdAt_utc: String,
+    val channelName: String,
+    @LLMDescription("Slack channel creation time in ISO UTC")
+    val createdAt: String,
     val isArchived: Boolean,
     val topic: String?,
     val oldest: String?,
@@ -120,7 +121,8 @@ data class SlackChannelHistoryResult(
 @Serializable
 data class SlackChannelHistoryMessage(
     val id: String,
-    val sentAt_utc: String,
+    @LLMDescription("Slack message sent time in ISO UTC")
+    val sentAt: String,
     val user: String?,
     val username: String?,
     val botId: String?,
