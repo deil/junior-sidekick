@@ -15,6 +15,7 @@ class ReplyDecisionServiceTest {
         val input =
             ReplyDecisionInput(
                 text = "@heytech help",
+                messageHistory = emptyList(),
                 hasAssistantHistory = false,
                 isExplicitMention = true,
             )
@@ -35,6 +36,7 @@ class ReplyDecisionServiceTest {
         val input =
             ReplyDecisionInput(
                 text = "<@U039RPWU0V8> test",
+                messageHistory = emptyList(),
                 hasAssistantHistory = true,
             )
 
@@ -54,6 +56,7 @@ class ReplyDecisionServiceTest {
         val input =
             ReplyDecisionInput(
                 text = "thanks",
+                messageHistory = emptyList(),
                 hasAssistantHistory = true,
             )
 
@@ -73,6 +76,7 @@ class ReplyDecisionServiceTest {
         val input =
             ReplyDecisionInput(
                 text = "can you help with this?",
+                messageHistory = emptyList(),
                 hasAssistantHistory = false,
                 isPrivateMessage = true,
             )
@@ -91,6 +95,7 @@ class ReplyDecisionServiceTest {
         val input =
             ReplyDecisionInput(
                 text = "what do you mean by that?",
+                messageHistory = emptyList(),
                 hasAssistantHistory = true,
             )
 

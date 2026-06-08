@@ -23,7 +23,7 @@ class TurnPromptBuilder(
     ): String =
         buildString {
             if (ctx.history.isNotEmpty()) {
-                appendLine(buildThreadContext(ctx.conversationId, ctx.compactions, ctx.history, ctx.sessionFiles))
+                appendLine(buildThreadContext(ctx.conversationId, ctx.history.compactions, ctx.history.messages, ctx.sessionFiles))
             }
 
             append(
@@ -121,10 +121,7 @@ class TurnPromptBuilder(
         }
 
         val markerSuffix = if (markers.isEmpty()) "" else " (${markers.joinToString("; ")})"
-        val displayName =
-            message.author?.username
-                ?: if (message.role == SessionMessageRole.ASSISTANT) config.name else message.role.name.lowercase()
-        lines += "[${message.role.name.lowercase()}] $displayName: ${message.text}$markerSuffix"
+        lines += "${message.text}$markerSuffix"
 
         if (attachedFiles.isNotEmpty()) {
             lines += renderFileAttachments(conversationId, attachedFiles, config.stateDirectoryPath(), MAX_ATTACHMENT_BASE64_CHARS)

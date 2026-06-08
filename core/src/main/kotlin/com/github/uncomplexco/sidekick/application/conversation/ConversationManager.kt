@@ -4,27 +4,30 @@ import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.application.turn.TurnHistory
+import com.github.uncomplexco.sidekick.application.turn.filterOutRecentMessages
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import org.springframework.stereotype.Component
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @Component
-class SessionManager(
+class ConversationManager(
     private val store: ConversationStateStore,
     private val contextCompactor: SessionContextCompactor,
 ) {
     fun exists(conversationId: ConversationId): Boolean = store.exists(conversationId)
 
-    suspend fun recordIncomingMessage(
+    suspend fun recordIncomingMessages(
         conversationId: ConversationId,
         seedHistory: Boolean,
         historyLoader: (ConversationId) -> List<ChatMessage>,
-        message: SessionMessage,
+        messages: List<SessionMessage>,
         files: List<IncomingChatFile>,
     ): TurnContext =
         store.withSessionLock(conversationId) {
             val turnId = generateTurnId()
+            val message = messages.last()
             val state = loadOrSeedState(conversationId, seedHistory, historyLoader)
             upsertFiles(state.files, files.map { it.toSessionFileRef() })
             upsertMessage(state.messages, message)
@@ -34,11 +37,14 @@ class SessionManager(
             TurnContext(
                 conversationId = conversationId,
                 turnId = turnId,
-                currentMessageId = message.id,
+                currentMessageIds = messages.map { it.id },
                 currentFiles = files,
                 sessionFiles = state.files,
-                compactions = state.compactions,
-                history = state.messages.filter { it.id != message.id },
+                history =
+                    TurnHistory(
+                        compactions = state.compactions,
+                        messages = filterOutRecentMessages(state.messages, messages),
+                    ),
             )
         }
 

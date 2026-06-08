@@ -7,6 +7,7 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.application.turn.TurnHistory
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -59,11 +60,10 @@ class TurnPromptBuilderTest {
         TurnContext(
             conversationId = conversationId,
             turnId = "turn",
-            currentMessageId = "m1",
+            currentMessageIds = listOf("m1"),
             currentFiles = emptyList(),
             sessionFiles = listOf(file),
-            compactions = emptyList(),
-            history = emptyList(),
+            history = TurnHistory(compactions = emptyList(), messages = emptyList()),
         )
 
     private fun message(fileIds: List<String>): SessionMessage =

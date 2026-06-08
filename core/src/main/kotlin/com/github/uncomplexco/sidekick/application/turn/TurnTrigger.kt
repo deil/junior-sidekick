@@ -4,7 +4,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.SessionManager
+import com.github.uncomplexco.sidekick.application.conversation.ConversationManager
 import org.springframework.stereotype.Component
 
 sealed interface TurnTriggerDecision {
@@ -19,7 +19,7 @@ sealed interface TurnTriggerDecision {
 
 @Component
 class InboundMessageFilter(
-    private val conversations: SessionManager,
+    private val conversations: ConversationManager,
 ) {
     fun shouldTriggerTurn(
         chatConversationId: ChatConversationId,

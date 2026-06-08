@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.runtime.SharedContext
 import com.github.uncomplexco.sidekick.application.tools.integrations.FilePublisher
 import com.github.uncomplexco.sidekick.application.tools.integrations.InternalFileExchangeTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
+import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelHistoryTool
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackFileTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackReactionTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
@@ -26,6 +27,7 @@ class DefaultTurnToolRegistryFactory(
             tools(SystemTools())
             tools(InternalFileExchangeTools(filePublisher, ctx, agentConfig.stateDirectoryPath()))
             tools(SlackCanvasTools(sharedContext.slackClient, ctx.conversationId).asTools())
+            tools(SlackChannelHistoryTool(sharedContext.slackClient).asTools())
             tools(
                 SlackReactionTools(
                     sharedContext.slackClient,

@@ -9,9 +9,22 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 data class TurnContext(
     val conversationId: ConversationId,
     val turnId: String,
-    val currentMessageId: String,
+    val currentMessageIds: List<String>,
     val currentFiles: List<IncomingChatFile>,
     val sessionFiles: List<SessionFileRef>,
+    val history: TurnHistory,
+) {
+    val currentMessageId = currentMessageIds.last()
+}
+
+data class TurnHistory(
     val compactions: List<SessionCompaction>,
-    val history: List<SessionMessage>,
-)
+    val messages: List<SessionMessage>,
+) {
+    fun isNotEmpty(): Boolean = messages.isNotEmpty()
+}
+
+fun filterOutRecentMessages(
+    messages: List<SessionMessage>,
+    recentMessages: List<SessionMessage>,
+): List<SessionMessage> = messages.filter { hist -> recentMessages.none { hist.id == it.id } }

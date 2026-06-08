@@ -14,9 +14,9 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertSame
-import kotlin.test.assertFailsWith
 
 class InboundMessageFilterTest {
     @TempDir
@@ -90,18 +90,20 @@ class InboundMessageFilterTest {
             // Arrange
             val agentSessions = agentSessions()
             val sessionId = ConversationId("C123", "1700000000.000")
-            agentSessions.recordIncomingMessage(
+            agentSessions.recordIncomingMessages(
                 conversationId = sessionId,
                 seedHistory = false,
                 historyLoader = { emptyList() },
-                message =
-                    SessionMessage(
-                        id = "seed",
-                        role = SessionMessageRole.USER,
-                        author = author(),
-                        text = "existing",
-                        fileIds = emptyList(),
-                        createdAtMs = 1,
+                messages =
+                    listOf(
+                        SessionMessage(
+                            id = "seed",
+                            role = SessionMessageRole.USER,
+                            author = author(),
+                            text = "existing",
+                            fileIds = emptyList(),
+                            createdAtMs = 1,
+                        ),
                     ),
                 files = emptyList(),
             )
@@ -175,18 +177,20 @@ class InboundMessageFilterTest {
             // Arrange
             val agentSessions = agentSessions()
             val conversationId = ConversationId("C123", "1700000000.000")
-            agentSessions.recordIncomingMessage(
+            agentSessions.recordIncomingMessages(
                 conversationId = conversationId,
                 seedHistory = false,
                 historyLoader = { emptyList() },
-                message =
-                    SessionMessage(
-                        id = "seed",
-                        role = SessionMessageRole.USER,
-                        author = author(),
-                        text = "existing",
-                        fileIds = emptyList(),
-                        createdAtMs = 1,
+                messages =
+                    listOf(
+                        SessionMessage(
+                            id = "seed",
+                            role = SessionMessageRole.USER,
+                            author = author(),
+                            text = "existing",
+                            fileIds = emptyList(),
+                            createdAtMs = 1,
+                        ),
                     ),
                 files = emptyList(),
             )
@@ -272,9 +276,9 @@ class InboundMessageFilterTest {
 
     private fun policy(): InboundMessageFilter = InboundMessageFilter(agentSessions())
 
-    private fun agentSessions(): SessionManager {
+    private fun agentSessions(): ConversationManager {
         val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
-        return SessionManager(
+        return ConversationManager(
             FilesystemConversationStateStore(config),
             SessionContextCompactor(
                 TurnPromptBuilder(config),

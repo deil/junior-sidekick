@@ -7,13 +7,19 @@ import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
+import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
+import com.github.uncomplexco.sidekick.application.utils.escapeXml
+import com.github.uncomplexco.sidekick.application.utils.xmlTag
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 data class ReplyDecisionInput(
     val text: String,
-    val conversationContext: String? = null,
+    val botUser: MessageAuthor,
+    val messageHistory: List<SessionMessage>,
     val hasAssistantHistory: Boolean,
     val isExplicitMention: Boolean = false,
     val isPrivateMessage: Boolean = false,
@@ -100,7 +106,6 @@ class SimpleReplyDecisionClassifier {
 
 @Component
 class LlmReplyDecisionClassifier(
-    private val agentConfig: AgentConfig,
     private val config: KoogConfig,
 ) {
     suspend fun classify(input: ReplyDecisionInput): ReplyDecision {
@@ -112,15 +117,25 @@ class LlmReplyDecisionClassifier(
                 contextLength = 128_000,
             )
 
-        val historyText = input.conversationContext?.takeIf { it.isNotBlank() } ?: "[none]"
+        val historyText =
+            if (input.messageHistory.isEmpty()) {
+                "[none]"
+            } else {
+                input.messageHistory
+                    .take(5)
+                    .map {
+                        val author = if (it.role == SessionMessageRole.ASSISTANT) input.botUser else it.author!!
+                        return@map escapeXml("[${it.role.name}] ${author.fullName}: ${it.text}")
+                    }.joinToString("\n")
+            }
 
         val prompt =
             prompt(
                 id = "sidekick-reply-decision",
                 params = config.openRouterParams(),
             ) {
-                system(buildRouterSystemPrompt(agentConfig.name))
-                user(buildRouterPrompt(input.text, historyText))
+                system(buildRouterSystemPrompt(input.botUser.fullName!!, input.botUser.username))
+                user(buildRouterPrompt(input.text, historyText, input.messageHistory.last { it.role == SessionMessageRole.ASSISTANT }))
             }
 
         return runCatching {
@@ -153,24 +168,32 @@ class LlmReplyDecisionClassifier(
         }
     }
 
-    private fun buildRouterSystemPrompt(agentName: String): String =
-        listOf(
-            "You are a message router for a Slack assistant named $agentName in a subscribed Slack thread.",
-            "Decide whether $agentName should reply to the latest message.",
-            "Subscribed threads are passive by default.",
-            "Reply true only when the latest message is clearly aimed at $agentName.",
-            "Use who currently has the conversation floor, not just topic overlap.",
-            "Acknowledgments, status chatter, and human-to-human coordination should be shouldReply=false.",
-            "When uncertain, prefer shouldReply=false with low confidence.",
-            "Return only structured output.",
-        ).joinToString("\n")
+    private fun buildRouterSystemPrompt(
+        agentName: String,
+        botUsername: String,
+    ): String =
+        """
+        You are a message router for a Slack assistant named $agentName (user $botUsername) in a subscribed Slack thread.
+        Decide whether $agentName should reply to the latest message.
+        Subscribed threads are passive by default.
+        Reply true only when the latest message is aimed at $agentName.
+        Use who currently has the conversation floor, not just topic overlap.
+        Acknowledgments, status chatter, and human-to-human coordination should be shouldReply=false.
+        When uncertain, prefer shouldReply=false with low confidence.
+        Return only structured output.
+        """.trimIndent()
 
     private fun buildRouterPrompt(
         rawText: String,
         historyText: String,
+        lastBotMessage: SessionMessage?,
     ): String =
         listOf(
             "<latest-message>${rawText.trim()}</latest-message>",
+            "<context>${xmlTag(
+                "last-assistant-message",
+                lastBotMessage?.let { "[${it.role.name}]: " + escapeXml(it.text) } ?: "[none]",
+            )}</context>",
             "<recent-thread>",
             historyText,
             "</recent-thread>",
