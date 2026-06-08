@@ -10,6 +10,7 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationMana
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
+import com.github.uncomplexco.sidekick.application.turn.koog.SidekickAgent
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 

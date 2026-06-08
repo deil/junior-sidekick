@@ -22,7 +22,7 @@ class TurnPromptBuilder(
         ctx: TurnContext,
     ): String =
         buildString {
-            if (ctx.history.isNotEmpty()) {
+            if (ctx.history.isNotEmpty() && !ctx.history.hasKoogMessages) {
                 appendLine(buildThreadContext(ctx.conversationId, ctx.history.compactions, ctx.history.messages, ctx.sessionFiles))
             }
 

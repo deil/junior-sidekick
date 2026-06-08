@@ -10,7 +10,7 @@ import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelHisto
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackFileTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackReactionTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.turn.TurnToolRegistryFactory
+import com.github.uncomplexco.sidekick.application.turn.koog.TurnToolRegistryFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 

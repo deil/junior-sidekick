@@ -3,8 +3,8 @@ package com.github.uncomplexco.sidekick.application.conversation
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
+import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.turn.TurnHistory
 import com.github.uncomplexco.sidekick.application.turn.filterOutRecentMessages
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import org.springframework.stereotype.Component
@@ -41,9 +41,10 @@ class ConversationManager(
                 currentFiles = files,
                 sessionFiles = state.files,
                 history =
-                    TurnHistory(
+                    ConversationHistory(
                         compactions = state.compactions,
                         messages = filterOutRecentMessages(state.messages, messages),
+                        hasKoogMessages = state.koogMessages.isNotEmpty(),
                     ),
             )
         }

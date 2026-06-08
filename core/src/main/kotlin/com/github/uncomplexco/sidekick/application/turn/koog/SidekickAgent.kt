@@ -1,5 +1,7 @@
-package com.github.uncomplexco.sidekick.application.turn
+package com.github.uncomplexco.sidekick.application.turn.koog
 
+import ai.koog.agents.chatMemory.feature.ChatMemory
+import ai.koog.agents.chatMemory.feature.ChatHistoryProvider
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.dsl.builder.node
@@ -21,6 +23,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
+import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -37,6 +40,7 @@ class SidekickAgent(
     private val systemPromptBuilder: SystemPromptBuilder,
     private val turnPromptBuilder: TurnPromptBuilder,
     private val toolRegistryFactory: TurnToolRegistryFactory,
+    private val chatHistoryProvider: ChatHistoryProvider,
 ) {
     suspend fun runTurn(
         ctx: TurnContext,
@@ -69,6 +73,10 @@ class SidekickAgent(
                     ),
                 toolRegistry = toolRegistry,
             ) {
+                install(ChatMemory) {
+                    chatHistoryProvider = this@SidekickAgent.chatHistoryProvider
+                }
+
                 handleEvents {
                     onToolCallStarting { toolCall ->
                         log.debug("onToolCallStarting: ${toolCall.toolName}")

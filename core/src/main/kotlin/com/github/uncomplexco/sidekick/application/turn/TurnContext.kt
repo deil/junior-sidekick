@@ -12,14 +12,15 @@ data class TurnContext(
     val currentMessageIds: List<String>,
     val currentFiles: List<IncomingChatFile>,
     val sessionFiles: List<SessionFileRef>,
-    val history: TurnHistory,
+    val history: ConversationHistory,
 ) {
     val currentMessageId = currentMessageIds.last()
 }
 
-data class TurnHistory(
+data class ConversationHistory(
     val compactions: List<SessionCompaction>,
     val messages: List<SessionMessage>,
+    val hasKoogMessages: Boolean,
 ) {
     fun isNotEmpty(): Boolean = messages.isNotEmpty()
 }

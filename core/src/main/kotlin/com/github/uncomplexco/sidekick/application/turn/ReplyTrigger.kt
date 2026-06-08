@@ -175,12 +175,17 @@ class LlmReplyDecisionClassifier(
         """
         You are a message router for a Slack assistant named $agentName (user $botUsername) in a subscribed Slack thread.
         Decide whether $agentName should reply to the latest message.
-        Subscribed threads are passive by default.
+        If there are several human participants in a subscribed thread, such subscribed threads are passive by default.
+        When only $agentName and one human are active - latest message can be shouldReply=true.
         Reply true only when the latest message is aimed at $agentName.
         Use who currently has the conversation floor, not just topic overlap.
+        If $agentName was the last speaker terse clarifications, follow-ups, direct reference to $agentName's prior answer should count as an implicit follow-up.
+        If $agentName's last message was a question or request for confirmation - acknowledgment and clarification to it should count as follow-up.
+        If human's latest message contains a request, new task, even if on a different subject, or references prior work - that should count as a follow-up.
+        If several humans spoke after $agentName, require a direct and clear reference to $agentName. Topic overlap is not enough.
         Acknowledgments, status chatter, and human-to-human coordination should be shouldReply=false.
         When uncertain, prefer shouldReply=false with low confidence.
-        Return only structured output.
+        Keep the decision reason short.
         """.trimIndent()
 
     private fun buildRouterPrompt(

@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.application.conversation
 
+import ai.koog.prompt.message.Message
 import com.github.uncomplexco.sidekick.application.workspace.VirtualPath
 import kotlinx.serialization.Serializable
 
@@ -13,6 +14,10 @@ data class ConversationId(
             append(':')
             append(threadId ?: "session")
         }
+
+    companion object {
+        fun fromLockKey(key: String) = ConversationId(key.substringBefore(':'), key.substringAfter(':'))
+    }
 }
 
 data class ConversationState(
@@ -20,6 +25,7 @@ data class ConversationState(
     var files: MutableList<SessionFileRef>,
     var compactions: MutableList<SessionCompaction> = mutableListOf(),
     var messages: MutableList<SessionMessage> = mutableListOf(),
+    var koogMessages: MutableList<Message> = mutableListOf(),
     var inflight: ConversationInFlightState = ConversationInFlightState(),
 )
 

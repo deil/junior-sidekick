@@ -70,7 +70,7 @@ class SystemPromptBuilder(
                 """
                 - Start with the answer or result, not internal process narration.
                 - Use Slack-flavored Markdown: **bold** section labels, `code`, [text](url) links, bullet lists, and fenced code blocks. No hash-prefixed headings and no tables. When the answer primarily lists several URLs, show each URL bare instead of as a labeled link.
-                - Do not show bare Slack user IDs, mention them instead: <@[SLACK-USER-ID]>
+                - When referencing Slack entity: user, channel - never apply any formatting for the referenced identifier (no code blocks or markdown wrapping). Always use properly formatted Slack mention: <@[user-id]> for users, <#[channel-id]> for channels.
                 - Keep replies brief and scannable; use bullets or short code blocks when helpful, and one compact thread reply when it fits.
                 - When a research or document-style answer would benefit from continuation, multiple sections, or future reference value, create a Slack canvas and keep the thread reply to one or two short sentences plus the link; do not recap the canvas contents.
                 - Unless a successful Slack side-effect tool intentionally satisfied the request by itself, end every turn with a final user-facing markdown response.

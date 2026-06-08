@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.files
 
+import ai.koog.prompt.message.Message
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationInFlightState
@@ -37,6 +38,7 @@ class FilesystemConversationStateStore(
         val files = loadJsonl<SessionFileRef>(folder.resolve("files.jsonl"))
         val compactions = loadJsonl<SessionCompaction>(folder.resolve("compactions.jsonl"))
         val messages = loadJsonl<SessionMessage>(folder.resolve("messages.jsonl"))
+        val koogMessages = loadJsonl<Message>(folder.resolve("koog.jsonl"))
 
         val inflight =
             loadJson(
@@ -50,6 +52,7 @@ class FilesystemConversationStateStore(
             files = files.toMutableList(),
             compactions = compactions.sortedBy { it.createdAtMs }.toMutableList(),
             messages = messages.sortedBy { it.createdAtMs }.toMutableList(),
+            koogMessages = koogMessages.toMutableList(),
             inflight = inflight,
         )
     }
@@ -63,6 +66,7 @@ class FilesystemConversationStateStore(
         writeJsonl(folder.resolve("files.jsonl"), state.files)
         writeJsonl(folder.resolve("compactions.jsonl"), state.compactions)
         writeJsonl(folder.resolve("messages.jsonl"), state.messages)
+        writeJsonl(folder.resolve("koog.jsonl"), state.koogMessages)
         writeJson(folder.resolve("inflight.json"), ConversationInFlightState.serializer(), state.inflight)
     }
 
