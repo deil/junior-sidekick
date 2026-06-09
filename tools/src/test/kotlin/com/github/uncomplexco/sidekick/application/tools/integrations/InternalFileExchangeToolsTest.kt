@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.tools.integrations
 
 import ai.koog.agents.core.tools.ToolException
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -57,8 +58,12 @@ class InternalFileExchangeToolsTest {
                 currentMessageIds = listOf("m1"),
                 currentFiles = emptyList(),
                 sessionFiles = emptyList(),
-                compactions = emptyList(),
-                history = emptyList(),
+                history =
+                    ConversationHistory(
+                        compactions = emptyList(),
+                        messages = emptyList(),
+                        hasKoogMessages = false,
+                    ),
             ),
             dir,
         )

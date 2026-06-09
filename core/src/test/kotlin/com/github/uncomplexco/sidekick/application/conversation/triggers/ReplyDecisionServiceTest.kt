@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.application.conversation.triggers
 
+import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionInput
 import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionReason
 import com.github.uncomplexco.sidekick.application.turn.SimpleReplyDecisionClassifier
@@ -15,6 +16,7 @@ class ReplyDecisionServiceTest {
         val input =
             ReplyDecisionInput(
                 text = "@heytech help",
+                botUser = botUser(),
                 messageHistory = emptyList(),
                 hasAssistantHistory = false,
                 isExplicitMention = true,
@@ -36,6 +38,7 @@ class ReplyDecisionServiceTest {
         val input =
             ReplyDecisionInput(
                 text = "<@U039RPWU0V8> test",
+                botUser = botUser(),
                 messageHistory = emptyList(),
                 hasAssistantHistory = true,
             )
@@ -56,6 +59,7 @@ class ReplyDecisionServiceTest {
         val input =
             ReplyDecisionInput(
                 text = "thanks",
+                botUser = botUser(),
                 messageHistory = emptyList(),
                 hasAssistantHistory = true,
             )
@@ -76,6 +80,7 @@ class ReplyDecisionServiceTest {
         val input =
             ReplyDecisionInput(
                 text = "can you help with this?",
+                botUser = botUser(),
                 messageHistory = emptyList(),
                 hasAssistantHistory = false,
                 isPrivateMessage = true,
@@ -95,6 +100,7 @@ class ReplyDecisionServiceTest {
         val input =
             ReplyDecisionInput(
                 text = "what do you mean by that?",
+                botUser = botUser(),
                 messageHistory = emptyList(),
                 hasAssistantHistory = true,
             )
@@ -105,4 +111,6 @@ class ReplyDecisionServiceTest {
         // Assert
         assertNull(decision)
     }
+
+    private fun botUser() = MessageAuthor(username = "sidekick", fullName = "Sidekick")
 }

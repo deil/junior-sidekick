@@ -44,6 +44,75 @@ class TurnPromptBuilderTest {
         assertTrue(prompt.contains("mime_type: text/plain"), prompt)
     }
 
+    @Test
+    fun `renders slack conversation identity when koog history is missing`() {
+        val conversationId = ConversationId("C123", "1700000000.000")
+
+        val prompt =
+            builder().buildSessionTurnPrompt(
+                message(fileIds = emptyList()),
+                context(conversationId),
+            )
+
+        assertTrue(prompt.contains("channel_id: C123"), prompt)
+        assertTrue(prompt.contains("thread_ts: 1700000000.000"), prompt)
+    }
+
+    @Test
+    fun `does not render slack conversation identity when koog history exists`() {
+        val conversationId = ConversationId("C123", "1700000000.000")
+
+        val prompt =
+            builder().buildSessionTurnPrompt(
+                message(fileIds = emptyList()),
+                context(conversationId, hasKoogMessages = true),
+            )
+
+        assertTrue(!prompt.contains("channel_id: C123"), prompt)
+        assertTrue(!prompt.contains("thread_ts: 1700000000.000"), prompt)
+    }
+
+    @Test
+    fun `renders skipped messages after last assistant when koog history exists`() {
+        val conversationId = ConversationId("C123", "1700000000.000")
+
+        val prompt =
+            builder().buildSessionTurnPrompt(
+                message(fileIds = emptyList(), text = "current reply-worthy message"),
+                context(
+                    conversationId,
+                    hasKoogMessages = true,
+                    historyMessages =
+                        listOf(
+                            message(id = "m1", text = "old skipped", replied = false),
+                            message(id = "a1", role = SessionMessageRole.ASSISTANT, text = "assistant reply", replied = true),
+                            message(id = "m2", text = "recent skipped", replied = false),
+                        ),
+                ),
+            )
+
+        assertTrue(!prompt.contains("old skipped"), prompt)
+        assertTrue(prompt.contains("recent skipped"), prompt)
+        assertTrue(prompt.contains("current reply-worthy message"), prompt)
+    }
+
+    @Test
+    fun `does not duplicate skipped messages when koog history is missing`() {
+        val conversationId = ConversationId("C123", "1700000000.000")
+
+        val prompt =
+            builder().buildSessionTurnPrompt(
+                message(fileIds = emptyList(), text = "current reply-worthy message"),
+                context(
+                    conversationId,
+                    hasKoogMessages = false,
+                    historyMessages = listOf(message(id = "m1", text = "recent skipped", replied = false)),
+                ),
+            )
+
+        assertTrue(prompt.indexOf("recent skipped") == prompt.lastIndexOf("recent skipped"), prompt)
+    }
+
     private fun builder(): TurnPromptBuilder =
         TurnPromptBuilder(
             AgentConfig(
@@ -55,25 +124,39 @@ class TurnPromptBuilderTest {
 
     private fun context(
         conversationId: ConversationId,
-        file: SessionFileRef,
+        file: SessionFileRef? = null,
+        hasKoogMessages: Boolean = false,
+        historyMessages: List<SessionMessage> = emptyList(),
     ): TurnContext =
         TurnContext(
             conversationId = conversationId,
             turnId = "turn",
             currentMessageIds = listOf("m1"),
             currentFiles = emptyList(),
-            sessionFiles = listOf(file),
-            history = ConversationHistory(compactions = emptyList(), messages = emptyList()),
+            sessionFiles = listOfNotNull(file),
+            history =
+                ConversationHistory(
+                    compactions = emptyList(),
+                    messages = historyMessages,
+                    hasKoogMessages = hasKoogMessages,
+                ),
         )
 
-    private fun message(fileIds: List<String>): SessionMessage =
+    private fun message(
+        fileIds: List<String> = emptyList(),
+        id: String = "m1",
+        role: SessionMessageRole = SessionMessageRole.USER,
+        text: String = "read this",
+        replied: Boolean? = null,
+    ): SessionMessage =
         SessionMessage(
-            id = "m1",
-            role = SessionMessageRole.USER,
+            id = id,
+            role = role,
             author = MessageAuthor(username = "alice", fullName = "Alice"),
-            text = "read this",
+            text = text,
             fileIds = fileIds,
             createdAtMs = 1,
+            replied = replied,
         )
 
     private fun file(

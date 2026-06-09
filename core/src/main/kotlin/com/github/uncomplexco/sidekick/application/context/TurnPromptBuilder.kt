@@ -22,11 +22,34 @@ class TurnPromptBuilder(
         ctx: TurnContext,
     ): String =
         buildString {
-            if (ctx.history.isNotEmpty() && !ctx.history.hasKoogMessages) {
+            if (!ctx.history.hasKoogMessages) {
                 appendLine(buildThreadContext(ctx.conversationId, ctx.history.compactions, ctx.history.messages, ctx.sessionFiles))
             }
 
-            append(
+            val skippedMessages = pendingSkippedMessages(ctx)
+            if (skippedMessages.isNotEmpty()) {
+                appendLine(
+                    xmlTag(
+                        "skipped-messages",
+                        buildString {
+                            skippedMessages.forEachIndexed { idx, skippedMessage ->
+                                appendLine(
+                                    renderSessionMessage(
+                                        idx,
+                                        skippedMessage,
+                                        ctx.conversationId,
+                                        skippedMessage.fileIds.mapNotNull { fileId ->
+                                            ctx.sessionFiles.find { file -> file.id == fileId }
+                                        },
+                                    ),
+                                )
+                            }
+                        },
+                    ),
+                )
+            }
+
+            appendLine(
                 xmlTag(
                     "requester",
                     buildString {
@@ -36,7 +59,7 @@ class TurnPromptBuilder(
                 ),
             )
 
-            append(xmlTag("current-instruction", "[${message.author!!.username}] ${message.text}"))
+            appendLine(xmlTag("current-instruction", "[${message.author!!.username}] ${message.text}"))
 
             if (message.fileIds.isNotEmpty()) {
                 appendLine(
@@ -57,12 +80,17 @@ class TurnPromptBuilder(
         compactions: List<SessionCompaction>,
         history: List<SessionMessage>,
         sessionFiles: List<SessionFileRef>,
-    ): String? {
-        if (history.isEmpty() && compactions.isEmpty()) {
-            return null
-        }
-
+    ): String {
         val lines = mutableListOf<String>()
+
+        lines +=
+            xmlTag(
+                "thread-context",
+                buildString {
+                    appendLine("channel_id: ${conversationId.channelId}")
+                    appendLine("thread_ts: ${conversationId.threadId}")
+                },
+            )
 
         if (compactions.isNotEmpty()) {
             lines += "<thread-compactions>"
@@ -77,21 +105,33 @@ class TurnPromptBuilder(
             lines += "</thread-compactions>"
         }
 
-        val transcript =
-            history
-                .mapIndexed { idx, message ->
-                    renderSessionMessage(
-                        idx,
-                        message,
-                        conversationId,
-                        message.fileIds.mapNotNull { fileId ->
-                            sessionFiles.find { file -> file.id == fileId }
-                        },
-                    )
-                }.joinToString("\n")
-        lines += xmlTag("thread-transcript", transcript)
+        threadTranscript(conversationId, history, sessionFiles)?.also { lines += it }
 
         return lines.joinToString("\n")
+    }
+
+    private fun threadTranscript(
+        conversationId: ConversationId,
+        history: List<SessionMessage>,
+        files: List<SessionFileRef>,
+    ): String? {
+        if (history.isNotEmpty()) {
+            val transcript =
+                history
+                    .mapIndexed { idx, message ->
+                        renderSessionMessage(
+                            idx,
+                            message,
+                            conversationId,
+                            message.fileIds.mapNotNull { fileId ->
+                                files.find { file -> file.id == fileId }
+                            },
+                        )
+                    }.joinToString("\n")
+            return xmlTag("thread-transcript", transcript)
+        }
+
+        return null
     }
 
     private fun renderSessionMessage(
@@ -130,6 +170,17 @@ class TurnPromptBuilder(
         lines += "</message>"
 
         return lines.joinToString("\n")
+    }
+
+    private fun pendingSkippedMessages(ctx: TurnContext): List<SessionMessage> {
+        if (!ctx.history.hasKoogMessages) {
+            return emptyList()
+        }
+
+        val lastAssistantIndex = ctx.history.messages.indexOfLast { it.role == SessionMessageRole.ASSISTANT }
+        return ctx.history.messages
+            .drop(lastAssistantIndex + 1)
+            .filter { it.role == SessionMessageRole.USER && it.replied == false }
     }
 
     companion object {
