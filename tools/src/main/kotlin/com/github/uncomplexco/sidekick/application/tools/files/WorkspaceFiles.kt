@@ -233,7 +233,7 @@ class WorkspaceFiles(
         filePath: String,
         offset: Int?,
         limit: Int?,
-        pathPrefixToString: String? = null,
+        displayPath: String? = null,
     ): String {
         if (offset != null && offset < 1) {
             throw ToolException.ValidationFailure("`offset` must be greater than or equal to 1")
@@ -244,7 +244,7 @@ class WorkspaceFiles(
             throw ToolException.ValidationFailure(miss(target))
         }
 
-        val displayTarget = if (pathPrefixToString != null) target.pathString.removePrefix(pathPrefixToString) else target.pathString
+        val displayTarget = displayPath ?: target.pathString
         if (Files.isDirectory(target)) {
             val items = Files.list(target).use { stream -> stream.toList().map { entryName(it) }.sorted() }
             val currentLimit = limit ?: DEFAULT_READ_LIMIT

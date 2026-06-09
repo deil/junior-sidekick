@@ -84,7 +84,7 @@ class SlackFileTools(
 
         val sessionRoot = ctx.conversationId.folder(dataDirectory)
         val realPath = parseVirtualPath(file.localPath, sessionRoot)
-        return files.read(realPath, offset, limit, sessionRoot.toString())
+        return files.read(realPath, offset, limit, file.localPath)
     }
 }
 
@@ -105,8 +105,7 @@ fun isSupportedSlackTextFile(file: SessionFileRef): Boolean {
 }
 
 fun downloadFileName(file: SessionFileRef): String {
-    val rawName = file.name ?: file.id
-    return "${sanitizeFileName(file.id)}-${sanitizeFileName(rawName)}"
+    return "${sanitizeFileName(file.id)}-${sanitizeFileName(file.name)}"
 }
 
 private fun sanitizeFileName(value: String): String =
