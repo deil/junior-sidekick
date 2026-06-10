@@ -8,14 +8,18 @@ import org.eclipse.jgit.api.TransportConfigCallback
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.transport.SshTransport
 import org.eclipse.jgit.transport.Transport
+import org.eclipse.jgit.transport.CredentialsProvider
+import org.eclipse.jgit.transport.sshd.ServerKeyDatabase
 import org.eclipse.jgit.transport.sshd.SshdSessionFactory
 import org.eclipse.jgit.transport.sshd.SshdSessionFactoryBuilder
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
+import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.nio.file.Path
+import java.security.PublicKey
 import kotlin.io.path.isDirectory
 import kotlin.io.path.name
 
@@ -303,6 +307,23 @@ private class SshKeyTransportConfigCallback(
                 .setHomeDirectory(sshHomeDirectory.toFile())
                 .setSshDirectory(sshHomeDirectory.toFile())
                 .setDefaultIdentities { listOf(sshKeyPath) }
+                .setServerKeyDatabase { _, _ -> TrustingServerKeyDatabase }
                 .build(null) as SshdSessionFactory
     }
+}
+
+private object TrustingServerKeyDatabase : ServerKeyDatabase {
+    override fun lookup(
+        connectAddress: String,
+        remoteAddress: InetSocketAddress,
+        config: ServerKeyDatabase.Configuration,
+    ): List<PublicKey> = emptyList()
+
+    override fun accept(
+        connectAddress: String,
+        remoteAddress: InetSocketAddress,
+        serverKey: PublicKey,
+        config: ServerKeyDatabase.Configuration,
+        provider: CredentialsProvider,
+    ): Boolean = true
 }
