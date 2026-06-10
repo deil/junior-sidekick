@@ -324,6 +324,6 @@ private object TrustingServerKeyDatabase : ServerKeyDatabase {
         remoteAddress: InetSocketAddress,
         serverKey: PublicKey,
         config: ServerKeyDatabase.Configuration,
-        provider: CredentialsProvider,
+        provider: CredentialsProvider?,
     ): Boolean = true
 }
