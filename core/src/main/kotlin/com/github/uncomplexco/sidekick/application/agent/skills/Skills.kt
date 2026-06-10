@@ -78,7 +78,7 @@ class Skills : SkillCatalogProvider {
             config.skills.map { repository ->
                 val checkout = checkoutPath(workingDirectory, repository)
                 log.info("Syncing skill repository {} into {}", repository.url, checkout)
-                syncRepository(repository, checkout)
+                syncRepository(repository, checkout, workingDirectory)
                 repository to checkout
             }
 
@@ -177,6 +177,7 @@ class Skills : SkillCatalogProvider {
     private fun syncRepository(
         repository: SkillsRepository,
         checkout: Path,
+        workingDirectory: Path,
     ) {
         Files.createDirectories(checkout.parent)
         if (!Files.exists(checkout)) {
@@ -184,7 +185,7 @@ class Skills : SkillCatalogProvider {
                 .cloneRepository()
                 .setURI(repository.url)
                 .setDirectory(checkout.toFile())
-                .applySsh(repository)
+                .applySsh(repository, workingDirectory)
                 .call()
                 .close()
             return
@@ -199,7 +200,7 @@ class Skills : SkillCatalogProvider {
                 .fetch()
                 .setRemote("origin")
                 .setRemoveDeletedRefs(true)
-                .applySsh(repository)
+                .applySsh(repository, workingDirectory)
                 .call()
             git
                 .reset()
@@ -216,18 +217,30 @@ class Skills : SkillCatalogProvider {
             .name
             .removePrefix(Constants.R_REMOTES)
 
-    private fun org.eclipse.jgit.api.CloneCommand.applySsh(repository: SkillsRepository) =
+    private fun org.eclipse.jgit.api.CloneCommand.applySsh(
+        repository: SkillsRepository,
+        workingDirectory: Path,
+    ) =
         apply {
-            repository.sshKeyPath?.let { setTransportConfigCallback(sshKeyCallback(it)) }
+            repository.sshKeyPath?.let { setTransportConfigCallback(sshKeyCallback(it, workingDirectory)) }
         }
 
-    private fun org.eclipse.jgit.api.FetchCommand.applySsh(repository: SkillsRepository) =
+    private fun org.eclipse.jgit.api.FetchCommand.applySsh(
+        repository: SkillsRepository,
+        workingDirectory: Path,
+    ) =
         apply {
-            repository.sshKeyPath?.let { setTransportConfigCallback(sshKeyCallback(it)) }
+            repository.sshKeyPath?.let { setTransportConfigCallback(sshKeyCallback(it, workingDirectory)) }
         }
 
-    private fun sshKeyCallback(sshKeyPath: String) =
-        SshKeyTransportConfigCallback(Path.of(sshKeyPath).toAbsolutePath().normalize())
+    private fun sshKeyCallback(
+        sshKeyPath: String,
+        workingDirectory: Path,
+    ) =
+        SshKeyTransportConfigCallback(
+            sshKeyPath = Path.of(sshKeyPath).toAbsolutePath().normalize(),
+            sshHomeDirectory = workingDirectory.resolve("tmp").toAbsolutePath().normalize(),
+        )
 
     private fun parseSkill(skillFile: Path): Skill {
         val lines = Files.readString(skillFile).lines()
@@ -281,10 +294,14 @@ class Skills : SkillCatalogProvider {
 
 private class SshKeyTransportConfigCallback(
     private val sshKeyPath: Path,
+    private val sshHomeDirectory: Path,
 ) : TransportConfigCallback {
     override fun configure(transport: Transport) {
+        Files.createDirectories(sshHomeDirectory)
         (transport as SshTransport).sshSessionFactory =
             SshdSessionFactoryBuilder()
+                .setHomeDirectory(sshHomeDirectory.toFile())
+                .setSshDirectory(sshHomeDirectory.toFile())
                 .setDefaultIdentities { listOf(sshKeyPath) }
                 .build(null) as SshdSessionFactory
     }
