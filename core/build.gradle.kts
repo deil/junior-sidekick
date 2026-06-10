@@ -21,6 +21,8 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("tools.jackson.module:jackson-module-kotlin")
+    implementation("org.eclipse.jgit:org.eclipse.jgit:7.7.0.202606012155-r")
+    implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.7.0.202606012155-r")
 
     implementation("ai.koog:koog-agents:1.0.0")
     implementation("io.modelcontextprotocol:kotlin-sdk-client:0.8.1")

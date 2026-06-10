@@ -13,13 +13,14 @@ Configuration shape:
   "skills": [
     {
       "url": "git@github.com:deil/skills",
-      "path": "skills"
+      "path": "skills",
+      "sshKeyPath": "/home/sidekick/.ssh/skills"
     }
   ]
 }
 ```
 
-`url` is the Git repository URL. `path` is the repository-relative directory containing skill folders. Missing `skills.json` and empty `skills` lists are no-ops.
+`url` is the Git repository URL. `path` is the repository-relative directory containing skill folders. `sshKeyPath` is optional and points to a private key file used for Git SSH operations for that repository. Missing `skills.json` and empty `skills` lists are no-ops.
 
 `skills.json` is read from the agent working directory, not the repository root or state directory.
 
@@ -129,7 +130,7 @@ The hash is based on the full URL, not just the repository name, so two reposito
 
 The checkout directory is `AgentConfig.skillsDirectoryPath()`, derived from `agent.working-directory`; persisted session state remains under `agent.state-directory`.
 
-Repository refresh uses the default remote branch when it can be resolved and falls back to `origin/main` otherwise.
+Repository clone and refresh use JGit, not the `git` CLI. Repository refresh resets the checkout to `origin/HEAD`.
 
 ## Key Files
 

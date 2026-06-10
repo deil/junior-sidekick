@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.agent.skills
 
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.eclipse.jgit.api.Git
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
@@ -19,7 +20,7 @@ class SkillsTest {
         Files.writeString(
             dir.resolve("skills.json"),
             """
-            {"skills": [{"url": "git@github.com:deil/skills.git", "path": "skills"}]}
+            {"skills": [{"url": "git@github.com:deil/skills.git", "path": "skills", "sshKeyPath": "/home/sidekick/.ssh/skills"}]}
             """.trimIndent(),
         )
 
@@ -27,7 +28,7 @@ class SkillsTest {
         val config = skills.loadConfig(dir)
 
         // Assert
-        assertEquals(listOf(SkillsRepository("git@github.com:deil/skills.git", "skills")), config.skills)
+        assertEquals(listOf(SkillsRepository("git@github.com:deil/skills.git", "skills", "/home/sidekick/.ssh/skills")), config.skills)
     }
 
     @Test
@@ -78,6 +79,29 @@ class SkillsTest {
         assertTrue(first.fileName.toString().startsWith("skills-"))
         assertTrue(other.fileName.toString().startsWith("other-skills-"))
         assertTrue(first != other)
+    }
+
+    @Test
+    fun `syncs and scans local git repository`() {
+        // Arrange
+        val source = Files.createDirectories(dir.resolve("source"))
+        writeSkillFile(source.resolve("skills/local-skill/SKILL.md"), "local-skill", "Local skill.")
+        Git.init().setDirectory(source.toFile()).call().use { git ->
+            git.add().addFilepattern(".").call()
+            git.commit().setMessage("add skill").call()
+        }
+        Files.writeString(
+            dir.resolve("skills.json"),
+            """
+            {"skills": [{"url": "${source.toUri()}", "path": "skills"}]}
+            """.trimIndent(),
+        )
+
+        // Act
+        val catalog = skills.syncAndScan(dir)
+
+        // Assert
+        assertEquals(listOf("local-skill"), catalog.skills.map { it.name })
     }
 
     @Test
@@ -166,6 +190,24 @@ class SkillsTest {
         assertEquals(false, catalog.skills.single { it.name == "default-flag" }.disableModelInvocation)
         assertEquals(true, catalog.skills.single { it.name == "default-flag" }.userInvocable)
         assertEquals(1536, catalog.skills.single { it.name == "too-long-description" }.description.length)
+    }
+
+    private fun writeSkillFile(
+        skillFile: Path,
+        name: String,
+        description: String,
+    ) {
+        Files.createDirectories(skillFile.parent)
+        Files.writeString(
+            skillFile,
+            """
+            ---
+            name: $name
+            description: $description
+            ---
+            # Instructions
+            """.trimIndent(),
+        )
     }
 
 }

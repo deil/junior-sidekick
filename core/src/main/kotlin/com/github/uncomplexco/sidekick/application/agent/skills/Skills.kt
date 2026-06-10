@@ -3,6 +3,13 @@ package com.github.uncomplexco.sidekick.application.agent.skills
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.api.TransportConfigCallback
+import org.eclipse.jgit.lib.Constants
+import org.eclipse.jgit.transport.SshTransport
+import org.eclipse.jgit.transport.Transport
+import org.eclipse.jgit.transport.sshd.SshdSessionFactory
+import org.eclipse.jgit.transport.sshd.SshdSessionFactoryBuilder
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
@@ -11,7 +18,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.isDirectory
 import kotlin.io.path.name
-import kotlin.io.path.pathString
 
 @Serializable
 data class SkillsConfig(
@@ -22,6 +28,7 @@ data class SkillsConfig(
 data class SkillsRepository(
     val url: String,
     val path: String,
+    val sshKeyPath: String? = null,
 )
 
 data class SkillCatalog(
@@ -71,7 +78,7 @@ class Skills : SkillCatalogProvider {
             config.skills.map { repository ->
                 val checkout = checkoutPath(workingDirectory, repository)
                 log.info("Syncing skill repository {} into {}", repository.url, checkout)
-                syncRepository(repository.url, checkout)
+                syncRepository(repository, checkout)
                 repository to checkout
             }
 
@@ -168,12 +175,18 @@ class Skills : SkillCatalogProvider {
     }
 
     private fun syncRepository(
-        url: String,
+        repository: SkillsRepository,
         checkout: Path,
     ) {
         Files.createDirectories(checkout.parent)
         if (!Files.exists(checkout)) {
-            git(checkout.parent, "clone", url, checkout.pathString)
+            Git
+                .cloneRepository()
+                .setURI(repository.url)
+                .setDirectory(checkout.toFile())
+                .applySsh(repository)
+                .call()
+                .close()
             return
         }
 
@@ -181,18 +194,40 @@ class Skills : SkillCatalogProvider {
             "Skill repository checkout exists but is not a Git repository: $checkout"
         }
 
-        git(checkout, "fetch", "--prune", "origin")
-        git(checkout, "reset", "--hard", defaultRemoteBranch(checkout))
+        Git.open(checkout.toFile()).use { git ->
+            git
+                .fetch()
+                .setRemote("origin")
+                .setRemoveDeletedRefs(true)
+                .applySsh(repository)
+                .call()
+            git
+                .reset()
+                .setMode(org.eclipse.jgit.api.ResetCommand.ResetType.HARD)
+                .setRef(defaultRemoteBranch(git))
+                .call()
+        }
     }
 
-    private fun defaultRemoteBranch(checkout: Path): String {
-        val result = gitResult(checkout, "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
-        if (result.exitCode != 0) {
-            return "origin/main"
+    private fun defaultRemoteBranch(git: Git): String =
+        git.repository
+            .exactRef("refs/remotes/origin/HEAD")
+            .target
+            .name
+            .removePrefix(Constants.R_REMOTES)
+
+    private fun org.eclipse.jgit.api.CloneCommand.applySsh(repository: SkillsRepository) =
+        apply {
+            repository.sshKeyPath?.let { setTransportConfigCallback(sshKeyCallback(it)) }
         }
 
-        return result.output.trim().ifBlank { "origin/main" }
-    }
+    private fun org.eclipse.jgit.api.FetchCommand.applySsh(repository: SkillsRepository) =
+        apply {
+            repository.sshKeyPath?.let { setTransportConfigCallback(sshKeyCallback(it)) }
+        }
+
+    private fun sshKeyCallback(sshKeyPath: String) =
+        SshKeyTransportConfigCallback(Path.of(sshKeyPath).toAbsolutePath().normalize())
 
     private fun parseSkill(skillFile: Path): Skill {
         val lines = Files.readString(skillFile).lines()
@@ -233,35 +268,6 @@ class Skills : SkillCatalogProvider {
         return Skill(name, description, skillFile.parent, disableModelInvocation, userInvocable)
     }
 
-    private fun git(
-        workingDirectory: Path,
-        vararg args: String,
-    ) {
-        val result = gitResult(workingDirectory, *args)
-        require(result.exitCode == 0) {
-            "git ${args.joinToString(" ")} failed with exit code ${result.exitCode}: ${result.output.trim()}"
-        }
-    }
-
-    private fun gitResult(
-        workingDirectory: Path,
-        vararg args: String,
-    ): CommandResult {
-        val process =
-            ProcessBuilder(listOf("git") + args)
-                .directory(workingDirectory.toFile())
-                .redirectErrorStream(true)
-                .start()
-        val output = process.inputStream.bufferedReader().readText()
-        val exitCode = process.waitFor()
-        return CommandResult(exitCode, output)
-    }
-
-    private data class CommandResult(
-        val exitCode: Int,
-        val output: String,
-    )
-
     companion object {
         private val log = LoggerFactory.getLogger(Skills::class.java)
         private const val SKILLS_CONFIG_FILE = "skills.json"
@@ -270,5 +276,16 @@ class Skills : SkillCatalogProvider {
         private const val FRONT_MATTER_DELIMITER = "---"
         private const val MAX_DESCRIPTION_LENGTH = 1536
         private val SKILL_NAME_RE = Regex("^[a-z0-9](?:(?:[a-z0-9]|-(?!-)){0,62}[a-z0-9])?$")
+    }
+}
+
+private class SshKeyTransportConfigCallback(
+    private val sshKeyPath: Path,
+) : TransportConfigCallback {
+    override fun configure(transport: Transport) {
+        (transport as SshTransport).sshSessionFactory =
+            SshdSessionFactoryBuilder()
+                .setDefaultIdentities { listOf(sshKeyPath) }
+                .build(null) as SshdSessionFactory
     }
 }
