@@ -123,7 +123,10 @@ class SessionContextCompactorTest {
 
     private fun compactor(summarizer: RecordingSummarizer): SessionContextCompactor {
         val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
-        return SessionContextCompactor(TurnPromptBuilder(config), summarizer)
+        return SessionContextCompactor(
+            TurnPromptBuilder(config, skills = { com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog(emptyList()) }),
+            summarizer,
+        )
     }
 
     private fun state(messages: List<SessionMessage>): ConversationState =

@@ -58,6 +58,7 @@ class SlackFileToolsTest {
                     ),
                 slackBotToken = "token",
                 dataDirectory = dir,
+                skillsRoot = dir.resolve("workspace/skills"),
             ).slackFileRead("F123")
 
         assertContains(result, "<path>session:/attachments/F123-note.md</path>")

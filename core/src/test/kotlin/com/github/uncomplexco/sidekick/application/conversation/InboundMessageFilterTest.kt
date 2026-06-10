@@ -281,7 +281,7 @@ class InboundMessageFilterTest {
         return ConversationManager(
             FilesystemConversationStateStore(config),
             SessionContextCompactor(
-                TurnPromptBuilder(config),
+                TurnPromptBuilder(config, skills = { com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog(emptyList()) }),
                 summarizer = { _, messages, _ -> "summary for ${messages.size} messages" },
             ),
         )

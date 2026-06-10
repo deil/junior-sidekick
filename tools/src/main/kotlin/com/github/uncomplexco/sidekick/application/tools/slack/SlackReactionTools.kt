@@ -51,8 +51,8 @@ data class SlackReactionAddedResult(
 fun normalizeSlackReactionEmoji(emoji: String): String {
     val normalized = emoji.trim().trim(':').lowercase()
     require(normalized.isNotBlank()) { "Slack emoji alias is required." }
-    require(normalized.matches(SLACK_REACTION_EMOJI_REGEX)) { "Invalid Slack emoji alias." }
+    require(normalized.matches(SLACK_REACTION_EMOJI_RE)) { "Invalid Slack emoji alias." }
     return normalized
 }
 
-private val SLACK_REACTION_EMOJI_REGEX = Regex("^[a-z0-9_+-]+(?:::skin-tone-[2-6])?$")
+private val SLACK_REACTION_EMOJI_RE = Regex("^[a-z0-9_+-]+(?:::skin-tone-[2-6])?$")

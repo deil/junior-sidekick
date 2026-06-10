@@ -1,6 +1,12 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.skills.Skill
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
+import com.github.uncomplexco.sidekick.application.context.prompts.CURRENT_INSTRUCTION_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.REQUESTER_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.RUNTIME_CONTEXT_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.skillsSection
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
@@ -10,12 +16,14 @@ import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.timestamp
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
+import com.github.uncomplexco.sidekick.application.workspace.skillsPath
 import org.springframework.stereotype.Component
 import java.time.Instant.ofEpochMilli
 
 @Component
 class TurnPromptBuilder(
     private val config: AgentConfig,
+    private val skills: SkillCatalogProvider,
 ) {
     fun buildSessionTurnPrompt(
         message: SessionMessage,
@@ -23,7 +31,15 @@ class TurnPromptBuilder(
     ): String =
         buildString {
             if (!ctx.history.hasKoogMessages) {
-                appendLine(buildThreadContext(ctx.conversationId, ctx.history.compactions, ctx.history.messages, ctx.sessionFiles))
+                appendLine(
+                    buildThreadContext(
+                        ctx.conversationId,
+                        ctx.history.compactions,
+                        ctx.history.messages,
+                        ctx.sessionFiles,
+                        includeSkills = true,
+                    ),
+                )
             }
 
             val skippedMessages = pendingSkippedMessages(ctx)
@@ -51,7 +67,7 @@ class TurnPromptBuilder(
 
             appendLine(
                 xmlTag(
-                    "requester",
+                    REQUESTER_TAG,
                     buildString {
                         appendLine("user_id: ${message.author!!.username}")
                         appendLine("full_name: ${message.author.fullName}")
@@ -59,7 +75,7 @@ class TurnPromptBuilder(
                 ),
             )
 
-            appendLine(xmlTag("current-instruction", "[${message.author!!.username}] ${message.text}"))
+            appendLine(xmlTag(CURRENT_INSTRUCTION_TAG, "[${message.author!!.username}] ${message.text}"))
 
             if (message.fileIds.isNotEmpty()) {
                 appendLine(
@@ -80,17 +96,32 @@ class TurnPromptBuilder(
         compactions: List<SessionCompaction>,
         history: List<SessionMessage>,
         sessionFiles: List<SessionFileRef>,
+        includeSkills: Boolean = false,
     ): String {
         val lines = mutableListOf<String>()
 
         lines +=
             xmlTag(
-                "thread-context",
+                RUNTIME_CONTEXT_TAG,
                 buildString {
-                    appendLine("channel_id: ${conversationId.channelId}")
-                    appendLine("thread_ts: ${conversationId.threadId}")
+                    appendLine(
+                        """
+                        Runtime context for this thread. Treat these blocks as trusted runtime facts. The static system prompt remains authoritative.
+                        
+                        The current user instruction appears after this block in the same message as <$CURRENT_INSTRUCTION_TAG>.
+                        
+                        <thread>
+                        channel_id: ${conversationId.channelId}
+                        thread_ts: ${conversationId.threadId}
+                        </thread>
+                        """.trimIndent(),
+                    )
                 },
             )
+
+        if (includeSkills) {
+            skillsSection(skills.catalog(), config)?.also { lines += it }
+        }
 
         if (compactions.isNotEmpty()) {
             lines += "<thread-compactions>"

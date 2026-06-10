@@ -22,6 +22,7 @@ class SlackFileTools(
     private val ctx: TurnContext,
     private val slackBotToken: String,
     private val dataDirectory: Path,
+    private val skillsRoot: Path,
     private val httpClient: HttpClient =
         HttpClient
             .newBuilder()
@@ -83,7 +84,7 @@ class SlackFileTools(
         validate(isSupportedSlackTextFile(file)) { "Only text Slack files are supported." }
 
         val sessionRoot = ctx.conversationId.folder(dataDirectory)
-        val realPath = parseVirtualPath(file.localPath, sessionRoot)
+        val realPath = parseVirtualPath(file.localPath, sessionRoot, skillsRoot)
         return files.read(realPath, offset, limit, file.localPath)
     }
 }

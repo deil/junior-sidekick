@@ -42,6 +42,7 @@ class InternalFileExchangeTools(
     private val filePublisher: FilePublisher,
     private val ctx: TurnContext,
     private val dataDirectory: Path,
+    private val skillsRoot: Path,
 ) : ToolSet {
     @Tool
     @LLMDescription(
@@ -61,7 +62,7 @@ class InternalFileExchangeTools(
         }
 
         try {
-            val realPath = parseVirtualPath(path, ctx.conversationId.folder(dataDirectory))
+            val realPath = parseVirtualPath(path, ctx.conversationId.folder(dataDirectory), skillsRoot)
             return when (val result = filePublisher.publishFile(realPath, title, mimeType)) {
                 is FilePublisher.Result.Error -> {
                     throw ToolException.ValidationFailure(result.message)

@@ -32,6 +32,13 @@ class AgentConfig(
         require(Files.isDirectory(path)) { "Configured agent working directory is not a directory: $path" }
         return path
     }
+
+    fun skillsDirectoryPath(): Path {
+        val path = workingDirectoryPath().resolve("skills")
+        Files.createDirectories(path)
+        require(Files.isDirectory(path)) { "Configured agent skills directory is not a directory: $path" }
+        return path
+    }
 }
 
 @Configuration

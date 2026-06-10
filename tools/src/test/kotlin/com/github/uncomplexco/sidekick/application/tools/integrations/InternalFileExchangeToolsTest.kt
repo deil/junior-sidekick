@@ -100,5 +100,6 @@ class InternalFileExchangeToolsTest {
                     ),
             ),
             dir,
+            dir.resolve("workspace/skills"),
         )
 }

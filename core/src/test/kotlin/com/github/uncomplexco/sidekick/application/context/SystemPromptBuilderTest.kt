@@ -120,6 +120,7 @@ class TurnPromptBuilderTest {
                 stateDir = dir.resolve("state").toString(),
                 workingDir = dir.resolve("workspace").toString(),
             ),
+            skills = { com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog(emptyList()) },
         )
 
     private fun context(
