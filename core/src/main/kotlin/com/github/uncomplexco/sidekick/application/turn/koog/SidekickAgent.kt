@@ -30,7 +30,7 @@ import org.springframework.stereotype.Component
 private val log = LoggerFactory.getLogger(SidekickAgent::class.java)
 
 fun interface TurnToolRegistryFactory {
-    fun build(ctx: TurnContext): ToolRegistry
+    suspend fun build(ctx: TurnContext): ToolRegistry
 }
 
 @Component

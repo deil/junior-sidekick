@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProv
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
 import com.github.uncomplexco.sidekick.application.tools.integrations.FilePublisher
 import com.github.uncomplexco.sidekick.application.tools.integrations.InternalFileExchangeTools
+import com.github.uncomplexco.sidekick.application.tools.mcp.ConfiguredMcpToolRegistryProvider
 import com.github.uncomplexco.sidekick.application.tools.skills.ActivateSkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackFileTools
@@ -24,8 +25,9 @@ class DefaultTurnToolRegistryFactory(
     private val slackBotToken: String,
     private val filePublisher: FilePublisher,
     private val skills: SkillCatalogProvider,
+    private val mcpTools: ConfiguredMcpToolRegistryProvider,
 ) : TurnToolRegistryFactory {
-    override fun build(ctx: TurnContext): ToolRegistry =
+    override suspend fun build(ctx: TurnContext): ToolRegistry =
         ToolRegistry {
             tools(SystemTools())
             tools(ActivateSkillTools(skills, agentConfig.skillsDirectoryPath()))
@@ -53,5 +55,5 @@ class DefaultTurnToolRegistryFactory(
                     agentConfig.skillsDirectoryPath(),
                 ).asTools(),
             )
-        }
+        } + mcpTools.build()
 }

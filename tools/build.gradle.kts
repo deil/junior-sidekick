@@ -25,6 +25,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
 
     implementation("ai.koog:koog-agents:1.0.0")
+    implementation("ai.koog:agents-mcp:1.0.0-beta-preview7")
     implementation("io.modelcontextprotocol:kotlin-sdk-client:0.8.1")
     implementation("io.modelcontextprotocol:kotlin-sdk-core:0.8.1")
 
