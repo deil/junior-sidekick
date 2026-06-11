@@ -10,6 +10,8 @@ Supported transports:
 - `sse` – connects to a running MCP server SSE endpoint.
 - `streamable-http` – connects to a running MCP server streamable HTTP endpoint.
 
+Each server defaults MCP request timeout handling to 30 seconds; override per server with `agent.mcp.servers[n].timeout-seconds`.
+
 Example Grafana MCP over SSE:
 
 ```properties
