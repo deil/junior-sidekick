@@ -32,6 +32,23 @@ class SkillsTest {
     }
 
     @Test
+    fun `defaults missing repository path to repository root`() {
+        // Arrange
+        Files.writeString(
+            dir.resolve("skills.json"),
+            """
+            {"skills": [{"url": "git@github.com:deil/skills.git"}]}
+            """.trimIndent(),
+        )
+
+        // Act
+        val config = skills.loadConfig(dir)
+
+        // Assert
+        assertEquals(listOf(SkillsRepository(url = "git@github.com:deil/skills.git")), config.skills)
+    }
+
+    @Test
     fun `returns empty config when skills config file is missing`() {
         // Act
         val config = skills.loadConfig(dir)
@@ -190,6 +207,20 @@ class SkillsTest {
         assertEquals(false, catalog.skills.single { it.name == "default-flag" }.disableModelInvocation)
         assertEquals(true, catalog.skills.single { it.name == "default-flag" }.userInvocable)
         assertEquals(1536, catalog.skills.single { it.name == "too-long-description" }.description.length)
+    }
+
+    @Test
+    fun `scans repository root when configured path is blank`() {
+        // Arrange
+        val repo = SkillsRepository("git@github.com:deil/skills.git", path = "")
+        val checkout = Files.createDirectories(dir.resolve("checkout"))
+        writeSkillFile(checkout.resolve("root-skill/SKILL.md"), "root-skill", "Root skill.")
+
+        // Act
+        val catalog = skills.scanRepository(repo, checkout)
+
+        // Assert
+        assertEquals(listOf("root-skill"), catalog.skills.map { it.name })
     }
 
     private fun writeSkillFile(

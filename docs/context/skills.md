@@ -22,6 +22,8 @@ Configuration shape:
 
 `url` is the Git repository URL. `path` is the repository-relative directory containing skill folders. `sshKeyPath` is optional and points to a private key file used for Git SSH operations for that repository. Missing `skills.json` and empty `skills` lists are no-ops.
 
+`path` is optional. If omitted or blank, Sidekick scans the repository root for skill folders.
+
 `skills.json` is read from the agent working directory, not the repository root or state directory.
 
 ## Checkout Storage
@@ -40,6 +42,12 @@ For each repository, Sidekick scans:
 
 ```text
 <checkout>/<path>/*/SKILL.md
+```
+
+When `path` is omitted or blank, Sidekick scans:
+
+```text
+<checkout>/*/SKILL.md
 ```
 
 Only immediate child directories under `<checkout>/<path>` are considered skill folders. Nested skill folders are not discovered.

@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.TransportConfigCallback
 import org.eclipse.jgit.lib.Constants
+import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.transport.SshTransport
 import org.eclipse.jgit.transport.Transport
 import org.eclipse.jgit.transport.CredentialsProvider
@@ -31,7 +32,7 @@ data class SkillsConfig(
 @Serializable
 data class SkillsRepository(
     val url: String,
-    val path: String,
+    val path: String = "",
     val sshKeyPath: String? = null,
 )
 
@@ -134,7 +135,7 @@ class Skills : SkillCatalogProvider {
         repository: SkillsRepository,
         checkout: Path,
     ): SkillCatalog {
-        val skillsPath = checkout.resolve(repository.path).normalize()
+        val skillsPath = checkout.resolve(repository.path.ifBlank { "." }).normalize()
         if (!Files.isDirectory(skillsPath)) {
             log.warn("Skipping skill repository path {}: configured skills path does not exist", skillsPath)
             return SkillCatalog(emptyList())
@@ -215,11 +216,9 @@ class Skills : SkillCatalogProvider {
     }
 
     private fun defaultRemoteBranch(git: Git): String =
-        git.repository
-            .exactRef("refs/remotes/origin/HEAD")
-            .target
-            .name
-            .removePrefix(Constants.R_REMOTES)
+        Constants.R_REMOTES + "origin/" + git.repository.branchName()
+
+    private fun Repository.branchName(): String = branch
 
     private fun org.eclipse.jgit.api.CloneCommand.applySsh(
         repository: SkillsRepository,
