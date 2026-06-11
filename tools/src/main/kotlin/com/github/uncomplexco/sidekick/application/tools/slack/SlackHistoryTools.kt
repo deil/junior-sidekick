@@ -12,7 +12,7 @@ import kotlinx.serialization.Serializable
 private const val DEFAULT_SLACK_HISTORY_LIMIT = 100
 private const val MAX_SLACK_HISTORY_LIMIT = 200
 
-@LLMDescription("Slack tools for reading channel and thread history visible to Sidekick")
+@LLMDescription("Slack tools for reading visible channel and thread history")
 class SlackHistoryTools(
     private val slackClient: MethodsClient,
 ) : ToolSet {

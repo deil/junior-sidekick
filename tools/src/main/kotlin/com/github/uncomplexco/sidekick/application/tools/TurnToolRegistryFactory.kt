@@ -9,6 +9,7 @@ import com.github.uncomplexco.sidekick.application.tools.integrations.InternalFi
 import com.github.uncomplexco.sidekick.application.tools.mcp.ConfiguredMcpToolRegistryProvider
 import com.github.uncomplexco.sidekick.application.tools.skills.ActivateSkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
+import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackFileTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackHistoryTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackReactionTools
@@ -40,6 +41,7 @@ class DefaultTurnToolRegistryFactory(
                 ),
             )
             tools(SlackCanvasTools(sharedContext.slackClient, ctx.conversationId).asTools())
+            tools(SlackChannelTools(sharedContext.slackClient).asTools())
             tools(SlackHistoryTools(sharedContext.slackClient).asTools())
             tools(
                 SlackReactionTools(

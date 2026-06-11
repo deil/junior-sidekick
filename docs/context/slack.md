@@ -63,6 +63,12 @@ Duplicate cases seen in practice:
 | --- | --- | --- |
 | Channel message mentioning Sidekick | `app_mention` and `message.*` | `app_mention` |
 
+## Channel Lookup
+
+`SlackChannelTools.slackChannels` lists Slack public/private channels visible to Sidekick via `conversations.list`.
+
+When `query` is blank or omitted, it returns the current page of channels; otherwise it filters the fetched page by normalized channel name, ignoring case and a leading `#`.
+
 ## File Attachments
 
 | File source | Payload location |
