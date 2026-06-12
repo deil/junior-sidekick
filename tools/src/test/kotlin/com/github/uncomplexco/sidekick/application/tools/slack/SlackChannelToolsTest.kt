@@ -11,7 +11,7 @@ import kotlin.test.assertNull
 class SlackChannelToolsTest {
     @Test
     fun `normalizes missing channel limit to default`() {
-        assertEquals(200, normalizeSlackChannelLimit(null))
+        assertEquals(100, normalizeSlackChannelLimit(null))
     }
 
     @Test
@@ -119,6 +119,44 @@ private: false""",
         assertNull(result.nextCursor)
         assertEquals(3, result.pagesScanned)
         assertEquals(2, result.channelsScanned)
+    }
+
+    @Test
+    fun `stops scanning on rate limit and preserves current cursor`() {
+        var calls = 0
+        val result =
+            collectSlackChannels(query = null, limit = 3, cursor = null) { _, _ ->
+                calls += 1
+                when (calls) {
+                    1 -> SlackChannelPage(listOf(channel("C1", "alpha")), "page-2")
+                    else -> throw SlackChannelRateLimited(12)
+                }
+            }
+
+        assertEquals(listOf("C1"), result.channels.map { it.id })
+        assertEquals("page-2", result.nextCursor)
+        assertEquals(1, result.pagesScanned)
+        assertEquals(1, result.channelsScanned)
+        assertEquals(true, result.rateLimited)
+        assertEquals(12, result.retryAfterSeconds)
+    }
+
+    @Test
+    fun `formats rate limit result with resume cursor`() {
+        val output =
+            formatSlackChannels(
+                channels = listOf(channel("C1", "alpha")),
+                query = null,
+                limit = 3,
+                nextCursor = "page-2",
+                pagesScanned = 1,
+                channelsScanned = 1,
+                rateLimited = true,
+                retryAfterSeconds = 12,
+            )
+
+        assertContains(output, "Slack rate limited this lookup.")
+        assertContains(output, "Retry slackChannelsList with cursor=page-2 after waiting 12 second(s) to continue.")
     }
 
     private fun channel(

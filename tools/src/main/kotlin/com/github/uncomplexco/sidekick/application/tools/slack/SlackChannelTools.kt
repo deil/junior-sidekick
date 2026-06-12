@@ -5,11 +5,12 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import com.slack.api.methods.MethodsClient
+import com.slack.api.methods.SlackApiException
 import com.slack.api.methods.response.conversations.ConversationsListResponse
 import com.slack.api.model.Conversation
 import com.slack.api.model.ConversationType
 
-private const val DEFAULT_SLACK_CHANNEL_LIMIT = 200
+private const val DEFAULT_SLACK_CHANNEL_LIMIT = 100
 private const val MAX_SLACK_CHANNEL_LIMIT = 1000
 
 @LLMDescription("Slack tools for finding visible channels")
@@ -23,7 +24,9 @@ class SlackChannelTools(
     fun slackChannelsList(
         @LLMDescription("Optional channel name search text. Matches channel names case-insensitively; leading # is ignored.")
         query: String? = null,
-        @LLMDescription("Maximum matching channels to return. Defaults to 200 and is capped at 1000.")
+        @LLMDescription(
+            "Maximum matching channels to return. Defaults to $DEFAULT_SLACK_CHANNEL_LIMIT and is capped at $MAX_SLACK_CHANNEL_LIMIT.",
+        )
         limit: Int? = null,
         @LLMDescription("Slack pagination cursor from a previous slackChannelsList result.")
         cursor: String? = null,
@@ -47,6 +50,8 @@ class SlackChannelTools(
             nextCursor = result.nextCursor,
             pagesScanned = result.pagesScanned,
             channelsScanned = result.channelsScanned,
+            rateLimited = result.rateLimited,
+            retryAfterSeconds = result.retryAfterSeconds,
         )
     }
 }
@@ -61,7 +66,13 @@ data class SlackChannelScanResult(
     val nextCursor: String?,
     val pagesScanned: Int,
     val channelsScanned: Int,
+    val rateLimited: Boolean = false,
+    val retryAfterSeconds: Long? = null,
 )
+
+class SlackChannelRateLimited(
+    val retryAfterSeconds: Long?,
+) : RuntimeException("Slack channel lookup was rate limited.")
 
 fun collectSlackChannels(
     query: String?,
@@ -75,7 +86,19 @@ fun collectSlackChannels(
     var channelsScanned = 0
 
     do {
-        val page = fetchPage(nextCursor, slackChannelPageLimit(query, limit - channels.size))
+        val page =
+            try {
+                fetchPage(nextCursor, slackChannelPageLimit(query, limit - channels.size))
+            } catch (error: SlackChannelRateLimited) {
+                return SlackChannelScanResult(
+                    channels = channels,
+                    nextCursor = nextCursor,
+                    pagesScanned = pagesScanned,
+                    channelsScanned = channelsScanned,
+                    rateLimited = true,
+                    retryAfterSeconds = error.retryAfterSeconds,
+                )
+            }
         pagesScanned += 1
         channelsScanned += page.channels.size
         channels += page.channels.filter { channel -> query == null || channel.matchesName(query) }.take(limit - channels.size)
@@ -131,6 +154,8 @@ fun formatSlackChannels(
     nextCursor: String?,
     pagesScanned: Int,
     channelsScanned: Int,
+    rateLimited: Boolean = false,
+    retryAfterSeconds: Long? = null,
 ): String {
     val output = mutableListOf<String>()
     output += "<slackChannels>"
@@ -148,12 +173,27 @@ fun formatSlackChannels(
     output += ""
     output += "Returned ${channels.size} matching channel(s); requested limit was $limit."
     output += "Scanned $channelsScanned Slack channel(s) across $pagesScanned page(s)."
-    slackChannelContinuationHint(query, nextCursor)?.let { output += it }
-    if (nextCursor == null) {
+    if (rateLimited) {
+        output += slackChannelRateLimitHint(query, nextCursor, retryAfterSeconds)
+    } else {
+        slackChannelContinuationHint(query, nextCursor)?.let { output += it }
+    }
+    if (nextCursor == null && !rateLimited) {
         output += "End of Slack channel pages for this request."
     }
     output += "</slackChannels>"
     return output.joinToString("\n")
+}
+
+fun slackChannelRateLimitHint(
+    query: String?,
+    cursor: String?,
+    retryAfterSeconds: Long?,
+): String {
+    val wait = retryAfterSeconds?.let { " after waiting $it second(s)" }.orEmpty()
+    val cursorPart = cursor?.let { " with cursor=$it" }.orEmpty()
+    val queryPart = query?.let { " and query=$it" }.orEmpty()
+    return "Slack rate limited this lookup. Retry slackChannelsList$cursorPart$queryPart$wait to continue."
 }
 
 private fun Conversation.toSlackChannelTag(): String =
@@ -185,19 +225,31 @@ private fun MethodsClient.fetchSlackChannelPage(
     limit: Int,
     includeArchived: Boolean,
 ): SlackChannelPage {
-    val response: ConversationsListResponse =
-        conversationsList { req ->
-            req.types(listOf(ConversationType.PUBLIC_CHANNEL, ConversationType.PRIVATE_CHANNEL))
-            req.excludeArchived(!includeArchived)
-            req.limit(limit)
-            cursor?.let(req::cursor)
-            req
+    try {
+        val response: ConversationsListResponse =
+            conversationsList { req ->
+                req.types(listOf(ConversationType.PUBLIC_CHANNEL, ConversationType.PRIVATE_CHANNEL))
+                req.excludeArchived(!includeArchived)
+                req.limit(limit)
+                cursor?.let(req::cursor)
+                req
+            }
+        if (!response.isOk) {
+            if (response.error == "ratelimited") {
+                throw SlackChannelRateLimited(response.retryAfterSeconds())
+            }
+            throw ToolException.ValidationFailure(response.error ?: "Failed to list Slack channels.")
         }
-    if (!response.isOk) {
-        throw ToolException.ValidationFailure(response.error ?: "Failed to list Slack channels.")
+        return SlackChannelPage(
+            channels = response.channels.orEmpty(),
+            nextCursor = response.responseMetadata?.nextCursor?.takeIf { it.isNotBlank() },
+        )
+    } catch (error: SlackApiException) {
+        if (error.response?.code == 429) {
+            throw SlackChannelRateLimited(error.response?.header("Retry-After")?.toLongOrNull())
+        }
+        throw error
     }
-    return SlackChannelPage(
-        channels = response.channels.orEmpty(),
-        nextCursor = response.responseMetadata?.nextCursor?.takeIf { it.isNotBlank() },
-    )
 }
+
+private fun ConversationsListResponse.retryAfterSeconds(): Long? = httpResponseHeaders?.get("retry-after")?.firstOrNull()?.toLongOrNull()

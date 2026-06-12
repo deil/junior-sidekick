@@ -65,11 +65,13 @@ Duplicate cases seen in practice:
 
 ## Channel Lookup
 
-`SlackChannelTools.slackChannels` lists Slack public/private channels visible to Sidekick via `conversations.list`.
+`SlackChannelTools.slackChannelsList` lists Slack public/private channels visible to Sidekick via `conversations.list`.
 
 When `query` is blank or omitted, it returns the current page of channels; otherwise it filters the fetched page by normalized channel name, ignoring case and a leading `#`.
 
 The tool scans Slack pages internally until it returns the requested number of matches or Slack has no more pages; if the text output includes `nextCursor`, callers can continue from there.
+
+On Slack 429 rate limits, the tool does not sleep or retry; it returns any channels collected so far plus the current cursor and retry-after hint.
 
 ## File Attachments
 
