@@ -69,7 +69,7 @@ Duplicate cases seen in practice:
 
 When `query` is blank or omitted, it returns the current page of channels; otherwise it filters the fetched page by normalized channel name, ignoring case and a leading `#`.
 
-Search is page-based: if `hasMore` is true, callers should continue with `nextCursor` because later pages may contain more matches.
+The tool scans Slack pages internally until it returns the requested number of matches or Slack has no more pages; if the text output includes `nextCursor`, callers can continue from there.
 
 ## File Attachments
 

@@ -5,6 +5,7 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import com.slack.api.methods.MethodsClient
+import com.slack.api.methods.response.conversations.ConversationsListResponse
 import com.slack.api.model.Conversation
 import com.slack.api.model.ConversationType
 
@@ -17,45 +18,76 @@ class SlackChannelTools(
 ) : ToolSet {
     @Tool
     @LLMDescription(
-        "List or search visible Slack channels. Results are paginated; when hasMore is true, call again with nextCursor to continue listing or searching.",
+        "List or search visible Slack channels. Scans Slack pages internally until enough matching channels are found or Slack has no more pages.",
     )
     fun slackChannelsList(
         @LLMDescription("Optional channel name search text. Matches channel names case-insensitively; leading # is ignored.")
         query: String? = null,
-        @LLMDescription("Maximum channels to fetch from Slack before local name filtering. Defaults to 200 and is capped at 1000.")
+        @LLMDescription("Maximum matching channels to return. Defaults to 200 and is capped at 1000.")
         limit: Int? = null,
-        @LLMDescription("Slack pagination cursor from a previous slackChannels result.")
+        @LLMDescription("Slack pagination cursor from a previous slackChannelsList result.")
         cursor: String? = null,
         @LLMDescription("Whether to include archived channels. Defaults to false.")
         includeArchived: Boolean? = null,
     ): String {
         val requestedLimit = normalizeSlackChannelLimit(limit)
         val normalizedQuery = normalizeSlackChannelQuery(query)
-        val response =
-            slackClient.conversationsList { req ->
-                req.types(listOf(ConversationType.PUBLIC_CHANNEL, ConversationType.PRIVATE_CHANNEL))
-                req.excludeArchived(includeArchived != true)
-                req.limit(requestedLimit)
-                cursor?.takeIf { it.isNotBlank() }?.let(req::cursor)
-                req
+        val result =
+            collectSlackChannels(
+                query = normalizedQuery,
+                limit = requestedLimit,
+                cursor = cursor,
+            ) { pageCursor, pageLimit ->
+                slackClient.fetchSlackChannelPage(pageCursor, pageLimit, includeArchived == true)
             }
-        if (!response.isOk) {
-            throw ToolException.ValidationFailure(response.error ?: "Failed to list Slack channels.")
-        }
-
-        val channels =
-            response.channels
-                .orEmpty()
-                .filter { channel -> normalizedQuery == null || channel.matchesName(normalizedQuery) }
-
-        val nextCursor = response.responseMetadata?.nextCursor?.takeIf { it.isNotBlank() }
         return formatSlackChannels(
-            channels = channels,
+            channels = result.channels,
             query = normalizedQuery,
             limit = requestedLimit,
-            nextCursor = nextCursor,
+            nextCursor = result.nextCursor,
+            pagesScanned = result.pagesScanned,
+            channelsScanned = result.channelsScanned,
         )
     }
+}
+
+data class SlackChannelPage(
+    val channels: List<Conversation>,
+    val nextCursor: String?,
+)
+
+data class SlackChannelScanResult(
+    val channels: List<Conversation>,
+    val nextCursor: String?,
+    val pagesScanned: Int,
+    val channelsScanned: Int,
+)
+
+fun collectSlackChannels(
+    query: String?,
+    limit: Int,
+    cursor: String?,
+    fetchPage: (cursor: String?, limit: Int) -> SlackChannelPage,
+): SlackChannelScanResult {
+    val channels = mutableListOf<Conversation>()
+    var nextCursor = cursor?.takeIf { it.isNotBlank() }
+    var pagesScanned = 0
+    var channelsScanned = 0
+
+    do {
+        val page = fetchPage(nextCursor, slackChannelPageLimit(query, limit - channels.size))
+        pagesScanned += 1
+        channelsScanned += page.channels.size
+        channels += page.channels.filter { channel -> query == null || channel.matchesName(query) }.take(limit - channels.size)
+        nextCursor = page.nextCursor
+    } while (channels.size < limit && nextCursor != null)
+
+    return SlackChannelScanResult(
+        channels = channels,
+        nextCursor = nextCursor,
+        pagesScanned = pagesScanned,
+        channelsScanned = channelsScanned,
+    )
 }
 
 fun normalizeSlackChannelLimit(limit: Int?): Int {
@@ -65,6 +97,11 @@ fun normalizeSlackChannelLimit(limit: Int?): Int {
     }
     return minOf(value, MAX_SLACK_CHANNEL_LIMIT)
 }
+
+private fun slackChannelPageLimit(
+    query: String?,
+    remaining: Int,
+): Int = if (query == null) remaining.coerceIn(1, MAX_SLACK_CHANNEL_LIMIT) else MAX_SLACK_CHANNEL_LIMIT
 
 fun normalizeSlackChannelQuery(query: String?): String? =
     query
@@ -92,6 +129,8 @@ fun formatSlackChannels(
     query: String?,
     limit: Int,
     nextCursor: String?,
+    pagesScanned: Int,
+    channelsScanned: Int,
 ): String {
     val output = mutableListOf<String>()
     output += "<slackChannels>"
@@ -99,15 +138,16 @@ fun formatSlackChannels(
     output += "<limit>$limit</limit>"
     output += "<channels>"
     if (channels.isEmpty()) {
-        output += "No matching channels found in this page."
+        output += "No matching channels found after scanning $pagesScanned Slack page(s)."
     } else {
-        channels.forEachIndexed { index, channel ->
-            output += "${index + 1}. ${channel.toSlackChannelLine()}"
+        channels.forEach { channel ->
+            output += channel.toSlackChannelTag()
         }
     }
     output += "</channels>"
     output += ""
-    output += "Showing ${channels.size} matching channel(s) from one Slack page of up to $limit channel(s)."
+    output += "Returned ${channels.size} matching channel(s); requested limit was $limit."
+    output += "Scanned $channelsScanned Slack channel(s) across $pagesScanned page(s)."
     slackChannelContinuationHint(query, nextCursor)?.let { output += it }
     if (nextCursor == null) {
         output += "End of Slack channel pages for this request."
@@ -116,18 +156,48 @@ fun formatSlackChannels(
     return output.joinToString("\n")
 }
 
-private fun Conversation.toSlackChannelLine(): String =
+private fun Conversation.toSlackChannelTag(): String =
     listOfNotNull(
-        "#${nameNormalized ?: name.orEmpty()}",
-        "id=$id",
-        "created=${slackTsToUtc(created)}",
-        "private=$isPrivate",
-        "archived=$isArchived",
-        "member=$isMember",
-        "shared=$isShared",
-        "members=$numOfMembers",
-        topic?.value?.takeIf { it.isNotBlank() }?.let { "topic=${it.singleLine()}" },
-        purpose?.value?.takeIf { it.isNotBlank() }?.let { "purpose=${it.singleLine()}" },
-    ).joinToString(" | ")
+        "<channel id=\"${xmlEscape(id)}\">",
+        "name: ${nameNormalized ?: name.orEmpty()}",
+        "created: ${slackTsToUtc(created)}",
+        "private: $isPrivate",
+        "archived: $isArchived",
+        "member: $isMember",
+        "shared: $isShared",
+        "members: $numOfMembers",
+        topic?.value?.takeIf { it.isNotBlank() }?.let { "topic: ${it.singleLine()}" },
+        purpose?.value?.takeIf { it.isNotBlank() }?.let { "purpose: ${it.singleLine()}" },
+        "</channel>",
+    ).joinToString("\n")
 
 private fun String.singleLine(): String = replace(Regex("\\s+"), " ").trim()
+
+private fun xmlEscape(value: String): String =
+    value
+        .replace("&", "&amp;")
+        .replace("\"", "&quot;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+
+private fun MethodsClient.fetchSlackChannelPage(
+    cursor: String?,
+    limit: Int,
+    includeArchived: Boolean,
+): SlackChannelPage {
+    val response: ConversationsListResponse =
+        conversationsList { req ->
+            req.types(listOf(ConversationType.PUBLIC_CHANNEL, ConversationType.PRIVATE_CHANNEL))
+            req.excludeArchived(!includeArchived)
+            req.limit(limit)
+            cursor?.let(req::cursor)
+            req
+        }
+    if (!response.isOk) {
+        throw ToolException.ValidationFailure(response.error ?: "Failed to list Slack channels.")
+    }
+    return SlackChannelPage(
+        channels = response.channels.orEmpty(),
+        nextCursor = response.responseMetadata?.nextCursor?.takeIf { it.isNotBlank() },
+    )
+}

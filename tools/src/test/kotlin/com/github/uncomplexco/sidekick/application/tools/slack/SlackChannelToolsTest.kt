@@ -73,11 +73,62 @@ class SlackChannelToolsTest {
                 numOfMembers = 42
             }
 
-        val output = formatSlackChannels(listOf(channel), "platform", 200, "abc")
+        val output = formatSlackChannels(listOf(channel), "platform", 200, "abc", pagesScanned = 2, channelsScanned = 42)
 
         assertContains(output, "<slackChannels>")
-        assertContains(output, "1. #platform-alerts | id=C123 | created=2026-06-01T12:34:56Z")
-        assertContains(output, "Showing 1 matching channel(s) from one Slack page of up to 200 channel(s).")
+        assertContains(
+            output,
+            """<channel id="C123">
+name: platform-alerts
+created: 2026-06-01T12:34:56Z
+private: false""",
+        )
+        assertContains(output, "Returned 1 matching channel(s); requested limit was 200.")
+        assertContains(output, "Scanned 42 Slack channel(s) across 2 page(s).")
         assertContains(output, "Call slackChannelsList with query=platform and cursor=abc to continue searching.")
     }
+
+    @Test
+    fun `collects channels across short pages until limit`() {
+        val pages =
+            mutableListOf(
+                SlackChannelPage(listOf(channel("C1", "alpha"), channel("C2", "beta")), "page-2"),
+                SlackChannelPage(listOf(channel("C3", "gamma")), null),
+            )
+
+        val result = collectSlackChannels(query = null, limit = 3, cursor = null) { _, _ -> pages.removeFirst() }
+
+        assertEquals(listOf("C1", "C2", "C3"), result.channels.map { it.id })
+        assertNull(result.nextCursor)
+        assertEquals(2, result.pagesScanned)
+        assertEquals(3, result.channelsScanned)
+    }
+
+    @Test
+    fun `keeps scanning after empty search page`() {
+        val pages =
+            mutableListOf(
+                SlackChannelPage(listOf(channel("C1", "alpha")), "page-2"),
+                SlackChannelPage(emptyList(), "page-3"),
+                SlackChannelPage(listOf(channel("C2", "platform-alerts")), null),
+            )
+
+        val result = collectSlackChannels(query = "platform", limit = 1, cursor = null) { _, _ -> pages.removeFirst() }
+
+        assertEquals(listOf("C2"), result.channels.map { it.id })
+        assertNull(result.nextCursor)
+        assertEquals(3, result.pagesScanned)
+        assertEquals(2, result.channelsScanned)
+    }
+
+    private fun channel(
+        id: String,
+        name: String,
+    ): Conversation =
+        Conversation().apply {
+            this.id = id
+            this.nameNormalized = name
+            this.created = 1_780_317_296
+            this.numOfMembers = 1
+        }
 }
