@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.application.turn.koog
 
-import ai.koog.agents.chatMemory.feature.ChatMemory
 import ai.koog.agents.chatMemory.feature.ChatHistoryProvider
+import ai.koog.agents.chatMemory.feature.ChatMemory
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.dsl.builder.node
@@ -80,7 +80,7 @@ class SidekickAgent(
                 handleEvents {
                     onToolCallStarting { toolCall ->
                         log.debug("onToolCallStarting: ${toolCall.toolName}")
-                        chat.activity.start("Executing ${toolCall.toolName}...")
+                        chat.activity.toolCall(toolCall.toolName)
                     }
 
                     onToolCallFailed { toolCall ->

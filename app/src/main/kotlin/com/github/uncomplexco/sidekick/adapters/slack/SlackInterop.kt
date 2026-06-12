@@ -51,30 +51,48 @@ fun slackActivityIndicator(
     threadTs: String,
 ): ChatActivityIndicator =
     object : ChatActivityIndicator {
+        val STATUS_LISTENING = "listening..."
+        val STATUS_THINKING = "thinking..."
+        private var turnActive = false
+
         override fun start(text: String?) {
+            turnActive = true
+
+            setStatus(status = STATUS_LISTENING, emoji = ":eyes:", loadingMessages = listOf(STATUS_LISTENING))
+        }
+
+        override fun `continue`(text: String?) {
             setStatus(
-                status = slackAssistantStatusTexts.random(),
-                loadingMessages =
-                    if (!text.isNullOrBlank()) {
-                        listOf(text)
-                    } else {
-                        listOf(
-                            "Reading what everyone said...",
-                            "Checking the important bits...",
-                            "Turning context into an answer...",
-                            "Avoiding confident nonsense...",
-                            "Making it Slack-sized...",
-                        )
-                    },
+                status = STATUS_THINKING,
+                emoji = ":face_in_clouds:",
+                loadingMessages = listOf(text ?: STATUS_THINKING),
+            )
+        }
+
+        override fun toolCall(name: String) {
+            setStatus(
+                status = STATUS_THINKING,
+                emoji = ":satellite_antenna:",
+                loadingMessages = listOf("-> $name..."),
             )
         }
 
         override fun clear() {
+            if (turnActive) {
+                `continue`()
+            } else {
+                setStatus("")
+            }
+        }
+
+        override fun endTurn() {
+            turnActive = false
             setStatus("")
         }
 
         private fun setStatus(
             status: String,
+            emoji: String? = null,
             loadingMessages: List<String>? = null,
         ) {
             runCatching {
@@ -86,6 +104,9 @@ fun slackActivityIndicator(
                         if (loadingMessages != null) {
                             req.loadingMessages(loadingMessages)
                         }
+
+                        emoji?.also { req.iconEmoji(it) }
+
                         req
                     }
                 if (!response.isOk) {

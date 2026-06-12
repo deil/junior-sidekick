@@ -9,11 +9,11 @@ fun interface ReplyToMessage {
 interface ChatActivityIndicator {
     fun start(text: String? = null)
 
+    fun `continue`(text: String? = null)
+
+    fun toolCall(name: String)
+
     fun clear()
-}
 
-object NoopChatActivityIndicator : ChatActivityIndicator {
-    override fun start(text: String?) = Unit
-
-    override fun clear() = Unit
+    fun endTurn()
 }

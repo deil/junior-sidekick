@@ -19,7 +19,6 @@ class TurnExecutor(
     private val turnTrigger: InboundMessageFilter,
     private val conversationManager: ConversationManager,
     private val replyTrigger: ReplyDecisionService,
-    private val turnPromptBuilder: TurnPromptBuilder,
     private val agentConfig: AgentConfig,
     private val agent: SidekickAgent,
 ) {
@@ -28,24 +27,26 @@ class TurnExecutor(
         messages: List<InboundMessage>,
         chat: ChatPlatformAdapter,
     ) {
-        val decision =
-            when (val triggerDecision = turnTrigger.shouldTriggerTurn(conversationId, messages)) {
-                TurnTriggerDecision.Ignore -> {
-                    log.debug("{} ignored batch size={}", conversationId.logLabel(), messages.size)
-                    return
+        try {
+            chat.activity.start()
+
+            val decision =
+                when (val triggerDecision = turnTrigger.shouldTriggerTurn(conversationId, messages)) {
+                    TurnTriggerDecision.Ignore -> {
+                        log.debug("{} ignored batch size={}", conversationId.logLabel(), messages.size)
+                        return
+                    }
+
+                    is TurnTriggerDecision.ShouldHandle -> {
+                        triggerDecision
+                    }
                 }
 
-                is TurnTriggerDecision.ShouldHandle -> {
-                    triggerDecision
-                }
-            }
-
-        messages.sortedBy { it.createdAtMs }.forEach { message ->
-            try {
+            messages.sortedBy { it.createdAtMs }.forEach { message ->
                 handle(message.copy(files = message.files.take(MAX_MESSAGE_FILES)), decision, chat)
-            } finally {
-                chat.activity.clear()
             }
+        } finally {
+            chat.activity.endTurn()
         }
     }
 
@@ -103,7 +104,7 @@ class TurnExecutor(
             )
 
         if (shouldReply.shouldReply) {
-            chat.activity.start()
+            chat.activity.`continue`()
 
             val agentReply = agent.runTurn(turn, currentMessage, chat)
             val replyMessageId = chat.reply.postReply(agentReply)
