@@ -3,15 +3,18 @@ package com.github.uncomplexco.sidekick.application.tools.skills
 import ai.koog.agents.core.tools.ToolException
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
+import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
+import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloadResult
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
-class ActivateSkillToolsTest {
+class SkillToolsTest {
     @TempDir
     lateinit var dir: Path
 
@@ -36,7 +39,7 @@ class ActivateSkillToolsTest {
 
         // Act
         val result =
-            ActivateSkillTools(
+            SkillTools(
                 skills =
                     {
                         SkillCatalog(
@@ -52,6 +55,7 @@ class ActivateSkillToolsTest {
                         )
                     },
                 skillsRoot = dir.resolve("skills"),
+                skillCatalogReloader = emptyReloader(),
             ).activateSkill("pdf-processing")
 
         // Assert
@@ -67,10 +71,53 @@ class ActivateSkillToolsTest {
 
     @Test
     fun `rejects unknown skill`() {
-        val tools = ActivateSkillTools(skills = { SkillCatalog(emptyList()) }, skillsRoot = dir.resolve("skills"))
+        // Arrange
+        val tools = SkillTools(skills = { SkillCatalog(emptyList()) }, skillsRoot = dir.resolve("skills"), skillCatalogReloader = emptyReloader())
 
+        // Act / Assert
         assertThrows<ToolException.ValidationFailure> {
             tools.activateSkill("missing")
         }
     }
+
+    @Test
+    fun `reload skills returns catalog summary`() {
+        // Arrange
+        val tools =
+            SkillTools(
+                skills = { SkillCatalog(emptyList()) },
+                skillsRoot = dir.resolve("skills"),
+                skillCatalogReloader =
+                    {
+                        SkillCatalogReloadResult(
+                            totalSkills = 3,
+                            modelInvocableSkills = 2,
+                            userInvocableSkills = 1,
+                            skillNames = listOf("alpha", "beta", "gamma"),
+                        )
+                    },
+            )
+
+        // Act
+        val result = tools.reloadSkills()
+
+        // Assert
+        assertContains(result.skill_names, "alpha")
+        assertContains(result.skill_names, "beta")
+        assertContains(result.skill_names, "gamma")
+        assertEquals(true, result.ok)
+        assertEquals(3, result.total_skills)
+        assertEquals(2, result.model_invocable_skills)
+        assertEquals(1, result.user_invocable_skills)
+    }
+
+    private fun emptyReloader(): SkillCatalogReloader =
+        SkillCatalogReloader {
+            SkillCatalogReloadResult(
+                totalSkills = 0,
+                modelInvocableSkills = 0,
+                userInvocableSkills = 0,
+                skillNames = emptyList(),
+            )
+        }
 }

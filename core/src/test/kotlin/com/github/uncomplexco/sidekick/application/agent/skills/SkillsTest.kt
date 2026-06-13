@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.application.agent.skills
 
+import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.eclipse.jgit.api.Git
@@ -78,6 +79,26 @@ class SkillsTest {
         // Assert
         assertEquals(emptyList(), catalog.skills)
         assertTrue(Files.notExists(dir.resolve("skills")))
+    }
+
+    @Test
+    fun `configured reloader syncs and summarizes catalog`() {
+        // Arrange
+        Files.writeString(dir.resolve("skills.json"), """{"skills": []}""")
+        val reloader =
+            ConfiguredSkillCatalogReloader(
+                AgentConfig("Sidekick", dir.resolve("state").toString(), dir.toString()),
+                skills,
+            )
+
+        // Act
+        val result = reloader.reloadSkills()
+
+        // Assert
+        assertEquals(0, result.totalSkills)
+        assertEquals(0, result.modelInvocableSkills)
+        assertEquals(0, result.userInvocableSkills)
+        assertEquals(emptyList(), result.skillNames)
     }
 
     @Test

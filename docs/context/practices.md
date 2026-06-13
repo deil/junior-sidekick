@@ -19,6 +19,7 @@ _Opinionated. Not everyone will agree — that's fine._
 - Use plural package names when a package holds a collection of similar types — `controllers`, `repositories`, `listeners`
 - Name regex constants with the `_RE` suffix
 - Use `snake_case` for XML prompt tag names, not kebab-case: `<current_instruction>`, not `<current-instruction>`
+- Never use the agent's name in `@LLMDescription` text. Tool descriptions should describe capability, not brand or runtime identity.
 - Organize method body into logical groups separated by a blank line:
   - **Guards / early returns** — validation, auth checks, precondition failures
   - **Setup / preparation** — variable declarations, data fetching, parsing

@@ -180,7 +180,9 @@ Repository clone and refresh use JGit, not the `git` CLI. Repository refresh res
 ## Key Files
 
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/Skills.kt` – skills config loading, repository checkout/refresh, skill discovery, and in-memory catalog ownership.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/SkillCatalogReloading.kt` – implements the skill catalog reload port by re-reading config, refreshing repositories, and rebuilding the catalog.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/Utils.kt` – small generic helpers used by skills discovery.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/UserSkillInvocation.kt` – detects user skill invocation before LLM prompting.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/ports/Skills.kt` – defines the skill catalog reload port used by tools.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/context/TurnPromptBuilder.kt` – renders the skills catalog and already-materialized explicit skill invocation in the turn prompt.
-- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/skills/ActivateSkillTools.kt` – loads full skill instructions through the `activateSkill` tool.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/skills/SkillTools.kt` – exposes skill tools including `activateSkill` and `reloadSkills`.

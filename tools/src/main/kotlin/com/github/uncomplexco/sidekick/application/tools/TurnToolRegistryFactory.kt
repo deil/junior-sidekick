@@ -7,7 +7,7 @@ import com.github.uncomplexco.sidekick.application.runtime.SharedContext
 import com.github.uncomplexco.sidekick.application.tools.integrations.FilePublisher
 import com.github.uncomplexco.sidekick.application.tools.integrations.InternalFileExchangeTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.ConfiguredMcpToolRegistryProvider
-import com.github.uncomplexco.sidekick.application.tools.skills.ActivateSkillTools
+import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackFileTools
@@ -15,6 +15,7 @@ import com.github.uncomplexco.sidekick.application.tools.slack.SlackHistoryTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackReactionTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.TurnToolRegistryFactory
+import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
@@ -26,12 +27,13 @@ class DefaultTurnToolRegistryFactory(
     private val slackBotToken: String,
     private val filePublisher: FilePublisher,
     private val skills: SkillCatalogProvider,
+    private val skillCatalogReloader: SkillCatalogReloader,
     private val mcpTools: ConfiguredMcpToolRegistryProvider,
 ) : TurnToolRegistryFactory {
     override suspend fun build(ctx: TurnContext): ToolRegistry =
         ToolRegistry {
             tools(SystemTools())
-            tools(ActivateSkillTools(skills, agentConfig.skillsDirectoryPath()))
+            tools(SkillTools(skills, agentConfig.skillsDirectoryPath(), skillCatalogReloader))
             tools(
                 InternalFileExchangeTools(
                     filePublisher,
