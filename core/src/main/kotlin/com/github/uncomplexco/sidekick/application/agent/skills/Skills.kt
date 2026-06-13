@@ -271,7 +271,7 @@ class Skills : SkillCatalogProvider {
         val name = frontmatter["name"]?.takeUnless { it.isBlank() }
         val description = frontmatter["description"]?.takeUnless { it.isBlank() }?.take(MAX_DESCRIPTION_LENGTH)
         val disableModelInvocation = frontmatter["disable-model-invocation"]?.toBooleanStrictOrNull() ?: false
-        val userInvocable = frontmatter["user-invocable"]?.toBooleanStrictOrNull() ?: true
+        val userInvocable = frontmatter["user-invocable"]?.toBooleanStrictOrNull() ?: false
         require(name != null) { "$SKILL_FILE_NAME is missing frontmatter field 'name'" }
         require(description != null) { "$SKILL_FILE_NAME is missing frontmatter field 'description'" }
         require(SKILL_NAME_RE.matches(name)) {

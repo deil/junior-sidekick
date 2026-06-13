@@ -4,6 +4,7 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.context.prompts.CURRENT_INSTRUCTION_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.EXPLICIT_SKILL_INVOCATION_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.REQUESTER_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.RUNTIME_CONTEXT_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.skillsSection
@@ -75,6 +76,10 @@ class TurnPromptBuilder(
                 ),
             )
 
+            message.explicitSkillInvocation?.also { invocation ->
+                appendLine(renderExplicitSkillInvocation(invocation.skillName))
+            }
+
             appendLine(xmlTag(CURRENT_INSTRUCTION_TAG, "[${message.author!!.username}] ${message.text}"))
 
             if (message.fileIds.isNotEmpty()) {
@@ -90,6 +95,16 @@ class TurnPromptBuilder(
                 )
             }
         }
+
+    private fun renderExplicitSkillInvocation(skillName: String): String =
+        xmlTag(
+            EXPLICIT_SKILL_INVOCATION_TAG,
+            buildString {
+                appendLine("The user explicitly requested this skill. Call activateSkill with this name before answering.")
+                appendLine()
+                appendLine("/${escapeXml(skillName)}")
+            },
+        )
 
     fun buildThreadContext(
         conversationId: ConversationId,

@@ -13,20 +13,41 @@ system:
   base Sidekick behavior and response rules
 
 user:
-<thread-compactions>
+<runtime_context>
 ...
-</thread-compactions>
+</runtime_context>
 
-<thread-transcript>
-...
-</thread-transcript>
+<skills>
+  <available_skills>
+    ... model-invocable skills the model may choose when the task matches ...
+  </available_skills>
+  <user_invocable_skills>
+    ... skills the user may explicitly request; not for autonomous model selection ...
+  </user_invocable_skills>
+</skills>
 
-<current-message>
+<thread_compactions>
 ...
-</current-message>
+</thread_compactions>
+
+<thread_transcript>
+...
+</thread_transcript>
+
+<explicit_skill_invocation>
+The user explicitly requested this skill. Call activateSkill with this name before answering.
+
+/example-skill
+</explicit_skill_invocation>
+
+<current_instruction>
+...
+</current_instruction>
 ```
 
 The current message is excluded from transcript history. That invariant prevents Sidekick from seeing the same user request twice in one turn.
+
+`<skills>` appears only when bootstrapping model-visible thread context and only when at least one model-invocable or user-invocable skill exists. `<explicit_skill_invocation>` appears only when the current `SessionMessage` has `explicitSkillInvocation` materialized by message preprocessing. The prompt builder renders this field but does not detect invocations. The original `<current_instruction>` text is preserved unchanged.
 
 Seeded Slack history affects prompts the same way locally recorded history does. Once persisted, it is just session history.
 
@@ -40,10 +61,10 @@ Compactions are older context, not replacement history:
 older messages       latest messages       current message
       |                    |                    |
       v                    v                    v
-compactions.jsonl     messages.jsonl      <current-message>
+compactions.jsonl     messages.jsonl      <current_instruction>
       |                    |
-      +---------> <thread-compactions>
-                   <thread-transcript>
+      +---------> <thread_compactions>
+                   <thread_transcript>
 ```
 
 Invariant: compaction never removes all live messages. The latest `MIN_LIVE_MESSAGES` always remain untouched in `messages.jsonl`.

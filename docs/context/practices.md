@@ -18,6 +18,7 @@ _Opinionated. Not everyone will agree — that's fine._
 - Use JSpecify; apply `@NullMarked` by default. Or use Kotlin
 - Use plural package names when a package holds a collection of similar types — `controllers`, `repositories`, `listeners`
 - Name regex constants with the `_RE` suffix
+- Use `snake_case` for XML prompt tag names, not kebab-case: `<current_instruction>`, not `<current-instruction>`
 - Organize method body into logical groups separated by a blank line:
   - **Guards / early returns** — validation, auth checks, precondition failures
   - **Setup / preparation** — variable declarations, data fetching, parsing

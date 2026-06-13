@@ -45,6 +45,12 @@ Turn admission
   v
 Turn processing
   |
+  +-- explicit skill invocation preprocessing
+  |     |
+  |     | detect user-invocable skill request from current message text
+  |     | materialize SessionMessage.explicitSkillInvocation before persistence
+  |     v
+  |
   +-- SessionManager.recordIncomingMessage
   |     |
   |     | load or create ConversationState
@@ -116,7 +122,9 @@ Admission also selects the session. A root app mention creates a session from th
 
 ### Session recording
 
-`SessionManager.recordIncomingMessage` is the start of turn processing after admission.
+Explicit skill invocation preprocessing runs before session recording. It detects deterministic user-invocable skill syntax only on the current inbound message and stores the result on `SessionMessage.explicitSkillInvocation`. Seeded history is not preprocessed for skill invocation.
+
+`SessionManager.recordIncomingMessage` is the persistence boundary after preprocessing.
 
 It locks the session, loads or creates `ConversationState`, optionally seeds Slack history, records the current user message, compacts context if needed, saves session state, and returns `TurnContext`.
 

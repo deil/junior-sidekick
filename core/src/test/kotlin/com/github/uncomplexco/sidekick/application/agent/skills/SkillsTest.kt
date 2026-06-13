@@ -146,7 +146,7 @@ class SkillsTest {
             """
             ---
             name: default-flag
-            description: Defaults disable-model-invocation to false.
+            description: Defaults optional flags.
             ---
             # Instructions
             """.trimIndent(),
@@ -205,7 +205,7 @@ class SkillsTest {
         assertEquals(true, catalog.skills.single { it.name == "valid" }.disableModelInvocation)
         assertEquals(false, catalog.skills.single { it.name == "valid" }.userInvocable)
         assertEquals(false, catalog.skills.single { it.name == "default-flag" }.disableModelInvocation)
-        assertEquals(true, catalog.skills.single { it.name == "default-flag" }.userInvocable)
+        assertEquals(false, catalog.skills.single { it.name == "default-flag" }.userInvocable)
         assertEquals(1536, catalog.skills.single { it.name == "too-long-description" }.description.length)
     }
 

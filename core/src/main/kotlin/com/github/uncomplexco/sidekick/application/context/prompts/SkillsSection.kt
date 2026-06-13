@@ -13,7 +13,9 @@ internal fun skillsSection(
     config: AgentConfig,
 ): String? {
     val modelInvocableSkills = skills.skills.filterNot { it.disableModelInvocation }
-    if (modelInvocableSkills.isEmpty()) {
+    val userInvocableSkills = skills.skills.filter { it.userInvocable }
+
+    if (modelInvocableSkills.isEmpty() && userInvocableSkills.isEmpty()) {
         return null
     }
 
@@ -24,24 +26,43 @@ internal fun skillsSection(
                 """
                 The following skills provide specialized instructions for specific tasks.
                 When a task matches a skill's description, call the activateSkill tool with the skill's name to load its full instructions.
+                User-invocable skills are listed separately. Do not activate those unless the user explicitly requested one.
                 Do not answer from memory when a skill fits.
-                If none fits, do not load a skill. 
+                If none fits, do not load a skill.
                 """.trimIndent(),
             )
             appendLine()
-            appendLine(
-                xmlTag(
-                    AVAILABLE_SKILLS_TAG,
-                    buildString {
-                        modelInvocableSkills.forEach { skill ->
-                            appendLine(renderSkill(skill, config))
-                        }
-                    },
-                ),
-            )
+
+            if (modelInvocableSkills.isNotEmpty()) {
+                appendLine(
+                    xmlTag(
+                        AVAILABLE_SKILLS_TAG,
+                        buildString {
+                            modelInvocableSkills.forEach { skill ->
+                                appendLine(renderSkill(skill, config))
+                            }
+                        },
+                    ),
+                )
+            }
+
+            if (userInvocableSkills.isNotEmpty()) {
+                appendLine(
+                    xmlTag(
+                        USER_INVOCABLE_SKILLS_TAG,
+                        buildString {
+                            userInvocableSkills.forEach { skill ->
+                                appendLine(renderSkill(skill, config))
+                            }
+                        },
+                    ),
+                )
+            }
         },
     )
 }
+
+private const val USER_INVOCABLE_SKILLS_TAG = "user_invocable_skills"
 
 internal fun renderSkill(
     skill: Skill,

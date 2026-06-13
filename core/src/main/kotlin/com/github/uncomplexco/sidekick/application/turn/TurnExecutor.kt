@@ -1,12 +1,15 @@
 package com.github.uncomplexco.sidekick.application.turn
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
+import com.github.uncomplexco.sidekick.application.agent.skills.detectUserSkillInvocation
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationManager
+import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
@@ -21,6 +24,7 @@ class TurnExecutor(
     private val replyTrigger: ReplyDecisionService,
     private val agentConfig: AgentConfig,
     private val agent: SidekickAgent,
+    private val skills: SkillCatalogProvider,
 ) {
     suspend fun run(
         conversationId: ChatConversationId,
@@ -76,6 +80,9 @@ class TurnExecutor(
                 fileIds = attachedFiles.map { it.id },
                 createdAtMs = message.createdAtMs,
                 explicitMention = decision.explicitMention,
+                explicitSkillInvocation =
+                    detectUserSkillInvocation(message.text, skills.catalog())
+                        ?.let { ExplicitSkillInvocation(it.skill.name) },
             )
 
         val turn =

@@ -74,7 +74,7 @@ user-invocable: true
 Optional fields:
 
 - `disable-model-invocation`, defaults to `false`
-- `user-invocable`, defaults to `true`
+- `user-invocable`, defaults to `false`
 
 `name` must use lowercase letters, numbers, and single hyphens. It must match the parent folder name.
 
@@ -82,9 +82,11 @@ Discovered skills retain the parsed metadata and the skill base folder. The base
 
 ## Turn Prompt Catalog
 
-`TurnPromptBuilder` includes a skills catalog in the per-turn user prompt when the discovered catalog contains model-invocable skills.
+`TurnPromptBuilder` includes a skills catalog in the per-turn user prompt when the discovered catalog contains model-invocable or user-invocable skills.
 
 Model-invocable skills are skills where `disableModelInvocation == false`. Skills with `disable-model-invocation: true` are excluded from the model-facing catalog.
+
+User-invocable skills are skills where `userInvocable == true`. They are listed separately so the model knows which skill names users may explicitly request, including skills where `disable-model-invocation: true`.
 
 The catalog follows Agent Skills progressive disclosure: the turn prompt includes only the skill name, description, and virtual location of `SKILL.md`. Full skill instructions are not embedded in the base system prompt or turn prompt.
 
@@ -92,7 +94,7 @@ The catalog follows Agent Skills progressive disclosure: the turn prompt include
 
 The skills catalog is thread-context bootstrap data, not static system prompt state. It is rendered by `buildThreadContext()` only when the turn is bootstrapping model-visible session context; follow-up turns with existing Koog history do not repeat it.
 
-The section is wrapped in `<skills>`. It instructs the model to use `activateSkill` with the skill name when a task matches a listed skill description.
+The section is wrapped in `<skills>`. It instructs the model to use `activateSkill` with the skill name when a task matches an `<available_skills>` entry. `<user_invocable_skills>` is not permission for autonomous model activation; the model may use those skills only when the current user explicitly invokes one.
 
 Structural shape:
 
@@ -106,16 +108,51 @@ Structural shape:
       <location>skills:/repo/example-skill/SKILL.md</location>
     </skill>
   </available_skills>
+  <user_invocable_skills>
+    <skill>
+      <name>user-only-skill</name>
+      <description>Short discovery description.</description>
+      <location>skills:/repo/user-only-skill/SKILL.md</location>
+    </skill>
+  </user_invocable_skills>
 </skills>
 ```
 
-Available skills are listed under `<available_skills>`. Each `<skill>` entry contains:
+Model-invocable skills are listed under `<available_skills>`. User-invocable skills are listed under `<user_invocable_skills>`. Each `<skill>` entry contains:
 
 - `<name>`
 - `<description>`
 - `<location>` pointing to the `skills:/` virtual path for `SKILL.md`
 
-If no model-invocable skills exist, the `<skills>` section is omitted.
+If no model-invocable or user-invocable skills exist, the `<skills>` section is omitted.
+
+## User Invocation
+
+User-invocable skills are explicit Slack syntax, not model intent inference. Sidekick detects deterministic positive invocation patterns during message preprocessing, before the message is recorded for the turn. A valid detection is materialized on `SessionMessage.explicitSkillInvocation`. Prompt builders must not perform invocation detection.
+
+Supported MVP forms:
+
+- Slash-style `/skill-name` anywhere in the Slack message.
+- Natural language `activate skill-name`, `use skill-name`, `invoke skill-name`, `run skill-name`, or `call skill-name`.
+- Natural-language forms may include optional `skill` immediately before or after the skill name, and optional `the` immediately before the skill name: `use skill-name`, `use skill skill-name`, `use the skill-name`, `use skill-name skill`, or `use the skill-name skill`.
+
+Sidekick resolves the detected name against the discovered catalog and accepts only skills where `userInvocable == true`. Unknown skill names and skills with `user-invocable: false` are ignored and the message continues as a normal turn.
+
+Only one skill is user-invoked per message in the MVP. Slash invocation wins over natural-language invocation. Within the selected invocation type, Sidekick chooses one deterministic first match.
+
+Slash-style invocation wins. If Sidekick detects `/skill-name` and the skill is user-invocable, it accepts that invocation without applying natural-language or negative-request checks.
+
+For natural-language invocation, Sidekick blocks the same activation pattern when it is prefixed by a negative instruction: `do not`, `don't`, `dont`, or `never`. Examples: `don't use skill-name`, `do not activate skill-name`, or `never run skill-name`.
+
+When `SessionMessage.explicitSkillInvocation` is present, Sidekick does not call `activateSkill` directly. It adds an `<explicit_skill_invocation>` section before `<current_instruction>`. The section body starts with an instruction hint, then a blank line, then the slash-prefixed skill name:
+
+```xml
+<explicit_skill_invocation>
+The user explicitly requested this skill. Call activateSkill with this name before answering.
+
+/example-skill
+</explicit_skill_invocation>
+```
 
 ## Skill Activation
 
@@ -144,5 +181,6 @@ Repository clone and refresh use JGit, not the `git` CLI. Repository refresh res
 
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/Skills.kt` – skills config loading, repository checkout/refresh, skill discovery, and in-memory catalog ownership.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/Utils.kt` – small generic helpers used by skills discovery.
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/context/TurnPromptBuilder.kt` – renders the model-facing skills catalog in the turn prompt.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/UserSkillInvocation.kt` – detects user skill invocation before LLM prompting.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/context/TurnPromptBuilder.kt` – renders the skills catalog and already-materialized explicit skill invocation in the turn prompt.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/skills/ActivateSkillTools.kt` – loads full skill instructions through the `activateSkill` tool.

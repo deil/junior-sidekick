@@ -49,8 +49,14 @@ class SessionMessage(
     val fileIds: List<String> = mutableListOf(),
     val createdAtMs: Long,
     val explicitMention: Boolean = false,
+    val explicitSkillInvocation: ExplicitSkillInvocation? = null,
     var replied: Boolean? = null,
     var skippedReason: String? = null,
+)
+
+@Serializable
+data class ExplicitSkillInvocation(
+    val skillName: String,
 )
 
 @Serializable
