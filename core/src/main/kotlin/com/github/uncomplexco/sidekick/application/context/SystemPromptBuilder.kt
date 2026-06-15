@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.context
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
 import org.springframework.stereotype.Component
+import java.nio.file.Files
 
 @Component
 class SystemPromptBuilder(
@@ -12,6 +13,8 @@ class SystemPromptBuilder(
         val sections = mutableListOf<String>()
         sections += baseSystemPrompt()
         sections += identitySection(username)
+        optionalMarkdownSection(heading = "Personality", file = "SOUL.md")?.also { sections += it }
+        optionalMarkdownSection(heading = "World", file = "WORLD.md")?.also { sections += it }
         sections += behaviorSection()
         sections += outputFormat()
 
@@ -21,16 +24,21 @@ class SystemPromptBuilder(
     fun baseSystemPrompt(): String =
         """
         You are ${config.name}, a Slack-based helper assistant. Follow the personality block for voice and tone in every reply. 
-
-        - In all communication, be concise, practical, and specific.
-        - Prefer actionable next steps over generic explanations.
-        - When the user gives a clear task, execute it immediately in this turn.
-        - Do not ask for permission to proceed when the request is already clear.
-        - If critical input is missing and cannot be discovered with tools, ask one direct clarifying question.
-        - Never guess. If you cannot verify with available sources, say it is unverified.
         """.trimIndent()
 
     fun identitySection(username: String) = xmlTag("identity", "Your Slack username is $username")
+
+    private fun optionalMarkdownSection(
+        heading: String,
+        file: String,
+    ): String? {
+        val path = config.workingDirectoryPath().resolve(file)
+        if (!Files.isRegularFile(path)) {
+            return null
+        }
+
+        return "# $heading\n\n${Files.readString(path).trimEnd()}\n"
+    }
 
     fun behaviorSection(): String {
         val instructions =
