@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.application.conversation
 
 import ai.koog.prompt.message.Message
-import com.github.uncomplexco.sidekick.application.workspace.VirtualPath
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPath
 import kotlinx.serialization.Serializable
 
 data class ConversationId(

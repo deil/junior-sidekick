@@ -6,7 +6,7 @@ import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.skills.Skills.Companion.SKILL_FILE_NAME
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
-import com.github.uncomplexco.sidekick.application.workspace.skillsPath
+import com.github.uncomplexco.sidekick.application.agent.workspace.skillsPath
 
 internal fun skillsSection(
     skills: SkillCatalog,

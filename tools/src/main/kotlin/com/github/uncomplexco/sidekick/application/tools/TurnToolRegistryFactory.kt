@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProv
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
 import com.github.uncomplexco.sidekick.application.tools.integrations.FilePublisher
 import com.github.uncomplexco.sidekick.application.tools.integrations.InternalFileExchangeTools
+import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.ConfiguredMcpToolRegistryProvider
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
@@ -33,6 +34,7 @@ class DefaultTurnToolRegistryFactory(
     override suspend fun build(ctx: TurnContext): ToolRegistry =
         ToolRegistry {
             tools(SystemTools())
+            tools(WorkspaceFileTools(agentConfig.globalDirectoryPath()))
             tools(SkillTools(skills, agentConfig.skillsDirectoryPath(), skillCatalogReloader))
             tools(
                 InternalFileExchangeTools(
@@ -40,6 +42,7 @@ class DefaultTurnToolRegistryFactory(
                     ctx,
                     agentConfig.stateDirectoryPath(),
                     agentConfig.skillsDirectoryPath(),
+                    agentConfig.globalDirectoryPath(),
                 ),
             )
             tools(SlackCanvasTools(sharedContext.slackClient, ctx.conversationId).asTools())
@@ -57,6 +60,7 @@ class DefaultTurnToolRegistryFactory(
                     slackBotToken,
                     agentConfig.stateDirectoryPath(),
                     agentConfig.skillsDirectoryPath(),
+                    agentConfig.globalDirectoryPath(),
                 ).asTools(),
             )
         } + mcpTools.build()

@@ -19,3 +19,4 @@ Hierarchical index of project context documentation for future-us and AI agents.
 - [slack.md](slack.md) – Slack channel and thread identifier semantics, including `C`/`G`/`D` prefixes and DM channel handling; read for Slack adapter mapping changes.
 - [skills.md](skills.md) – Remote Git skill repository configuration, checkout layout, skill discovery metadata, validation, and current scope; read for skills loading and activation changes.
 - [turn-flow.md](turn-flow.md) – Session/Turn processing model, turn boundary, and processing stages from Slack event to reply delivery; read for turn orchestration and trigger/reply-policy changes.
+- [workspace.md](workspace.md) – Virtual path roots for session, skills, and global context storage; read for file storage and workspace path changes.

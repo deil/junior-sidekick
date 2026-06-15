@@ -7,8 +7,8 @@ import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.workspace.VirtualPath
-import com.github.uncomplexco.sidekick.application.workspace.parseVirtualPath
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPath
+import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
 import kotlinx.serialization.Serializable
 import org.springframework.http.MediaType
 import java.nio.file.Path
@@ -43,6 +43,7 @@ class InternalFileExchangeTools(
     private val ctx: TurnContext,
     private val dataDirectory: Path,
     private val skillsRoot: Path,
+    private val globalRoot: Path,
 ) : ToolSet {
     @Tool
     @LLMDescription(
@@ -62,7 +63,7 @@ class InternalFileExchangeTools(
         }
 
         try {
-            val realPath = parseVirtualPath(path, ctx.conversationId.folder(dataDirectory), skillsRoot)
+            val realPath = parseVirtualPath(path, ctx.conversationId.folder(dataDirectory), skillsRoot, globalRoot)
             return when (val result = filePublisher.publishFile(realPath, title, mimeType)) {
                 is FilePublisher.Result.Error -> {
                     throw ToolException.ValidationFailure(result.message)

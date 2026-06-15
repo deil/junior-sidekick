@@ -62,6 +62,33 @@ class InternalFileExchangeToolsTest {
     }
 
     @Test
+    fun `resolves global paths before publishing file`() {
+        var publishedPath: String? = null
+        val result =
+            tools(
+                object : FilePublisher {
+                    override fun publishFile(
+                        path: String,
+                        title: String,
+                        mimeType: String,
+                    ): FilePublisher.Result {
+                        publishedPath = path
+                        return FilePublisher.Result.Ok("https://files.internal/$title")
+                    }
+
+                    override fun publishContent(
+                        content: String,
+                        title: String,
+                        mimeType: String,
+                    ): FilePublisher.Result = FilePublisher.Result.Ok("https://files.internal/$title")
+                },
+            ).publishFileInternally("global:/handbook/security.md", "security.md", "text/markdown")
+
+        assertTrue(result.ok)
+        assertEquals(dir.resolve("workspace/global/handbook/security.md").toString(), publishedPath)
+    }
+
+    @Test
     fun `rejects unsupported mime types`() {
         assertThrows<ToolException.ValidationFailure> {
             tools().publishFileInternally("session:/tmp/file.pdf", "file.pdf", "application/pdf")
@@ -101,5 +128,6 @@ class InternalFileExchangeToolsTest {
             ),
             dir,
             dir.resolve("workspace/skills"),
+            dir.resolve("workspace/global"),
         )
 }

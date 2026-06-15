@@ -17,7 +17,7 @@ import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.timestamp
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
-import com.github.uncomplexco.sidekick.application.workspace.skillsPath
+import com.github.uncomplexco.sidekick.application.agent.workspace.skillsPath
 import org.springframework.stereotype.Component
 import java.time.Instant.ofEpochMilli
 

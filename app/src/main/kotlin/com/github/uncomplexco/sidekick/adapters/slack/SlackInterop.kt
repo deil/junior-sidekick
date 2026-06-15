@@ -4,7 +4,7 @@ import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.workspace.toSessionBasedPath
+import com.github.uncomplexco.sidekick.application.agent.workspace.toSessionBasedPath
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
 import com.slack.api.bolt.context.builtin.EventContext

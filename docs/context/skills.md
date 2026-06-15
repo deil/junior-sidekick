@@ -175,11 +175,12 @@ The hash is based on the full URL, not just the repository name, so two reposito
 
 The checkout directory is `AgentConfig.skillsDirectoryPath()`, derived from `agent.working-directory`; persisted session state remains under `agent.state-directory`.
 
-Repository clone and refresh use JGit, not the `git` CLI. Repository refresh resets the checkout to `origin/HEAD`.
+Repository clone and refresh use the shared JGit adapter, not the `git` CLI. Repository refresh resets the checkout to `origin/HEAD`.
 
 ## Key Files
 
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/Skills.kt` – skills config loading, repository checkout/refresh, skill discovery, and in-memory catalog ownership.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/Skills.kt` – skills config loading, skill discovery, and in-memory catalog ownership.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/git/GitRepositories.kt` – shared JGit checkout path, clone, fetch, reset, and SSH-key wiring.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/SkillCatalogReloading.kt` – implements the skill catalog reload port by re-reading config, refreshing repositories, and rebuilding the catalog.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/Utils.kt` – small generic helpers used by skills discovery.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/UserSkillInvocation.kt` – detects user skill invocation before LLM prompting.

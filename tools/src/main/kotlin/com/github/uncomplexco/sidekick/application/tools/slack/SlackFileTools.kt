@@ -8,7 +8,7 @@ import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFiles
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.workspace.parseVirtualPath
+import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 import org.springframework.util.MimeType
@@ -23,6 +23,7 @@ class SlackFileTools(
     private val slackBotToken: String,
     private val dataDirectory: Path,
     private val skillsRoot: Path,
+    private val globalRoot: Path,
     private val httpClient: HttpClient =
         HttpClient
             .newBuilder()
@@ -84,7 +85,7 @@ class SlackFileTools(
         validate(isSupportedSlackTextFile(file)) { "Only text Slack files are supported." }
 
         val sessionRoot = ctx.conversationId.folder(dataDirectory)
-        val realPath = parseVirtualPath(file.localPath, sessionRoot, skillsRoot)
+        val realPath = parseVirtualPath(file.localPath, sessionRoot, skillsRoot, globalRoot)
         return files.read(realPath, offset, limit, file.localPath)
     }
 }

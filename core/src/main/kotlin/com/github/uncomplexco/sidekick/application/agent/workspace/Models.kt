@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application.workspace
+package com.github.uncomplexco.sidekick.application.agent.workspace
 
 import java.nio.file.Path
 
@@ -19,10 +19,18 @@ fun skillsPath(
 
 fun String.toSkillsBasedPath(): VirtualPath = "skills:/$this"
 
+fun globalPath(
+    globalRoot: Path,
+    path: AbsolutePath,
+): VirtualPath = globalRoot.relativize(Path.of(path)).toString().toGlobalBasedPath()
+
+fun String.toGlobalBasedPath(): VirtualPath = "global:/$this"
+
 fun parseVirtualPath(
     path: VirtualPath,
     sessionRoot: Path,
     skillsRoot: Path,
+    globalRoot: Path,
 ): String {
     if (path.startsWith("session:/")) {
         return sessionRoot.resolve(path.removePrefix("session:/")).toString()
@@ -30,6 +38,10 @@ fun parseVirtualPath(
 
     if (path.startsWith("skills:/")) {
         return skillsRoot.resolve(path.removePrefix("skills:/")).toString()
+    }
+
+    if (path.startsWith("global:/")) {
+        return globalRoot.resolve(path.removePrefix("global:/")).toString()
     }
 
     error("Unsupported virtual path root: $path")

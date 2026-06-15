@@ -3,8 +3,8 @@ package com.github.uncomplexco.sidekick.application.tools.files
 import ai.koog.agents.core.tools.ToolException
 import java.nio.charset.MalformedInputException
 import java.nio.charset.StandardCharsets
-import java.nio.file.FileVisitOption
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.PathMatcher
 import java.nio.file.StandardOpenOption
@@ -228,6 +228,10 @@ class WorkspaceFiles(
     root: Path,
 ) {
     private val root = root.toAbsolutePath().normalize()
+    private val realRoot =
+        root
+            .also { require(!Files.isSymbolicLink(it)) { "Workspace root must not be a symbolic link: $it" } }
+            .toRealPath(LinkOption.NOFOLLOW_LINKS)
 
     fun read(
         filePath: String,
@@ -526,13 +530,13 @@ class WorkspaceFiles(
     }
 
     private fun walkFiles(root: Path): List<WalkedFile> {
-        val base = root.toRealPath()
-        return Files.walk(root, FileVisitOption.FOLLOW_LINKS).use { stream ->
+        val base = containedRealPath(root)
+        return Files.walk(root).use { stream ->
             stream
-                .filter { Files.isRegularFile(it) }
+                .filter { Files.isRegularFile(it, LinkOption.NOFOLLOW_LINKS) }
                 .filter { !containsGitDir(it) }
                 .map { file ->
-                    val actual = file.toRealPath()
+                    val actual = containedRealPath(file)
                     val relative = base.relativize(actual)
                     val display = root.resolve(relative).normalize()
                     WalkedFile(actual, display, relative)
@@ -544,7 +548,28 @@ class WorkspaceFiles(
         val value = input?.ifBlank { "." } ?: "."
         val path = root.resolve(value).normalize()
         require(path.startsWith(root)) { "Path escapes working directory: $input" }
+        rejectSymbolicPath(path)
+        if (Files.exists(path)) {
+            containedRealPath(path)
+        }
         return path
+    }
+
+    private fun containedRealPath(path: Path): Path {
+        val realPath = path.toRealPath(LinkOption.NOFOLLOW_LINKS)
+        require(realPath.startsWith(realRoot)) { "Path escapes working directory: $path" }
+        return realPath
+    }
+
+    private fun rejectSymbolicPath(path: Path) {
+        val relative = root.relativize(path)
+        var current = root
+        for (segment in relative) {
+            current = current.resolve(segment)
+            if (Files.isSymbolicLink(current)) {
+                throw IllegalArgumentException("Symbolic links are not allowed in workspace paths: $current")
+            }
+        }
     }
 
     private fun miss(path: Path): String {

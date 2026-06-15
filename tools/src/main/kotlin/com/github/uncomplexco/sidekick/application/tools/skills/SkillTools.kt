@@ -7,7 +7,7 @@ import ai.koog.agents.core.tools.reflect.ToolSet
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
-import com.github.uncomplexco.sidekick.application.workspace.skillsPath
+import com.github.uncomplexco.sidekick.application.agent.workspace.skillsPath
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
 import kotlinx.serialization.Serializable
 import java.nio.file.Files

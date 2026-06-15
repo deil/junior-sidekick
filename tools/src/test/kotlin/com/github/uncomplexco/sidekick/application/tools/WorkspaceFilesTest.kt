@@ -55,14 +55,17 @@ class WorkspaceFilesTest {
     }
 
     @Test
-    fun `glob follows symlinked directories`() {
+    fun `glob rejects symlinked directories`() {
         val real = Files.createDirectories(dir.resolve("real/nested"))
         Files.writeString(real.resolve("Link.kt"), "class Link")
         Files.createSymbolicLink(dir.resolve("linked"), dir.resolve("real"))
 
-        val result = WorkspaceFiles(dir).glob("**/*.kt", "linked")
+        val error =
+            assertThrows<IllegalArgumentException> {
+                WorkspaceFiles(dir).glob("**/*.kt", "linked")
+            }
 
-        assertContains(result, "nested/Link.kt")
+        assertContains(error.message.orEmpty(), "Symbolic links are not allowed")
     }
 
     @Test
@@ -79,15 +82,17 @@ class WorkspaceFilesTest {
     }
 
     @Test
-    fun `grep follows symlinked directories`() {
+    fun `grep rejects symlinked directories`() {
         val real = Files.createDirectories(dir.resolve("real-src"))
         Files.writeString(real.resolve("Needle.kt"), "val x = \"needle\"\n")
         Files.createSymbolicLink(dir.resolve("linked-src"), dir.resolve("real-src"))
 
-        val result = WorkspaceFiles(dir).grep("needle", "linked-src", "**/*.kt")
+        val error =
+            assertThrows<IllegalArgumentException> {
+                WorkspaceFiles(dir).grep("needle", "linked-src", "**/*.kt")
+            }
 
-        assertContains(result, "Found 1 matches")
-        assertContains(result, "Line 1: val x = \"needle\"")
+        assertContains(error.message.orEmpty(), "Symbolic links are not allowed")
     }
 
     @Test
@@ -182,5 +187,31 @@ class WorkspaceFilesTest {
         assertThrows<IllegalArgumentException> {
             files.read("../secret.txt", offset = 1, limit = 10)
         }
+    }
+
+    @Test
+    fun `rejects symlinked files`() {
+        Files.writeString(dir.resolve("target.txt"), "secret\n")
+        Files.createSymbolicLink(dir.resolve("linked.txt"), dir.resolve("target.txt"))
+
+        val error =
+            assertThrows<IllegalArgumentException> {
+                WorkspaceFiles(dir).read("linked.txt", offset = 1, limit = 10)
+            }
+
+        assertContains(error.message.orEmpty(), "Symbolic links are not allowed")
+    }
+
+    @Test
+    fun `rejects writes through symlinked parent directories`() {
+        Files.createDirectories(dir.resolve("real"))
+        Files.createSymbolicLink(dir.resolve("linked"), dir.resolve("real"))
+
+        val error =
+            assertThrows<IllegalArgumentException> {
+                WorkspaceFiles(dir).write("linked/new.txt", "content")
+            }
+
+        assertContains(error.message.orEmpty(), "Symbolic links are not allowed")
     }
 }

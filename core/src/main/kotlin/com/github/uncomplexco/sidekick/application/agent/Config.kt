@@ -39,6 +39,13 @@ class AgentConfig(
         require(Files.isDirectory(path)) { "Configured agent skills directory is not a directory: $path" }
         return path
     }
+
+    fun globalDirectoryPath(): Path {
+        val path = workingDirectoryPath().resolve("global")
+        Files.createDirectories(path)
+        require(Files.isDirectory(path)) { "Configured agent global directory is not a directory: $path" }
+        return path
+    }
 }
 
 @Configuration
