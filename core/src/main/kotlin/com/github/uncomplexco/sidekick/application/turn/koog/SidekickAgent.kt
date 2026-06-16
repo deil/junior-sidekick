@@ -24,13 +24,17 @@ import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 private val log = LoggerFactory.getLogger(SidekickAgent::class.java)
 
 fun interface TurnToolRegistryFactory {
-    suspend fun build(ctx: TurnContext): ToolRegistry
+    suspend fun build(
+        ctx: TurnContext,
+        activity: ChatActivityIndicator,
+    ): ToolRegistry
 }
 
 @Component
@@ -47,7 +51,7 @@ class SidekickAgent(
         message: SessionMessage,
         chat: ChatPlatformAdapter,
     ): String {
-        val toolRegistry = toolRegistryFactory.build(ctx)
+        val toolRegistry = toolRegistryFactory.build(ctx, chat.activity)
         val strategy = sidekickStrategy(message)
 
         val agent =
@@ -80,17 +84,14 @@ class SidekickAgent(
                 handleEvents {
                     onToolCallStarting { toolCall ->
                         log.debug("onToolCallStarting: ${toolCall.toolName}")
-                        chat.activity.toolCall(toolCall.toolName)
                     }
 
                     onToolCallFailed { toolCall ->
                         log.debug("onToolCallFailed: {} -> {}", toolCall.toolName, toolCall.message)
-                        chat.activity.clear()
                     }
 
                     onToolCallCompleted { toolCall ->
                         log.debug("onToolCallCompleted: {} -> {}", toolCall.toolName, toolCall.toolResult)
-                        chat.activity.clear()
                     }
                 }
             }

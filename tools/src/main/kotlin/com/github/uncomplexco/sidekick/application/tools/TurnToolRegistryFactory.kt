@@ -16,6 +16,7 @@ import com.github.uncomplexco.sidekick.application.tools.slack.SlackHistoryTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackReactionTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.TurnToolRegistryFactory
+import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -31,9 +32,12 @@ class DefaultTurnToolRegistryFactory(
     private val skillCatalogReloader: SkillCatalogReloader,
     private val mcpTools: ConfiguredMcpToolRegistryProvider,
 ) : TurnToolRegistryFactory {
-    override suspend fun build(ctx: TurnContext): ToolRegistry =
+    override suspend fun build(
+        ctx: TurnContext,
+        activity: ChatActivityIndicator,
+    ): ToolRegistry =
         ToolRegistry {
-            tools(SystemTools())
+            tools(SystemTools(activity = activity))
             tools(WorkspaceFileTools(agentConfig.globalDirectoryPath()))
             tools(SkillTools(skills, agentConfig.skillsDirectoryPath(), skillCatalogReloader))
             tools(

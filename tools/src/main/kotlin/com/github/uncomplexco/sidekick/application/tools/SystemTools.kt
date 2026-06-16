@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.ToolException
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
+import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import kotlinx.serialization.Serializable
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -11,7 +12,20 @@ import kotlin.time.Instant
 @LLMDescription("General system/runtime tools")
 class SystemTools(
     private val clock: Clock = Clock.System,
+    private val activity: ChatActivityIndicator? = null,
 ) : ToolSet {
+    @Tool
+    @LLMDescription(
+        "Report current assistant activity to the user as a short status message. Use early at the start of a major work phase and again when the work meaningfully changes. Skip trivial answers, filler, minor activity, and routine steps. Messages should be short sentence-case fragments that describe current activity and start with a present-participle verb, for example: 'researching docs', 'searching web', or 'running tests'.",
+    )
+    fun reportAssistantActivity(
+        @LLMDescription("Short user-facing activity message describing what is happening now.")
+        message: String,
+    ): ReportAssistantActivityResult {
+        activity?.`continue`(message)
+        return ReportAssistantActivityResult(ok = true)
+    }
+
     @Tool
     @LLMDescription(
         "Return current system time in UTC. Use when the user asks for current time/date context. Do not use as a substitute for historical or timezone-conversion research.",
@@ -63,6 +77,11 @@ data class SystemTimeResult(
     val ok: Boolean,
     val unix_ms: Long,
     val iso_utc: String,
+)
+
+@Serializable
+data class ReportAssistantActivityResult(
+    val ok: Boolean,
 )
 
 @Serializable
