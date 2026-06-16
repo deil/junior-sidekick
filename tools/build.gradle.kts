@@ -23,6 +23,8 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
+    implementation("org.jsoup:jsoup:1.22.2")
+    implementation("com.vladsch.flexmark:flexmark-html2md-converter:0.64.8")
 
     implementation("ai.koog:koog-agents:1.0.0")
     implementation("ai.koog:agents-mcp:1.0.0-beta-preview7")

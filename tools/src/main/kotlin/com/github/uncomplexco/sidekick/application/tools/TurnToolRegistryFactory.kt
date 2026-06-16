@@ -15,6 +15,7 @@ import com.github.uncomplexco.sidekick.application.tools.slack.SlackFileTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackHistoryTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackReactionTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackUserTools
+import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.TurnToolRegistryFactory
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
@@ -39,6 +40,7 @@ class DefaultTurnToolRegistryFactory(
     ): ToolRegistry =
         ToolRegistry {
             tools(SystemTools(activity = activity))
+            tools(WebFetchTools(agentConfig.name))
             tools(WorkspaceFileTools(agentConfig.globalDirectoryPath()))
             tools(SkillTools(skills, agentConfig.skillsDirectoryPath(), skillCatalogReloader))
             tools(
