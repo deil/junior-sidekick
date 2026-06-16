@@ -53,7 +53,7 @@ class ReplyDecisionService(
 @Component
 class SimpleReplyDecisionClassifier {
     fun classify(input: ReplyDecisionInput): ReplyDecision? {
-        if (input.isExplicitMention) {
+        if (input.isExplicitMention || explicitMention(input.text, input.botUser.username)) {
             return ReplyDecision(true, ReplyDecisionReason.EXPLICIT_MENTION)
         }
 
@@ -79,6 +79,11 @@ class SimpleReplyDecisionClassifier {
     }
 
     private fun isAcknowledgmentOnly(text: String): Boolean = ACKNOWLEDGMENT_ONLY_RE.matches(text)
+
+    private fun explicitMention(
+        text: String,
+        botUsername: String,
+    ): Boolean = text.contains("<@$botUsername>")
 
     private fun leadingSlackUserMention(text: String): String? {
         val match = LEADING_SLACK_USER_MENTION_RE.find(text) ?: return null
