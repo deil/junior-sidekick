@@ -12,3 +12,8 @@ fun xmlTag(
     tag: String,
     text: String,
 ) = "<$tag>\n$text\n</$tag>"
+
+fun markdownSection(
+    title: String,
+    text: String,
+) = "# $title\n\n$text\n\n"

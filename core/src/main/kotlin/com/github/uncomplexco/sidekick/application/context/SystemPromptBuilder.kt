@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.utils.markdownSection
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
 import org.springframework.stereotype.Component
 import java.nio.file.Files
@@ -37,7 +38,7 @@ class SystemPromptBuilder(
             return null
         }
 
-        return "# $heading\n\n${Files.readString(path).trimEnd()}\n"
+        return markdownSection(heading, Files.readString(path).trimEnd())
     }
 
     fun behaviorSection(): String {
@@ -73,7 +74,7 @@ class SystemPromptBuilder(
 
     fun outputFormat() =
         buildString {
-            appendLine("<output format=\"slack-markdown\">")
+            appendLine("<output>")
             appendLine(
                 """
                 - Start with the answer or result, not internal process narration.
