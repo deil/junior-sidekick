@@ -14,6 +14,7 @@ import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackFileTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackHistoryTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackReactionTools
+import com.github.uncomplexco.sidekick.application.tools.slack.SlackUserTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.TurnToolRegistryFactory
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
@@ -52,6 +53,7 @@ class DefaultTurnToolRegistryFactory(
             tools(SlackCanvasTools(sharedContext.slackClient, ctx.conversationId).asTools())
             tools(SlackChannelTools(sharedContext.slackClient).asTools())
             tools(SlackHistoryTools(sharedContext.slackClient).asTools())
+            tools(SlackUserTools(sharedContext.slackClient).asTools())
             tools(
                 SlackReactionTools(
                     sharedContext.slackClient,

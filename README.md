@@ -62,6 +62,7 @@ Additional bot token scopes required by optional Slack agent tools:
 | `canvases:write` | `slackCanvasCreate` |
 | `files:read` | `slackCanvasCreate`, `slackFileDownload` |
 | `reactions:write` | `slackReactionAdd` |
+| `users:read:email` | `slackUserSearch` |
 
 ## Integrations
 
