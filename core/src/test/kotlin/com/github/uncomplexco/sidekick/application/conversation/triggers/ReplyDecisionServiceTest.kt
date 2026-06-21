@@ -1,9 +1,15 @@
 package com.github.uncomplexco.sidekick.application.conversation.triggers
 
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
+import com.github.uncomplexco.sidekick.application.agent.KoogConfig
+import com.github.uncomplexco.sidekick.application.turn.LlmReplyDecisionClassifier
 import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionInput
 import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionReason
+import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionService
 import com.github.uncomplexco.sidekick.application.turn.SimpleReplyDecisionClassifier
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -112,5 +118,75 @@ class ReplyDecisionServiceTest {
         assertNull(decision)
     }
 
+    @Test
+    fun `private message without prior assistant message can be classified by llm`() =
+        runBlocking {
+            // Arrange
+            val service =
+                ReplyDecisionService(
+                    SimpleReplyDecisionClassifier(),
+                    LlmReplyDecisionClassifier(koogConfig()) { _, _ ->
+                        LlmReplyDecisionClassifier.ReplyClassifierResult(
+                            shouldReply = true,
+                            confidence = 0.95,
+                            reason = "direct_private_request",
+                        )
+                    },
+                )
+            val input =
+                ReplyDecisionInput(
+                    text = "identify where https://headshots.ltd is hosted; use bash tool",
+                    botUser = botUser(),
+                    messageHistory =
+                        listOf(
+                            SessionMessage(
+                                id = "m1",
+                                role = SessionMessageRole.USER,
+                                author = MessageAuthor(username = "anton", fullName = "Anton"),
+                                text = "identify where https://headshots.ltd is hosted; use bash tool",
+                                createdAtMs = 1,
+                            ),
+                        ),
+                    hasAssistantHistory = false,
+                    isPrivateMessage = true,
+                )
+
+            // Act
+            val decision = service.shouldReply(input)
+
+            // Assert
+            assertEquals(true, decision.shouldReply)
+            assertEquals(ReplyDecisionReason.CLASSIFIER, decision.reason)
+            assertEquals("direct_private_request", decision.detail)
+        }
+
+    @Test
+    fun `llm classifier failure returns classifier error instead of crashing`() =
+        runBlocking {
+            // Arrange
+            val classifier =
+                LlmReplyDecisionClassifier(koogConfig()) { _, _ ->
+                    error("llm unavailable")
+                }
+            val input =
+                ReplyDecisionInput(
+                    text = "can you check this?",
+                    botUser = botUser(),
+                    messageHistory = emptyList(),
+                    hasAssistantHistory = false,
+                    isPrivateMessage = true,
+                )
+
+            // Act
+            val decision = classifier.classify(input)
+
+            // Assert
+            assertEquals(false, decision.shouldReply)
+            assertEquals(ReplyDecisionReason.CLASSIFIER_ERROR, decision.reason)
+            assertEquals("llm unavailable", decision.detail)
+        }
+
     private fun botUser() = MessageAuthor(username = "sidekick", fullName = "Sidekick")
+
+    private fun koogConfig() = KoogConfig(openRouterApiKey = "test-key")
 }

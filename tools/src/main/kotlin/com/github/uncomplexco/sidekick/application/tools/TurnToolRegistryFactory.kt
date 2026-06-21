@@ -4,6 +4,8 @@ import ai.koog.agents.core.tools.ToolRegistry
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
+import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
+import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
 import com.github.uncomplexco.sidekick.application.tools.integrations.FilePublisher
 import com.github.uncomplexco.sidekick.application.tools.integrations.InternalFileExchangeTools
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
@@ -18,6 +20,7 @@ import com.github.uncomplexco.sidekick.application.tools.slack.SlackUserTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.TurnToolRegistryFactory
+import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
 import org.springframework.beans.factory.annotation.Value
@@ -33,6 +36,7 @@ class DefaultTurnToolRegistryFactory(
     private val skills: SkillCatalogProvider,
     private val skillCatalogReloader: SkillCatalogReloader,
     private val mcpTools: ConfiguredMcpToolRegistryProvider,
+    private val bashToolConfig: BashToolConfig,
 ) : TurnToolRegistryFactory {
     override suspend fun build(
         ctx: TurnContext,
@@ -40,6 +44,14 @@ class DefaultTurnToolRegistryFactory(
     ): ToolRegistry =
         ToolRegistry {
             tools(SystemTools(activity = activity))
+            if (bashToolConfig.enabled) {
+                tools(
+                    BashTools(
+                        bashToolConfig,
+                        ctx.conversationId.folder(agentConfig.stateDirectoryPath()).resolve("scratch/bash"),
+                    ),
+                )
+            }
             tools(WebFetchTools(agentConfig.name))
             tools(WorkspaceFileTools(agentConfig.globalDirectoryPath()))
             tools(SkillTools(skills, agentConfig.skillsDirectoryPath(), skillCatalogReloader))

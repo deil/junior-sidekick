@@ -20,3 +20,4 @@ Hierarchical index of project context documentation for future-us and AI agents.
 - [skills.md](skills.md) – Remote Git skill repository configuration, checkout layout, skill discovery metadata, validation, and current scope; read for skills loading and activation changes.
 - [turn-flow.md](turn-flow.md) – Session/Turn processing model, turn boundary, and processing stages from Slack event to reply delivery; read for turn orchestration and trigger/reply-policy changes.
 - [workspace.md](workspace.md) – Virtual path roots for session, skills, and global context storage; read for file storage and workspace path changes.
+- [bash.md](bash.md) – Native bash tool sandboxing with Bubblewrap, rootfs configuration, scratch mounts, network toggle, and non-root execution; read for shell/tool execution changes.

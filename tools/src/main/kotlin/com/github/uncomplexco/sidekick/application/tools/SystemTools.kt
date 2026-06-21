@@ -14,9 +14,9 @@ class SystemTools(
     private val clock: Clock = Clock.System,
     private val activity: ChatActivityIndicator? = null,
 ) : ToolSet {
-    @Tool
+    @Tool(TOOL_REPORT_ASSISTANT_ACTIVITY)
     @LLMDescription(
-        "Report current assistant activity to the user as a short status message. Use early at the start of a major work phase and again when the work meaningfully changes. Skip trivial answers, filler, minor activity, and routine steps. Messages should be short sentence-case fragments that describe current activity and start with a present-participle verb, for example: 'researching docs', 'searching web', or 'running tests'.",
+        "Report current activity to the user as a short status message. Use at the start of each work phase or a tool call. Use again when the current task, phase, or investigation direction changes. Use for status updates during multi-step work such as researching, diagnosing, searching files, running bash commands, running tests, building, deploying, etc. Messages should be short sentence-case fragments that describe what is happening now and start with a present-participle verb, for example: 'investigating the failure', 'searching files', or 'running tests', and so on.",
     )
     fun reportAssistantActivity(
         @LLMDescription("Short user-facing activity message describing what is happening now.")
@@ -65,9 +65,15 @@ class SystemTools(
             iso_utc = instant.toString(),
         )
     }
+
+    companion object {
+        const val TOOL_REPORT_ASSISTANT_ACTIVITY = "assistant_report_status"
+    }
 }
 
-private enum class TimestampUnit(val value: String) {
+private enum class TimestampUnit(
+    val value: String,
+) {
     SECONDS("seconds"),
     MILLISECONDS("milliseconds"),
 }

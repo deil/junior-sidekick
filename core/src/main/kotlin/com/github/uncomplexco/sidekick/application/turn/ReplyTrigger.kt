@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.application.turn
 
+import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.model.executeStructured
 import ai.koog.prompt.llm.LLMProvider
@@ -112,60 +113,63 @@ class SimpleReplyDecisionClassifier {
 @Component
 class LlmReplyDecisionClassifier(
     private val config: KoogConfig,
+    private val executeClassifier: suspend (Prompt, LLModel) -> ReplyClassifierResult = { prompt, model ->
+        openRouterExecutor(config.openRouterApiKey).use { executor ->
+            executor.executeStructured<ReplyClassifierResult>(prompt, model).getOrThrow().data
+        }
+    },
 ) {
     suspend fun classify(input: ReplyDecisionInput): ReplyDecision {
-        val model =
-            LLModel(
-                provider = LLMProvider.OpenRouter,
-                id = config.model,
-                capabilities = config.modelCapabilities(),
-                contextLength = 128_000,
-            )
-
-        val historyText =
-            if (input.messageHistory.isEmpty()) {
-                "[none]"
-            } else {
-                input.messageHistory
-                    .take(5)
-                    .map {
-                        val author = if (it.role == SessionMessageRole.ASSISTANT) input.botUser else it.author!!
-                        return@map escapeXml("[${it.role.name}] ${author.fullName}: ${it.text}")
-                    }.joinToString("\n")
-            }
-
-        val prompt =
-            prompt(
-                id = "sidekick-reply-decision",
-                params = config.openRouterParams(),
-            ) {
-                system(buildRouterSystemPrompt(input.botUser.fullName!!, input.botUser.username))
-                user(buildRouterPrompt(input.text, historyText, input.messageHistory.last { it.role == SessionMessageRole.ASSISTANT }))
-            }
-
         return runCatching {
-            openRouterExecutor(config.openRouterApiKey).use { executor ->
-                val result = executor.executeStructured<ReplyClassifierResult>(prompt, model).getOrThrow().data
-                if (!result.shouldReply) {
-                    return ReplyDecision(
-                        shouldReply = false,
-                        reason =
-                            if (result.confidence <
-                                ROUTER_CONFIDENCE_THRESHOLD
-                            ) {
-                                ReplyDecisionReason.LOW_CONFIDENCE
-                            } else {
-                                ReplyDecisionReason.SIDE_CONVERSATION
-                            },
-                        detail = result.reason,
-                    )
+            val model =
+                LLModel(
+                    provider = LLMProvider.OpenRouter,
+                    id = config.model,
+                    capabilities = config.modelCapabilities(),
+                    contextLength = 128_000,
+                )
+
+            val historyText =
+                if (input.messageHistory.isEmpty()) {
+                    "[none]"
+                } else {
+                    input.messageHistory
+                        .take(5)
+                        .map {
+                            val author = if (it.role == SessionMessageRole.ASSISTANT) input.botUser else it.author!!
+                            return@map escapeXml("[${it.role.name}] ${author.fullName}: ${it.text}")
+                        }.joinToString("\n")
                 }
 
-                if (result.confidence < ROUTER_CONFIDENCE_THRESHOLD) {
-                    ReplyDecision(false, ReplyDecisionReason.LOW_CONFIDENCE, result.reason)
-                } else {
-                    ReplyDecision(true, ReplyDecisionReason.CLASSIFIER, result.reason)
+            val prompt =
+                prompt(
+                    id = "sidekick-reply-decision",
+                    params = config.openRouterParams(),
+                ) {
+                    system(buildRouterSystemPrompt(input.botUser.fullName!!, input.botUser.username))
+                    user(buildRouterPrompt(input.text, historyText, input.messageHistory.lastOrNull { it.role == SessionMessageRole.ASSISTANT }))
                 }
+
+            val result = executeClassifier(prompt, model)
+            if (!result.shouldReply) {
+                return ReplyDecision(
+                    shouldReply = false,
+                    reason =
+                        if (result.confidence <
+                            ROUTER_CONFIDENCE_THRESHOLD
+                        ) {
+                            ReplyDecisionReason.LOW_CONFIDENCE
+                        } else {
+                            ReplyDecisionReason.SIDE_CONVERSATION
+                        },
+                    detail = result.reason,
+                )
+            }
+
+            if (result.confidence < ROUTER_CONFIDENCE_THRESHOLD) {
+                ReplyDecision(false, ReplyDecisionReason.LOW_CONFIDENCE, result.reason)
+            } else {
+                ReplyDecision(true, ReplyDecisionReason.CLASSIFIER, result.reason)
             }
         }.getOrElse { error ->
             log.warn("Reply classifier failed", error)

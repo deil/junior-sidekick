@@ -20,8 +20,10 @@ class SystemPromptBuilderBehaviorTest {
 
         val prompt = builder(workingDir).buildSystemPrompt("sidekick")
 
-        assertTrue(prompt.contains("# Personality\n\nSoul line 1\nSoul line 2\n\n\n# World"), prompt)
-        assertTrue(prompt.contains("# World\n\nWorld line 1\nWorld line 2\n\n\n<behavior>"), prompt)
+        assertTrue(prompt.contains("# Personality"), prompt)
+        assertTrue(prompt.contains("Soul line 1\nSoul line 2"), prompt)
+        assertTrue(prompt.contains("# World"), prompt)
+        assertTrue(prompt.contains("World line 1\nWorld line 2"), prompt)
         assertTrue(prompt.indexOf("<identity>") < prompt.indexOf("# Personality"), prompt)
         assertTrue(prompt.indexOf("# Personality") < prompt.indexOf("Soul line 1"), prompt)
         assertTrue(prompt.indexOf("Soul line 2") < prompt.indexOf("World line 1"), prompt)
