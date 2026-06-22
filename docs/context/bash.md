@@ -4,6 +4,8 @@ Sidekick can expose a native `bash` tool when `agent.tools.bash.enabled=true`.
 
 The tool delegates execution through a sandbox executor port. Phase 1 supports the direct local `bwrap` provider with `agent.tools.bash.provider=bwrap`; the default provider is reserved for the external HTTP sandbox service.
 
+The standalone `sandbox-service` module exposes `POST /api/execute` for provider-backed execution. It authenticates with a bearer token, validates requested mount sources against service-side allowed prefixes, then executes through the reusable `sandbox-bwrap` module.
+
 ## Root Filesystem
 
 `agent.tools.bash.bwrap.rootfs` points to the controlled filesystem tree mounted read-only as `/` inside the sandbox when using the direct `bwrap` provider.
@@ -62,6 +64,27 @@ The bash tool `workdir` parameter is a sandbox path, not a host path. It default
 
 `agent.tools.bash.network-enabled=true` keeps network access from the Sidekick container. Do not enable this unless the container network cannot reach credentials, metadata services, internal control planes, or other sensitive services.
 
+For the HTTP sandbox provider, Sidekick sends the configured network policy to `sandbox-service` as `networkEnabled`; it is not an LLM-facing bash tool parameter.
+
+## Sandbox Service
+
+`sandbox-service` is a standalone Ktor application. It does not depend on Sidekick `tools` or `core` modules and does not share HTTP DTO classes with Sidekick.
+
+API:
+
+```http
+POST /api/execute
+Authorization: Bearer <token>
+```
+
+Request mount fields use Docker-style names:
+
+- `source` - host path visible to `sandbox-service`
+- `target` - absolute sandbox path
+- `mode` - `ro` or `rw`
+
+The service validates each mount `source` against `SANDBOX_ALLOWED_SOURCE_PREFIXES`. Prefix validation belongs to the service boundary, not `sandbox-bwrap`.
+
 ## Runtime Policy
 
 Commands run with the configured non-root UID/GID, defaulting to `65534:65534`.
@@ -74,4 +97,5 @@ The tool enforces a wall-clock timeout and output byte cap. Resource limits beyo
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/ports/sandbox/SandboxExecutor.kt` - Sidekick tool-level sandbox execution port.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/sandbox/BwrapSandboxExecutor.kt` - direct local bwrap adapter for the sandbox port.
 - `sandbox-bwrap/src/main/kotlin/com/github/uncomplexco/sidekick/sandbox/bwrap/BwrapSandbox.kt` - reusable framework-free bwrap executor.
+- `sandbox-service/src/main/kotlin/com/github/uncomplexco/sidekick/sandbox/service/SandboxService.kt` - standalone Ktor sandbox executor service.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/TurnToolRegistryFactory.kt` - registers the tool with the current conversation scratch directory.
