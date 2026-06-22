@@ -1,10 +1,12 @@
 # Bash Tool Sandbox
 
-Sidekick can expose a native `bash` tool backed by `bubblewrap` when `agent.tools.bash.enabled=true`.
+Sidekick can expose a native `bash` tool when `agent.tools.bash.enabled=true`.
+
+The tool delegates execution through a sandbox executor port. Phase 1 supports the direct local `bwrap` provider with `agent.tools.bash.provider=bwrap`; the default provider is reserved for the external HTTP sandbox service.
 
 ## Root Filesystem
 
-`agent.tools.bash.rootfs` points to the controlled filesystem tree mounted read-only as `/` inside the sandbox.
+`agent.tools.bash.bwrap.rootfs` points to the controlled filesystem tree mounted read-only as `/` inside the sandbox when using the direct `bwrap` provider.
 
 This rootfs defines which CLIs are available. If `/bin/bash`, dynamic linker, libc, or a requested CLI is missing from the rootfs, the command fails. Sidekick does not mount the host `/bin`, `/usr`, `/lib`, `global:/`, `skills:/`, or session state into the sandbox.
 
@@ -41,7 +43,7 @@ The scratch directory lives under the current conversation folder at `scratch/ba
 
 Inside the sandbox:
 
-- `/` is the configured rootfs from `agent.tools.bash.rootfs`, mounted read-only.
+- `/` is the configured rootfs from `agent.tools.bash.bwrap.rootfs` for the direct `bwrap` provider, mounted read-only.
 - `/work` is the current conversation's durable bash scratch directory, mounted read-write.
 - `/tmp` is an empty tmpfs for the command run.
 - `/proc` is procfs for the sandbox PID namespace.
@@ -68,5 +70,8 @@ The tool enforces a wall-clock timeout and output byte cap. Resource limits beyo
 
 ## Key Files
 
-- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/bash/BashTools.kt` - bash tool configuration, `bwrap` argv construction, and output capture.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/bash/BashTools.kt` - LLM-facing bash tool and dynamic scratch mount assembly.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/ports/sandbox/SandboxExecutor.kt` - Sidekick tool-level sandbox execution port.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/sandbox/BwrapSandboxExecutor.kt` - direct local bwrap adapter for the sandbox port.
+- `sandbox-bwrap/src/main/kotlin/com/github/uncomplexco/sidekick/sandbox/bwrap/BwrapSandbox.kt` - reusable framework-free bwrap executor.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/TurnToolRegistryFactory.kt` - registers the tool with the current conversation scratch directory.

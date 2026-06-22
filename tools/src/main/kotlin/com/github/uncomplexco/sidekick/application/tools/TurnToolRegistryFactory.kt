@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools
 
 import ai.koog.agents.core.tools.ToolRegistry
+import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
@@ -37,6 +38,7 @@ class DefaultTurnToolRegistryFactory(
     private val skillCatalogReloader: SkillCatalogReloader,
     private val mcpTools: ConfiguredMcpToolRegistryProvider,
     private val bashToolConfig: BashToolConfig,
+    private val sandboxExecutorFactory: SandboxExecutorFactory,
 ) : TurnToolRegistryFactory {
     override suspend fun build(
         ctx: TurnContext,
@@ -49,6 +51,7 @@ class DefaultTurnToolRegistryFactory(
                     BashTools(
                         bashToolConfig,
                         ctx.conversationId.folder(agentConfig.stateDirectoryPath()).resolve("scratch/bash"),
+                        sandboxExecutorFactory.create(),
                     ),
                 )
             }
