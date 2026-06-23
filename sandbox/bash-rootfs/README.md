@@ -12,11 +12,20 @@ Default output:
 data/sandbox/bash-rootfs
 ```
 
-Point Sidekick at it:
+Point the direct local `bwrap` provider at it:
 
 ```properties
 agent.tools.bash.enabled=true
-agent.tools.bash.rootfs=./data/sandbox/bash-rootfs
+agent.tools.bash.provider=bwrap
+agent.tools.bash.bwrap.rootfs=./data/sandbox/bash-rootfs
+```
+
+For the HTTP provider, rootfs is configured on `sandbox-service`, not in Sidekick:
+
+```hocon
+sandbox {
+  rootfs = "../data/sandbox/bash-rootfs"
+}
 ```
 
 Control installed CLIs by editing `Dockerfile`.

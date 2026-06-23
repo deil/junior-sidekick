@@ -72,6 +72,8 @@ For the HTTP sandbox provider, Sidekick sends the configured network policy to `
 
 `sandbox-service` is a standalone Ktor application. It does not depend on Sidekick `tools` or `core` modules and does not share HTTP DTO classes with Sidekick.
 
+Production shape: Sidekick runs with `agent.tools.bash.provider=http` and does not need local `bwrap` privileges. `sandbox-service` runs separately in an environment where `bwrap` is supported.
+
 API:
 
 ```http
@@ -97,6 +99,14 @@ The HTTP provider sends the current conversation scratch directory as a dynamic 
 
 The service validates each mount `source` against `sandbox.allowed-source-prefixes` from its Ktor config. Prefix validation belongs to the service boundary, not `sandbox-bwrap`.
 
+Mount `source` paths are interpreted by `sandbox-service`, not by Sidekick. In production, the Sidekick state directory path used for conversation scratch must be visible to `sandbox-service` at the same path or translated before the HTTP provider sends it.
+
+`sandbox-service` loads Ktor config from `application.conf` by default and supports Ktor's `-config=<file>` option for deployment-specific config. A helper script can register a local user-level systemd service:
+
+```bash
+sandbox-service/register-systemd-service.sh
+```
+
 ## Runtime Policy
 
 Commands run with the configured non-root UID/GID, defaulting to `65534:65534`.
@@ -110,4 +120,5 @@ The tool enforces a wall-clock timeout and output byte cap. Resource limits beyo
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/sandbox/BwrapSandboxExecutor.kt` - direct local bwrap adapter for the sandbox port.
 - `sandbox-bwrap/src/main/kotlin/com/github/uncomplexco/sidekick/sandbox/bwrap/BwrapSandbox.kt` - reusable framework-free bwrap executor.
 - `sandbox-service/src/main/kotlin/com/github/uncomplexco/sidekick/sandbox/service/SandboxService.kt` - standalone Ktor sandbox executor service.
+- `sandbox-service/register-systemd-service.sh` - registers a user-level systemd service for local sandbox-service operation.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/TurnToolRegistryFactory.kt` - registers the tool with the current conversation scratch directory.
