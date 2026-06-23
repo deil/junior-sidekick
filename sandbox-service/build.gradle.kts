@@ -19,6 +19,7 @@ dependencies {
     implementation("io.ktor:ktor-server-netty-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-content-negotiation-jvm:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:$ktorVersion")
+    implementation("ch.qos.logback:logback-classic:1.5.21")
 
     testImplementation("io.ktor:ktor-server-test-host-jvm:$ktorVersion")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")

@@ -6,6 +6,8 @@ The tool delegates execution through a sandbox executor port. Phase 1 supports t
 
 The standalone `sandbox-service` module exposes `POST /api/execute` for provider-backed execution. It authenticates with a bearer token, validates requested mount sources against service-side allowed prefixes, then executes through the reusable `sandbox-bwrap` module.
 
+Sidekick selects the bash sandbox provider with `agent.tools.bash.provider`. Use `http` for the external sandbox service and `bwrap` for direct local execution.
+
 ## Root Filesystem
 
 `agent.tools.bash.bwrap.rootfs` points to the controlled filesystem tree mounted read-only as `/` inside the sandbox when using the direct `bwrap` provider.
@@ -83,7 +85,17 @@ Request mount fields use Docker-style names:
 - `target` - absolute sandbox path
 - `mode` - `ro` or `rw`
 
-The service validates each mount `source` against `SANDBOX_ALLOWED_SOURCE_PREFIXES`. Prefix validation belongs to the service boundary, not `sandbox-bwrap`.
+Sidekick HTTP provider config:
+
+```properties
+agent.tools.bash.provider=http
+agent.tools.bash.http.base-url=http://localhost:7171
+agent.tools.bash.http.token=<token>
+```
+
+The HTTP provider sends the current conversation scratch directory as a dynamic `rw` mount at `/work`.
+
+The service validates each mount `source` against `sandbox.allowed-source-prefixes` from its Ktor config. Prefix validation belongs to the service boundary, not `sandbox-bwrap`.
 
 ## Runtime Policy
 

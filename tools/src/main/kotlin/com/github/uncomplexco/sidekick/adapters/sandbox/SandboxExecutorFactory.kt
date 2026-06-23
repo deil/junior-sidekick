@@ -14,9 +14,23 @@ class SandboxExecutorFactory(
     fun create(): SandboxExecutor =
         when (config.provider.trim().lowercase()) {
             "bwrap" -> bwrapExecutor()
-            "http" -> error("Bash sandbox provider 'http' is not implemented yet")
+            "http" -> httpExecutor()
             else -> error("Unsupported bash sandbox provider: ${config.provider}")
         }
+
+    private fun httpExecutor(): SandboxExecutor {
+        val http = config.http
+        if (http.baseUrl.isBlank()) {
+            error("Bash sandbox HTTP base URL is not configured")
+        }
+        if (http.token.isBlank()) {
+            error("Bash sandbox HTTP token is not configured")
+        }
+        return HttpSandboxExecutor(
+            baseUrl = http.baseUrl,
+            token = http.token,
+        )
+    }
 
     private fun bwrapExecutor(): SandboxExecutor {
         val bwrap = config.bwrap
@@ -41,7 +55,13 @@ class SandboxExecutorFactory(
 @ConfigurationProperties(prefix = "agent.tools.bash")
 class SandboxExecutorConfig {
     var provider: String = "http"
+    var http: HttpProviderConfig = HttpProviderConfig()
     var bwrap: BwrapProviderConfig = BwrapProviderConfig()
+}
+
+class HttpProviderConfig {
+    var baseUrl: String = ""
+    var token: String = ""
 }
 
 class BwrapProviderConfig {

@@ -7,6 +7,7 @@ import com.github.uncomplexco.sidekick.sandbox.bwrap.BwrapSandboxResult
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
+import io.ktor.server.application.log
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.post
@@ -23,6 +24,7 @@ fun Application.executeRoute(
     mountSourcePolicy: MountSourcePolicy,
     executor: SandboxCommandExecutor,
 ) {
+    val logger = log
     routing {
         post("/api/execute") {
             if (call.request.headers["Authorization"] != "Bearer $token") {
@@ -38,6 +40,15 @@ fun Application.executeRoute(
                     call.respond(HttpStatusCode.BadRequest, ErrorResponse(error.message ?: "Invalid execute request"))
                     return@post
                 }
+
+            logger.info(
+                "Executing sandbox command: command='{}' workdir='{}' timeoutSeconds={} networkEnabled={} mounts={}",
+                sandboxRequest.command,
+                sandboxRequest.workdir,
+                sandboxRequest.timeoutSeconds,
+                sandboxRequest.networkEnabled,
+                sandboxRequest.mounts.map { "${it.mode.name.lowercase()}:${it.source}->${it.target}" },
+            )
 
             val result =
                 try {

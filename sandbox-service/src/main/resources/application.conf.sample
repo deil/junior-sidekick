@@ -10,9 +10,9 @@ ktor {
 sandbox {
   token = "test-token-6f3a9b7c2d1e4f80"
   bwrap-path = "bwrap"
-  rootfs = "../data/sandbox/bash-rootfs"
+  rootfs = "data/sandbox/bash-rootfs"
   max-output-bytes = 51200
   uid = 65534
   gid = 65534
-  allowed-source-prefixes = ["../data"]
+  allowed-source-prefixes = ["/data"]
 }
