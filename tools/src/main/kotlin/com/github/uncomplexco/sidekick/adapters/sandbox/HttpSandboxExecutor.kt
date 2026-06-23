@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.sandbox
 
-import com.github.uncomplexco.sidekick.ports.sandbox.SandboxCommand
-import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutionResult
+import com.github.uncomplexco.sidekick.ports.sandbox.Command
+import com.github.uncomplexco.sidekick.ports.sandbox.ExecutionResult
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutor
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMount
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMountMode
@@ -20,14 +20,14 @@ class HttpSandboxExecutor(
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = false },
 ) : SandboxExecutor {
-    override fun execute(command: SandboxCommand): SandboxExecutionResult {
+    override fun execute(command: Command): ExecutionResult {
         val response = httpClient.send(command.toHttpRequest(), HttpResponse.BodyHandlers.ofString())
         if (response.statusCode() !in 200..299) {
             throw IllegalStateException("Bash sandbox service returned HTTP ${response.statusCode()}: ${response.body()}")
         }
 
         val result = json.decodeFromString<ExecuteResponse>(response.body())
-        return SandboxExecutionResult(
+        return ExecutionResult(
             ok = result.ok,
             exitCode = result.exitCode,
             timedOut = result.timedOut,
@@ -37,7 +37,7 @@ class HttpSandboxExecutor(
         )
     }
 
-    private fun SandboxCommand.toHttpRequest(): HttpRequest {
+    private fun Command.toHttpRequest(): HttpRequest {
         val body =
             ExecuteRequest(
                 command = command,

@@ -1,8 +1,8 @@
 package com.github.uncomplexco.sidekick.application.tools.bash
 
 import ai.koog.agents.core.tools.ToolException
-import com.github.uncomplexco.sidekick.ports.sandbox.SandboxCommand
-import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutionResult
+import com.github.uncomplexco.sidekick.ports.sandbox.Command
+import com.github.uncomplexco.sidekick.ports.sandbox.ExecutionResult
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMountMode
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
@@ -21,11 +21,11 @@ class BashToolsTest {
                 networkEnabled = true
                 timeout = 10
             }
-        lateinit var captured: SandboxCommand
+        lateinit var captured: Command
         val tools =
             BashTools(config, scratch) { command ->
                 captured = command
-                SandboxExecutionResult(
+                ExecutionResult(
                     ok = true,
                     exitCode = 0,
                     timedOut = false,

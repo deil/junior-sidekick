@@ -22,6 +22,7 @@ import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
@@ -30,11 +31,25 @@ import org.springframework.stereotype.Component
 
 private val log = LoggerFactory.getLogger(SidekickAgent::class.java)
 
-fun interface TurnToolRegistryFactory {
+fun interface ToolRegistryFactory {
     suspend fun build(
         ctx: TurnContext,
         activity: ChatActivityIndicator,
     ): ToolRegistry
+}
+
+interface McpServersRegistry {
+    suspend fun connect(
+        conversationId: ConversationId,
+        userId: String,
+    ): List<ConnectedMcpServer>
+}
+
+interface ConnectedMcpServer {
+    val id: String
+    val toolRegistry: ToolRegistry
+
+    suspend fun close()
 }
 
 @Component
@@ -43,7 +58,8 @@ class SidekickAgent(
     private val koogConfig: KoogConfig,
     private val systemPromptBuilder: SystemPromptBuilder,
     private val turnPromptBuilder: TurnPromptBuilder,
-    private val toolRegistryFactory: TurnToolRegistryFactory,
+    private val toolRegistryFactory: ToolRegistryFactory,
+    private val mcpServersRegistry: McpServersRegistry,
     private val chatHistoryProvider: ChatHistoryProvider,
 ) {
     suspend fun runTurn(
@@ -51,53 +67,61 @@ class SidekickAgent(
         message: SessionMessage,
         chat: ChatPlatformAdapter,
     ): String {
-        val toolRegistry = toolRegistryFactory.build(ctx, chat.activity)
-        val strategy = sidekickStrategy(message)
+        val mcpServers = mcpServersRegistry.connect(ctx.conversationId, message.author?.username.orEmpty())
+        val ctxWithMcp = ctx.copy(mcpServers = mcpServers)
 
-        val agent =
-            AIAgent(
-                promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey),
-                strategy = strategy,
-                agentConfig =
-                    AIAgentConfig(
-                        prompt =
-                            prompt(
-                                id = "sidekick-base-prompt",
-                                params = koogConfig.openRouterParams(),
-                            ) {
-                                system(systemPromptBuilder.buildSystemPrompt(config.botUsername!!))
-                            },
-                        model =
-                            LLModel(
-                                provider = LLMProvider.OpenRouter,
-                                id = koogConfig.model,
-                                capabilities = koogConfig.modelCapabilities(),
-                            ),
-                        maxAgentIterations = 50,
-                    ),
-                toolRegistry = toolRegistry,
-            ) {
-                install(ChatMemory) {
-                    chatHistoryProvider = this@SidekickAgent.chatHistoryProvider
+        try {
+            val mcpToolRegistry = mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
+            val toolRegistry = toolRegistryFactory.build(ctxWithMcp, chat.activity) + mcpToolRegistry
+            val strategy = sidekickStrategy(message)
+
+            val agent =
+                AIAgent(
+                    promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey),
+                    strategy = strategy,
+                    agentConfig =
+                        AIAgentConfig(
+                            prompt =
+                                prompt(
+                                    id = "sidekick-base-prompt",
+                                    params = koogConfig.openRouterParams(),
+                                ) {
+                                    system(systemPromptBuilder.buildSystemPrompt(config.botUsername!!))
+                                },
+                            model =
+                                LLModel(
+                                    provider = LLMProvider.OpenRouter,
+                                    id = koogConfig.model,
+                                    capabilities = koogConfig.modelCapabilities(),
+                                ),
+                            maxAgentIterations = 50,
+                        ),
+                    toolRegistry = toolRegistry,
+                ) {
+                    install(ChatMemory) {
+                        chatHistoryProvider = this@SidekickAgent.chatHistoryProvider
+                    }
+
+                    handleEvents {
+                        onToolCallStarting { toolCall ->
+                            log.debug("onToolCallStarting: ${toolCall.toolName}")
+                        }
+
+                        onToolCallFailed { toolCall ->
+                            log.debug("onToolCallFailed: {} -> {}", toolCall.toolName, toolCall.message)
+                        }
+
+                        onToolCallCompleted { toolCall ->
+                            log.debug("onToolCallCompleted: {} -> {}", toolCall.toolName, toolCall.toolResult)
+                        }
+                    }
                 }
 
-                handleEvents {
-                    onToolCallStarting { toolCall ->
-                        log.debug("onToolCallStarting: ${toolCall.toolName}")
-                    }
-
-                    onToolCallFailed { toolCall ->
-                        log.debug("onToolCallFailed: {} -> {}", toolCall.toolName, toolCall.message)
-                    }
-
-                    onToolCallCompleted { toolCall ->
-                        log.debug("onToolCallCompleted: {} -> {}", toolCall.toolName, toolCall.toolResult)
-                    }
-                }
-            }
-
-        val input = turnPromptBuilder.buildSessionTurnPrompt(message, ctx)
-        return agent.run(input, ctx.conversationId.lockKey())
+            val input = turnPromptBuilder.buildSessionTurnPrompt(message, ctxWithMcp)
+            return agent.run(input, ctx.conversationId.lockKey())
+        } finally {
+            mcpServers.forEach { it.close() }
+        }
     }
 
     private fun sidekickStrategy(message: SessionMessage) =

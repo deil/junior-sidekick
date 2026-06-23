@@ -5,6 +5,7 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
+import com.github.uncomplexco.sidekick.application.turn.koog.ConnectedMcpServer
 
 data class TurnContext(
     val conversationId: ConversationId,
@@ -13,6 +14,7 @@ data class TurnContext(
     val currentFiles: List<IncomingChatFile>,
     val sessionFiles: List<SessionFileRef>,
     val history: ConversationHistory,
+    val mcpServers: List<ConnectedMcpServer>,
 ) {
     val currentMessageId = currentMessageIds.last()
 }

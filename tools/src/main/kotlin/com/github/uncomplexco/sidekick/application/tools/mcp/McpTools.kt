@@ -1,105 +1,109 @@
 package com.github.uncomplexco.sidekick.application.tools.mcp
 
-import ai.koog.agents.core.tools.ToolRegistry
-import ai.koog.agents.mcp.McpToolRegistryProvider as KoogMcpToolRegistryProvider
-import ai.koog.agents.mcp.defaultStdioTransport
-import ai.koog.agents.mcp.metadata.McpServerInfo
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.sse.SSE
+import ai.koog.agents.core.tools.Tool
+import ai.koog.agents.core.tools.ToolBase
+import ai.koog.agents.core.tools.ToolDescriptor
+import ai.koog.serialization.JSONElement
+import ai.koog.serialization.JSONObject
+import ai.koog.serialization.JSONPrimitive
+import ai.koog.serialization.JSONSerializer
+import ai.koog.serialization.kotlinx.toKoogJSONElement
+import ai.koog.serialization.kotlinx.toKotlinxJsonElement
+import ai.koog.serialization.kotlinx.toKotlinxJsonObject
+import ai.koog.serialization.typeToken
+import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import io.modelcontextprotocol.kotlin.sdk.client.Client
-import io.modelcontextprotocol.kotlin.sdk.client.ClientOptions
-import io.modelcontextprotocol.kotlin.sdk.client.SseClientTransport
-import io.modelcontextprotocol.kotlin.sdk.client.mcpStreamableHttpTransport
-import io.modelcontextprotocol.kotlin.sdk.shared.Transport
-import io.modelcontextprotocol.kotlin.sdk.types.Implementation
-import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.stereotype.Component
-import kotlin.time.Duration.Companion.seconds
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
+import io.modelcontextprotocol.kotlin.sdk.types.TextContent
+import kotlinx.serialization.builtins.nullable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 
-@Component
-@ConfigurationProperties(prefix = "agent.mcp")
-class McpToolsConfig {
-    var servers: List<McpServerConfig> = emptyList()
+class McpStatusTools(
+    private val ctx: TurnContext,
+    private val servers: List<McpServerConfig>,
+) {
+    fun asTools(): List<ToolBase<*, *>> = servers.map { server -> McpStatusTool(ctx, server.id) }
 }
 
-data class McpServerConfig(
-    var id: String = "",
-    var transport: String = "sse",
-    var url: String = "",
-    var command: String = "",
-    var args: List<String> = emptyList(),
-    var env: Map<String, String> = emptyMap(),
-    var timeoutSeconds: Long = 30,
-)
+class McpServerTool(
+    private val client: Client,
+    private val originalToolName: String,
+    descriptor: ToolDescriptor,
+) : Tool<JSONObject, CallToolResult?>(
+        argsType = typeToken<JSONObject>(),
+        resultType = typeToken<CallToolResult?>(),
+        descriptor = descriptor,
+    ) {
+    private val json = Json.Default
+    private val resultSerializer = CallToolResult.serializer().nullable
 
-@Component
-class ConfiguredMcpToolRegistryProvider(
-    private val config: McpToolsConfig,
-) {
-    private var registry: ToolRegistry? = null
+    override suspend fun execute(args: JSONObject): CallToolResult =
+        client.callTool(
+            name = originalToolName,
+            arguments = args.toKotlinxJsonObject(),
+        )
 
-    suspend fun build(): ToolRegistry {
-        registry?.let { return it }
+    override fun decodeResult(
+        rawResult: JSONElement,
+        serializer: JSONSerializer,
+    ): CallToolResult? = json.decodeFromJsonElement(resultSerializer, rawResult.toKotlinxJsonElement())
 
-        val registries = config.servers.map { server -> registry(server) }
-        val built = registries.fold(ToolRegistry { }) { acc, registry -> acc + registry }
-        registry = built
-        return built
-    }
+    override fun encodeResult(
+        result: CallToolResult?,
+        serializer: JSONSerializer,
+    ): JSONElement = json.encodeToJsonElement(resultSerializer, result).toKoogJSONElement()
 
-    private suspend fun registry(server: McpServerConfig): ToolRegistry =
-        when (server.transport) {
-            "stdio" -> stdioRegistry(server)
-            "sse" ->
-                clientRegistry(
-                    server,
-                    SseClientTransport(mcpHttpClient(server), server.url),
-                    McpServerInfo(url = server.url),
-                )
-            "streamable-http" ->
-                clientRegistry(
-                    server,
-                    mcpHttpClient(server).mcpStreamableHttpTransport(server.url),
-                    McpServerInfo(url = server.url),
-                )
-            else -> error("Unsupported MCP transport for ${server.id}: ${server.transport}")
+    override fun encodeResultToString(
+        result: CallToolResult?,
+        serializer: JSONSerializer,
+    ): String {
+        if (result?.isError == true) {
+            val errorText = result.content.filterIsInstance<TextContent>().joinToString("\n") { it.text }
+            if (errorText.isNotBlank()) return "Error: $errorText"
+
+            val fallbackJson = json.encodeToJsonElement(resultSerializer, result).toKoogJSONElement()
+            return "Error: ${serializer.encodeJSONElementToString(fallbackJson)}"
         }
 
-    private suspend fun stdioRegistry(server: McpServerConfig): ToolRegistry {
-        val processBuilder = ProcessBuilder(listOf(server.command) + server.args)
-        processBuilder.environment().putAll(server.env)
-        val process = processBuilder.start()
-        return clientRegistry(
-            server,
-            KoogMcpToolRegistryProvider.defaultStdioTransport(process),
-            McpServerInfo(command = listOf(server.command).plus(server.args).joinToString(" ")),
+        val preparedResultJson: JsonElement =
+            result
+                ?.let {
+                    JsonObject(
+                        json
+                            .encodeToJsonElement(resultSerializer, result)
+                            .jsonObject
+                            .filter { (key, _) -> key !in listOf("type", "_meta") },
+                    )
+                }
+                ?: JsonNull
+
+        return serializer.encodeJSONElementToString(preparedResultJson.toKoogJSONElement())
+    }
+}
+
+private class McpStatusTool(
+    private val ctx: TurnContext,
+    private val serverId: String,
+) : Tool<JSONObject, JSONObject>(
+        argsType = typeToken<JSONObject>(),
+        resultType = typeToken<JSONObject>(),
+        descriptor =
+            ToolDescriptor(
+                name = "get_mcp_status_$serverId",
+                description = "Check whether the requester is already connected to $serverId MCP server",
+            ),
+    ) {
+    override suspend fun execute(args: JSONObject): JSONObject {
+        val connected = ctx.mcpServers.any { it.id == serverId }
+        return JSONObject(
+            mapOf(
+                "server_id" to JSONPrimitive(serverId),
+                "connected" to JSONPrimitive(connected),
+            ),
         )
     }
-
-    private suspend fun clientRegistry(
-        server: McpServerConfig,
-        transport: Transport,
-        serverInfo: McpServerInfo,
-    ): ToolRegistry {
-        val client = Client(
-            clientInfo = clientInfo(server),
-            options = ClientOptions().apply { timeout = server.timeoutSeconds.seconds },
-        ).apply { connect(transport) }
-        return KoogMcpToolRegistryProvider.fromClient(client, serverInfo)
-    }
-
-    private fun mcpHttpClient(server: McpServerConfig): HttpClient =
-        HttpClient {
-            install(SSE)
-            install(HttpTimeout) {
-                requestTimeoutMillis = server.timeoutSeconds.seconds.inWholeMilliseconds
-            }
-        }
-
-    private fun clientInfo(server: McpServerConfig): Implementation =
-        Implementation(
-            name = "sidekick-${server.id}",
-            version = "1.0.0",
-        )
 }

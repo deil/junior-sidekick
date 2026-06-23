@@ -10,7 +10,8 @@ import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
 import com.github.uncomplexco.sidekick.application.tools.integrations.FilePublisher
 import com.github.uncomplexco.sidekick.application.tools.integrations.InternalFileExchangeTools
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
-import com.github.uncomplexco.sidekick.application.tools.mcp.ConfiguredMcpToolRegistryProvider
+import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
+import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelTools
@@ -20,7 +21,7 @@ import com.github.uncomplexco.sidekick.application.tools.slack.SlackReactionTool
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackUserTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.turn.koog.TurnToolRegistryFactory
+import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
@@ -28,7 +29,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 @Component
-class DefaultTurnToolRegistryFactory(
+class DefaultToolRegistryFactory(
     private val sharedContext: SharedContext,
     private val agentConfig: AgentConfig,
     @Value($$"${adapters.slack.bot.token}")
@@ -36,10 +37,10 @@ class DefaultTurnToolRegistryFactory(
     private val filePublisher: FilePublisher,
     private val skills: SkillCatalogProvider,
     private val skillCatalogReloader: SkillCatalogReloader,
-    private val mcpTools: ConfiguredMcpToolRegistryProvider,
+    private val mcpToolsConfig: McpToolsConfig,
     private val bashToolConfig: BashToolConfig,
     private val sandboxExecutorFactory: SandboxExecutorFactory,
-) : TurnToolRegistryFactory {
+) : ToolRegistryFactory {
     override suspend fun build(
         ctx: TurnContext,
         activity: ChatActivityIndicator,
@@ -71,6 +72,7 @@ class DefaultTurnToolRegistryFactory(
             tools(SlackChannelTools(sharedContext.slackClient).asTools())
             tools(SlackHistoryTools(sharedContext.slackClient).asTools())
             tools(SlackUserTools(sharedContext.slackClient).asTools())
+            tools(McpStatusTools(ctx, mcpToolsConfig.servers).asTools())
             tools(
                 SlackReactionTools(
                     sharedContext.slackClient,
@@ -86,5 +88,5 @@ class DefaultTurnToolRegistryFactory(
                     agentConfig.globalDirectoryPath(),
                 ).asTools(),
             )
-        } + mcpTools.build()
+        }
 }

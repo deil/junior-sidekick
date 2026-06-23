@@ -55,6 +55,7 @@ class SlackFileToolsTest {
                                 messages = emptyList(),
                                 hasKoogMessages = false,
                             ),
+                        mcpServers = emptyList(),
                     ),
                 slackBotToken = "token",
                 dataDirectory = dir,

@@ -1,6 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.sandbox
 
-import com.github.uncomplexco.sidekick.ports.sandbox.SandboxCommand
+import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMount
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMountMode
 import com.sun.net.httpserver.HttpExchange
@@ -46,7 +46,7 @@ class HttpSandboxExecutorTest {
             // Act
             val result =
                 executor.execute(
-                    SandboxCommand(
+                    Command(
                         command = "pwd",
                         workdir = "/tmp",
                         timeoutSeconds = 7,
@@ -86,7 +86,7 @@ class HttpSandboxExecutorTest {
             val error =
                 assertFailsWith<IllegalStateException> {
                     executor.execute(
-                        SandboxCommand(
+                        Command(
                             command = "pwd",
                             workdir = "/",
                             timeoutSeconds = 7,

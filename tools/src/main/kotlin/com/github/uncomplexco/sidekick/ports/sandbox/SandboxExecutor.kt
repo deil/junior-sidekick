@@ -3,10 +3,10 @@ package com.github.uncomplexco.sidekick.ports.sandbox
 import java.nio.file.Path
 
 fun interface SandboxExecutor {
-    fun execute(command: SandboxCommand): SandboxExecutionResult
+    fun execute(command: Command): ExecutionResult
 }
 
-data class SandboxCommand(
+data class Command(
     val command: String,
     val workdir: String,
     val timeoutSeconds: Long,
@@ -25,7 +25,7 @@ enum class SandboxMountMode {
     RW,
 }
 
-data class SandboxExecutionResult(
+data class ExecutionResult(
     val ok: Boolean,
     val exitCode: Int?,
     val timedOut: Boolean,

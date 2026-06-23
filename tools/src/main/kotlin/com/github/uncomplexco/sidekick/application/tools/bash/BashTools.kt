@@ -5,7 +5,7 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import com.github.uncomplexco.sidekick.application.tools.SystemTools.Companion.TOOL_REPORT_ASSISTANT_ACTIVITY
-import com.github.uncomplexco.sidekick.ports.sandbox.SandboxCommand
+import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutor
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMount
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMountMode
@@ -68,7 +68,7 @@ class BashTools(
         val result =
             try {
                 sandboxExecutor.execute(
-                    SandboxCommand(
+                    Command(
                         command = command,
                         workdir = workdir,
                         timeoutSeconds = resolvedTimeout,

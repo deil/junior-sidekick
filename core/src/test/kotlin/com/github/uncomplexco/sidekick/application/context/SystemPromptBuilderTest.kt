@@ -141,6 +141,7 @@ class TurnPromptBuilderTest {
                     messages = historyMessages,
                     hasKoogMessages = hasKoogMessages,
                 ),
+            mcpServers = emptyList(),
         )
 
     private fun message(

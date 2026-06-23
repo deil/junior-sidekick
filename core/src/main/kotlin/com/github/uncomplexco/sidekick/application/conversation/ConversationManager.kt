@@ -46,6 +46,7 @@ class ConversationManager(
                         messages = filterOutRecentMessages(state.messages, messages),
                         hasKoogMessages = state.koogMessages.isNotEmpty(),
                     ),
+                mcpServers = emptyList(),
             )
         }
 

@@ -1,6 +1,6 @@
 # MCP Tools
 
-Sidekick can add Koog MCP tool registries to each turn from `agent.mcp.servers` configuration.
+Sidekick connects configured MCP servers for each turn from `agent.mcp.servers` configuration and exposes their MCP tools as Koog tools.
 
 ## Configuration
 
@@ -42,11 +42,16 @@ agent.mcp.servers[0].env.GRAFANA_SERVICE_ACCOUNT_TOKEN=...
 
 ## Runtime
 
-`ConfiguredMcpToolRegistryProvider` loads configured MCP servers through Koog's `McpToolRegistryProvider` and merges the resulting tool registries with native Sidekick tools.
+`DefaultMcpServers` connects configured MCP servers through the Kotlin MCP SDK. `SidekickAgent` opens those connections before Koog execution, adds their tool registries to the local Sidekick registry, and closes the connections after the turn.
 
-The MCP registry is cached after first build so stdio servers are not respawned on every turn.
+Each MCP tool is exposed as a Koog tool named `${mcpServerId}__${toolName}`. The wrapper calls the original MCP tool name under the hood.
+
+Each configured MCP server also gets a local status tool named `get_mcp_status_<server.id>` with description `Check whether the requester is already connected to <server.id> MCP server`. It returns `{ "server_id": "<server.id>", "connected": true|false }` by checking the turn context's connected MCP servers.
 
 ## Key Files
 
-- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/mcp/McpTools.kt` – MCP configuration and Koog registry loading.
-- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/TurnToolRegistryFactory.kt` – merges configured MCP tools into the turn tool registry.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/koog/SidekickAgent.kt` – owns MCP connection lifecycle around Koog turn execution.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnContext.kt` – carries turn-scoped connected MCP servers.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/mcp/Mcp.kt` – MCP configuration, connection, and registry wiring.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/mcp/McpTools.kt` – Koog tool wrappers for MCP calls and MCP status.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/ToolRegistryFactory.kt` – builds local-only Sidekick tools.

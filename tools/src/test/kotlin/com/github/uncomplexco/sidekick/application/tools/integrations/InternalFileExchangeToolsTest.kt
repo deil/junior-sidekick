@@ -125,6 +125,7 @@ class InternalFileExchangeToolsTest {
                         messages = emptyList(),
                         hasKoogMessages = false,
                     ),
+                mcpServers = emptyList(),
             ),
             dir,
             dir.resolve("workspace/skills"),
