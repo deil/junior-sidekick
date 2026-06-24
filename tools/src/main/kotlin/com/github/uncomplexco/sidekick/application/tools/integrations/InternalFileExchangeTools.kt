@@ -26,6 +26,19 @@ interface FilePublisher {
         mimeType: String,
     ): Result
 
+    fun readFileContents(
+        id: String,
+        offset: Int?,
+        limit: Int?,
+    ): String
+
+    fun editFileContents(
+        id: String,
+        oldString: String,
+        newString: String,
+        replaceAll: Boolean,
+    ): String
+
     sealed interface Result {
         data class Ok(
             val url: String,
@@ -121,6 +134,52 @@ class InternalFileExchangeTools(
             )
         }
     }
+
+    @Tool
+    @LLMDescription(
+        """
+        Read a published HTML or Markdown file. If the page does not exist, an error is returned.
+
+        Usage:
+        - By default, this tool returns up to 2000 lines from the start of the file.
+        - The offset parameter is the line number to start reading from (1-indexed).
+        - To read later sections, call this tool again with a larger offset.
+        - Contents are returned with each line prefixed by its line number as `<line>: <content>`.
+        - Any line longer than 2000 characters is truncated.
+        """,
+    )
+    fun readInternalSnippet(
+        @LLMDescription("Published page id")
+        id: String,
+        @LLMDescription("The line number to start reading from (1-indexed)")
+        offset: Int?,
+        @LLMDescription("The maximum number of lines to read (defaults to 2000)")
+        limit: Int?,
+    ): String = filePublisher.readFileContents(id, offset, limit)
+
+    @Tool
+    @LLMDescription(
+        """
+        Performs exact string replacements in a published HTML or Markdown file.
+
+        Usage:
+        - Read the page before editing so you can copy exact content and line context.
+        - When editing text from read_file_contents output, never include the line number prefix in oldString or newString.
+        - The edit fails if oldString is not found in the current file.
+        - The edit fails if oldString matches multiple times and replaceAll is not true.
+        - Use replaceAll for renaming or replacing every occurrence.
+        """,
+    )
+    fun editInternalSnippet(
+        @LLMDescription("Published page id")
+        id: String,
+        @LLMDescription("The text to replace")
+        oldString: String,
+        @LLMDescription("The text to replace it with (must be different from oldString)")
+        newString: String,
+        @LLMDescription("Replace all occurrences of oldString (default false)")
+        replaceAll: Boolean?,
+    ): String = filePublisher.editFileContents(id, oldString, newString, replaceAll ?: false)
 }
 
 @Serializable

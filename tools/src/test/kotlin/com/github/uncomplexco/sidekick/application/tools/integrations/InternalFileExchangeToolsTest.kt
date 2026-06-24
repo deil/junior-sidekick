@@ -54,6 +54,19 @@ class InternalFileExchangeToolsTest {
                         title: String,
                         mimeType: String,
                     ): FilePublisher.Result = FilePublisher.Result.Ok("https://files.internal/$title")
+
+                    override fun readFileContents(
+                        id: String,
+                        offset: Int?,
+                        limit: Int?,
+                    ): String = ""
+
+                    override fun editFileContents(
+                        id: String,
+                        oldString: String,
+                        newString: String,
+                        replaceAll: Boolean,
+                    ): String = ""
                 },
             ).publishFileInternally("session:/tmp/file.md", "file.md", "text/markdown")
 
@@ -81,6 +94,19 @@ class InternalFileExchangeToolsTest {
                         title: String,
                         mimeType: String,
                     ): FilePublisher.Result = FilePublisher.Result.Ok("https://files.internal/$title")
+
+                    override fun readFileContents(
+                        id: String,
+                        offset: Int?,
+                        limit: Int?,
+                    ): String = ""
+
+                    override fun editFileContents(
+                        id: String,
+                        oldString: String,
+                        newString: String,
+                        replaceAll: Boolean,
+                    ): String = ""
                 },
             ).publishFileInternally("global:/handbook/security.md", "security.md", "text/markdown")
 
@@ -93,6 +119,20 @@ class InternalFileExchangeToolsTest {
         assertThrows<ToolException.ValidationFailure> {
             tools().publishFileInternally("session:/tmp/file.pdf", "file.pdf", "application/pdf")
         }
+    }
+
+    @Test
+    fun `reads published file contents through publisher`() {
+        val result = tools().readInternalSnippet("page1", 2, 5)
+
+        assertEquals("contents page1 2 5", result)
+    }
+
+    @Test
+    fun `edits published file contents through publisher`() {
+        val result = tools().editInternalSnippet("page1", "old", "new", true)
+
+        assertEquals("edited page1 old new true", result)
     }
 
     private fun tools(
@@ -109,6 +149,19 @@ class InternalFileExchangeToolsTest {
                     title: String,
                     mimeType: String,
                 ): FilePublisher.Result = FilePublisher.Result.Ok("https://files.internal/$title")
+
+                override fun readFileContents(
+                    id: String,
+                    offset: Int?,
+                    limit: Int?,
+                ): String = "contents $id $offset $limit"
+
+                override fun editFileContents(
+                    id: String,
+                    oldString: String,
+                    newString: String,
+                    replaceAll: Boolean,
+                ): String = "edited $id $oldString $newString $replaceAll"
             },
     ): InternalFileExchangeTools =
         InternalFileExchangeTools(

@@ -51,6 +51,40 @@ class DumpHereFilePublisher(
 
         return publishContent(content, title, mimeType)
     }
+
+    override fun readFileContents(
+        id: String,
+        offset: Int?,
+        limit: Int?,
+    ): String {
+        var url = "${baseUrl.trimEnd('/')}/api/agent/pages/$id/contents"
+        val params = listOfNotNull(offset?.let { "offset=$it" }, limit?.let { "limit=$it" })
+        if (params.isNotEmpty()) url += "?${params.joinToString("&")}"
+
+        return restClient
+            .get()
+            .uri(url)
+            .headers { it.setBasicAuth(username, password) }
+            .retrieve()
+            .body(String::class.java)
+            ?: error("DumpHere read returned an empty response")
+    }
+
+    override fun editFileContents(
+        id: String,
+        oldString: String,
+        newString: String,
+        replaceAll: Boolean,
+    ): String =
+        restClient
+            .post()
+            .uri("${baseUrl.trimEnd('/')}/api/agent/pages/{id}/edit", id)
+            .headers { it.setBasicAuth(username, password) }
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(EditFileContentsRequest(oldString, newString, replaceAll))
+            .retrieve()
+            .body(String::class.java)
+            ?: error("DumpHere edit returned an empty response")
 }
 
 private data class PublishFileRequest(
@@ -62,4 +96,10 @@ private data class PublishFileRequest(
 private data class PublishFileResponse(
     val url: String,
     val version: Int,
+)
+
+private data class EditFileContentsRequest(
+    val oldString: String,
+    val newString: String,
+    val replaceAll: Boolean,
 )
