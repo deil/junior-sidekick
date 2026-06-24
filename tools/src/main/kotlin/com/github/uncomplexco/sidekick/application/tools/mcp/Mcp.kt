@@ -110,14 +110,18 @@ class DefaultMcpServersRegistry(
         val sdkTools = client.listTools().tools
         return ToolRegistry {
             sdkTools.forEach { sdkTool ->
-                val descriptor = prefixedDescriptor(server.id, DefaultMcpToolDescriptorParser.parse(sdkTool))
-                tool(
-                    McpServerTool(
-                        client = client,
-                        originalToolName = sdkTool.name,
-                        descriptor = descriptor,
-                    ),
-                )
+                runCatching {
+                    val descriptor = prefixedDescriptor(server.id, DefaultMcpToolDescriptorParser.parse(sdkTool))
+                    tool(
+                        McpServerTool(
+                            client = client,
+                            originalToolName = sdkTool.name,
+                            descriptor = descriptor,
+                        ),
+                    )
+                }.onFailure {
+                    log.warn("Ignoring invalid MCP tool {} from server {}", sdkTool.name, server.id, it)
+                }
             }
         }
     }
