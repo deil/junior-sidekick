@@ -26,6 +26,7 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
+import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -35,6 +36,7 @@ fun interface ToolRegistryFactory {
     suspend fun build(
         ctx: TurnContext,
         activity: ChatActivityIndicator,
+        reply: ReplyToMessage,
     ): ToolRegistry
 }
 
@@ -72,7 +74,7 @@ class SidekickAgent(
 
         try {
             val mcpToolRegistry = mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
-            val toolRegistry = toolRegistryFactory.build(ctxWithMcp, chat.activity) + mcpToolRegistry
+            val toolRegistry = toolRegistryFactory.build(ctxWithMcp, chat.activity, chat.reply) + mcpToolRegistry
             val strategy = sidekickStrategy(message)
 
             val agent =

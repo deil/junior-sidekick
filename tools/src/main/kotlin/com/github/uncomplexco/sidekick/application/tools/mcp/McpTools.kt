@@ -12,6 +12,7 @@ import ai.koog.serialization.kotlinx.toKotlinxJsonElement
 import ai.koog.serialization.kotlinx.toKotlinxJsonObject
 import ai.koog.serialization.typeToken
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
 import io.modelcontextprotocol.kotlin.sdk.client.Client
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
@@ -21,12 +22,21 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import org.springframework.stereotype.Component
 
 class McpStatusTools(
     private val ctx: TurnContext,
     private val servers: List<McpServerConfig>,
 ) {
     fun asTools(): List<ToolBase<*, *>> = servers.map { server -> McpStatusTool(ctx, server.id) }
+}
+
+@Component
+class McpAuthTools(
+    private val config: McpToolsConfig,
+    private val oauth: McpOAuthService,
+) {
+    fun asTools(reply: ReplyToMessage): List<ToolBase<*, *>> = config.servers.map { server -> ConnectMcpTool(server, oauth, reply) }
 }
 
 class McpServerTool(
@@ -103,6 +113,32 @@ private class McpStatusTool(
             mapOf(
                 "server_id" to JSONPrimitive(serverId),
                 "connected" to JSONPrimitive(connected),
+            ),
+        )
+    }
+}
+
+private class ConnectMcpTool(
+    private val server: McpServerConfig,
+    private val oauth: McpOAuthService,
+    private val reply: ReplyToMessage,
+) : Tool<JSONObject, JSONObject>(
+        argsType = typeToken<JSONObject>(),
+        resultType = typeToken<JSONObject>(),
+        descriptor =
+            ToolDescriptor(
+                name = "connect_mcp_${server.id}",
+                description = "Start connection flow for ${server.id} MCP server",
+            ),
+    ) {
+    override suspend fun execute(args: JSONObject): JSONObject {
+        val result = oauth.connect(server, reply)
+        return JSONObject(
+            mapOf(
+                "server_id" to JSONPrimitive(result.serverId),
+                "auth" to JSONPrimitive(result.auth),
+                "started" to JSONPrimitive(result.started),
+                "message" to JSONPrimitive(result.message),
             ),
         )
     }

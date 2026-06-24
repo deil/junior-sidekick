@@ -12,6 +12,7 @@ import com.github.uncomplexco.sidekick.application.tools.integrations.InternalFi
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
+import com.github.uncomplexco.sidekick.application.tools.mcp.McpAuthTools
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelTools
@@ -24,6 +25,7 @@ import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
+import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -38,12 +40,14 @@ class DefaultToolRegistryFactory(
     private val skills: SkillCatalogProvider,
     private val skillCatalogReloader: SkillCatalogReloader,
     private val mcpToolsConfig: McpToolsConfig,
+    private val mcpAuthTools: McpAuthTools,
     private val bashToolConfig: BashToolConfig,
     private val sandboxExecutorFactory: SandboxExecutorFactory,
 ) : ToolRegistryFactory {
     override suspend fun build(
         ctx: TurnContext,
         activity: ChatActivityIndicator,
+        reply: ReplyToMessage,
     ): ToolRegistry =
         ToolRegistry {
             tools(SystemTools(activity = activity))
@@ -73,6 +77,7 @@ class DefaultToolRegistryFactory(
             tools(SlackHistoryTools(sharedContext.slackClient).asTools())
             tools(SlackUserTools(sharedContext.slackClient).asTools())
             tools(McpStatusTools(ctx, mcpToolsConfig.servers).asTools())
+            tools(mcpAuthTools.asTools(reply))
             tools(
                 SlackReactionTools(
                     sharedContext.slackClient,
