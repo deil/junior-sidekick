@@ -4,6 +4,7 @@ import ai.koog.prompt.message.Message
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationInFlightState
+import com.github.uncomplexco.sidekick.application.conversation.ConversationSettings
 import com.github.uncomplexco.sidekick.application.conversation.ConversationState
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
@@ -39,6 +40,12 @@ class FilesystemConversationStateStore(
         val compactions = loadJsonl<SessionCompaction>(folder.resolve("compactions.jsonl"))
         val messages = loadJsonl<SessionMessage>(folder.resolve("messages.jsonl"))
         val koogMessages = loadJsonl<Message>(folder.resolve("koog.jsonl"))
+        val settings =
+            loadJson(
+                folder.resolve("settings.json"),
+                ConversationSettings.serializer(),
+                ConversationSettings(),
+            )
 
         val inflight =
             loadJson(
@@ -50,6 +57,7 @@ class FilesystemConversationStateStore(
         return ConversationState(
             id = id,
             files = files.toMutableList(),
+            effort = settings.effort,
             compactions = compactions.sortedBy { it.createdAtMs }.toMutableList(),
             messages = messages.sortedBy { it.createdAtMs }.toMutableList(),
             koogMessages = koogMessages.toMutableList(),
@@ -67,6 +75,7 @@ class FilesystemConversationStateStore(
         writeJsonl(folder.resolve("compactions.jsonl"), state.compactions)
         writeJsonl(folder.resolve("messages.jsonl"), state.messages)
         writeJsonl(folder.resolve("koog.jsonl"), state.koogMessages)
+        writeJson(folder.resolve("settings.json"), ConversationSettings.serializer(), ConversationSettings(effort = state.effort))
         writeJson(folder.resolve("inflight.json"), ConversationInFlightState.serializer(), state.inflight)
     }
 

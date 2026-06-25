@@ -188,5 +188,14 @@ class ReplyDecisionServiceTest {
 
     private fun botUser() = MessageAuthor(username = "sidekick", fullName = "Sidekick")
 
-    private fun koogConfig() = KoogConfig(openRouterApiKey = "test-key")
+    private fun koogConfig() =
+        KoogConfig(
+            openRouterApiKey = "test-key",
+            defaultModel = "openai/gpt-5.4-mini",
+            defaultProvider = "azure",
+            defaultReasoningEffort = "medium",
+            ultrathinkModel = "openai/gpt-5.4-mini",
+            ultrathinkProvider = "azure",
+            ultrathinkReasoningEffort = "high",
+        )
 }

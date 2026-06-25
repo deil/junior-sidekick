@@ -5,6 +5,7 @@ import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.serialization.JSONObject
 import ai.koog.serialization.JSONPrimitive
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationEffort
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.ConnectedMcpServer
@@ -23,6 +24,7 @@ class McpStatusToolsTest {
                     currentMessageIds = listOf("m1"),
                     currentFiles = emptyList(),
                     sessionFiles = emptyList(),
+                    effort = ConversationEffort.NORMAL,
                     history = ConversationHistory(emptyList(), emptyList(), hasKoogMessages = false),
                     mcpServers = listOf(TestConnectedMcpServer("grafana")),
                 )

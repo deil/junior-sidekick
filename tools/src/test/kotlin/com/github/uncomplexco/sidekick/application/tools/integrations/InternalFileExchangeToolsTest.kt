@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.tools.integrations
 import ai.koog.agents.core.tools.ToolException
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationEffort
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import org.junit.jupiter.api.Test
@@ -172,6 +173,7 @@ class InternalFileExchangeToolsTest {
                 currentMessageIds = listOf("m1"),
                 currentFiles = emptyList(),
                 sessionFiles = emptyList(),
+                effort = ConversationEffort.NORMAL,
                 history =
                     ConversationHistory(
                         compactions = emptyList(),

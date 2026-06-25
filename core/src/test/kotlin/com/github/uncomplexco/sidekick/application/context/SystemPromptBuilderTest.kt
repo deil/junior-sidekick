@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationEffort
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
@@ -135,6 +136,7 @@ class TurnPromptBuilderTest {
             currentMessageIds = listOf("m1"),
             currentFiles = emptyList(),
             sessionFiles = listOfNotNull(file),
+            effort = ConversationEffort.NORMAL,
             history =
                 ConversationHistory(
                     compactions = emptyList(),

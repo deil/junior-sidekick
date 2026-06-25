@@ -26,6 +26,7 @@ import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
+import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -43,6 +44,7 @@ class DefaultToolRegistryFactory(
     private val mcpAuthTools: McpAuthTools,
     private val bashToolConfig: BashToolConfig,
     private val sandboxExecutorFactory: SandboxExecutorFactory,
+    private val conversationStateStore: ConversationStateStore,
 ) : ToolRegistryFactory {
     override suspend fun build(
         ctx: TurnContext,
@@ -51,6 +53,7 @@ class DefaultToolRegistryFactory(
     ): ToolRegistry =
         ToolRegistry {
             tools(SystemTools(activity = activity))
+            tools(ConversationEffortTools(sharedContext.slackClient, ctx, conversationStateStore))
             if (bashToolConfig.enabled) {
                 tools(
                     BashTools(

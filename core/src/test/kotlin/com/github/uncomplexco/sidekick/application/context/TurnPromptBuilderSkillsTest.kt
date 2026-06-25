@@ -206,6 +206,7 @@ class TurnPromptBuilderSkillsTest {
             currentMessageIds = listOf("m1"),
             currentFiles = emptyList(),
             sessionFiles = emptyList(),
+            effort = com.github.uncomplexco.sidekick.application.conversation.ConversationEffort.NORMAL,
             history =
                 com.github.uncomplexco.sidekick.application.turn.ConversationHistory(
                     compactions = emptyList(),

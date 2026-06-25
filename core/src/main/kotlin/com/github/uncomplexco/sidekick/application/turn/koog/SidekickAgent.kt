@@ -76,6 +76,7 @@ class SidekickAgent(
             val mcpToolRegistry = mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
             val toolRegistry = toolRegistryFactory.build(ctxWithMcp, chat.activity, chat.reply) + mcpToolRegistry
             val strategy = sidekickStrategy(message)
+            val llmProfile = koogConfig.profile(ctx.effort)
 
             val agent =
                 AIAgent(
@@ -86,14 +87,14 @@ class SidekickAgent(
                             prompt =
                                 prompt(
                                     id = "sidekick-base-prompt",
-                                    params = koogConfig.openRouterParams(),
+                                    params = koogConfig.openRouterParams(llmProfile),
                                 ) {
                                     system(systemPromptBuilder.buildSystemPrompt(config.botUsername!!))
                                 },
                             model =
                                 LLModel(
                                     provider = LLMProvider.OpenRouter,
-                                    id = koogConfig.model,
+                                    id = llmProfile.model,
                                     capabilities = koogConfig.modelCapabilities(),
                                 ),
                             maxAgentIterations = 50,

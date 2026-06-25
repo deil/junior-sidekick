@@ -40,6 +40,7 @@ class ConversationManager(
                 currentMessageIds = messages.map { it.id },
                 currentFiles = files,
                 sessionFiles = state.files,
+                effort = state.effort,
                 history =
                     ConversationHistory(
                         compactions = state.compactions,

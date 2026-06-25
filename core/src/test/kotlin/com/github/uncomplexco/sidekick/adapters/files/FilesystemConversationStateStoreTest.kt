@@ -5,6 +5,7 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.conversation.ConversationEffort
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -49,6 +50,24 @@ class FilesystemConversationStateStoreTest {
 
         val koogFile = dir.resolve("state/slack/channels/C123/threads/1700000000.000/koog.jsonl")
         assertEquals(4, Files.readAllLines(koogFile).size)
+    }
+
+    @Test
+    fun `stores conversation effort and defaults to normal`() {
+        // Arrange
+        val store = store()
+        val conversationId = ConversationId("C123", "1700000000.000")
+
+        // Act
+        val initial = store.load(conversationId)
+        assertEquals(ConversationEffort.NORMAL, initial.effort)
+
+        initial.effort = ConversationEffort.ULTRATHINK
+        store.save(conversationId, initial)
+        val loaded = store.load(conversationId)
+
+        // Assert
+        assertEquals(ConversationEffort.ULTRATHINK, loaded.effort)
     }
 
     private fun store(): FilesystemConversationStateStore =

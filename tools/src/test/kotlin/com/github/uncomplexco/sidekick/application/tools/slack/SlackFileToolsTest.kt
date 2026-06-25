@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.tools.slack
 
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationEffort
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
@@ -49,6 +50,7 @@ class SlackFileToolsTest {
                         currentMessageIds = listOf("m1"),
                         currentFiles = emptyList(),
                         sessionFiles = listOf(file),
+                        effort = ConversationEffort.NORMAL,
                         history =
                             ConversationHistory(
                                 compactions = emptyList(),

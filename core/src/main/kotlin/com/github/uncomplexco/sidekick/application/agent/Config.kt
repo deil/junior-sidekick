@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.agent
 import ai.koog.prompt.executor.clients.openai.OpenAIChatParams
 import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.llm.LLMCapability
+import com.github.uncomplexco.sidekick.application.conversation.ConversationEffort
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -52,14 +53,48 @@ class AgentConfig(
 class KoogConfig(
     @Value($$"${adapters.open-router.api-key}")
     val openRouterApiKey: String,
+    @Value($$"${agent.llm.default.model}")
+    private val defaultModel: String,
+    @Value($$"${agent.llm.default.provider}")
+    private val defaultProvider: String,
+    @Value($$"${agent.llm.default.reasoning-effort}")
+    private val defaultReasoningEffort: String,
+    @Value($$"${agent.llm.ultrathink.model}")
+    private val ultrathinkModel: String,
+    @Value($$"${agent.llm.ultrathink.provider}")
+    private val ultrathinkProvider: String,
+    @Value($$"${agent.llm.ultrathink.reasoning-effort}")
+    private val ultrathinkReasoningEffort: String,
 ) {
-    val provider = "azure"
-    val model = "openai/gpt-5.4-mini"
-    val reasoningEffort = ReasoningEffort.MEDIUM
+    val provider = normalProfile.provider
+    val model = normalProfile.model
+    val reasoningEffort = normalProfile.reasoningEffort
 
-    fun openRouterParams(): OpenAIChatParams =
+    private val normalProfile: LlmProfile
+        get() =
+            LlmProfile(
+                model = defaultModel,
+                provider = defaultProvider,
+                reasoningEffort = parseReasoningEffort(defaultReasoningEffort),
+            )
+
+    private val ultrathinkProfile: LlmProfile
+        get() =
+            LlmProfile(
+                model = ultrathinkModel,
+                provider = ultrathinkProvider,
+                reasoningEffort = parseReasoningEffort(ultrathinkReasoningEffort),
+            )
+
+    fun profile(effort: ConversationEffort): LlmProfile =
+        when (effort) {
+            ConversationEffort.NORMAL -> normalProfile
+            ConversationEffort.ULTRATHINK -> ultrathinkProfile
+        }
+
+    fun openRouterParams(profile: LlmProfile = normalProfile): OpenAIChatParams =
         OpenAIChatParams(
-            reasoningEffort = reasoningEffort,
+            reasoningEffort = profile.reasoningEffort,
             additionalProperties =
                 mapOf(
                     "provider" to
@@ -67,7 +102,7 @@ class KoogConfig(
                             put(
                                 "only",
                                 buildJsonArray {
-                                    add(JsonPrimitive(provider))
+                                    add(JsonPrimitive(profile.provider))
                                 },
                             )
                         },
@@ -81,3 +116,12 @@ class KoogConfig(
             LLMCapability.OpenAIEndpoint.Completions,
         )
 }
+
+data class LlmProfile(
+    val model: String,
+    val provider: String,
+    val reasoningEffort: ReasoningEffort,
+)
+
+private fun parseReasoningEffort(value: String): ReasoningEffort =
+    ReasoningEffort.valueOf(value.trim().uppercase().replace('-', '_'))
