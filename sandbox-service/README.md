@@ -18,7 +18,7 @@ Content-Type: application/json
   "networkEnabled": false,
   "mounts": [
     {
-      "source": "/srv/sidekick/data/state/example/scratch/bash",
+      "source": "/srv/sidekick/data/state/example/work",
       "target": "/work",
       "mode": "rw"
     }

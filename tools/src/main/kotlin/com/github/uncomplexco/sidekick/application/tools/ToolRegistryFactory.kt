@@ -55,7 +55,7 @@ class DefaultToolRegistryFactory(
                 tools(
                     BashTools(
                         bashToolConfig,
-                        ctx.conversationId.folder(agentConfig.stateDirectoryPath()).resolve("scratch/bash"),
+                        ctx.conversationId.folder(agentConfig.stateDirectoryPath()).resolve("work"),
                         sandboxExecutorFactory.create(),
                     ),
                 )

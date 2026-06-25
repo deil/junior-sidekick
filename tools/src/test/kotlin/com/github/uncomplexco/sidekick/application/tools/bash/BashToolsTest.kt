@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
 
 class BashToolsTest {
     @Test
-    fun `bash delegates command to sandbox executor with conversation scratch mount`() {
+    fun `bash delegates command to sandbox executor with conversation work mount`() {
         // Arrange
         val scratch = Files.createTempDirectory("bash-tools-test")
         val config =
@@ -73,7 +73,7 @@ class BashToolsTest {
     }
 
     @Test
-    fun `bash applies configured scratch gid and group-writable setgid permissions`() {
+    fun `bash applies configured scratch gid and group-writable setgid permissions to work mount`() {
         // Arrange
         val scratch = Files.createTempDirectory("bash-tools-test")
         val gid = Files.getAttribute(scratch, "unix:gid") as Int

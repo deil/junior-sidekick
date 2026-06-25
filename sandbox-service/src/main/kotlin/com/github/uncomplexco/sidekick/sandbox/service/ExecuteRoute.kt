@@ -13,6 +13,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
+import java.nio.file.Files
 import java.nio.file.Path
 
 fun interface SandboxCommandExecutor {
@@ -48,6 +49,10 @@ fun Application.executeRoute(
                 sandboxRequest.timeoutSeconds,
                 sandboxRequest.networkEnabled,
                 sandboxRequest.mounts.map { "${it.mode.name.lowercase()}:${it.source}->${it.target}" },
+            )
+            logger.info(
+                "Sandbox service resolved mounts: {}",
+                sandboxRequest.mounts.map { "${it.mode.name.lowercase()}:${it.source}->${it.target} ${fileAttributes(it.source)}" },
             )
 
             val result =
@@ -130,3 +135,13 @@ private fun BwrapSandboxResult.toResponse(): ExecuteResponse =
         output = output,
         workdir = workdir,
     )
+
+private fun fileAttributes(path: Path): String =
+    try {
+        val uid = Files.getAttribute(path, "unix:uid")
+        val gid = Files.getAttribute(path, "unix:gid")
+        val mode = (Files.getAttribute(path, "unix:mode") as Int) and 0b111111111111
+        "uid=$uid gid=$gid mode=${mode.toString(8)}"
+    } catch (error: UnsupportedOperationException) {
+        "unix-attributes-unavailable"
+    }

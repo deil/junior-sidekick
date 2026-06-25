@@ -7,11 +7,14 @@ import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMount
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMountMode
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.io.path.pathString
 
 class HttpSandboxExecutor(
@@ -20,7 +23,16 @@ class HttpSandboxExecutor(
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = false },
 ) : SandboxExecutor {
+    private val logger = LoggerFactory.getLogger(HttpSandboxExecutor::class.java)
+
     override fun execute(command: Command): ExecutionResult {
+        logger.info(
+            "Sending sandbox HTTP command: workdir={} timeoutSeconds={} networkEnabled={} mounts={}",
+            command.workdir,
+            command.timeoutSeconds,
+            command.networkEnabled,
+            command.mounts.map { "${it.mode.name.lowercase()}:${it.source.toAbsolutePath().normalize()}->${it.target} ${fileAttributes(it.source)}" },
+        )
         val response = httpClient.send(command.toHttpRequest(), HttpResponse.BodyHandlers.ofString())
         if (response.statusCode() !in 200..299) {
             throw IllegalStateException("Bash sandbox service returned HTTP ${response.statusCode()}: ${response.body()}")
@@ -96,3 +108,14 @@ private data class ExecuteResponse(
     val output: String,
     val workdir: String,
 )
+
+private fun fileAttributes(path: Path): String =
+    try {
+        val normalized = path.toAbsolutePath().normalize()
+        val uid = Files.getAttribute(normalized, "unix:uid")
+        val gid = Files.getAttribute(normalized, "unix:gid")
+        val mode = (Files.getAttribute(normalized, "unix:mode") as Int) and 0b111111111111
+        "uid=$uid gid=$gid mode=${mode.toString(8)}"
+    } catch (error: UnsupportedOperationException) {
+        "unix-attributes-unavailable"
+    }

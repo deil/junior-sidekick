@@ -36,19 +36,19 @@ Notable default command families:
 The sandbox mounts only:
 
 - configured rootfs read-only at `/`
-- conversation-scoped scratch directory read-write at `/work`
+- conversation-scoped work directory read-write at `/work`
 - fresh tmpfs at `/tmp`
 - sandbox `/proc`
 - sandbox `/dev`
 
-The scratch directory lives under the current conversation folder at `scratch/bash` and is the only durable writable area exposed to commands.
+The work directory lives under the current conversation folder at `work` and is the only durable writable area exposed to commands.
 
 ## Sandbox Filesystem Layout
 
 Inside the sandbox:
 
 - `/` is the configured rootfs from `agent.tools.bash.bwrap.rootfs` for the direct `bwrap` provider, mounted read-only.
-- `/work` is the current conversation's durable bash scratch directory, mounted read-write.
+- `/work` is the current conversation's durable bash work directory, mounted read-write.
 - `/tmp` is an empty tmpfs for the command run.
 - `/proc` is procfs for the sandbox PID namespace.
 - `/dev` is a minimal sandbox device filesystem.
@@ -95,9 +95,9 @@ agent.tools.bash.http.base-url=http://localhost:7171
 agent.tools.bash.http.token=<token>
 ```
 
-The HTTP provider sends the current conversation scratch directory as a dynamic `rw` mount at `/work`.
+The HTTP provider sends the current conversation work directory as a dynamic `rw` mount at `/work`.
 
-When `agent.tools.bash.scratch-gid` is set, Sidekick prepares the conversation scratch directory with that host GID and mode `2770` before requesting the sandbox mount. Configure `sandbox.gid` to the same GID so the sandbox process can write to `/work` while keeping its non-root UID.
+When `agent.tools.bash.scratch-gid` is set, Sidekick prepares the conversation work directory with that host GID and mode `2770` before requesting the sandbox mount. Configure `sandbox.gid` to the same GID so the sandbox process can write to `/work` while keeping its non-root UID.
 
 Create a shared host group for Sidekick and the sandbox service, then use its numeric GID in both configs:
 
@@ -110,7 +110,7 @@ If `getent` prints `sidekick-sandbox:x:997:`, configure Sidekick with `agent.too
 
 The service validates each mount `source` against `sandbox.allowed-source-prefixes` from its Ktor config. Prefix validation belongs to the service boundary, not `sandbox-bwrap`.
 
-Mount `source` paths are interpreted by `sandbox-service`, not by Sidekick. In production, the Sidekick state directory path used for conversation scratch must be visible to `sandbox-service` at the same path or translated before the HTTP provider sends it.
+Mount `source` paths are interpreted by `sandbox-service`, not by Sidekick. In production, the Sidekick state directory path used for conversation work must be visible to `sandbox-service` at the same path or translated before the HTTP provider sends it.
 
 `sandbox-service` loads Ktor config from `application.conf` by default and supports Ktor's `-config=<file>` option for deployment-specific config. A helper script can register a local user-level systemd service:
 
@@ -132,4 +132,4 @@ The tool enforces a wall-clock timeout and output byte cap. Resource limits beyo
 - `sandbox-bwrap/src/main/kotlin/com/github/uncomplexco/sidekick/sandbox/bwrap/BwrapSandbox.kt` - reusable framework-free bwrap executor.
 - `sandbox-service/src/main/kotlin/com/github/uncomplexco/sidekick/sandbox/service/SandboxService.kt` - standalone Ktor sandbox executor service.
 - `sandbox-service/register-systemd-service.sh` - registers a user-level systemd service for local sandbox-service operation.
-- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/TurnToolRegistryFactory.kt` - registers the tool with the current conversation scratch directory.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/TurnToolRegistryFactory.kt` - registers the tool with the current conversation work directory.
