@@ -1,0 +1,19 @@
+services:
+  sidekick:
+    image: sidekick:latest
+    ports:
+      - "7070:7070"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CONFIG_ADDITIONAL_LOCATION: file:/config/
+      AGENT_STATE_DIRECTORY: /srv/sidekick-data/data/state
+      AGENT_WORKING_DIRECTORY: /srv/sidekick-data/data/workspace
+      AGENT_TOOLS_BASH_ROOTFS: /srv/sidekick-data/data/sandbox/bash-rootfs
+      AGENT_TOOLS_BASH_SCRATCH_GID: "997"
+    group_add:
+      - "997"
+    volumes:
+      - ./application-prod.properties:/config/application-prod.properties:ro
+      - ./data:/srv/sidekick-data/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

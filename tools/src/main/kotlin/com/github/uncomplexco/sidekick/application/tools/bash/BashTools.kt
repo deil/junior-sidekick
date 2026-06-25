@@ -15,6 +15,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermission
 
 @Component
 @ConfigurationProperties(prefix = "agent.tools.bash")
@@ -22,6 +23,7 @@ class BashToolConfig {
     var enabled: Boolean = false
     var networkEnabled: Boolean = false
     var timeout: Long = 120
+    var scratchGid: Int? = null
 }
 
 class BashTools(
@@ -64,7 +66,7 @@ class BashTools(
             """.trimIndent(),
         )
 
-        Files.createDirectories(scratchRoot)
+        prepareScratchRoot()
         val result =
             try {
                 sandboxExecutor.execute(
@@ -94,6 +96,27 @@ class BashTools(
             output = result.output,
             workdir = result.workdir,
         )
+    }
+
+    private fun prepareScratchRoot() {
+        Files.createDirectories(scratchRoot)
+        val gid = config.scratchGid ?: return
+        Files.setAttribute(scratchRoot, "unix:gid", gid)
+        Files.setPosixFilePermissions(scratchRoot, scratchPermissions)
+        Files.setAttribute(scratchRoot, "unix:mode", SCRATCH_MODE)
+    }
+
+    private companion object {
+        private val scratchPermissions =
+            setOf(
+                PosixFilePermission.OWNER_READ,
+                PosixFilePermission.OWNER_WRITE,
+                PosixFilePermission.OWNER_EXECUTE,
+                PosixFilePermission.GROUP_READ,
+                PosixFilePermission.GROUP_WRITE,
+                PosixFilePermission.GROUP_EXECUTE,
+            )
+        private const val SCRATCH_MODE = 0b010111111000
     }
 }
 

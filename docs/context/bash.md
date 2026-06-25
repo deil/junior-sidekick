@@ -97,6 +97,17 @@ agent.tools.bash.http.token=<token>
 
 The HTTP provider sends the current conversation scratch directory as a dynamic `rw` mount at `/work`.
 
+When `agent.tools.bash.scratch-gid` is set, Sidekick prepares the conversation scratch directory with that host GID and mode `2770` before requesting the sandbox mount. Configure `sandbox.gid` to the same GID so the sandbox process can write to `/work` while keeping its non-root UID.
+
+Create a shared host group for Sidekick and the sandbox service, then use its numeric GID in both configs:
+
+```bash
+sudo groupadd --system sidekick-sandbox
+getent group sidekick-sandbox
+```
+
+If `getent` prints `sidekick-sandbox:x:997:`, configure Sidekick with `agent.tools.bash.scratch-gid=997`, configure sandbox service with `sandbox.gid=997`, and run the Sidekick Docker container with supplemental group `997`.
+
 The service validates each mount `source` against `sandbox.allowed-source-prefixes` from its Ktor config. Prefix validation belongs to the service boundary, not `sandbox-bwrap`.
 
 Mount `source` paths are interpreted by `sandbox-service`, not by Sidekick. In production, the Sidekick state directory path used for conversation scratch must be visible to `sandbox-service` at the same path or translated before the HTTP provider sends it.

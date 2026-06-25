@@ -71,4 +71,35 @@ class BashToolsTest {
         // Assert
         assertEquals("mount target must be absolute", error.message)
     }
+
+    @Test
+    fun `bash applies configured scratch gid and group-writable setgid permissions`() {
+        // Arrange
+        val scratch = Files.createTempDirectory("bash-tools-test")
+        val gid = Files.getAttribute(scratch, "unix:gid") as Int
+        val config =
+            BashToolConfig().apply {
+                enabled = true
+                scratchGid = gid
+            }
+        val tools =
+            BashTools(config, scratch) { command ->
+                ExecutionResult(
+                    ok = true,
+                    exitCode = 0,
+                    timedOut = false,
+                    outputTruncated = false,
+                    output = "ok",
+                    workdir = command.workdir,
+                )
+            }
+
+        // Act
+        tools.bash(command = "pwd", description = "prints working directory")
+
+        // Assert
+        assertEquals(gid, Files.getAttribute(scratch, "unix:gid"))
+        val mode = (Files.getAttribute(scratch, "unix:mode") as Int) and 0b111111111111
+        assertEquals(0b010111111000, mode)
+    }
 }
