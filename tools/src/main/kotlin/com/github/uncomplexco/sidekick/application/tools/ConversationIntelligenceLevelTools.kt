@@ -3,7 +3,7 @@ package com.github.uncomplexco.sidekick.application.tools
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
-import com.github.uncomplexco.sidekick.application.conversation.ConversationEffort
+import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import com.slack.api.methods.MethodsClient
@@ -11,13 +11,13 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 
-@LLMDescription("Conversation effort tools")
-class ConversationEffortTools(
+@LLMDescription("Conversation intelligence level tools")
+class ConversationIntelligenceLevelTools(
     private val slackClient: MethodsClient,
     private val ctx: TurnContext,
     private val store: ConversationStateStore,
 ) : ToolSet {
-    private val log = LoggerFactory.getLogger(ConversationEffortTools::class.java)
+    private val log = LoggerFactory.getLogger(ConversationIntelligenceLevelTools::class.java)
 
     @Tool
     @LLMDescription(
@@ -27,32 +27,40 @@ class ConversationEffortTools(
         @LLMDescription("Enables or disables ultrathink mode for this conversation")
         enabled: Boolean = true,
     ): TokenmaxxinResult {
-        val effort = if (enabled) ConversationEffort.ULTRATHINK else ConversationEffort.NORMAL
+        val intelligenceLevel = if (enabled) ConversationIntelligenceLevel.ULTRATHINK else ConversationIntelligenceLevel.NORMAL
 
-        slackClient.reactionsAdd { req ->
-            req.channel(ctx.conversationId.channelId)
-            req.timestamp(ctx.currentMessageId)
-            req.name("fire")
+        if (intelligenceLevel == ConversationIntelligenceLevel.NORMAL) {
+            slackClient.reactionsAdd { req ->
+                req.channel(ctx.conversationId.channelId)
+                req.timestamp(ctx.currentMessageId)
+                req.name("teddy_bear")
+            }
+        } else {
+            slackClient.reactionsAdd { req ->
+                req.channel(ctx.conversationId.channelId)
+                req.timestamp(ctx.currentMessageId)
+                req.name("student")
+            }
         }
 
         runBlocking {
             store.withSessionLock(ctx.conversationId) {
                 val state = store.load(ctx.conversationId)
-                val previousEffort = state.effort
-                state.effort = effort
+                val previousIntelligenceLevel = state.intelligenceLevel
+                state.intelligenceLevel = intelligenceLevel
                 store.save(ctx.conversationId, state)
                 log.info(
-                    "Conversation effort changed: conversationId={} {} -> {}",
+                    "Conversation intelligence level changed: conversationId={} {} -> {}",
                     ctx.conversationId.lockKey(),
-                    previousEffort,
-                    effort,
+                    previousIntelligenceLevel,
+                    intelligenceLevel,
                 )
             }
         }
 
         return TokenmaxxinResult(
             ok = true,
-            intelligenceLevel = effort.name.lowercase(),
+            intelligenceLevel = intelligenceLevel.name.lowercase(),
             conversationId = ctx.conversationId.lockKey(),
         )
     }

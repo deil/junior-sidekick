@@ -53,7 +53,7 @@ class DefaultToolRegistryFactory(
     ): ToolRegistry =
         ToolRegistry {
             tools(SystemTools(activity = activity))
-            tools(ConversationEffortTools(sharedContext.slackClient, ctx, conversationStateStore))
+            tools(ConversationIntelligenceLevelTools(sharedContext.slackClient, ctx, conversationStateStore))
             if (bashToolConfig.enabled) {
                 tools(
                     BashTools(

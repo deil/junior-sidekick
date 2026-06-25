@@ -23,7 +23,7 @@ data class ConversationId(
 data class ConversationState(
     val id: ConversationId,
     var files: MutableList<SessionFileRef>,
-    var effort: ConversationEffort = ConversationEffort.NORMAL,
+    var intelligenceLevel: ConversationIntelligenceLevel = ConversationIntelligenceLevel.NORMAL,
     var compactions: MutableList<SessionCompaction> = mutableListOf(),
     var messages: MutableList<SessionMessage> = mutableListOf(),
     var koogMessages: MutableList<Message> = mutableListOf(),
@@ -31,14 +31,14 @@ data class ConversationState(
 )
 
 @Serializable
-enum class ConversationEffort {
+enum class ConversationIntelligenceLevel {
     NORMAL,
     ULTRATHINK,
 }
 
 @Serializable
 data class ConversationSettings(
-    val effort: ConversationEffort = ConversationEffort.NORMAL,
+    val intelligenceLevel: ConversationIntelligenceLevel = ConversationIntelligenceLevel.NORMAL,
 )
 
 @Serializable

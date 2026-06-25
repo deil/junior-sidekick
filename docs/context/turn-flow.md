@@ -10,7 +10,7 @@ A chat message can start a new session or continue an existing one. If admitted,
 
 - Persisted and loaded across turns.
 - Identified by `ConversationId(channelId, threadId)`.
-- Owns `ConversationState`: messages, compactions, effort, and inflight metadata.
+- Owns `ConversationState`: messages, compactions, intelligence level, and inflight metadata.
 - Managed by `SessionManager`.
 - Stored through the `ConversationStateStore` port.
 
@@ -20,7 +20,7 @@ A chat message can start a new session or continue an existing one. If admitted,
 - Belongs to exactly one session.
 - Starts after turn admission returns `TurnTriggerDecision.ShouldHandle`.
 - Has `TurnContext`: conversation id, turn id, current files, prior session history, and compactions.
-- Carries the session effort for this turn: `normal` by default, or `ultrathink` after the conversation has opted in.
+- Carries the session intelligence level for this turn: `normal` by default, or `ultrathink` after the conversation has opted in.
 - Ends when Sidekick records an assistant reply or marks the incoming message skipped.
 
 ## Processing stages
@@ -82,7 +82,7 @@ Turn processing
         v
       SidekickAgent.runTurn
         |
-        | Koog runs the agent turn with the model profile selected by session effort and returns reply text
+        | Koog runs the agent turn with the model profile selected by session intelligence level and returns reply text
         v
       ChatPlatformAdapter.reply.postReply
         |
@@ -151,9 +151,9 @@ Ambiguous passive turns go to `LlmReplyDecisionClassifier`.
 
 `SidekickAgent.runTurn` receives `TurnContext` and `TurnMessage`.
 
-It builds the prompt, selects the configured Koog model profile from `TurnContext.effort`, runs Koog, executes tools as needed, and returns reply text. This is the point where Sidekick generates the actual answer.
+It builds the prompt, selects the configured Koog model profile from `TurnContext.intelligenceLevel`, runs Koog, executes tools as needed, and returns reply text. This is the point where Sidekick generates the actual answer.
 
-Session effort is per conversation and defaults to `normal`. The `enableTokenmaxxin` system tool switches the current conversation between `normal` and `ultrathink`; the selected effort applies when future turns initialize Koog.
+Session intelligence level is per conversation and defaults to `normal`. The `enableTokenmaxxin` system tool switches the current conversation between `normal` and `ultrathink`; the selected intelligence level applies when future turns initialize Koog.
 
 ### Reply delivery and completion
 

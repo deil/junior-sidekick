@@ -76,7 +76,7 @@ class SidekickAgent(
             val mcpToolRegistry = mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
             val toolRegistry = toolRegistryFactory.build(ctxWithMcp, chat.activity, chat.reply) + mcpToolRegistry
             val strategy = sidekickStrategy(message)
-            val llmProfile = koogConfig.profile(ctx.effort)
+            val llmProfile = koogConfig.profile(ctx.intelligenceLevel)
 
             val agent =
                 AIAgent(

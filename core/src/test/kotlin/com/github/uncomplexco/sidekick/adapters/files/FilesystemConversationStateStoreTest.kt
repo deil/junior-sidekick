@@ -5,8 +5,8 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.conversation.ConversationEffort
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -53,21 +53,21 @@ class FilesystemConversationStateStoreTest {
     }
 
     @Test
-    fun `stores conversation effort and defaults to normal`() {
+    fun `stores conversation intelligence level and defaults to normal`() {
         // Arrange
         val store = store()
         val conversationId = ConversationId("C123", "1700000000.000")
 
         // Act
         val initial = store.load(conversationId)
-        assertEquals(ConversationEffort.NORMAL, initial.effort)
+        assertEquals(ConversationIntelligenceLevel.NORMAL, initial.intelligenceLevel)
 
-        initial.effort = ConversationEffort.ULTRATHINK
+        initial.intelligenceLevel = ConversationIntelligenceLevel.ULTRATHINK
         store.save(conversationId, initial)
         val loaded = store.load(conversationId)
 
         // Assert
-        assertEquals(ConversationEffort.ULTRATHINK, loaded.effort)
+        assertEquals(ConversationIntelligenceLevel.ULTRATHINK, loaded.intelligenceLevel)
     }
 
     private fun store(): FilesystemConversationStateStore =

@@ -57,7 +57,7 @@ class FilesystemConversationStateStore(
         return ConversationState(
             id = id,
             files = files.toMutableList(),
-            effort = settings.effort,
+            intelligenceLevel = settings.intelligenceLevel,
             compactions = compactions.sortedBy { it.createdAtMs }.toMutableList(),
             messages = messages.sortedBy { it.createdAtMs }.toMutableList(),
             koogMessages = koogMessages.toMutableList(),
@@ -75,7 +75,7 @@ class FilesystemConversationStateStore(
         writeJsonl(folder.resolve("compactions.jsonl"), state.compactions)
         writeJsonl(folder.resolve("messages.jsonl"), state.messages)
         writeJsonl(folder.resolve("koog.jsonl"), state.koogMessages)
-        writeJson(folder.resolve("settings.json"), ConversationSettings.serializer(), ConversationSettings(effort = state.effort))
+        writeJson(folder.resolve("settings.json"), ConversationSettings.serializer(), ConversationSettings(intelligenceLevel = state.intelligenceLevel))
         writeJson(folder.resolve("inflight.json"), ConversationInFlightState.serializer(), state.inflight)
     }
 

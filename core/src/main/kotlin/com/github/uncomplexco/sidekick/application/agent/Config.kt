@@ -3,7 +3,7 @@ package com.github.uncomplexco.sidekick.application.agent
 import ai.koog.prompt.executor.clients.openai.OpenAIChatParams
 import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.llm.LLMCapability
-import com.github.uncomplexco.sidekick.application.conversation.ConversationEffort
+import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -86,10 +86,10 @@ class KoogConfig(
                 reasoningEffort = parseReasoningEffort(ultrathinkReasoningEffort),
             )
 
-    fun profile(effort: ConversationEffort): LlmProfile =
-        when (effort) {
-            ConversationEffort.NORMAL -> normalProfile
-            ConversationEffort.ULTRATHINK -> ultrathinkProfile
+    fun profile(intelligenceLevel: ConversationIntelligenceLevel): LlmProfile =
+        when (intelligenceLevel) {
+            ConversationIntelligenceLevel.NORMAL -> normalProfile
+            ConversationIntelligenceLevel.ULTRATHINK -> ultrathinkProfile
         }
 
     fun openRouterParams(profile: LlmProfile = normalProfile): OpenAIChatParams =
