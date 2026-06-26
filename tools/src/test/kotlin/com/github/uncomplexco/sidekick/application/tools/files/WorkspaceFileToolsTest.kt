@@ -39,6 +39,41 @@ class WorkspaceFileToolsTest {
     }
 
     @Test
+    fun `glob searches data root`() {
+        Files.createDirectories(dir.resolve("session"))
+        Files.createDirectories(dir.resolve("skills/repo/skill"))
+        Files.createDirectories(dir.resolve("global/handbook"))
+        Files.writeString(dir.resolve("session/report.md"), "Report\n")
+        Files.writeString(dir.resolve("skills/repo/skill/SKILL.md"), "Skill\n")
+        Files.writeString(dir.resolve("global/handbook/security.md"), "Security\n")
+
+        val result = tools().workspaceFileGlob("**/*.md", "/data")
+
+        assertContains(result, "/data/session/report.md")
+        assertContains(result, "/data/skills/repo/skill/SKILL.md")
+        assertContains(result, "/data/global/handbook/security.md")
+    }
+
+    @Test
+    fun `glob searches all known virtual roots`() {
+        Files.createDirectories(dir.resolve("session"))
+        Files.createDirectories(dir.resolve("skills/repo/skill"))
+        Files.createDirectories(dir.resolve("global/handbook"))
+        Files.createDirectories(dir.resolve("work"))
+        Files.writeString(dir.resolve("session/report.md"), "Report\n")
+        Files.writeString(dir.resolve("skills/repo/skill/SKILL.md"), "Skill\n")
+        Files.writeString(dir.resolve("global/handbook/security.md"), "Security\n")
+        Files.writeString(dir.resolve("work/result.md"), "Result\n")
+
+        val result = tools().workspaceFileGlob("**/*.md", "/")
+
+        assertContains(result, "/data/session/report.md")
+        assertContains(result, "/data/skills/repo/skill/SKILL.md")
+        assertContains(result, "/data/global/handbook/security.md")
+        assertContains(result, "/work/result.md")
+    }
+
+    @Test
     fun `grep returns native workspace file matches`() {
         Files.createDirectories(dir.resolve("global/handbook"))
         Files.writeString(dir.resolve("global/handbook/security.md"), "SOC2 evidence\n")
@@ -48,6 +83,41 @@ class WorkspaceFileToolsTest {
         assertContains(result, "Found 1 matches")
         assertContains(result, "${dir.resolve("global/handbook/security.md")}:")
         assertContains(result, "Line 1: SOC2 evidence")
+    }
+
+    @Test
+    fun `grep searches data root`() {
+        Files.createDirectories(dir.resolve("session"))
+        Files.createDirectories(dir.resolve("skills/repo/skill"))
+        Files.createDirectories(dir.resolve("global/handbook"))
+        Files.writeString(dir.resolve("session/report.md"), "needle in session\n")
+        Files.writeString(dir.resolve("skills/repo/skill/SKILL.md"), "needle in skills\n")
+        Files.writeString(dir.resolve("global/handbook/security.md"), "needle in global\n")
+
+        val result = tools().workspaceFileGrep("needle", "/data", "**/*.md")
+
+        assertContains(result, "/data/session/report.md")
+        assertContains(result, "/data/skills/repo/skill/SKILL.md")
+        assertContains(result, "/data/global/handbook/security.md")
+    }
+
+    @Test
+    fun `grep searches all known virtual roots`() {
+        Files.createDirectories(dir.resolve("session"))
+        Files.createDirectories(dir.resolve("skills/repo/skill"))
+        Files.createDirectories(dir.resolve("global/handbook"))
+        Files.createDirectories(dir.resolve("work"))
+        Files.writeString(dir.resolve("session/report.md"), "needle in session\n")
+        Files.writeString(dir.resolve("skills/repo/skill/SKILL.md"), "needle in skills\n")
+        Files.writeString(dir.resolve("global/handbook/security.md"), "needle in global\n")
+        Files.writeString(dir.resolve("work/result.md"), "needle in work\n")
+
+        val result = tools().workspaceFileGrep("needle", "/", "**/*.md")
+
+        assertContains(result, "/data/session/report.md")
+        assertContains(result, "/data/skills/repo/skill/SKILL.md")
+        assertContains(result, "/data/global/handbook/security.md")
+        assertContains(result, "/work/result.md")
     }
 
     @Test
