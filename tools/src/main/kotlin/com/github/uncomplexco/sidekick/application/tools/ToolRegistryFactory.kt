@@ -77,7 +77,7 @@ class DefaultToolRegistryFactory(
             )
             tools(SlackCanvasTools(sharedContext.slackClient, ctx.conversationId).asTools())
             tools(SlackChannelTools(sharedContext.slackClient).asTools())
-            tools(SlackHistoryTools(sharedContext.slackClient).asTools())
+            tools(SlackHistoryTools(sharedContext.slackClient, ctx).asTools())
             tools(SlackUserTools(sharedContext.slackClient).asTools())
             tools(McpStatusTools(ctx, mcpToolsConfig.servers).asTools())
             tools(mcpAuthTools.asTools(reply))

@@ -77,3 +77,12 @@ Avoid leaking transport events into turn logic. Slack may deliver multiple event
 Spring, Slack Bolt, Koog, and storage wiring should assemble modules without becoming the design center. Configuration code should be easy to delete and recreate because the project behavior lives behind clearer application modules.
 
 When wiring starts carrying business meaning, move that meaning into a named module and test it directly.
+
+### Koog Tools
+
+- Tool argument names must use `snake_case`.
+- Tool descriptions must describe only visible intent and/or side effects. Do not expose implementation details, internal behavior, or internal structure.
+- Tool argument validation must use Koog `validate(condition, message)` or `validateNotNull(argument, message)`.
+- Tool failures must use Koog `fail(message)`.
+- Tool response shapes must use `snake_case` field names.
+- Tool results must not blindly duplicate input arguments unless that duplication is explicitly expected by the tool's visible intent or behavior.

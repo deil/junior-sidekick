@@ -22,4 +22,26 @@ class SlackHistoryToolsTest {
             normalizeSlackHistoryLimit(0)
         }
     }
+
+    @Test
+    fun `normalizes missing scan depth to default`() {
+        assertEquals(1, normalizeSlackHistoryScanDepth(null))
+    }
+
+    @Test
+    fun `caps large scan depth`() {
+        assertEquals(5, normalizeSlackHistoryScanDepth(10))
+    }
+
+    @Test
+    fun `rejects non-positive scan depth`() {
+        assertThrows<ToolException.ValidationFailure> {
+            normalizeSlackHistoryScanDepth(0)
+        }
+    }
+
+    @Test
+    fun `maps invalid cursor away from fallback error`() {
+        assert(slackHistoryError("invalid_cursor", "fallback") != "fallback")
+    }
 }
