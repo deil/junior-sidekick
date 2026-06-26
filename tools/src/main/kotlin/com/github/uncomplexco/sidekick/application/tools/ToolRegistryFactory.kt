@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.ToolRegistry
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
 import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
@@ -23,7 +24,6 @@ import com.github.uncomplexco.sidekick.application.tools.slack.SlackUserTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
-import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
@@ -45,34 +45,34 @@ class DefaultToolRegistryFactory(
     private val bashToolConfig: BashToolConfig,
     private val sandboxExecutorFactory: SandboxExecutorFactory,
     private val conversationStateStore: ConversationStateStore,
+    private val virtualPathsFactory: VirtualPathsFactory,
 ) : ToolRegistryFactory {
     override suspend fun build(
         ctx: TurnContext,
         activity: ChatActivityIndicator,
         reply: ReplyToMessage,
-    ): ToolRegistry =
-        ToolRegistry {
+    ): ToolRegistry {
+        val virtualPaths = virtualPathsFactory.forConversation(ctx.conversationId)
+
+        return ToolRegistry {
             tools(SystemTools(activity = activity))
             tools(ConversationIntelligenceLevelTools(sharedContext.slackClient, ctx, conversationStateStore))
             if (bashToolConfig.enabled) {
                 tools(
                     BashTools(
                         bashToolConfig,
-                        ctx.conversationId.folder(agentConfig.stateDirectoryPath()).resolve("work"),
+                        virtualPaths,
                         sandboxExecutorFactory.create(),
                     ),
                 )
             }
             tools(WebFetchTools(agentConfig.name))
-            tools(WorkspaceFileTools(agentConfig.globalDirectoryPath()))
-            tools(SkillTools(skills, agentConfig.skillsDirectoryPath(), skillCatalogReloader))
+            tools(WorkspaceFileTools(virtualPaths))
+            tools(SkillTools(skills, virtualPaths, skillCatalogReloader))
             tools(
                 InternalFileExchangeTools(
                     filePublisher,
-                    ctx,
-                    agentConfig.stateDirectoryPath(),
-                    agentConfig.skillsDirectoryPath(),
-                    agentConfig.globalDirectoryPath(),
+                    virtualPaths,
                 ),
             )
             tools(SlackCanvasTools(sharedContext.slackClient, ctx.conversationId).asTools())
@@ -91,10 +91,9 @@ class DefaultToolRegistryFactory(
                 SlackFileTools(
                     ctx,
                     slackBotToken,
-                    agentConfig.stateDirectoryPath(),
-                    agentConfig.skillsDirectoryPath(),
-                    agentConfig.globalDirectoryPath(),
+                    virtualPaths,
                 ).asTools(),
             )
         }
+    }
 }

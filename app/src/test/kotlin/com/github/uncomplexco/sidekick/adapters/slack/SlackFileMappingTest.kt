@@ -1,6 +1,8 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.adapters.files.folder
+import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.slack.api.model.Attachment
 import com.slack.api.model.File
@@ -62,7 +64,7 @@ class SlackFileMappingTest {
 
         try {
             val conversationId = ConversationId("C123", "1700000000.000")
-            val ingestor = SlackFileIngestor("token", dir)
+            val ingestor = SlackFileIngestor("token", VirtualPathsFactory(AgentConfig("Sidekick", dir.toString(), dir.resolve("workspace").toString())))
             val file =
                 incomingChatFiles(
                     files = listOf(slackFile("F1", "http://127.0.0.1:${server.address.port}/F1")),
@@ -71,7 +73,7 @@ class SlackFileMappingTest {
 
             val ingested = ingestor.ingest(conversationId, listOf(file)).single()
 
-            assertEquals("session:/attachments/F1-F1.md", ingested.localPath)
+            assertEquals("/data/session/F1-F1.md", ingested.localPath)
             assertTrue(Files.exists(conversationId.folder(dir).resolve("attachments/F1-F1.md")))
         } finally {
             server.stop(0)

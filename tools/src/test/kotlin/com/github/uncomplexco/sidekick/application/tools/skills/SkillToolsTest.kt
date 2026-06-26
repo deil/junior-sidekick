@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools.skills
 
 import ai.koog.agents.core.tools.ToolException
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
@@ -54,7 +55,7 @@ class SkillToolsTest {
                             ),
                         )
                     },
-                skillsRoot = dir.resolve("skills"),
+                virtualPaths = virtualPaths(),
                 skillCatalogReloader = emptyReloader(),
             ).activateSkill("pdf-processing")
 
@@ -62,7 +63,7 @@ class SkillToolsTest {
         assertContains(result, "<skill_content name=\"pdf-processing\">")
         assertContains(result, "# PDF Processing")
         assertContains(result, "Use this skill for PDF work.")
-        assertContains(result, "Skill directory: skills:/repo/pdf-processing")
+        assertContains(result, "Skill directory: /data/skills/repo/pdf-processing")
         assertContains(result, "Relative paths in this skill are relative to the skill directory.")
         assertContains(result, "<skill_resources>")
         assertContains(result, "<file>scripts/extract.py</file>")
@@ -72,7 +73,7 @@ class SkillToolsTest {
     @Test
     fun `rejects unknown skill`() {
         // Arrange
-        val tools = SkillTools(skills = { SkillCatalog(emptyList()) }, skillsRoot = dir.resolve("skills"), skillCatalogReloader = emptyReloader())
+        val tools = SkillTools(skills = { SkillCatalog(emptyList()) }, virtualPaths = virtualPaths(), skillCatalogReloader = emptyReloader())
 
         // Act / Assert
         assertThrows<ToolException.ValidationFailure> {
@@ -86,7 +87,7 @@ class SkillToolsTest {
         val tools =
             SkillTools(
                 skills = { SkillCatalog(emptyList()) },
-                skillsRoot = dir.resolve("skills"),
+                virtualPaths = virtualPaths(),
                 skillCatalogReloader =
                     {
                         SkillCatalogReloadResult(
@@ -120,4 +121,12 @@ class SkillToolsTest {
                 skillNames = emptyList(),
             )
         }
+
+    private fun virtualPaths(): VirtualPaths =
+        VirtualPaths(
+            sessionRoot = dir.resolve("session"),
+            skillsRoot = dir.resolve("skills"),
+            globalRoot = dir.resolve("global"),
+            workRoot = dir.resolve("work"),
+        )
 }

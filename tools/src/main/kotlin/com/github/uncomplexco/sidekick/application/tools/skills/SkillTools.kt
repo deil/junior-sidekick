@@ -7,7 +7,7 @@ import ai.koog.agents.core.tools.reflect.ToolSet
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
-import com.github.uncomplexco.sidekick.application.agent.workspace.skillsPath
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
 import kotlinx.serialization.Serializable
 import java.nio.file.Files
@@ -19,7 +19,7 @@ import kotlin.streams.asSequence
 @LLMDescription("Agent skill tools")
 class SkillTools(
     private val skills: SkillCatalogProvider,
-    private val skillsRoot: Path,
+    private val virtualPaths: VirtualPaths,
     private val skillCatalogReloader: SkillCatalogReloader,
 ) : ToolSet {
     @Tool
@@ -42,7 +42,7 @@ class SkillTools(
             appendLine("<skill_content name=\"${escapeXml(skill.name)}\">")
             appendLine(instructions)
             appendLine()
-            appendLine("Skill directory: ${escapeXml(skillsPath(skillsRoot, skill.folder.toString()))}")
+            appendLine("Skill directory: ${escapeXml(virtualPaths.skillsPath(skill.folder.toString()))}")
             appendLine("Relative paths in this skill are relative to the skill directory.")
             appendLine("<skill_resources>")
             bundledResources(skill).forEach { resource ->

@@ -90,7 +90,7 @@ User-invocable skills are skills where `userInvocable == true`. They are listed 
 
 The catalog follows Agent Skills progressive disclosure: the turn prompt includes only the skill name, description, and virtual location of `SKILL.md`. Full skill instructions are not embedded in the base system prompt or turn prompt.
 
-`skills:/` locations resolve through `parseVirtualPath()` against `AgentConfig.skillsDirectoryPath()`.
+`/data/skills` locations resolve through `parseVirtualPath()` against `AgentConfig.skillsDirectoryPath()`.
 
 The skills catalog is thread-context bootstrap data, not static system prompt state. It is rendered by `buildThreadContext()` only when the turn is bootstrapping model-visible session context; follow-up turns with existing Koog history do not repeat it.
 
@@ -105,14 +105,14 @@ Structural shape:
     <skill>
       <name>example-skill</name>
       <description>Short discovery description.</description>
-      <location>skills:/repo/example-skill/SKILL.md</location>
+      <location>/data/skills/repo/example-skill/SKILL.md</location>
     </skill>
   </available_skills>
   <user_invocable_skills>
     <skill>
       <name>user-only-skill</name>
       <description>Short discovery description.</description>
-      <location>skills:/repo/user-only-skill/SKILL.md</location>
+      <location>/data/skills/repo/user-only-skill/SKILL.md</location>
     </skill>
   </user_invocable_skills>
 </skills>
@@ -122,7 +122,7 @@ Model-invocable skills are listed under `<available_skills>`. User-invocable ski
 
 - `<name>`
 - `<description>`
-- `<location>` pointing to the `skills:/` virtual path for `SKILL.md`
+- `<location>` pointing to the `/data/skills` virtual path for `SKILL.md`
 
 If no model-invocable or user-invocable skills exist, the `<skills>` section is omitted.
 
@@ -158,7 +158,7 @@ The user explicitly requested this skill. Call activateSkill with this name befo
 
 `activateSkill` loads a discovered skill by name from the in-memory catalog. It reads the skill's `SKILL.md`, strips frontmatter, and returns the instruction body wrapped in `<skill_content name="...">`.
 
-The wrapped response includes the skill directory as a `skills:/` virtual path and lists bundled resource files without reading them. Relative paths in activated skill instructions are relative to that skill directory.
+The wrapped response includes the skill directory as a `/data/skills` virtual path and lists bundled resource files without reading them. Relative paths in activated skill instructions are relative to that skill directory.
 
 ## Technical Decisions
 

@@ -1,23 +1,13 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
-import com.github.uncomplexco.sidekick.application.context.prompts.CURRENT_INSTRUCTION_TAG
-import com.github.uncomplexco.sidekick.application.context.prompts.EXPLICIT_SKILL_INVOCATION_TAG
-import com.github.uncomplexco.sidekick.application.context.prompts.REQUESTER_TAG
-import com.github.uncomplexco.sidekick.application.context.prompts.RUNTIME_CONTEXT_TAG
-import com.github.uncomplexco.sidekick.application.context.prompts.skillsSection
-import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
-import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
-import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
-import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
+import com.github.uncomplexco.sidekick.application.context.prompts.*
+import com.github.uncomplexco.sidekick.application.conversation.*
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.timestamp
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
-import com.github.uncomplexco.sidekick.application.agent.workspace.skillsPath
 import org.springframework.stereotype.Component
 import java.time.Instant.ofEpochMilli
 
@@ -142,9 +132,11 @@ class TurnPromptBuilder(
             lines += "<thread-compactions>"
             compactions.forEachIndexed { index, compaction ->
                 lines +=
-                    "<compaction index=\"${index + 1}\" covered_messages=\"${compaction.coveredMessageIds.size}\" created_at=\"${timestamp(
-                        compaction.createdAtMs,
-                    )}\"/>"
+                    "<compaction index=\"${index + 1}\" covered_messages=\"${compaction.coveredMessageIds.size}\" created_at=\"${
+                        timestamp(
+                            compaction.createdAtMs,
+                        )
+                    }\"/>"
                 lines += compaction.summary
                 lines += "</compaction>"
             }
@@ -210,7 +202,13 @@ class TurnPromptBuilder(
         lines += "${message.text}$markerSuffix"
 
         if (attachedFiles.isNotEmpty()) {
-            lines += renderFileAttachments(conversationId, attachedFiles, config.stateDirectoryPath(), MAX_ATTACHMENT_BASE64_CHARS)
+            lines +=
+                renderFileAttachments(
+                    conversationId,
+                    attachedFiles,
+                    config.stateDirectoryPath(),
+                    MAX_ATTACHMENT_BASE64_CHARS,
+                )
         }
 
         lines += "</message>"

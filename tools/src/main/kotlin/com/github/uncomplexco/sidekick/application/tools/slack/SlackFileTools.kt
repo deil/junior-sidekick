@@ -4,7 +4,7 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
-import com.github.uncomplexco.sidekick.adapters.files.folder
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFiles
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
@@ -14,16 +14,13 @@ import org.slf4j.LoggerFactory
 import org.springframework.util.MimeType
 import org.springframework.util.MimeTypeUtils
 import java.net.http.HttpClient
-import java.nio.file.Path
 import java.time.Duration
 
 @LLMDescription("Slack file tools for the current inbound message")
 class SlackFileTools(
     private val ctx: TurnContext,
     private val slackBotToken: String,
-    private val dataDirectory: Path,
-    private val skillsRoot: Path,
-    private val globalRoot: Path,
+    private val virtualPaths: VirtualPaths,
     private val httpClient: HttpClient =
         HttpClient
             .newBuilder()
@@ -31,7 +28,7 @@ class SlackFileTools(
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build(),
 ) : ToolSet {
-    private val files = WorkspaceFiles(dataDirectory)
+    private val files = WorkspaceFiles(virtualPaths.sessionRoot)
 
     companion object {
         private val log = LoggerFactory.getLogger(SlackFileTools::class.java)
@@ -84,8 +81,7 @@ class SlackFileTools(
         val file = ctx.sessionFiles.find { it.id == fileId || it.displayName == fileId }!!
         validate(isSupportedSlackTextFile(file)) { "Only text Slack files are supported." }
 
-        val sessionRoot = ctx.conversationId.folder(dataDirectory)
-        val realPath = parseVirtualPath(file.localPath, sessionRoot, skillsRoot, globalRoot)
+        val realPath = parseVirtualPath(file.localPath, virtualPaths)
         return files.read(realPath, offset, limit, file.localPath)
     }
 }

@@ -36,3 +36,5 @@ out/
 
 ### Kotlin ###
 .kotlin
+# roborev snapshots
+/.roborev/

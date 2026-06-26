@@ -40,7 +40,7 @@ class TurnPromptBuilderSkillsTest {
         assertTrue(prompt.contains("<user_invocable_skills>"), prompt)
         assertTrue(prompt.contains("<name>model-skill</name>"), prompt)
         assertTrue(prompt.contains("<description>Use when model should load this skill.</description>"), prompt)
-        assertTrue(prompt.contains("<location>skills:/repo/model-skill/SKILL.md</location>"), prompt)
+        assertTrue(prompt.contains("<location>/data/skills/repo/model-skill/SKILL.md</location>"), prompt)
         assertTrue(prompt.indexOf("<skills>") > prompt.indexOf("<$RUNTIME_CONTEXT_TAG>"), prompt)
         assertTrue(prompt.indexOf("<skills>") < prompt.lastIndexOf("<$CURRENT_INSTRUCTION_TAG>"), prompt)
         assertTrue(prompt.contains("<$CURRENT_INSTRUCTION_TAG>"), prompt)

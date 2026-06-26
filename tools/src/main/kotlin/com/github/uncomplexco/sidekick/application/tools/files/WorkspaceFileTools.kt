@@ -4,73 +4,74 @@ import ai.koog.agents.core.tools.ToolException
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
 import java.nio.file.Path
 
-@LLMDescription("General-purpose workspace file tools. Use global:/ for company-wide workspace files.")
 class WorkspaceFileTools(
-    globalRoot: Path,
+    private val virtualPaths: VirtualPaths,
 ) : ToolSet {
-    private val files = WorkspaceFiles(globalRoot)
-
-    @Tool
-    @LLMDescription("Read a workspace file or directory. For company-wide workspace files, use a global:/ path.")
+    @Tool(TOOL_READ)
+    @LLMDescription("Read a file or directory")
     fun workspaceFileRead(
-        @LLMDescription("Workspace path to read.")
+        @LLMDescription("Absolute path to read")
         path: String,
-        @LLMDescription("The line or directory entry number to start reading from (1-indexed).")
+        @LLMDescription("The line or directory entry number to start reading from (1-indexed)")
         offset: Int? = null,
-        @LLMDescription("The maximum number of lines or directory entries to read.")
+        @LLMDescription("The maximum number of lines or directory entries to read")
         limit: Int? = null,
     ): String {
-        val globalPath = parseGlobalPath(path)
-        return files.read(globalPath.relative, offset, limit, globalPath.display)
+        val workspacePath = resolveWorkspacePath(path)
+        return WorkspaceFiles(workspacePath.root).read(workspacePath.relative, offset, limit, path)
     }
 
-    @Tool
-    @LLMDescription("Find workspace files by glob pattern. For company-wide workspace files, use a global:/ path prefix.")
+    @Tool(TOOL_GLOB)
+    @LLMDescription("Find files by glob pattern")
     fun workspaceFileGlob(
         @LLMDescription("Glob pattern, for example **/*.md.")
         pattern: String,
-        @LLMDescription("Workspace directory to search.")
+        @LLMDescription("Directory to search. Absolute path")
         path: String,
     ): String {
-        val globalPath = parseGlobalPath(path)
-        return files.glob(pattern, globalPath.relative)
+        val workspacePath = resolveWorkspacePath(path)
+        return WorkspaceFiles(workspacePath.root).glob(pattern, workspacePath.relative)
     }
 
-    @Tool
-    @LLMDescription("Search workspace text files by regex. For company-wide workspace files, use a global:/ path prefix.")
+    @Tool(TOOL_GREP)
+    @LLMDescription("Search text files by regex")
     fun workspaceFileGrep(
-        @LLMDescription("Regex pattern to search for.")
+        @LLMDescription("Regex pattern to search for")
         pattern: String,
-        @LLMDescription("Workspace file or directory to search.")
+        @LLMDescription("File or directory to search. Absolute path")
         path: String,
-        @LLMDescription("Optional include glob, for example **/*.md.")
+        @LLMDescription("Optional include glob, for example **/*.md")
         include: String? = null,
     ): String {
-        val globalPath = parseGlobalPath(path)
-        return files.grep(pattern, globalPath.relative, include)
+        val workspacePath = resolveWorkspacePath(path)
+        return WorkspaceFiles(workspacePath.root).grep(pattern, workspacePath.relative, include)
     }
 
-    private fun parseGlobalPath(path: String): GlobalPath {
-        if (!path.startsWith(GLOBAL_PREFIX)) {
-            throw ToolException.ValidationFailure("Only global:/ workspace paths are currently supported.")
+    private fun resolveWorkspacePath(path: String): WorkspacePath =
+        try {
+            val realPath = Path.of(parseVirtualPath(path, virtualPaths))
+            val root = rootFor(realPath) ?: throw ToolException.ValidationFailure("Path not found: $path")
+            WorkspacePath(root, root.relativize(realPath).toString().ifBlank { "." })
+        } catch (_: IllegalStateException) {
+            throw ToolException.ValidationFailure("Path not found: $path")
         }
 
-        val relative = path.removePrefix(GLOBAL_PREFIX).ifBlank { "." }
-        if (relative.startsWith("/")) {
-            throw ToolException.ValidationFailure("Invalid path: $path")
-        }
+    private fun rootFor(realPath: Path): Path? =
+        listOf(virtualPaths.sessionRoot, virtualPaths.skillsRoot, virtualPaths.globalRoot, virtualPaths.workRoot)
+            .firstOrNull { realPath == it || realPath.startsWith(it) }
 
-        return GlobalPath(relative, path)
-    }
-
-    private data class GlobalPath(
+    private data class WorkspacePath(
+        val root: Path,
         val relative: String,
-        val display: String,
     )
 
-    private companion object {
-        private const val GLOBAL_PREFIX = "global:/"
+    companion object {
+        const val TOOL_GLOB = "fs__glob"
+        const val TOOL_READ = "fs__read"
+        const val TOOL_GREP = "fs__grep"
     }
 }

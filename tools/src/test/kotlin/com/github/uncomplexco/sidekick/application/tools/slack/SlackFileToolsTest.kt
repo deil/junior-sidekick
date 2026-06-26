@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools.slack
 
 import com.github.uncomplexco.sidekick.adapters.files.folder
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
@@ -36,7 +37,7 @@ class SlackFileToolsTest {
     @Test
     fun `read returns virtual session path for attached file`() {
         val conversationId = ConversationId("C123", "1700000000.000")
-        val file = file(id = "F123", name = "note.md", mimetype = "text/markdown", localPath = "session:/attachments/F123-note.md")
+        val file = file(id = "F123", name = "note.md", mimetype = "text/markdown", localPath = "/data/session/F123-note.md")
         val sessionRoot = conversationId.folder(dir)
         Files.createDirectories(sessionRoot.resolve("attachments"))
         Files.writeString(sessionRoot.resolve("attachments/F123-note.md"), "hello\n")
@@ -58,14 +59,18 @@ class SlackFileToolsTest {
                                 hasKoogMessages = false,
                             ),
                         mcpServers = emptyList(),
-                    ),
+                ),
                 slackBotToken = "token",
-                dataDirectory = dir,
-                skillsRoot = dir.resolve("workspace/skills"),
-                globalRoot = dir.resolve("workspace/global"),
+                virtualPaths =
+                    VirtualPaths(
+                        sessionRoot = sessionRoot.resolve("attachments"),
+                        skillsRoot = dir.resolve("workspace/skills"),
+                        globalRoot = dir.resolve("workspace/global"),
+                        workRoot = sessionRoot.resolve("work"),
+                    ),
             ).slackFileRead("F123")
 
-        assertContains(result, "<path>session:/attachments/F123-note.md</path>")
+        assertContains(result, "<path>/data/session/F123-note.md</path>")
         assertContains(result, "1: hello")
     }
 
@@ -74,7 +79,7 @@ class SlackFileToolsTest {
         name: String = "file.txt",
         mimetype: String? = null,
         filetype: String? = null,
-        localPath: String = "session:/files/$id-$name",
+        localPath: String = "/data/session/$id-$name",
     ): SessionFileRef =
         SessionFileRef(
             id = id,

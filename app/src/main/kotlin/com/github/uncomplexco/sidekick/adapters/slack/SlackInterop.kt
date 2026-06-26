@@ -1,10 +1,10 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
-import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.agent.workspace.toSessionBasedPath
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
 import com.slack.api.bolt.context.builtin.EventContext
@@ -140,7 +140,7 @@ internal fun incomingChatFiles(
 
 class SlackFileIngestor(
     private val slackBotToken: String,
-    private val stateRoot: Path,
+    private val virtualPathsFactory: VirtualPathsFactory,
     private val httpClient: HttpClient =
         HttpClient
             .newBuilder()
@@ -155,14 +155,15 @@ class SlackFileIngestor(
         files
             .take(MAX_MESSAGE_FILES)
             .mapNotNull { file ->
-                val localPath = download(conversationId, file) ?: return@mapNotNull null
-                file.copy(localPath = localPath.toSessionBasedPath())
+                val virtualPaths = virtualPathsFactory.forConversation(conversationId)
+                val localPath = download(virtualPaths, file) ?: return@mapNotNull null
+                file.copy(localPath = virtualPaths.sessionPath(localPath.toString()))
             }
 
     private fun download(
-        conversationId: ConversationId,
+        virtualPaths: VirtualPaths,
         file: IncomingChatFile,
-    ): String? =
+    ): Path? =
         runCatching {
             val response =
                 httpClient.send(
@@ -176,12 +177,10 @@ class SlackFileIngestor(
                 )
             check(response.statusCode() in 200..299) { "Slack file download failed with HTTP ${response.statusCode()}." }
 
-            val sessionFolder = conversationId.folder(stateRoot)
-            val folder = sessionFolder.resolve("attachments")
-            Files.createDirectories(folder)
-            val target = folder.resolve(downloadFileName(file))
+            Files.createDirectories(virtualPaths.sessionRoot)
+            val target = virtualPaths.sessionRoot.resolve(downloadFileName(file))
             Files.write(target, response.body())
-            return@runCatching sessionFolder.relativize(target).toString()
+            return@runCatching target
         }.getOrElse {
             log.warn("Slack file ingest failed for file id={}", file.id, it)
             null

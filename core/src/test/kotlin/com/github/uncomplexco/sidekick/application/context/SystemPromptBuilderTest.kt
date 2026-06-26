@@ -25,10 +25,10 @@ class TurnPromptBuilderTest {
         val prompt =
             builder().buildSessionTurnPrompt(
                 message(fileIds = listOf("F1")),
-                context(conversationId, file("F1", "session:/files/note.txt")),
+                context(conversationId, file("F1", "/data/session/note.txt")),
             )
 
-        assertTrue(prompt.contains("local_path: session:/files/note.txt"), prompt)
+        assertTrue(prompt.contains("local_path: /data/session/note.txt"), prompt)
     }
 
     @Test
@@ -38,7 +38,7 @@ class TurnPromptBuilderTest {
         val prompt =
             builder().buildSessionTurnPrompt(
                 message(fileIds = listOf("F1")),
-                context(conversationId, file("F1", "session:/files/note.txt")),
+                context(conversationId, file("F1", "/data/session/note.txt")),
             )
 
         assertTrue(prompt.contains("filename: note.txt"), prompt)

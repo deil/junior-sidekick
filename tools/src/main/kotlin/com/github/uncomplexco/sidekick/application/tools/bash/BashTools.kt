@@ -4,7 +4,11 @@ import ai.koog.agents.core.tools.ToolException
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
+import ai.koog.agents.core.tools.validate
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.tools.SystemTools.Companion.TOOL_REPORT_ASSISTANT_ACTIVITY
+import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
+import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutor
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMount
@@ -14,7 +18,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
 import java.nio.file.Files
-import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
 import kotlin.io.path.pathString
 
@@ -29,14 +32,14 @@ class BashToolConfig {
 
 class BashTools(
     private val config: BashToolConfig,
-    private val workRoot: Path,
+    private val virtualPaths: VirtualPaths,
     private val sandboxExecutor: SandboxExecutor,
 ) : ToolSet {
-    private val logger = LoggerFactory.getLogger(BashTools::class.java)
+    private val logger = LoggerFactory.getLogger(Loggers.TOOLS.name + ".bash")
 
     @Tool
     @LLMDescription(
-        "Run a bash command in a sandbox. Only home directory /work is writable. Before proceeding, always notify the user via `$TOOL_REPORT_ASSISTANT_ACTIVITY` tool.",
+        "Run a shell command. Only home directory /work is writable. Do not use to read or search for files, use ${WorkspaceFileTools.TOOL_GLOB}, ${WorkspaceFileTools.TOOL_GREP} or ${WorkspaceFileTools.TOOL_READ} instead. Before proceeding, always notify the user via `$TOOL_REPORT_ASSISTANT_ACTIVITY` tool",
     )
     fun bash(
         @LLMDescription("Shell command string to execute")
@@ -51,14 +54,10 @@ class BashTools(
         if (!config.enabled) {
             throw ToolException.ValidationFailure("Bash tool is disabled.")
         }
-        if (command.isBlank()) {
-            throw ToolException.ValidationFailure("command is required")
-        }
+        validate(command.isNotBlank()) { "command is required" }
 
         val resolvedTimeout = timeout?.coerceAtMost(config.timeout) ?: config.timeout
-        if (resolvedTimeout < 1) {
-            throw ToolException.ValidationFailure("timeoutSeconds must be at least 1")
-        }
+        validate(resolvedTimeout >= 1) { "timeoutSeconds must be at least 1" }
 
         logger.info(
             """
@@ -70,6 +69,7 @@ class BashTools(
         )
 
         prepareWorkRoot()
+        prepareReadOnlyRoots()
         val result =
             try {
                 sandboxExecutor.execute(
@@ -81,7 +81,22 @@ class BashTools(
                         mounts =
                             listOf(
                                 SandboxMount(
-                                    source = workRoot,
+                                    source = virtualPaths.sessionRoot,
+                                    target = VirtualPaths.SESSION_ROOT,
+                                    mode = SandboxMountMode.RO,
+                                ),
+                                SandboxMount(
+                                    source = virtualPaths.skillsRoot,
+                                    target = VirtualPaths.SKILLS_ROOT,
+                                    mode = SandboxMountMode.RO,
+                                ),
+                                SandboxMount(
+                                    source = virtualPaths.globalRoot,
+                                    target = VirtualPaths.GLOBAL_ROOT,
+                                    mode = SandboxMountMode.RO,
+                                ),
+                                SandboxMount(
+                                    source = virtualPaths.workRoot,
                                     target = "/work",
                                     mode = SandboxMountMode.RW,
                                 ),
@@ -91,6 +106,7 @@ class BashTools(
             } catch (error: IllegalArgumentException) {
                 throw ToolException.ValidationFailure(error.message ?: "Invalid bash sandbox request")
             }
+
         return BashResult(
             ok = result.ok,
             exit_code = result.exitCode,
@@ -101,19 +117,21 @@ class BashTools(
         )
     }
 
+    private fun prepareReadOnlyRoots() {
+        Files.createDirectories(virtualPaths.sessionRoot)
+        Files.createDirectories(virtualPaths.skillsRoot)
+        Files.createDirectories(virtualPaths.globalRoot)
+    }
+
     private fun prepareWorkRoot() {
-        Files.createDirectories(workRoot)
-        val gid = config.scratchGid
-        logger.info("Preparing bash work root: path={} configuredScratchGid={} before={}", workRoot, gid, fileAttributes(workRoot))
-        gid ?: return
-        Files.setAttribute(workRoot, "unix:gid", gid)
-        Files.setPosixFilePermissions(workRoot, workPermissions)
-        Files.setAttribute(workRoot, "unix:mode", WORK_MODE)
-        val actualGid = Files.getAttribute(workRoot, "unix:gid") as Int
-        logger.info("Prepared bash work root: path={} configuredScratchGid={} after={}", workRoot, gid, fileAttributes(workRoot))
-        check(actualGid == gid) {
-            "Bash work directory ${workRoot.pathString} has gid $actualGid, expected configured scratch gid $gid"
+        Files.createDirectories(virtualPaths.workRoot)
+
+        config.scratchGid?.also { gid ->
+            Files.setAttribute(virtualPaths.workRoot, "unix:gid", gid)
         }
+
+        Files.setPosixFilePermissions(virtualPaths.workRoot, workPermissions)
+        Files.setAttribute(virtualPaths.workRoot, "unix:mode", WORK_MODE)
     }
 
     private companion object {
@@ -129,16 +147,6 @@ class BashTools(
         private const val WORK_MODE = 0b010111111000
     }
 }
-
-private fun fileAttributes(path: Path): String =
-    try {
-        val uid = Files.getAttribute(path, "unix:uid")
-        val gid = Files.getAttribute(path, "unix:gid")
-        val mode = (Files.getAttribute(path, "unix:mode") as Int) and 0b111111111111
-        "uid=$uid gid=$gid mode=${mode.toString(8)}"
-    } catch (error: UnsupportedOperationException) {
-        "unix-attributes-unavailable"
-    }
 
 @Serializable
 data class BashResult(

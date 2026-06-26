@@ -12,7 +12,7 @@ Sidekick selects the bash sandbox provider with `agent.tools.bash.provider`. Use
 
 `agent.tools.bash.bwrap.rootfs` points to the controlled filesystem tree mounted read-only as `/` inside the sandbox when using the direct `bwrap` provider.
 
-This rootfs defines which CLIs are available. If `/bin/bash`, dynamic linker, libc, or a requested CLI is missing from the rootfs, the command fails. Sidekick does not mount the host `/bin`, `/usr`, `/lib`, `global:/`, `skills:/`, or session state into the sandbox.
+This rootfs defines which CLIs are available. If `/bin/bash`, dynamic linker, libc, or a requested CLI is missing from the rootfs, the command fails. Sidekick does not mount the host `/bin`, `/usr`, `/lib`, `/data/global`, `/data/skills`, or session state into the sandbox.
 
 Build the default rootfs with `sandbox/bash-rootfs/build-rootfs.sh`. Edit `sandbox/bash-rootfs/Dockerfile` to control installed CLIs.
 
@@ -48,13 +48,14 @@ The work directory lives under the current conversation folder at `work` and is 
 Inside the sandbox:
 
 - `/` is the configured rootfs from `agent.tools.bash.bwrap.rootfs` for the direct `bwrap` provider, mounted read-only.
-- `/work` is the current conversation's durable bash work directory, mounted read-write.
+- `/data/session` is the current conversation attachments directory, mounted read-only.
+- `/data/skills` is the skills directory, mounted read-only.
+- `/data/global` is the global workspace directory, mounted read-only.
+- `/work` is the current conversation's durable bash work directory under `agent.state-directory/bash/<conversation-id>/work`, mounted read-write.
 - `/tmp` is an empty tmpfs for the command run.
 - `/proc` is procfs for the sandbox PID namespace.
 - `/dev` is a minimal sandbox device filesystem.
 - `/etc/resolv.conf` comes from the generated rootfs and must be present for DNS when network is enabled.
-
-Sidekick workspace roots are not mounted. Paths like `global:/`, `skills:/`, and `session:/` are virtual paths for Sidekick tools, not shell paths inside bash.
 
 Commands should use `/work` for any files that must survive beyond a single command. Files written elsewhere either fail because the rootfs is read-only or disappear with tmpfs/sandbox teardown.
 
@@ -95,7 +96,7 @@ agent.tools.bash.http.base-url=http://localhost:7171
 agent.tools.bash.http.token=<token>
 ```
 
-The HTTP provider sends the current conversation work directory as a dynamic `rw` mount at `/work`.
+The HTTP provider sends the current conversation bash work directory as a dynamic `rw` mount at `/work`.
 
 When `agent.tools.bash.scratch-gid` is set, Sidekick prepares the conversation work directory with that host GID and mode `2770` before requesting the sandbox mount. Configure `sandbox.gid` to the same GID so the sandbox process can write to `/work` while keeping its non-root UID.
 

@@ -1,6 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
-import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.slack.api.bolt.AppConfig
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -25,6 +25,6 @@ class BeansConfig {
     @Bean
     fun slackFileIngestor(
         @Value("\${adapters.slack.bot.token:}") botToken: String,
-        agentConfig: AgentConfig,
-    ): SlackFileIngestor = SlackFileIngestor(botToken, agentConfig.stateDirectoryPath())
+        virtualPathsFactory: VirtualPathsFactory,
+    ): SlackFileIngestor = SlackFileIngestor(botToken, virtualPathsFactory)
 }
