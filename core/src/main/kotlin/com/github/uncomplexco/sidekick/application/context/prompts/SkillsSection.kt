@@ -1,16 +1,15 @@
 package com.github.uncomplexco.sidekick.application.context.prompts
 
-import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.skills.Skills.Companion.SKILL_FILE_NAME
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
-import com.github.uncomplexco.sidekick.application.agent.workspace.skillsPath
 
 internal fun skillsSection(
     skills: SkillCatalog,
-    config: AgentConfig,
+    virtualPaths: VirtualPaths,
 ): String? {
     val modelInvocableSkills = skills.skills.filterNot { it.disableModelInvocation }
     val userInvocableSkills = skills.skills.filter { it.userInvocable }
@@ -39,7 +38,7 @@ internal fun skillsSection(
                         AVAILABLE_SKILLS_TAG,
                         buildString {
                             modelInvocableSkills.forEach { skill ->
-                                appendLine(renderSkill(skill, config))
+                                appendLine(renderSkill(skill, virtualPaths))
                             }
                         },
                     ),
@@ -52,7 +51,7 @@ internal fun skillsSection(
                         USER_INVOCABLE_SKILLS_TAG,
                         buildString {
                             userInvocableSkills.forEach { skill ->
-                                appendLine(renderSkill(skill, config))
+                                appendLine(renderSkill(skill, virtualPaths))
                             }
                         },
                     ),
@@ -66,7 +65,7 @@ private const val USER_INVOCABLE_SKILLS_TAG = "user_invocable_skills"
 
 internal fun renderSkill(
     skill: Skill,
-    config: AgentConfig,
+    virtualPaths: VirtualPaths,
 ): String =
     xmlTag(
         "skill",
@@ -76,8 +75,7 @@ internal fun renderSkill(
             appendLine(
                 "<location>${
                     escapeXml(
-                        skillsPath(
-                            config.skillsDirectoryPath(),
+                        virtualPaths.virtualPath(
                             skill.folder
                                 .resolve(SKILL_FILE_NAME)
                                 .toAbsolutePath()

@@ -28,9 +28,9 @@ class TurnPromptBuilder(
                         ctx.history.compactions,
                         ctx.history.messages,
                         ctx.sessionFiles,
-                        includeSkills = true,
                     ),
                 )
+                skillsSection(skills.catalog(), ctx.virtualPaths)?.also { appendLine(it) }
             }
 
             val skippedMessages = pendingSkippedMessages(ctx)
@@ -101,7 +101,6 @@ class TurnPromptBuilder(
         compactions: List<SessionCompaction>,
         history: List<SessionMessage>,
         sessionFiles: List<SessionFileRef>,
-        includeSkills: Boolean = false,
     ): String {
         val lines = mutableListOf<String>()
 
@@ -123,10 +122,6 @@ class TurnPromptBuilder(
                     )
                 },
             )
-
-        if (includeSkills) {
-            skillsSection(skills.catalog(), config)?.also { lines += it }
-        }
 
         if (compactions.isNotEmpty()) {
             lines += "<thread-compactions>"

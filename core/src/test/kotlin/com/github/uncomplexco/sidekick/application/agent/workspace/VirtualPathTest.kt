@@ -62,9 +62,9 @@ class VirtualPathTest {
 
         val result =
             when (root) {
-                "session" -> virtualPaths.sessionPath(absolutePath)
-                "skills" -> virtualPaths.skillsPath(absolutePath)
-                "global" -> virtualPaths.globalPath(absolutePath)
+                "session" -> virtualPaths.virtualPath(absolutePath)
+                "skills" -> virtualPaths.virtualPath(absolutePath)
+                "global" -> virtualPaths.virtualPath(absolutePath)
                 else -> error("Unsupported test root: $root")
             }
 

@@ -4,16 +4,15 @@ import ai.koog.agents.core.tools.ToolRegistry
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
 import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
+import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
 import com.github.uncomplexco.sidekick.application.tools.integrations.FilePublisher
 import com.github.uncomplexco.sidekick.application.tools.integrations.InternalFileExchangeTools
-import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
+import com.github.uncomplexco.sidekick.application.tools.mcp.McpAuthTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
-import com.github.uncomplexco.sidekick.application.tools.mcp.McpAuthTools
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelTools
@@ -45,15 +44,12 @@ class DefaultToolRegistryFactory(
     private val bashToolConfig: BashToolConfig,
     private val sandboxExecutorFactory: SandboxExecutorFactory,
     private val conversationStateStore: ConversationStateStore,
-    private val virtualPathsFactory: VirtualPathsFactory,
 ) : ToolRegistryFactory {
     override suspend fun build(
         ctx: TurnContext,
         activity: ChatActivityIndicator,
         reply: ReplyToMessage,
     ): ToolRegistry {
-        val virtualPaths = virtualPathsFactory.forConversation(ctx.conversationId)
-
         return ToolRegistry {
             tools(SystemTools(activity = activity))
             tools(ConversationIntelligenceLevelTools(sharedContext.slackClient, ctx, conversationStateStore))
@@ -61,18 +57,18 @@ class DefaultToolRegistryFactory(
                 tools(
                     BashTools(
                         bashToolConfig,
-                        virtualPaths,
+                        ctx.virtualPaths,
                         sandboxExecutorFactory.create(),
                     ),
                 )
             }
             tools(WebFetchTools(agentConfig.name))
-            tools(WorkspaceFileTools(virtualPaths))
-            tools(SkillTools(skills, virtualPaths, skillCatalogReloader))
+            tools(WorkspaceFileTools(ctx.virtualPaths))
+            tools(SkillTools(skills, ctx.virtualPaths, skillCatalogReloader))
             tools(
                 InternalFileExchangeTools(
                     filePublisher,
-                    virtualPaths,
+                    ctx.virtualPaths,
                 ),
             )
             tools(SlackCanvasTools(sharedContext.slackClient, ctx.conversationId).asTools())
@@ -91,7 +87,7 @@ class DefaultToolRegistryFactory(
                 SlackFileTools(
                     ctx,
                     slackBotToken,
-                    virtualPaths,
+                    ctx.virtualPaths,
                 ).asTools(),
             )
         }

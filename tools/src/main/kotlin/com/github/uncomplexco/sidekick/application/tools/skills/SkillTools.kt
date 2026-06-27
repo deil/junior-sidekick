@@ -42,7 +42,7 @@ class SkillTools(
             appendLine("<skill_content name=\"${escapeXml(skill.name)}\">")
             appendLine(instructions)
             appendLine()
-            appendLine("Skill directory: ${escapeXml(virtualPaths.skillsPath(skill.folder.toString()))}")
+            appendLine("Skill directory: ${escapeXml(virtualPaths.virtualPath(skill.folder.toString()))}")
             appendLine("Relative paths in this skill are relative to the skill directory.")
             appendLine("<skill_resources>")
             bundledResources(skill).forEach { resource ->

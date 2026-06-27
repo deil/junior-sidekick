@@ -10,22 +10,46 @@ import java.nio.file.Path
 typealias AbsolutePath = String
 typealias VirtualPath = String
 
+data class VirtualRoot(
+    val virtual: VirtualPath,
+    val real: Path,
+    val writable: Boolean,
+) {
+    fun contains(path: Path): Boolean = path == normalizedReal() || path.startsWith(normalizedReal())
+
+    fun virtualPath(path: Path): VirtualPath {
+        val relative = normalizedReal().relativize(path)
+        return Path.of(virtual).resolve(relative).toString()
+    }
+
+    private fun normalizedReal(): Path = real.toAbsolutePath().normalize()
+}
+
 data class VirtualPaths(
     val sessionRoot: Path,
     val skillsRoot: Path,
     val globalRoot: Path,
     val workRoot: Path,
 ) {
-    fun sessionPath(path: AbsolutePath): VirtualPath = virtualPath(sessionRoot, path, SESSION_ROOT)
+    val roots: List<VirtualRoot> =
+        listOf(
+            VirtualRoot(SESSION_ROOT, sessionRoot, writable = false),
+            VirtualRoot(SKILLS_ROOT, skillsRoot, writable = false),
+            VirtualRoot(GLOBAL_ROOT, globalRoot, writable = false),
+            VirtualRoot(WORK_ROOT, workRoot, writable = true),
+        )
 
-    fun skillsPath(path: AbsolutePath): VirtualPath = virtualPath(skillsRoot, path, SKILLS_ROOT)
-
-    fun globalPath(path: AbsolutePath): VirtualPath = virtualPath(globalRoot, path, GLOBAL_ROOT)
+    fun virtualPath(path: AbsolutePath): VirtualPath {
+        val realPath = Path.of(path).toAbsolutePath().normalize()
+        return roots.firstOrNull { it.contains(realPath) }?.virtualPath(realPath)
+            ?: error("Path is outside virtual roots: $path")
+    }
 
     companion object {
-        const val SESSION_ROOT = "/data/session"
-        const val SKILLS_ROOT = "/data/skills"
-        const val GLOBAL_ROOT = "/data/global"
+        const val DATA_ROOT = "/data"
+        const val SESSION_ROOT = "$DATA_ROOT/session"
+        const val SKILLS_ROOT = "$DATA_ROOT/skills"
+        const val GLOBAL_ROOT = "$DATA_ROOT/global"
         const val WORK_ROOT = "/work"
     }
 }
@@ -40,50 +64,23 @@ class VirtualPathsFactory(
             sessionRoot = sessionFolder.resolve("attachments"),
             skillsRoot = config.skillsDirectoryPath(),
             globalRoot = config.globalDirectoryPath(),
-            workRoot = config.stateDirectoryPath().resolve("bash").resolve(sanitizePathSegment(conversationId.lockKey())).resolve("work"),
+            workRoot =
+                config
+                    .stateDirectoryPath()
+                    .resolve("bash")
+                    .resolve(sanitizePathSegment(conversationId.lockKey()))
+                    .resolve("work"),
         )
     }
 }
 
-fun skillsPath(
-    skillsRoot: Path,
-    path: AbsolutePath,
-): VirtualPath = virtualPath(skillsRoot, path, VirtualPaths.SKILLS_ROOT)
-
 fun parseVirtualPath(
     path: VirtualPath,
-    roots: VirtualPaths,
+    virtualPaths: VirtualPaths,
 ): String {
-    if (path == VirtualPaths.SESSION_ROOT || path.startsWith("${VirtualPaths.SESSION_ROOT}/")) {
-        return realPath(roots.sessionRoot, path, VirtualPaths.SESSION_ROOT)
+    virtualPaths.roots.firstOrNull { path == it.virtual || path.startsWith("${it.virtual}/") }?.let {
+        return it.real.resolve(path.removePrefix(it.virtual).trimStart('/')).toString()
     }
 
-    if (path == VirtualPaths.SKILLS_ROOT || path.startsWith("${VirtualPaths.SKILLS_ROOT}/")) {
-        return realPath(roots.skillsRoot, path, VirtualPaths.SKILLS_ROOT)
-    }
-
-    if (path == VirtualPaths.GLOBAL_ROOT || path.startsWith("${VirtualPaths.GLOBAL_ROOT}/")) {
-        return realPath(roots.globalRoot, path, VirtualPaths.GLOBAL_ROOT)
-    }
-
-    if (path == VirtualPaths.WORK_ROOT || path.startsWith("${VirtualPaths.WORK_ROOT}/")) {
-        return realPath(roots.workRoot, path, VirtualPaths.WORK_ROOT)
-    }
-
-    error("Unsupported virtual path root: $path")
+    error("Unknown virtual path: $path")
 }
-
-private fun virtualPath(
-    realRoot: Path,
-    path: AbsolutePath,
-    virtualRoot: String,
-): VirtualPath {
-    val relative = realRoot.relativize(Path.of(path)).toString().replace('\\', '/')
-    return if (relative.isBlank()) virtualRoot else "$virtualRoot/$relative"
-}
-
-private fun realPath(
-    realRoot: Path,
-    path: VirtualPath,
-    virtualRoot: String,
-): AbsolutePath = realRoot.resolve(path.removePrefix(virtualRoot).trimStart('/')).toString()

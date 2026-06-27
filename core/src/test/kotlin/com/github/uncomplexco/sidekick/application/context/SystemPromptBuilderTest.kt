@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
@@ -132,6 +133,7 @@ class TurnPromptBuilderTest {
     ): TurnContext =
         TurnContext(
             conversationId = conversationId,
+            virtualPaths = virtualPaths(),
             turnId = "turn",
             currentMessageIds = listOf("m1"),
             currentFiles = emptyList(),
@@ -144,6 +146,14 @@ class TurnPromptBuilderTest {
                     hasKoogMessages = hasKoogMessages,
                 ),
             mcpServers = emptyList(),
+        )
+
+    private fun virtualPaths(): VirtualPaths =
+        VirtualPaths(
+            sessionRoot = dir.resolve("state/session/attachments"),
+            skillsRoot = dir.resolve("workspace/skills"),
+            globalRoot = dir.resolve("workspace/global"),
+            workRoot = dir.resolve("state/bash/work"),
         )
 
     private fun message(

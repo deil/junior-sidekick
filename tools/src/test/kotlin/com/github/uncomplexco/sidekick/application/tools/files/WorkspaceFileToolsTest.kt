@@ -74,6 +74,19 @@ class WorkspaceFileToolsTest {
     }
 
     @Test
+    fun `glob from aggregate root preserves truncation notice`() {
+        Files.createDirectories(dir.resolve("global/many"))
+        repeat(101) { index ->
+            Files.writeString(dir.resolve("global/many/file-$index.md"), "File $index\n")
+        }
+
+        val result = tools().workspaceFileGlob("**/*.md", "/data")
+
+        assertContains(result, "/data/global/many/file-")
+        assertContains(result, "Results are truncated")
+    }
+
+    @Test
     fun `grep returns native workspace file matches`() {
         Files.createDirectories(dir.resolve("global/handbook"))
         Files.writeString(dir.resolve("global/handbook/security.md"), "SOC2 evidence\n")

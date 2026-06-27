@@ -7,9 +7,11 @@ import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.context.SessionContextSummarizer
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
+import com.github.uncomplexco.sidekick.application.context.prompts.Prompts
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
+import com.github.uncomplexco.sidekick.application.utils.Loggers
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -30,7 +32,7 @@ class KoogSessionContextSummarizer(
                     compactions = emptyList(),
                     history = messages,
                     sessionFiles = files,
-                ).orEmpty()
+                )
         log.debug("Starting session context summarization for {} messages", messages.size)
 
         return runCatching {
@@ -42,16 +44,7 @@ class KoogSessionContextSummarizer(
                                 id = "sidekick-session-context-compaction",
                                 params = config.openRouterParams(),
                             ) {
-                                user(
-                                    listOf(
-                                        "Summarize the following older chat transcript segment for future assistant turns.",
-                                        "Keep the summary factual and concise.",
-                                        "Preserve decisions, commitments, constraints, user intent, and unresolved asks.",
-                                        "Do not invent details.",
-                                        "",
-                                        transcript,
-                                    ).joinToString("\n"),
-                                )
+                                user("${Prompts.CONTEXT_COMPACTION_PROMPT}\n$transcript")
                             },
                         model =
                             LLModel(
@@ -76,6 +69,6 @@ class KoogSessionContextSummarizer(
     companion object {
         private const val MAX_SUMMARY_CHARS = 3500
         private const val FALLBACK_SUMMARY_CHARS = 2800
-        private val log = LoggerFactory.getLogger(KoogSessionContextSummarizer::class.java)
+        private val log = Loggers.CONTEXT
     }
 }

@@ -5,6 +5,7 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths.Companion.DATA_ROOT
 import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -12,6 +13,9 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Path
+
+private const val MAX_AGGREGATE_GLOB_RESULTS = 100
+private const val MAX_AGGREGATE_GREP_RESULTS = 100
 
 class WorkspaceFileTools(
     private val virtualPaths: VirtualPaths,
@@ -43,13 +47,7 @@ class WorkspaceFileTools(
         path: String,
     ): String {
         if (path == VIRTUAL_ROOT || path == DATA_ROOT) {
-            return runBlocking {
-                aggregateRoots(path)
-                    .map { root -> async(Dispatchers.IO) { globRoot(root, pattern) } }
-                    .awaitAll()
-            }.flatten()
-                .ifEmpty { listOf("No files found") }
-                .joinToString("\n")
+            return renderAggregateGlob(path, pattern)
         }
 
         val workspacePath = resolveWorkspacePath(path)
@@ -67,13 +65,7 @@ class WorkspaceFileTools(
         include: String? = null,
     ): String {
         if (path == VIRTUAL_ROOT || path == DATA_ROOT) {
-            return runBlocking {
-                aggregateRoots(path)
-                    .map { root -> async(Dispatchers.IO) { grepRoot(root, pattern, include) } }
-                    .awaitAll()
-            }.filterNotNull()
-                .ifEmpty { listOf("No files found") }
-                .joinToString("\n\n")
+            return renderAggregateGrep(path, pattern, include)
         }
 
         val workspacePath = resolveWorkspacePath(path)
@@ -88,7 +80,11 @@ class WorkspaceFileTools(
             throw ToolException.ValidationFailure("`offset` must be greater than or equal to 1")
         }
 
-        val entries = listOf("session/", "skills/", "global/")
+        val entries =
+            dataRoots()
+                .map { it.virtual.removePrefix("$DATA_ROOT/").substringBefore('/') + "/" }
+                .distinct()
+                .sorted()
         val currentOffset = offset ?: 1
         val currentLimit = limit ?: entries.size
         val start = currentOffset - 1
@@ -104,36 +100,117 @@ class WorkspaceFileTools(
         ).joinToString("\n")
     }
 
+    private fun renderAggregateGlob(
+        path: String,
+        pattern: String,
+    ): String {
+        val rootResults =
+            runBlocking {
+                aggregateRoots(path)
+                    .map { root -> async(Dispatchers.IO) { globRoot(root, pattern) } }
+                    .awaitAll()
+            }
+        val matches =
+            rootResults
+                .flatMap { result -> result.matches }
+                .sortedWith(compareByDescending<VirtualGlobMatch> { it.mtime }.thenBy { it.path })
+        if (matches.isEmpty()) {
+            return "No files found"
+        }
+
+        val truncated = rootResults.any { it.truncated } || matches.size > MAX_AGGREGATE_GLOB_RESULTS
+        val final = if (truncated) matches.take(MAX_AGGREGATE_GLOB_RESULTS) else matches
+        val output = final.map { it.path }.toMutableList()
+        if (truncated) {
+            output += ""
+            output +=
+                "(Results are truncated: showing first $MAX_AGGREGATE_GLOB_RESULTS results. Consider using a more specific path or pattern.)"
+        }
+        return output.joinToString("\n")
+    }
+
+    private fun renderAggregateGrep(
+        path: String,
+        pattern: String,
+        include: String?,
+    ): String {
+        val rootResults =
+            runBlocking {
+                aggregateRoots(path)
+                    .map { root -> async(Dispatchers.IO) { grepRoot(root, pattern, include) } }
+                    .awaitAll()
+            }
+        val total = rootResults.sumOf { it.total }
+        if (total == 0) {
+            return "No files found"
+        }
+
+        val matches =
+            rootResults
+                .flatMap { it.matches }
+                .sortedWith(compareByDescending<VirtualGrepMatch> { it.mtime }.thenBy { it.path })
+        val truncated = total > MAX_AGGREGATE_GREP_RESULTS
+        val final = if (truncated) matches.take(MAX_AGGREGATE_GREP_RESULTS) else matches
+        val output = mutableListOf("Found $total matches${if (truncated) " (showing first $MAX_AGGREGATE_GREP_RESULTS)" else ""}")
+
+        var current = ""
+        for (match in final) {
+            if (current != match.path) {
+                if (current.isNotEmpty()) {
+                    output += ""
+                }
+                current = match.path
+                output += "${match.path}:"
+            }
+            output += "  Line ${match.line}: ${match.text}"
+        }
+
+        if (truncated) {
+            output += ""
+            output +=
+                "(Results truncated: showing $MAX_AGGREGATE_GREP_RESULTS of $total matches (${total - MAX_AGGREGATE_GREP_RESULTS} hidden). Consider using a more specific path or pattern.)"
+        }
+
+        return output.joinToString("\n")
+    }
+
     private fun globRoot(
         root: WorkspaceRoot,
         pattern: String,
-    ): List<String> {
+    ): VirtualGlobMatches {
         if (!Files.isDirectory(root.real)) {
-            return emptyList()
+            return VirtualGlobMatches(emptyList(), truncated = false)
         }
 
-        return WorkspaceFiles(root.real)
-            .glob(pattern, ".")
-            .lines()
-            .filter { it.isNotBlank() && !it.startsWith("No files found") && !it.startsWith("(") }
-            .map { "${root.virtual}/$it" }
+        val result = WorkspaceFiles(root.real).globMatches(pattern, ".")
+        return VirtualGlobMatches(
+            matches = result.matches.map { VirtualGlobMatch("${root.virtual}/${it.path}", it.mtime) },
+            truncated = result.truncated,
+        )
     }
 
     private fun grepRoot(
         root: WorkspaceRoot,
         pattern: String,
         include: String?,
-    ): String? {
+    ): VirtualGrepMatches {
         if (!Files.isDirectory(root.real)) {
-            return null
+            return VirtualGrepMatches(emptyList(), total = 0)
         }
 
-        val result = WorkspaceFiles(root.real).grep(pattern, ".", include)
-        if (result == "No files found") {
-            return null
-        }
-
-        return result.replace(root.real.toString(), root.virtual)
+        val result = WorkspaceFiles(root.real).grepMatches(pattern, ".", include)
+        return VirtualGrepMatches(
+            matches =
+                result.matches.map {
+                    VirtualGrepMatch(
+                        path = "${root.virtual}/${root.real.relativize(Path.of(it.path)).toString().replace('\\', '/')}",
+                        line = it.line,
+                        text = it.text,
+                        mtime = it.mtime,
+                    )
+                },
+            total = result.total,
+        )
     }
 
     private fun resolveWorkspacePath(path: String): WorkspacePath =
@@ -146,17 +223,16 @@ class WorkspaceFileTools(
         }
 
     private fun rootFor(realPath: Path): Path? =
-        listOf(virtualPaths.sessionRoot, virtualPaths.skillsRoot, virtualPaths.globalRoot, virtualPaths.workRoot)
+        virtualPaths.roots
+            .map { it.real }
             .firstOrNull { realPath == it || realPath.startsWith(it) }
 
     private fun dataRoots(): List<WorkspaceRoot> =
-        listOf(
-            WorkspaceRoot(VirtualPaths.SESSION_ROOT, virtualPaths.sessionRoot),
-            WorkspaceRoot(VirtualPaths.SKILLS_ROOT, virtualPaths.skillsRoot),
-            WorkspaceRoot(VirtualPaths.GLOBAL_ROOT, virtualPaths.globalRoot),
-        )
+        virtualPaths.roots
+            .filter { it.virtual.startsWith("$DATA_ROOT/") }
+            .map { WorkspaceRoot(it.virtual, it.real) }
 
-    private fun knownRoots(): List<WorkspaceRoot> = dataRoots() + WorkspaceRoot(VirtualPaths.WORK_ROOT, virtualPaths.workRoot)
+    private fun knownRoots(): List<WorkspaceRoot> = virtualPaths.roots.map { WorkspaceRoot(it.virtual, it.real) }
 
     private fun aggregateRoots(path: String): List<WorkspaceRoot> =
         when (path) {
@@ -170,6 +246,28 @@ class WorkspaceFileTools(
         val real: Path,
     )
 
+    private data class VirtualGlobMatch(
+        val path: String,
+        val mtime: Long,
+    )
+
+    private data class VirtualGlobMatches(
+        val matches: List<VirtualGlobMatch>,
+        val truncated: Boolean,
+    )
+
+    private data class VirtualGrepMatch(
+        val path: String,
+        val line: Int,
+        val text: String,
+        val mtime: Long,
+    )
+
+    private data class VirtualGrepMatches(
+        val matches: List<VirtualGrepMatch>,
+        val total: Int,
+    )
+
     private data class WorkspacePath(
         val root: Path,
         val relative: String,
@@ -181,6 +279,5 @@ class WorkspaceFileTools(
         const val TOOL_GREP = "fs__grep"
 
         private const val VIRTUAL_ROOT = "/"
-        private const val DATA_ROOT = "/data"
     }
 }

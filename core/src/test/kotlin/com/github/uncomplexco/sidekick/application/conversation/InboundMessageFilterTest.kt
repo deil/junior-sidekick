@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.conversation
 
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
@@ -284,6 +285,7 @@ class InboundMessageFilterTest {
                 TurnPromptBuilder(config, skills = { com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog(emptyList()) }),
                 summarizer = { _, messages, _ -> "summary for ${messages.size} messages" },
             ),
+            VirtualPathsFactory(config),
         )
     }
 

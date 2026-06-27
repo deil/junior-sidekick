@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.Tool
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.serialization.JSONObject
 import ai.koog.serialization.JSONPrimitive
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
@@ -20,6 +21,7 @@ class McpStatusToolsTest {
             val ctx =
                 TurnContext(
                     conversationId = ConversationId("C123", "1700000000.000"),
+                    virtualPaths = VirtualPaths(java.nio.file.Path.of("/tmp/session"), java.nio.file.Path.of("/tmp/skills"), java.nio.file.Path.of("/tmp/global"), java.nio.file.Path.of("/tmp/work")),
                     turnId = "turn",
                     currentMessageIds = listOf("m1"),
                     currentFiles = emptyList(),

@@ -47,10 +47,14 @@ private data class ReadResult(
     val offset: Int,
 )
 
-private data class Match(
+internal data class WorkspaceGlobMatch(
     val path: String,
-    val matches: Boolean,
     val mtime: Long,
+)
+
+internal data class WorkspaceGlobMatches(
+    val matches: List<WorkspaceGlobMatch>,
+    val truncated: Boolean,
 )
 
 private data class WalkedFile(
@@ -59,11 +63,17 @@ private data class WalkedFile(
     val relative: Path,
 )
 
-private data class GrepMatch(
+internal data class WorkspaceGrepMatch(
     val path: String,
     val line: Int,
     val text: String,
     val mtime: Long,
+)
+
+internal data class WorkspaceGrepMatches(
+    val matches: List<WorkspaceGrepMatch>,
+    val total: Int,
+    val truncated: Boolean,
 )
 
 private fun parseApplyPatch(patchText: String): List<PatchOperation> {
@@ -299,6 +309,26 @@ class WorkspaceFiles(
         pattern: String,
         path: String?,
     ): String {
+        val result = globMatches(pattern, path)
+
+        val output = mutableListOf<String>()
+        if (result.matches.isEmpty()) {
+            output += "No files found"
+        } else {
+            output += result.matches.map { it.path }
+            if (result.truncated) {
+                output += ""
+                output +=
+                    "(Results are truncated: showing first $MAX_GLOB_RESULTS results. Consider using a more specific path or pattern.)"
+            }
+        }
+        return output.joinToString("\n")
+    }
+
+    internal fun globMatches(
+        pattern: String,
+        path: String?,
+    ): WorkspaceGlobMatches {
         val search = resolve(path)
         if (Files.exists(search) && Files.isRegularFile(search)) {
             throw IllegalArgumentException("glob path must be a directory: ${search.pathString}")
@@ -309,26 +339,14 @@ class WorkspaceFiles(
             walkFiles(search)
                 .asSequence()
                 .filter { matchesGlob(matchers, it.relative) }
-                .map { file -> Match(file.relative.pathString, true, Files.getLastModifiedTime(file.actual).toMillis()) }
-                .sortedWith(compareByDescending<Match> { it.mtime }.thenBy { it.path })
+                .map { file -> WorkspaceGlobMatch(file.relative.pathString, Files.getLastModifiedTime(file.actual).toMillis()) }
+                .sortedWith(compareByDescending<WorkspaceGlobMatch> { it.mtime }.thenBy { it.path })
                 .take(MAX_GLOB_RESULTS + 1)
                 .toList()
 
         val truncated = files.size > MAX_GLOB_RESULTS
         val final = if (truncated) files.take(MAX_GLOB_RESULTS) else files
-
-        val output = mutableListOf<String>()
-        if (final.isEmpty()) {
-            output += "No files found"
-        } else {
-            output += final.map { it.path }
-            if (truncated) {
-                output += ""
-                output +=
-                    "(Results are truncated: showing first $MAX_GLOB_RESULTS results. Consider using a more specific path or pattern.)"
-            }
-        }
-        return output.joinToString("\n")
+        return WorkspaceGlobMatches(final, truncated)
     }
 
     fun grep(
@@ -336,6 +354,44 @@ class WorkspaceFiles(
         path: String?,
         include: String?,
     ): String {
+        if (pattern.isBlank()) {
+            throw IllegalArgumentException("pattern is required")
+        }
+
+        val result = grepMatches(pattern, path, include)
+
+        if (result.matches.isEmpty()) {
+            return "No files found"
+        }
+
+        val output = mutableListOf("Found ${result.total} matches${if (result.truncated) " (showing first $MAX_GREP_RESULTS)" else ""}")
+
+        var current = ""
+        for (match in result.matches) {
+            if (current != match.path) {
+                if (current.isNotEmpty()) {
+                    output += ""
+                }
+                current = match.path
+                output += "${match.path}:"
+            }
+            output += "  Line ${match.line}: ${match.text}"
+        }
+
+        if (result.truncated) {
+            output += ""
+            output +=
+                "(Results truncated: showing $MAX_GREP_RESULTS of ${result.total} matches (${result.total - MAX_GREP_RESULTS} hidden). Consider using a more specific path or pattern.)"
+        }
+
+        return output.joinToString("\n")
+    }
+
+    internal fun grepMatches(
+        pattern: String,
+        path: String?,
+        include: String?,
+    ): WorkspaceGrepMatches {
         if (pattern.isBlank()) {
             throw IllegalArgumentException("pattern is required")
         }
@@ -365,7 +421,7 @@ class WorkspaceFiles(
                             if (!regex.containsMatchIn(text)) {
                                 null
                             } else {
-                                GrepMatch(item.display.pathString, index + 1, clipForGrep(text), mtime)
+                                WorkspaceGrepMatch(item.display.pathString, index + 1, clipForGrep(text), mtime)
                             }
                         }
                     }.getOrElse { error ->
@@ -375,35 +431,11 @@ class WorkspaceFiles(
                             throw error
                         }
                     }
-                }.sortedWith(compareByDescending<GrepMatch> { it.mtime }.thenBy { it.path })
-
-        if (rows.isEmpty()) {
-            return "No files found"
-        }
+                }.sortedWith(compareByDescending<WorkspaceGrepMatch> { it.mtime }.thenBy { it.path })
 
         val truncated = rows.size > MAX_GREP_RESULTS
         val final = if (truncated) rows.take(MAX_GREP_RESULTS) else rows
-        val output = mutableListOf("Found ${rows.size} matches${if (truncated) " (showing first $MAX_GREP_RESULTS)" else ""}")
-
-        var current = ""
-        for (match in final) {
-            if (current != match.path) {
-                if (current.isNotEmpty()) {
-                    output += ""
-                }
-                current = match.path
-                output += "${match.path}:"
-            }
-            output += "  Line ${match.line}: ${match.text}"
-        }
-
-        if (truncated) {
-            output += ""
-            output +=
-                "(Results truncated: showing $MAX_GREP_RESULTS of ${rows.size} matches (${rows.size - MAX_GREP_RESULTS} hidden). Consider using a more specific path or pattern.)"
-        }
-
-        return output.joinToString("\n")
+        return WorkspaceGrepMatches(final, rows.size, truncated)
     }
 
     fun write(

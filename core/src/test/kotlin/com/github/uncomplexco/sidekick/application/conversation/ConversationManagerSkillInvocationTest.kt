@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.conversation
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
@@ -89,6 +90,7 @@ class ConversationManagerSkillInvocationTest {
                 TurnPromptBuilder(config, skills = { SkillCatalog(emptyList()) }),
                 summarizer = { _, messages, _ -> "summary for ${messages.size} messages" },
             ),
+            VirtualPathsFactory(config),
         )
     }
 

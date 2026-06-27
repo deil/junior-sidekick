@@ -157,7 +157,7 @@ class SlackFileIngestor(
             .mapNotNull { file ->
                 val virtualPaths = virtualPathsFactory.forConversation(conversationId)
                 val localPath = download(virtualPaths, file) ?: return@mapNotNull null
-                file.copy(localPath = virtualPaths.sessionPath(localPath.toString()))
+                file.copy(localPath = virtualPaths.virtualPath(localPath.toString()))
             }
 
     private fun download(

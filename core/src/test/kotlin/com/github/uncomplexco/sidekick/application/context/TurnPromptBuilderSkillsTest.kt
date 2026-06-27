@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.context
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
 import com.github.uncomplexco.sidekick.application.context.prompts.CURRENT_INSTRUCTION_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.EXPLICIT_SKILL_INVOCATION_TAG
@@ -202,6 +203,7 @@ class TurnPromptBuilderSkillsTest {
     private fun context(hasKoogMessages: Boolean = false): com.github.uncomplexco.sidekick.application.turn.TurnContext =
         com.github.uncomplexco.sidekick.application.turn.TurnContext(
             conversationId = com.github.uncomplexco.sidekick.application.conversation.ConversationId("C123", "1700000000.000"),
+            virtualPaths = virtualPaths(),
             turnId = "turn",
             currentMessageIds = listOf("m1"),
             currentFiles = emptyList(),
@@ -214,6 +216,14 @@ class TurnPromptBuilderSkillsTest {
                     hasKoogMessages = hasKoogMessages,
                 ),
             mcpServers = emptyList(),
+        )
+
+    private fun virtualPaths(): VirtualPaths =
+        VirtualPaths(
+            sessionRoot = dir.resolve("state/session/attachments"),
+            skillsRoot = dir.resolve("workspace/skills"),
+            globalRoot = dir.resolve("workspace/global"),
+            workRoot = dir.resolve("state/bash/work"),
         )
 
     private fun message(

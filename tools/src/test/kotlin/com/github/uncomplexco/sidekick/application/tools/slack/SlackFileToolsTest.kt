@@ -39,6 +39,13 @@ class SlackFileToolsTest {
         val conversationId = ConversationId("C123", "1700000000.000")
         val file = file(id = "F123", name = "note.md", mimetype = "text/markdown", localPath = "/data/session/F123-note.md")
         val sessionRoot = conversationId.folder(dir)
+        val virtualPaths =
+            VirtualPaths(
+                sessionRoot = sessionRoot.resolve("attachments"),
+                skillsRoot = dir.resolve("workspace/skills"),
+                globalRoot = dir.resolve("workspace/global"),
+                workRoot = sessionRoot.resolve("work"),
+            )
         Files.createDirectories(sessionRoot.resolve("attachments"))
         Files.writeString(sessionRoot.resolve("attachments/F123-note.md"), "hello\n")
 
@@ -47,6 +54,7 @@ class SlackFileToolsTest {
                 ctx =
                     TurnContext(
                         conversationId = conversationId,
+                        virtualPaths = virtualPaths,
                         turnId = "turn",
                         currentMessageIds = listOf("m1"),
                         currentFiles = emptyList(),
@@ -61,13 +69,7 @@ class SlackFileToolsTest {
                         mcpServers = emptyList(),
                 ),
                 slackBotToken = "token",
-                virtualPaths =
-                    VirtualPaths(
-                        sessionRoot = sessionRoot.resolve("attachments"),
-                        skillsRoot = dir.resolve("workspace/skills"),
-                        globalRoot = dir.resolve("workspace/global"),
-                        workRoot = sessionRoot.resolve("work"),
-                    ),
+                virtualPaths = virtualPaths,
             ).slackFileRead("F123")
 
         assertContains(result, "<path>/data/session/F123-note.md</path>")

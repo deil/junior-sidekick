@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.application.conversation
 
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
@@ -15,6 +16,7 @@ import kotlin.uuid.Uuid
 class ConversationManager(
     private val store: ConversationStateStore,
     private val contextCompactor: SessionContextCompactor,
+    private val virtualPathsFactory: VirtualPathsFactory,
 ) {
     fun exists(conversationId: ConversationId): Boolean = store.exists(conversationId)
 
@@ -36,6 +38,7 @@ class ConversationManager(
 
             TurnContext(
                 conversationId = conversationId,
+                virtualPaths = virtualPathsFactory.forConversation(conversationId),
                 turnId = turnId,
                 currentMessageIds = messages.map { it.id },
                 currentFiles = files,

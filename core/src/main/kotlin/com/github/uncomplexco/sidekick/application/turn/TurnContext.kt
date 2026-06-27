@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.turn
 
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
@@ -10,6 +11,7 @@ import com.github.uncomplexco.sidekick.application.turn.koog.ConnectedMcpServer
 
 data class TurnContext(
     val conversationId: ConversationId,
+    val virtualPaths: VirtualPaths,
     val turnId: String,
     val currentMessageIds: List<String>,
     val currentFiles: List<IncomingChatFile>,

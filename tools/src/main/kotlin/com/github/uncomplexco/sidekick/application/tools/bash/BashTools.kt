@@ -79,28 +79,13 @@ class BashTools(
                         timeoutSeconds = resolvedTimeout,
                         networkEnabled = config.networkEnabled,
                         mounts =
-                            listOf(
+                            virtualPaths.roots.map { root ->
                                 SandboxMount(
-                                    source = virtualPaths.sessionRoot,
-                                    target = VirtualPaths.SESSION_ROOT,
-                                    mode = SandboxMountMode.RO,
-                                ),
-                                SandboxMount(
-                                    source = virtualPaths.skillsRoot,
-                                    target = VirtualPaths.SKILLS_ROOT,
-                                    mode = SandboxMountMode.RO,
-                                ),
-                                SandboxMount(
-                                    source = virtualPaths.globalRoot,
-                                    target = VirtualPaths.GLOBAL_ROOT,
-                                    mode = SandboxMountMode.RO,
-                                ),
-                                SandboxMount(
-                                    source = virtualPaths.workRoot,
-                                    target = "/work",
-                                    mode = SandboxMountMode.RW,
-                                ),
-                            ),
+                                    source = root.real,
+                                    target = root.virtual,
+                                    mode = if (root.writable) SandboxMountMode.RW else SandboxMountMode.RO,
+                                )
+                            },
                     ),
                 )
             } catch (error: IllegalArgumentException) {
@@ -118,9 +103,7 @@ class BashTools(
     }
 
     private fun prepareReadOnlyRoots() {
-        Files.createDirectories(virtualPaths.sessionRoot)
-        Files.createDirectories(virtualPaths.skillsRoot)
-        Files.createDirectories(virtualPaths.globalRoot)
+        virtualPaths.roots.filter { !it.writable }.forEach { Files.createDirectories(it.real) }
     }
 
     private fun prepareWorkRoot() {

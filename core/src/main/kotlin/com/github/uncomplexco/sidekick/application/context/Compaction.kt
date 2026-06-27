@@ -49,8 +49,7 @@ class SessionContextCompactor(
                         state.compactions,
                         state.messages,
                         emptyList(),
-                    )?.length
-                    ?: 0
+                    ).length
             ) / TOKEN_ESTIMATE_CHARS.toDouble(),
         ).toInt()
 
