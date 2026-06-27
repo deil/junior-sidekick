@@ -5,6 +5,7 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
 import org.springframework.stereotype.Component
+import java.nio.file.Files
 import java.nio.file.Path
 
 typealias AbsolutePath = String
@@ -59,17 +60,21 @@ class VirtualPathsFactory(
     private val config: AgentConfig,
 ) {
     fun forConversation(conversationId: ConversationId): VirtualPaths {
-        val sessionFolder = conversationId.folder(config.stateDirectoryPath())
+        val attachmentsRoot = Files.createDirectories(conversationId.folder(config.stateDirectoryPath()).resolve("attachments"))
+
+        val workRoot =
+            config
+                .stateDirectoryPath()
+                .resolve("bash")
+                .resolve(sanitizePathSegment(conversationId.lockKey()))
+                .resolve("work")
+        Files.createDirectories(workRoot)
+
         return VirtualPaths(
-            sessionRoot = sessionFolder.resolve("attachments"),
+            sessionRoot = attachmentsRoot,
             skillsRoot = config.skillsDirectoryPath(),
             globalRoot = config.globalDirectoryPath(),
-            workRoot =
-                config
-                    .stateDirectoryPath()
-                    .resolve("bash")
-                    .resolve(sanitizePathSegment(conversationId.lockKey()))
-                    .resolve("work"),
+            workRoot = workRoot,
         )
     }
 }

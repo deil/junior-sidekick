@@ -30,11 +30,6 @@ class SlackFileToolsTest {
     }
 
     @Test
-    fun `download filename uses slack file id and sanitized name`() {
-        assertEquals("F123-my_file.md", downloadFileName(file(id = "F123", name = "my file.md")))
-    }
-
-    @Test
     fun `read returns virtual session path for attached file`() {
         val conversationId = ConversationId("C123", "1700000000.000")
         val file = file(id = "F123", name = "note.md", mimetype = "text/markdown", localPath = "/data/session/F123-note.md")
@@ -67,8 +62,7 @@ class SlackFileToolsTest {
                                 hasKoogMessages = false,
                             ),
                         mcpServers = emptyList(),
-                ),
-                slackBotToken = "token",
+                    ),
                 virtualPaths = virtualPaths,
             ).slackFileRead("F123")
 

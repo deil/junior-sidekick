@@ -6,6 +6,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.stream.Stream
 import kotlin.test.assertEquals
@@ -24,6 +25,7 @@ class VirtualPathTest {
 
         assertEquals(stateRoot.resolve("bash/C123_1700000000.000/work"), virtualPaths.workRoot)
         assertEquals(stateRoot.resolve("slack/channels/C123/threads/1700000000.000/attachments"), virtualPaths.sessionRoot)
+        assertEquals(true, Files.isDirectory(virtualPaths.sessionRoot))
     }
 
     @ParameterizedTest

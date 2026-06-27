@@ -49,8 +49,8 @@ class DefaultToolRegistryFactory(
         ctx: TurnContext,
         activity: ChatActivityIndicator,
         reply: ReplyToMessage,
-    ): ToolRegistry {
-        return ToolRegistry {
+    ): ToolRegistry =
+        ToolRegistry {
             tools(SystemTools(activity = activity))
             tools(ConversationIntelligenceLevelTools(sharedContext.slackClient, ctx, conversationStateStore))
             if (bashToolConfig.enabled) {
@@ -86,10 +86,8 @@ class DefaultToolRegistryFactory(
             tools(
                 SlackFileTools(
                     ctx,
-                    slackBotToken,
                     ctx.virtualPaths,
                 ).asTools(),
             )
         }
-    }
 }
