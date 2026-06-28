@@ -1,11 +1,12 @@
 package com.github.uncomplexco.sidekick.application.tools
 
+import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import org.junit.jupiter.api.Test
-import kotlin.time.Clock
-import kotlin.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 class SystemToolsTest {
     @Test

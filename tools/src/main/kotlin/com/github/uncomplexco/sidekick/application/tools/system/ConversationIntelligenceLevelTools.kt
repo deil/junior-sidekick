@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application.tools
+package com.github.uncomplexco.sidekick.application.tools.system
 
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
@@ -11,7 +11,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 
-@LLMDescription("Conversation intelligence level tools")
 class ConversationIntelligenceLevelTools(
     private val slackClient: MethodsClient,
     private val ctx: TurnContext,
@@ -59,7 +58,6 @@ class ConversationIntelligenceLevelTools(
         }
 
         return TokenmaxxinResult(
-            ok = true,
             intelligenceLevel = intelligenceLevel.name.lowercase(),
             conversationId = ctx.conversationId.lockKey(),
         )
@@ -68,7 +66,6 @@ class ConversationIntelligenceLevelTools(
 
 @Serializable
 data class TokenmaxxinResult(
-    val ok: Boolean,
     val intelligenceLevel: String,
     val conversationId: String,
 )

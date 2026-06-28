@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application.tools
+package com.github.uncomplexco.sidekick.application.tools.system
 
 import ai.koog.agents.core.tools.ToolException
 import ai.koog.agents.core.tools.annotations.LLMDescription

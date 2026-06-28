@@ -6,8 +6,8 @@ import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import com.github.uncomplexco.sidekick.application.tools.SystemTools.Companion.TOOL_REPORT_ASSISTANT_ACTIVITY
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
+import com.github.uncomplexco.sidekick.application.tools.system.SystemTools.Companion.TOOL_REPORT_ASSISTANT_ACTIVITY
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutor
@@ -19,7 +19,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermission
-import kotlin.io.path.pathString
 
 @Component
 @ConfigurationProperties(prefix = "agent.tools.bash")

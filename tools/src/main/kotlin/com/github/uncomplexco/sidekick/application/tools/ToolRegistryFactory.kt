@@ -8,6 +8,8 @@ import com.github.uncomplexco.sidekick.application.runtime.SharedContext
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
 import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
+import com.github.uncomplexco.sidekick.application.tools.git.GitToolConfig
+import com.github.uncomplexco.sidekick.application.tools.git.GitTools
 import com.github.uncomplexco.sidekick.application.tools.integrations.FilePublisher
 import com.github.uncomplexco.sidekick.application.tools.integrations.InternalFileExchangeTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpAuthTools
@@ -15,6 +17,8 @@ import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.slackTools
+import com.github.uncomplexco.sidekick.application.tools.system.ConversationIntelligenceLevelTools
+import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
@@ -34,6 +38,7 @@ class DefaultToolRegistryFactory(
     private val mcpToolsConfig: McpToolsConfig,
     private val mcpAuthTools: McpAuthTools,
     private val bashToolConfig: BashToolConfig,
+    private val gitToolConfig: GitToolConfig,
     private val sandboxExecutorFactory: SandboxExecutorFactory,
     private val conversationStateStore: ConversationStateStore,
 ) : ToolRegistryFactory {
@@ -55,6 +60,7 @@ class DefaultToolRegistryFactory(
                 )
             }
             tools(WebFetchTools(agentConfig.name))
+            tools(GitTools(gitToolConfig, ctx.virtualPaths))
             tools(WorkspaceFileTools(ctx.virtualPaths))
             tools(SkillTools(skills, ctx.virtualPaths, skillCatalogReloader))
             tools(

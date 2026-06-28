@@ -1,35 +1,29 @@
 package com.github.uncomplexco.sidekick.application.tools.mcp
 
-import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.mcp.DefaultMcpToolDescriptorParser
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.turn.koog.ConnectedMcpServer
 import com.github.uncomplexco.sidekick.application.turn.koog.McpServersRegistry
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.plugins.sse.SSE
-import io.ktor.client.request.header
-import io.modelcontextprotocol.kotlin.sdk.client.Client
-import io.modelcontextprotocol.kotlin.sdk.client.ClientOptions
-import io.modelcontextprotocol.kotlin.sdk.client.SseClientTransport
-import io.modelcontextprotocol.kotlin.sdk.client.StdioClientTransport
-import io.modelcontextprotocol.kotlin.sdk.client.mcpStreamableHttpTransport
+import com.github.uncomplexco.sidekick.application.utils.Loggers
+import io.ktor.client.*
+import io.ktor.client.plugins.*
+import io.ktor.client.plugins.sse.*
+import io.ktor.client.request.*
+import io.modelcontextprotocol.kotlin.sdk.client.*
 import io.modelcontextprotocol.kotlin.sdk.shared.Transport
 import io.modelcontextprotocol.kotlin.sdk.types.Implementation
 import kotlinx.io.asSink
 import kotlinx.io.asSource
 import kotlinx.io.buffered
-import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
 import java.net.URI
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
-import java.net.http.HttpClient as JavaHttpClient
 import kotlin.time.Duration.Companion.seconds
+import java.net.http.HttpClient as JavaHttpClient
 
 @Component
 @ConfigurationProperties(prefix = "agent.mcp")
@@ -81,10 +75,24 @@ class DefaultMcpServersRegistry(
         accessToken: String?,
     ): ConnectedMcpServer =
         when (server.transport) {
-            "stdio" -> stdioServer(server)
-            "sse" -> httpServer(server, accessToken) { client -> SseClientTransport(client, server.url) }
-            "streamable-http" -> httpServer(server, accessToken) { client -> client.mcpStreamableHttpTransport(server.url) }
-            else -> error("Unsupported MCP transport for ${server.id}: ${server.transport}")
+            "stdio" -> {
+                stdioServer(server)
+            }
+
+            "sse" -> {
+                httpServer(server, accessToken) { client -> SseClientTransport(client, server.url) }
+            }
+
+            "streamable-http" -> {
+                httpServer(
+                    server,
+                    accessToken,
+                ) { client -> client.mcpStreamableHttpTransport(server.url) }
+            }
+
+            else -> {
+                error("Unsupported MCP transport for ${server.id}: ${server.transport}")
+            }
         }
 
     private suspend fun stdioServer(server: McpServerConfig): ConnectedMcpServer {
@@ -124,13 +132,15 @@ class DefaultMcpServersRegistry(
     ) {
         runCatching {
             val requestBuilder =
-                HttpRequest.newBuilder(URI.create(server.url))
+                HttpRequest
+                    .newBuilder(URI.create(server.url))
                     .timeout(Duration.ofSeconds(5))
                     .header("Accept", "text/event-stream")
                     .GET()
             accessToken?.let { requestBuilder.header("Authorization", "Bearer $it") }
 
-            val response = JavaHttpClient.newHttpClient().send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString())
+            val response =
+                JavaHttpClient.newHttpClient().send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString())
             if (response.statusCode() !in 200..299) {
                 log.warn(
                     "MCP SSE error response server={} url={} status={} body={}",
@@ -152,7 +162,11 @@ class DefaultMcpServersRegistry(
     ): ConnectedMcpServer {
         val client =
             Client(
-                clientInfo = clientInfo(server),
+                clientInfo =
+                    Implementation(
+                        name = "sidekick",
+                        version = "1.0.0",
+                    ),
                 options = ClientOptions().apply { timeout = server.timeoutSeconds.seconds },
             ).apply { connect(transport) }
         val registry = toolRegistry(server, client)
@@ -168,20 +182,20 @@ class DefaultMcpServersRegistry(
         server: McpServerConfig,
         client: Client,
     ): ToolRegistry {
-        val sdkTools = client.listTools().tools
+        val tools = client.listTools().tools
         return ToolRegistry {
-            sdkTools.forEach { sdkTool ->
+            tools.forEach { tool ->
                 runCatching {
-                    val descriptor = prefixedDescriptor(server.id, DefaultMcpToolDescriptorParser.parse(sdkTool))
+                    val descriptor = DefaultMcpToolDescriptorParser.parse(tool)
                     tool(
                         McpServerTool(
                             client = client,
-                            originalToolName = sdkTool.name,
-                            descriptor = descriptor,
+                            originalToolName = tool.name,
+                            descriptor = descriptor.copy(name = "mcp__${server.id}__${descriptor.name}"),
                         ),
                     )
                 }.onFailure {
-                    log.warn("Ignoring invalid MCP tool {} from server {}", sdkTool.name, server.id, it)
+                    log.warn("Ignoring invalid MCP tool {} from server {}", tool.name, server.id, it)
                 }
             }
         }
@@ -203,20 +217,9 @@ class DefaultMcpServersRegistry(
             }
         }
 
-    private fun clientInfo(server: McpServerConfig): Implementation =
-        Implementation(
-            name = "sidekick-${server.id}",
-            version = "1.0.0",
-        )
-
-    private fun prefixedDescriptor(
-        serverId: String,
-        descriptor: ToolDescriptor,
-    ): ToolDescriptor = descriptor.copy(name = "${serverId}__${descriptor.name}")
-
-    private companion object {
+    companion object {
         private const val MAX_ERROR_RESPONSE_LOG_LENGTH = 4000
-        private val log = LoggerFactory.getLogger(DefaultMcpServersRegistry::class.java)
+        private val log = Loggers.MCP
     }
 }
 
