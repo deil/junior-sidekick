@@ -66,7 +66,6 @@ class SlackAppFactory {
                                     emptyList()
                                 }
                             },
-                            channelMetadataLoader = { sessionId -> loadSlackChannelMetadata(ctx, sessionId) },
                             reply = replyInSlack(ctx, responseThreadTs),
                             activity = slackActivityIndicator(ctx, responseThreadTs),
                             fileIngestor = slackFileIngestor::ingest,
@@ -109,7 +108,6 @@ class SlackAppFactory {
                                         emptyList()
                                     }
                                 },
-                                channelMetadataLoader = { sessionId -> loadSlackChannelMetadata(ctx, sessionId) },
                                 reply = replyInSlack(ctx, event.threadTs),
                                 activity = slackActivityIndicator(ctx, responseThreadTs),
                                 fileIngestor = slackFileIngestor::ingest,
@@ -158,7 +156,6 @@ class SlackAppFactory {
                                         emptyList()
                                     }
                                 },
-                                channelMetadataLoader = { sessionId -> loadSlackChannelMetadata(ctx, sessionId) },
                                 reply = replyInSlack(ctx, responseThreadTs),
                                 activity = slackActivityIndicator(ctx, responseThreadTs),
                                 fileIngestor = slackFileIngestor::ingest,
@@ -209,7 +206,6 @@ internal fun buildSlackAssistant(
                             emptyList()
                         }
                     },
-                    channelMetadataLoader = { sessionId -> loadSlackChannelMetadata(ctx, sessionId) },
                     reply = replyInSlack(ctx, req.event.threadTs),
                     activity = slackActivityIndicator(ctx, responseThreadTs),
                     fileIngestor = slackFileIngestor::ingest,
@@ -244,7 +240,6 @@ internal fun buildSlackAssistant(
                             emptyList()
                         }
                     },
-                    channelMetadataLoader = { sessionId -> loadSlackChannelMetadata(ctx, sessionId) },
                     reply = replyInSlack(ctx, req.event.threadTs),
                     activity = slackActivityIndicator(ctx, responseThreadTs),
                     fileIngestor = slackFileIngestor::ingest,

@@ -1,10 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
-import com.slack.api.model.Conversation
 import org.junit.jupiter.api.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SlackInteropTest {
@@ -82,28 +79,4 @@ class SlackInteropTest {
         assertFalse(result)
     }
 
-    @Test
-    fun `maps slack channel metadata`() {
-        val channel =
-            Conversation().apply {
-                nameNormalized = "engineering"
-            }
-
-        val metadata = channel.toChatChannelMetadata()
-
-        assertEquals("engineering", metadata?.name)
-    }
-
-    @Test
-    fun `skips slack multi-person direct messages`() {
-        val channel =
-            Conversation().apply {
-                nameNormalized = "mpdm"
-                isMpim = true
-            }
-
-        val metadata = channel.toChatChannelMetadata()
-
-        assertNull(metadata)
-    }
 }

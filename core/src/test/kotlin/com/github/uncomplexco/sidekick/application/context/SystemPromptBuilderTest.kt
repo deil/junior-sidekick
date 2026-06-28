@@ -2,7 +2,6 @@ package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import com.github.uncomplexco.sidekick.application.chat.ChatChannelMetadata
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
@@ -76,48 +75,6 @@ class TurnPromptBuilderTest {
     }
 
     @Test
-    fun `renders channel metadata when koog history is missing`() {
-        val conversationId = ConversationId("C123", "1700000000.000")
-
-        val prompt =
-            builder().buildSessionTurnPrompt(
-                message(fileIds = emptyList()),
-                context(
-                    conversationId,
-                    channelMetadata =
-                        ChatChannelMetadata(
-                            name = "engineering",
-                            topic = "Ship <fast>",
-                            description = "Build & operate Sidekick",
-                        ),
-                ),
-            )
-
-        assertTrue(prompt.contains("channel_name: engineering"), prompt)
-        assertTrue(prompt.contains("topic: Ship &lt;fast&gt;"), prompt)
-        assertTrue(prompt.contains("description: Build &amp; operate Sidekick"), prompt)
-    }
-
-    @Test
-    fun `does not render channel metadata when koog history exists`() {
-        val conversationId = ConversationId("C123", "1700000000.000")
-
-        val prompt =
-            builder().buildSessionTurnPrompt(
-                message(fileIds = emptyList()),
-                context(
-                    conversationId,
-                    hasKoogMessages = true,
-                    channelMetadata = ChatChannelMetadata(name = "engineering", topic = "topic", description = "description"),
-                ),
-            )
-
-        assertTrue(!prompt.contains("channel_name: engineering"), prompt)
-        assertTrue(!prompt.contains("topic: topic"), prompt)
-        assertTrue(!prompt.contains("description: description"), prompt)
-    }
-
-    @Test
     fun `renders skipped messages after last assistant when koog history exists`() {
         val conversationId = ConversationId("C123", "1700000000.000")
 
@@ -173,7 +130,6 @@ class TurnPromptBuilderTest {
         file: SessionFileRef? = null,
         hasKoogMessages: Boolean = false,
         historyMessages: List<SessionMessage> = emptyList(),
-        channelMetadata: ChatChannelMetadata? = null,
     ): TurnContext =
         TurnContext(
             conversationId = conversationId,
@@ -189,7 +145,6 @@ class TurnPromptBuilderTest {
                     messages = historyMessages,
                     hasKoogMessages = hasKoogMessages,
                 ),
-            channelMetadata = channelMetadata,
             mcpServers = emptyList(),
         )
 

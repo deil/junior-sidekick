@@ -22,16 +22,9 @@ fun interface ChatFileIngestor {
 class ChatPlatformAdapter(
     val botUsername: String,
     val historyLoader: (ConversationId) -> List<ChatMessage>,
-    val channelMetadataLoader: (ConversationId) -> ChatChannelMetadata?,
     val reply: ReplyToMessage,
     val activity: ChatActivityIndicator,
     val fileIngestor: ChatFileIngestor,
-)
-
-data class ChatChannelMetadata(
-    val name: String,
-    val topic: String,
-    val description: String,
 )
 
 interface SlackClientProvider {

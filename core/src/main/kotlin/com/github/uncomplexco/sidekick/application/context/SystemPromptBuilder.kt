@@ -1,7 +1,9 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.markdownSection
+import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
 import org.springframework.stereotype.Component
 import java.nio.file.Files
@@ -10,12 +12,16 @@ import java.nio.file.Files
 class SystemPromptBuilder(
     private val config: AgentConfig,
 ) {
-    fun buildSystemPrompt(username: String): String {
+    fun buildSystemPrompt(
+        username: String,
+        conversationId: ConversationId,
+    ): String {
         val sections = mutableListOf<String>()
         sections += baseSystemPrompt()
         sections += identitySection(username)
         optionalMarkdownSection(heading = "Personality", file = "SOUL.md")?.also { sections += it }
         optionalMarkdownSection(heading = "World", file = "WORLD.md")?.also { sections += it }
+        optionalProjectContext(conversationId)?.also { sections += it }
         sections += behaviorSection()
         sections += outputFormat()
 
@@ -39,6 +45,20 @@ class SystemPromptBuilder(
         }
 
         return markdownSection(heading, Files.readString(path).trimEnd())
+    }
+
+    private fun optionalProjectContext(conversationId: ConversationId): String? {
+        val path =
+            config
+                .workingDirectoryPath()
+                .resolve("global/context")
+                .resolve(sanitizePathSegment(conversationId.channelId))
+                .resolve("AGENTS.md")
+        if (!Files.isRegularFile(path)) {
+            return null
+        }
+
+        return markdownSection("Project context", Files.readString(path).trimEnd())
     }
 
     fun behaviorSection(): String {

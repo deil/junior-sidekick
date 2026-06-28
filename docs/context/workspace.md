@@ -16,6 +16,8 @@ Sidekick uses virtual paths when exposing local files to tools and prompts.
 
 Global context is tenant-wide company context: stable company knowledge, policies, glossary, team map, and other shared background material. Treat it as mostly read-only ordinary work context; write paths need explicit product semantics rather than accidental tool writes.
 
+Channel-scoped project context may be provided at `${agent.working-directory}/global/context/<channel-id>/AGENTS.md`. When present, `SystemPromptBuilder` embeds it in the system prompt under `# Project context` for turns in that channel.
+
 ## Global Repositories
 
 Sidekick discovers global workspace repositories from `${agent.working-directory}/global.json`.

@@ -89,7 +89,7 @@ class SidekickAgent(
                                     id = "sidekick-base-prompt",
                                     params = koogConfig.openRouterParams(llmProfile),
                                 ) {
-                                    system(systemPromptBuilder.buildSystemPrompt(config.botUsername!!))
+                                    system(systemPromptBuilder.buildSystemPrompt(config.botUsername!!, ctx.conversationId))
                                 },
                             model =
                                 LLModel(

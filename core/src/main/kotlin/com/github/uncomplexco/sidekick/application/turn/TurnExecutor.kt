@@ -113,14 +113,7 @@ class TurnExecutor(
         if (shouldReply.shouldReply) {
             chat.activity.`continue`()
 
-            // todo: redo this cleanly
-            val turnWithMetadata =
-                if (turn.history.hasKoogMessages) {
-                    turn
-                } else {
-                    turn.copy(channelMetadata = chat.channelMetadataLoader(decision.conversationId))
-                }
-            val agentReply = agent.runTurn(turnWithMetadata, currentMessage, chat)
+            val agentReply = agent.runTurn(turn, currentMessage, chat)
             val replyMessageId = chat.reply.postReply(agentReply)
 
             conversationManager.recordAssistantReply(
