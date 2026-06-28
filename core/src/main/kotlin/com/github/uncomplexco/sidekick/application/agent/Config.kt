@@ -65,6 +65,8 @@ class KoogConfig(
     private val ultrathinkProvider: String,
     @Value($$"${agent.llm.ultrathink.reasoning-effort}")
     private val ultrathinkReasoningEffort: String,
+    @Value($$"${agent.llm.max-agent-iterations:50}")
+    val maxAgentIterations: Int,
 ) {
     val provider = normalProfile.provider
     val model = normalProfile.model
@@ -123,5 +125,4 @@ data class LlmProfile(
     val reasoningEffort: ReasoningEffort,
 )
 
-private fun parseReasoningEffort(value: String): ReasoningEffort =
-    ReasoningEffort.valueOf(value.trim().uppercase().replace('-', '_'))
+private fun parseReasoningEffort(value: String): ReasoningEffort = ReasoningEffort.valueOf(value.trim().uppercase().replace('-', '_'))

@@ -97,7 +97,7 @@ class SidekickAgent(
                                     id = llmProfile.model,
                                     capabilities = koogConfig.modelCapabilities(),
                                 ),
-                            maxAgentIterations = 50,
+                            maxAgentIterations = koogConfig.maxAgentIterations,
                         ),
                     toolRegistry = toolRegistry,
                 ) {
