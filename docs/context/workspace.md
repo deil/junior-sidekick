@@ -10,6 +10,10 @@ Sidekick uses virtual paths when exposing local files to tools and prompts.
 
 `/data/global` points at `${agent.working-directory}/global`.
 
+`/work` points at the current session's durable bash work directory under `agent.state-directory` and is writable.
+
+`/data/project` points at `${agent.working-directory}/projects/<channel-id>` and is writable.
+
 Global context is tenant-wide company context: stable company knowledge, policies, glossary, team map, and other shared background material. Treat it as mostly read-only ordinary work context; write paths need explicit product semantics rather than accidental tool writes.
 
 ## Global Repositories
@@ -36,7 +40,7 @@ Configured repositories are cloned or refreshed under `${agent.working-directory
 
 ## Resolution
 
-`parseVirtualPath()` resolves supported virtual roots against the current session attachments root, configured skills root, configured global root, and optional work root. Callers should pass virtual paths across model/tool boundaries instead of absolute filesystem paths.
+`parseVirtualPath()` resolves supported virtual roots against the current session attachments root, configured skills root, configured global root, session work root, and project root. Callers should pass virtual paths across model/tool boundaries instead of absolute filesystem paths.
 
 Filesystem tools must reject path escape and symbolic links. Do not use `FOLLOW_LINKS`; resolve and walk paths with no-follow semantics so virtual roots cannot be bypassed through symlinked files or directories.
 

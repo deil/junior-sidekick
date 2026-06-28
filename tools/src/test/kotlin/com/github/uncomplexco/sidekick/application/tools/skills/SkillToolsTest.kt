@@ -128,5 +128,6 @@ class SkillToolsTest {
             skillsRoot = dir.resolve("skills"),
             globalRoot = dir.resolve("global"),
             workRoot = dir.resolve("work"),
+            projectRoot = dir.resolve("project"),
         )
 }

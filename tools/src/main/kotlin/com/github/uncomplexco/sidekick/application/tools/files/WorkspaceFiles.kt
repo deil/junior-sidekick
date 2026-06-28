@@ -1,26 +1,45 @@
 package com.github.uncomplexco.sidekick.application.tools.files
 
-import ai.koog.agents.core.tools.ToolException
 import java.nio.charset.MalformedInputException
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-import java.nio.file.LinkOption
-import java.nio.file.Path
-import java.nio.file.PathMatcher
-import java.nio.file.StandardOpenOption
-import kotlin.collections.asSequence
-import kotlin.io.path.name
+import java.nio.file.*
 import kotlin.io.path.pathString
-import kotlin.streams.asSequence
 import kotlin.use
 
-private const val DEFAULT_READ_LIMIT = 2000
 private const val MAX_GLOB_RESULTS = 100
 private const val MAX_GREP_RESULTS = 100
-private const val MAX_LINE_LENGTH = 2000
-private const val MAX_LINE_SUFFIX = "... (line truncated to 2000 chars)"
-private const val MAX_BYTES = 50 * 1024
-private const val MAX_BYTES_LABEL = "50 KB"
+internal const val MAX_LINE_LENGTH = 2000
+internal val BINARY_FILE_EXTENSIONS =
+    setOf(
+        "zip",
+        "tar",
+        "gz",
+        "exe",
+        "dll",
+        "so",
+        "class",
+        "jar",
+        "war",
+        "7z",
+        "doc",
+        "docx",
+        "xls",
+        "xlsx",
+        "ppt",
+        "pptx",
+        "odt",
+        "ods",
+        "odp",
+        "bin",
+        "dat",
+        "obj",
+        "o",
+        "a",
+        "lib",
+        "wasm",
+        "pyc",
+        "pyo",
+    )
 
 private sealed interface PatchOperation {
     data class AddFile(
@@ -38,14 +57,6 @@ private sealed interface PatchOperation {
         val diffLines: List<String>,
     ) : PatchOperation
 }
-
-private data class ReadResult(
-    val raw: List<String>,
-    val count: Int,
-    val cut: Boolean,
-    val more: Boolean,
-    val offset: Int,
-)
 
 internal data class WorkspaceGlobMatch(
     val path: String,
@@ -243,68 +254,6 @@ class WorkspaceFiles(
             .also { require(!Files.isSymbolicLink(it)) { "Workspace root must not be a symbolic link: $it" } }
             .toRealPath(LinkOption.NOFOLLOW_LINKS)
 
-    fun read(
-        filePath: String,
-        offset: Int?,
-        limit: Int?,
-        displayPath: String? = null,
-    ): String {
-        if (offset != null && offset < 1) {
-            throw ToolException.ValidationFailure("`offset` must be greater than or equal to 1")
-        }
-
-        val target = resolve(filePath)
-        if (!Files.exists(target)) {
-            throw ToolException.ValidationFailure(miss(target))
-        }
-
-        val displayTarget = displayPath ?: target.pathString
-        if (Files.isDirectory(target)) {
-            val items = Files.list(target).use { stream -> stream.toList().map { entryName(it) }.sorted() }
-            val currentLimit = limit ?: DEFAULT_READ_LIMIT
-            val currentOffset = offset ?: 1
-            val start = currentOffset - 1
-            val sliced = items.slice(start until minOf(start + currentLimit, items.size))
-            val truncated = start + sliced.size < items.size
-            return listOf(
-                "<path>$displayTarget</path>",
-                "<type>directory</type>",
-                "<entries>",
-                sliced.joinToString("\n"),
-                if (truncated) {
-                    "\n(Showing ${sliced.size} of ${items.size} entries. Use 'offset' parameter to read beyond entry ${currentOffset + sliced.size})"
-                } else {
-                    "\n(${items.size} entries)"
-                },
-                "</entries>",
-            ).joinToString("\n")
-        }
-
-        if (isBinaryFile(target)) {
-            throw ToolException.ValidationFailure("Cannot read binary file: ${target.pathString}")
-        }
-
-        val file = lines(target, limit ?: DEFAULT_READ_LIMIT, offset ?: 1)
-        if (file.count < file.offset && !(file.count == 0 && file.offset == 1)) {
-            throw ToolException.ValidationFailure("Offset ${file.offset} is out of range for this file (${file.count} lines)")
-        }
-
-        var output = listOf("<path>$displayTarget</path>", "<type>file</type>", "<content>\n").joinToString("\n")
-        output += file.raw.mapIndexed { index, line -> "${index + file.offset}: $line" }.joinToString("\n")
-
-        val last = file.offset + file.raw.size - 1
-        val next = last + 1
-        if (file.cut) {
-            output += "\n\n(Output capped at $MAX_BYTES_LABEL. Showing lines ${file.offset}-$last. Use offset=$next to continue.)"
-        } else if (file.more) {
-            output += "\n\n(Showing lines ${file.offset}-$last of ${file.count}. Use offset=$next to continue.)"
-        } else {
-            output += "\n\n(End of file - total ${file.count} lines)"
-        }
-        output += "\n</content>"
-        return output
-    }
-
     fun glob(
         pattern: String,
         path: String?,
@@ -339,8 +288,12 @@ class WorkspaceFiles(
             walkFiles(search)
                 .asSequence()
                 .filter { matchesGlob(matchers, it.relative) }
-                .map { file -> WorkspaceGlobMatch(file.relative.pathString, Files.getLastModifiedTime(file.actual).toMillis()) }
-                .sortedWith(compareByDescending<WorkspaceGlobMatch> { it.mtime }.thenBy { it.path })
+                .map { file ->
+                    WorkspaceGlobMatch(
+                        file.relative.pathString,
+                        Files.getLastModifiedTime(file.actual).toMillis(),
+                    )
+                }.sortedWith(compareByDescending<WorkspaceGlobMatch> { it.mtime }.thenBy { it.path })
                 .take(MAX_GLOB_RESULTS + 1)
                 .toList()
 
@@ -364,7 +317,8 @@ class WorkspaceFiles(
             return "No files found"
         }
 
-        val output = mutableListOf("Found ${result.total} matches${if (result.truncated) " (showing first $MAX_GREP_RESULTS)" else ""}")
+        val output =
+            mutableListOf("Found ${result.total} matches${if (result.truncated) " (showing first $MAX_GREP_RESULTS)" else ""}")
 
         var current = ""
         for (match in result.matches) {
@@ -604,33 +558,6 @@ class WorkspaceFiles(
         }
     }
 
-    private fun miss(path: Path): String {
-        val dir = path.parent ?: root
-        val base = path.fileName?.toString().orEmpty()
-        val items =
-            if (Files.isDirectory(dir)) {
-                Files.list(dir).use { stream ->
-                    stream
-                        .asSequence()
-                        .map { it.fileName.toString() }
-                        .filter { item -> item.contains(base, ignoreCase = true) || base.contains(item, ignoreCase = true) }
-                        .take(3)
-                        .map { name -> dir.resolve(name).pathString }
-                        .toList()
-                }
-            } else {
-                emptyList<String>()
-            }
-
-        if (items.isNotEmpty()) {
-            return "File not found: ${path.pathString}\n\nDid you mean one of these?\n${items.joinToString("\n")}"
-        }
-
-        return "File not found: ${path.pathString}"
-    }
-
-    private fun entryName(path: Path): String = if (Files.isDirectory(path)) path.name + "/" else path.name
-
     private fun writeText(
         path: Path,
         content: String,
@@ -649,9 +576,6 @@ class WorkspaceFiles(
     private fun readUtf8(path: Path): String = Files.readString(path, StandardCharsets.UTF_8)
 
     private fun relativeDisplay(path: Path): String = root.relativize(path).pathString.replace("\\", "/")
-
-    private fun clipForRead(text: String): String =
-        if (text.length > MAX_LINE_LENGTH) text.substring(0, MAX_LINE_LENGTH) + MAX_LINE_SUFFIX else text
 
     private fun clipForGrep(text: String): String = if (text.length > MAX_LINE_LENGTH) text.substring(0, MAX_LINE_LENGTH) + "..." else text
 
@@ -679,38 +603,7 @@ class WorkspaceFiles(
                 .toString()
                 .substringAfterLast('.', "")
                 .lowercase()
-        if (ext in
-            setOf(
-                "zip",
-                "tar",
-                "gz",
-                "exe",
-                "dll",
-                "so",
-                "class",
-                "jar",
-                "war",
-                "7z",
-                "doc",
-                "docx",
-                "xls",
-                "xlsx",
-                "ppt",
-                "pptx",
-                "odt",
-                "ods",
-                "odp",
-                "bin",
-                "dat",
-                "obj",
-                "o",
-                "a",
-                "lib",
-                "wasm",
-                "pyc",
-                "pyo",
-            )
-        ) {
+        if (ext in BINARY_FILE_EXTENSIONS) {
             return true
         }
 
@@ -731,45 +624,5 @@ class WorkspaceFiles(
             }
         }
         return nonPrintable.toDouble() / sample.size > 0.3
-    }
-
-    private fun lines(
-        path: Path,
-        limit: Int,
-        offset: Int,
-    ): ReadResult {
-        val start = offset - 1
-        val raw = mutableListOf<String>()
-        var bytes = 0
-        var count = 0
-        var cut = false
-        var more = false
-
-        Files.newBufferedReader(path, StandardCharsets.UTF_8).useLines { lines ->
-            for (text in lines) {
-                count += 1
-                if (count <= start) {
-                    continue
-                }
-
-                if (raw.size >= limit) {
-                    more = true
-                    continue
-                }
-
-                val line = clipForRead(text)
-                val size = line.toByteArray(StandardCharsets.UTF_8).size + if (raw.isNotEmpty()) 1 else 0
-                if (bytes + size > MAX_BYTES) {
-                    cut = true
-                    more = true
-                    break
-                }
-
-                raw += line
-                bytes += size
-            }
-        }
-
-        return ReadResult(raw, count, cut, more, offset)
     }
 }

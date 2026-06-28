@@ -20,6 +20,8 @@ class BashToolsTest {
         val skillsRoot = dir.resolve("skills")
         val globalRoot = dir.resolve("global")
         val workRoot = dir.resolve("work")
+        val projectRoot = dir.resolve("project")
+        Files.createDirectories(projectRoot)
         val config =
             BashToolConfig().apply {
                 enabled = true
@@ -28,7 +30,7 @@ class BashToolsTest {
             }
         lateinit var captured: Command
         val tools =
-            BashTools(config, VirtualPaths(sessionRoot, skillsRoot, globalRoot, workRoot)) { command ->
+            BashTools(config, VirtualPaths(sessionRoot, skillsRoot, globalRoot, workRoot, projectRoot)) { command ->
                 captured = command
                 ExecutionResult(
                     ok = true,
@@ -50,7 +52,7 @@ class BashToolsTest {
         assertEquals("tmp", captured.workdir)
         assertEquals(10, captured.timeoutSeconds)
         assertEquals(true, captured.networkEnabled)
-        assertEquals(4, captured.mounts.size)
+        assertEquals(5, captured.mounts.size)
         assertEquals(sessionRoot, captured.mounts[0].source)
         assertEquals("/data/session", captured.mounts[0].target)
         assertEquals(SandboxMountMode.RO, captured.mounts[0].mode)
@@ -63,10 +65,14 @@ class BashToolsTest {
         assertEquals(workRoot, captured.mounts[3].source)
         assertEquals("/work", captured.mounts[3].target)
         assertEquals(SandboxMountMode.RW, captured.mounts[3].mode)
+        assertEquals(projectRoot, captured.mounts[4].source)
+        assertEquals("/data/project", captured.mounts[4].target)
+        assertEquals(SandboxMountMode.RW, captured.mounts[4].mode)
         assertTrue(Files.isDirectory(sessionRoot))
         assertTrue(Files.isDirectory(skillsRoot))
         assertTrue(Files.isDirectory(globalRoot))
         assertTrue(Files.isDirectory(workRoot))
+        assertTrue(Files.isDirectory(projectRoot))
     }
 
     @Test
@@ -100,7 +106,7 @@ class BashToolsTest {
                 scratchGid = gid
             }
         val tools =
-            BashTools(config, VirtualPaths(scratch.resolve("session"), scratch.resolve("skills"), scratch.resolve("global"), scratch)) { command ->
+            BashTools(config, VirtualPaths(scratch.resolve("session"), scratch.resolve("skills"), scratch.resolve("global"), scratch, scratch.resolve("project"))) { command ->
                 ExecutionResult(
                     ok = true,
                     exitCode = 0,
@@ -126,5 +132,6 @@ class BashToolsTest {
             skillsRoot = root.resolve("skills"),
             globalRoot = root.resolve("global"),
             workRoot = root.resolve("work"),
+            projectRoot = root.resolve("project"),
         )
 }

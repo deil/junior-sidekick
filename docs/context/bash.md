@@ -37,11 +37,12 @@ The sandbox mounts only:
 
 - configured rootfs read-only at `/`
 - conversation-scoped work directory read-write at `/work`
+- channel-scoped project workspace read-write at `/data/project`
 - fresh tmpfs at `/tmp`
 - sandbox `/proc`
 - sandbox `/dev`
 
-The work directory lives under the current conversation folder at `work` and is the only durable writable area exposed to commands.
+The work directory is scoped to the current conversation. The project directory is scoped to the current Slack channel.
 
 ## Sandbox Filesystem Layout
 
@@ -52,12 +53,13 @@ Inside the sandbox:
 - `/data/skills` is the skills directory, mounted read-only.
 - `/data/global` is the global workspace directory, mounted read-only.
 - `/work` is the current conversation's durable bash work directory under `agent.state-directory/bash/<conversation-id>/work`, mounted read-write.
+- `/data/project` is `${agent.working-directory}/projects/<channel-id>`, mounted read-write.
 - `/tmp` is an empty tmpfs for the command run.
 - `/proc` is procfs for the sandbox PID namespace.
 - `/dev` is a minimal sandbox device filesystem.
 - `/etc/resolv.conf` comes from the generated rootfs and must be present for DNS when network is enabled.
 
-Commands should use `/work` for any files that must survive beyond a single command. Files written elsewhere either fail because the rootfs is read-only or disappear with tmpfs/sandbox teardown.
+Commands should use `/work` for session-scoped files that must survive beyond a single command and `/data/project` for durable channel-scoped project workspace changes. Files written elsewhere either fail because the rootfs is read-only or disappear with tmpfs/sandbox teardown.
 
 The bash tool `workdir` parameter is a sandbox path, not a host path. It defaults to `/`; relative values are resolved from the sandbox root. The directory must already exist inside the sandbox.
 

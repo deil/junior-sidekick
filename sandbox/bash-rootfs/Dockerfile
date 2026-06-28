@@ -36,7 +36,7 @@ RUN apt-get update \
     && curl https://mise.run | sh \
     && sed -i 's#^nobody:\([^:]*\):65534:65534:[^:]*:[^:]*:[^:]*#sidekick:\1:65534:65534:Sidekick:/work:/bin/bash#' /etc/passwd \
     && sed -i 's#^nogroup:\([^:]*\):65534:#sidekick:\1:65534:#' /etc/group \
-    && mkdir -p /data/session /data/skills /data/global /work \
+    && mkdir -p /data/session /data/skills /data/global /data/project /work \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /work

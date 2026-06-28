@@ -31,6 +31,7 @@ data class VirtualPaths(
     val skillsRoot: Path,
     val globalRoot: Path,
     val workRoot: Path,
+    val projectRoot: Path,
 ) {
     val roots: List<VirtualRoot> =
         listOf(
@@ -38,6 +39,7 @@ data class VirtualPaths(
             VirtualRoot(SKILLS_ROOT, skillsRoot, writable = false),
             VirtualRoot(GLOBAL_ROOT, globalRoot, writable = false),
             VirtualRoot(WORK_ROOT, workRoot, writable = true),
+            VirtualRoot(PROJECT_ROOT, projectRoot, writable = true),
         )
 
     fun virtualPath(path: AbsolutePath): VirtualPath {
@@ -52,6 +54,7 @@ data class VirtualPaths(
         const val SKILLS_ROOT = "$DATA_ROOT/skills"
         const val GLOBAL_ROOT = "$DATA_ROOT/global"
         const val WORK_ROOT = "/work"
+        const val PROJECT_ROOT = "$DATA_ROOT/project"
     }
 }
 
@@ -69,12 +72,20 @@ class VirtualPathsFactory(
                 .resolve(sanitizePathSegment(conversationId.lockKey()))
                 .resolve("work")
         Files.createDirectories(workRoot)
+        val projectRoot =
+            Files.createDirectories(
+                config
+                    .workingDirectoryPath()
+                    .resolve("projects")
+                    .resolve(sanitizePathSegment(conversationId.channelId)),
+            )
 
         return VirtualPaths(
             sessionRoot = attachmentsRoot,
             skillsRoot = config.skillsDirectoryPath(),
             globalRoot = config.globalDirectoryPath(),
             workRoot = workRoot,
+            projectRoot = projectRoot,
         )
     }
 }

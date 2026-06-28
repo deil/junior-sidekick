@@ -21,7 +21,14 @@ class McpStatusToolsTest {
             val ctx =
                 TurnContext(
                     conversationId = ConversationId("C123", "1700000000.000"),
-                    virtualPaths = VirtualPaths(java.nio.file.Path.of("/tmp/session"), java.nio.file.Path.of("/tmp/skills"), java.nio.file.Path.of("/tmp/global"), java.nio.file.Path.of("/tmp/work")),
+                    virtualPaths =
+                        VirtualPaths(
+                            java.nio.file.Path.of("/tmp/session"),
+                            java.nio.file.Path.of("/tmp/skills"),
+                            java.nio.file.Path.of("/tmp/global"),
+                            java.nio.file.Path.of("/tmp/work"),
+                            java.nio.file.Path.of("/tmp/project"),
+                        ),
                     turnId = "turn",
                     currentMessageIds = listOf("m1"),
                     currentFiles = emptyList(),

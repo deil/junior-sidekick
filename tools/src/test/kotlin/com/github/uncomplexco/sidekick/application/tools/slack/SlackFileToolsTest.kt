@@ -40,6 +40,7 @@ class SlackFileToolsTest {
                 skillsRoot = dir.resolve("workspace/skills"),
                 globalRoot = dir.resolve("workspace/global"),
                 workRoot = sessionRoot.resolve("work"),
+                projectRoot = dir.resolve("workspace"),
             )
         Files.createDirectories(sessionRoot.resolve("attachments"))
         Files.writeString(sessionRoot.resolve("attachments/F123-note.md"), "hello\n")

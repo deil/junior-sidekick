@@ -154,6 +154,7 @@ class TurnPromptBuilderTest {
             skillsRoot = dir.resolve("workspace/skills"),
             globalRoot = dir.resolve("workspace/global"),
             workRoot = dir.resolve("state/bash/work"),
+            projectRoot = dir.resolve("workspace"),
         )
 
     private fun message(

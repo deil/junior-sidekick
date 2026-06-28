@@ -170,6 +170,7 @@ class InternalFileExchangeToolsTest {
                 skillsRoot = dir.resolve("workspace/skills"),
                 globalRoot = dir.resolve("workspace/global"),
                 workRoot = conversationId.folder(dir).resolve("work"),
+                projectRoot = dir.resolve("workspace"),
             ),
         )
 }

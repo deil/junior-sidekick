@@ -27,6 +27,28 @@ class WorkspaceFileToolsTest {
     }
 
     @Test
+    fun `read lists virtual root`() {
+        val result = tools().workspaceFileRead("/")
+
+        assertContains(result, "<path>/</path>")
+        assertContains(result, "<type>directory</type>")
+        assertContains(result, "data/")
+        assertContains(result, "work/")
+    }
+
+    @Test
+    fun `read lists data root`() {
+        val result = tools().workspaceFileRead("/data/")
+
+        assertContains(result, "<path>/data</path>")
+        assertContains(result, "<type>directory</type>")
+        assertContains(result, "global/")
+        assertContains(result, "project/")
+        assertContains(result, "session/")
+        assertContains(result, "skills/")
+    }
+
+    @Test
     fun `glob returns workspace relative paths`() {
         Files.createDirectories(dir.resolve("global/handbook"))
         Files.writeString(dir.resolve("global/handbook/security.md"), "Security\n")
@@ -43,15 +65,28 @@ class WorkspaceFileToolsTest {
         Files.createDirectories(dir.resolve("session"))
         Files.createDirectories(dir.resolve("skills/repo/skill"))
         Files.createDirectories(dir.resolve("global/handbook"))
+        Files.createDirectories(dir.resolve("project/src"))
         Files.writeString(dir.resolve("session/report.md"), "Report\n")
         Files.writeString(dir.resolve("skills/repo/skill/SKILL.md"), "Skill\n")
         Files.writeString(dir.resolve("global/handbook/security.md"), "Security\n")
+        Files.writeString(dir.resolve("project/src/notes.md"), "Project\n")
 
         val result = tools().workspaceFileGlob("**/*.md", "/data")
 
         assertContains(result, "/data/session/report.md")
         assertContains(result, "/data/skills/repo/skill/SKILL.md")
         assertContains(result, "/data/global/handbook/security.md")
+        assertContains(result, "/data/project/src/notes.md")
+    }
+
+    @Test
+    fun `glob searches project root`() {
+        Files.createDirectories(dir.resolve("project/src"))
+        Files.writeString(dir.resolve("project/src/notes.md"), "Project\n")
+
+        val result = tools().workspaceFileGlob("**/*.md", "/data/project")
+
+        assertContains(result, "src/notes.md")
     }
 
     @Test
@@ -60,10 +95,12 @@ class WorkspaceFileToolsTest {
         Files.createDirectories(dir.resolve("skills/repo/skill"))
         Files.createDirectories(dir.resolve("global/handbook"))
         Files.createDirectories(dir.resolve("work"))
+        Files.createDirectories(dir.resolve("project/src"))
         Files.writeString(dir.resolve("session/report.md"), "Report\n")
         Files.writeString(dir.resolve("skills/repo/skill/SKILL.md"), "Skill\n")
         Files.writeString(dir.resolve("global/handbook/security.md"), "Security\n")
         Files.writeString(dir.resolve("work/result.md"), "Result\n")
+        Files.writeString(dir.resolve("project/src/notes.md"), "Project\n")
 
         val result = tools().workspaceFileGlob("**/*.md", "/")
 
@@ -71,6 +108,7 @@ class WorkspaceFileToolsTest {
         assertContains(result, "/data/skills/repo/skill/SKILL.md")
         assertContains(result, "/data/global/handbook/security.md")
         assertContains(result, "/work/result.md")
+        assertContains(result, "/data/project/src/notes.md")
     }
 
     @Test
@@ -103,15 +141,29 @@ class WorkspaceFileToolsTest {
         Files.createDirectories(dir.resolve("session"))
         Files.createDirectories(dir.resolve("skills/repo/skill"))
         Files.createDirectories(dir.resolve("global/handbook"))
+        Files.createDirectories(dir.resolve("project/src"))
         Files.writeString(dir.resolve("session/report.md"), "needle in session\n")
         Files.writeString(dir.resolve("skills/repo/skill/SKILL.md"), "needle in skills\n")
         Files.writeString(dir.resolve("global/handbook/security.md"), "needle in global\n")
+        Files.writeString(dir.resolve("project/src/notes.md"), "needle in project\n")
 
         val result = tools().workspaceFileGrep("needle", "/data", "**/*.md")
 
         assertContains(result, "/data/session/report.md")
         assertContains(result, "/data/skills/repo/skill/SKILL.md")
         assertContains(result, "/data/global/handbook/security.md")
+        assertContains(result, "/data/project/src/notes.md")
+    }
+
+    @Test
+    fun `grep searches project root`() {
+        Files.createDirectories(dir.resolve("project/src"))
+        Files.writeString(dir.resolve("project/src/notes.md"), "needle in project\n")
+
+        val result = tools().workspaceFileGrep("needle", "/data/project", "**/*.md")
+
+        assertContains(result, "src/notes.md")
+        assertContains(result, "Line 1: needle in project")
     }
 
     @Test
@@ -120,10 +172,12 @@ class WorkspaceFileToolsTest {
         Files.createDirectories(dir.resolve("skills/repo/skill"))
         Files.createDirectories(dir.resolve("global/handbook"))
         Files.createDirectories(dir.resolve("work"))
+        Files.createDirectories(dir.resolve("project/src"))
         Files.writeString(dir.resolve("session/report.md"), "needle in session\n")
         Files.writeString(dir.resolve("skills/repo/skill/SKILL.md"), "needle in skills\n")
         Files.writeString(dir.resolve("global/handbook/security.md"), "needle in global\n")
         Files.writeString(dir.resolve("work/result.md"), "needle in work\n")
+        Files.writeString(dir.resolve("project/src/notes.md"), "needle in project\n")
 
         val result = tools().workspaceFileGrep("needle", "/", "**/*.md")
 
@@ -131,6 +185,7 @@ class WorkspaceFileToolsTest {
         assertContains(result, "/data/skills/repo/skill/SKILL.md")
         assertContains(result, "/data/global/handbook/security.md")
         assertContains(result, "/work/result.md")
+        assertContains(result, "/data/project/src/notes.md")
     }
 
     @Test
@@ -152,6 +207,7 @@ class WorkspaceFileToolsTest {
                 skillsRoot = dir.resolve("skills"),
                 globalRoot = dir.resolve("global"),
                 workRoot = dir.resolve("work"),
+                projectRoot = dir.resolve("project"),
             ),
         )
 
@@ -161,6 +217,7 @@ class WorkspaceFileToolsTest {
             "/data/skills/repo/skill/SKILL.md" to dir.resolve("skills/repo/skill/SKILL.md"),
             "/data/global/handbook/security.md" to dir.resolve("global/handbook/security.md"),
             "/work/result.md" to dir.resolve("work/result.md"),
+            "/data/project/src/notes.md" to dir.resolve("project/src/notes.md"),
         )
 
     private fun unsupportedPaths(): List<String> =

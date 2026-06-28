@@ -14,12 +14,7 @@ import com.github.uncomplexco.sidekick.application.tools.mcp.McpAuthTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
-import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
-import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelTools
-import com.github.uncomplexco.sidekick.application.tools.slack.SlackFileTools
-import com.github.uncomplexco.sidekick.application.tools.slack.SlackHistoryTools
-import com.github.uncomplexco.sidekick.application.tools.slack.SlackReactionTools
-import com.github.uncomplexco.sidekick.application.tools.slack.SlackUserTools
+import com.github.uncomplexco.sidekick.application.tools.slack.slackTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
@@ -27,15 +22,12 @@ import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 @Component
 class DefaultToolRegistryFactory(
     private val sharedContext: SharedContext,
     private val agentConfig: AgentConfig,
-    @Value($$"${adapters.slack.bot.token}")
-    private val slackBotToken: String,
     private val filePublisher: FilePublisher,
     private val skills: SkillCatalogProvider,
     private val skillCatalogReloader: SkillCatalogReloader,
@@ -71,23 +63,8 @@ class DefaultToolRegistryFactory(
                     ctx.virtualPaths,
                 ),
             )
-            tools(SlackCanvasTools(sharedContext.slackClient, ctx.conversationId).asTools())
-            tools(SlackChannelTools(sharedContext.slackClient).asTools())
-            tools(SlackHistoryTools(sharedContext.slackClient, ctx).asTools())
-            tools(SlackUserTools(sharedContext.slackClient).asTools())
+            tools(slackTools(sharedContext.slackClient, ctx))
             tools(McpStatusTools(ctx, mcpToolsConfig.servers).asTools())
             tools(mcpAuthTools.asTools(reply))
-            tools(
-                SlackReactionTools(
-                    sharedContext.slackClient,
-                    ctx,
-                ).asTools(),
-            )
-            tools(
-                SlackFileTools(
-                    ctx,
-                    ctx.virtualPaths,
-                ).asTools(),
-            )
         }
 }

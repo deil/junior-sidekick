@@ -1,5 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools
 
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceRead
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFiles
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -19,9 +21,9 @@ class WorkspaceFilesTest {
     fun `read paginates file contents in opencode format`() {
         Files.writeString(dir.resolve("notes.txt"), "one\ntwo\nthree\n")
 
-        val result = WorkspaceFiles(dir).read("notes.txt", offset = 2, limit = 2)
+        val result = workspaceRead().read("/data/session/notes.txt", offset = 2, limit = 2)
 
-        assertContains(result, "<path>${dir.resolve("notes.txt")}</path>")
+        assertContains(result, "<path>/data/session/notes.txt</path>")
         assertContains(result, "<type>file</type>")
         assertContains(result, "2: two")
         assertContains(result, "3: three")
@@ -33,9 +35,9 @@ class WorkspaceFilesTest {
         Files.createDirectories(dir.resolve("src/nested"))
         Files.writeString(dir.resolve("src/App.kt"), "class App")
 
-        val result = WorkspaceFiles(dir).read("src", offset = 1, limit = 10)
+        val result = workspaceRead().read("/data/session/src", offset = 1, limit = 10)
 
-        assertContains(result, "<path>${dir.resolve("src")}</path>")
+        assertContains(result, "<path>/data/session/src</path>")
         assertContains(result, "<type>directory</type>")
         assertContains(result, "App.kt")
         assertContains(result, "nested/")
@@ -182,10 +184,10 @@ class WorkspaceFilesTest {
 
     @Test
     fun `rejects paths outside the configured root`() {
-        val files = WorkspaceFiles(dir)
+        val files = workspaceRead()
 
         assertThrows<IllegalArgumentException> {
-            files.read("../secret.txt", offset = 1, limit = 10)
+            files.read("/data/session/../secret.txt", offset = 1, limit = 10)
         }
     }
 
@@ -196,7 +198,7 @@ class WorkspaceFilesTest {
 
         val error =
             assertThrows<IllegalArgumentException> {
-                WorkspaceFiles(dir).read("linked.txt", offset = 1, limit = 10)
+                workspaceRead().read("/data/session/linked.txt", offset = 1, limit = 10)
             }
 
         assertContains(error.message.orEmpty(), "Symbolic links are not allowed")
@@ -214,4 +216,15 @@ class WorkspaceFilesTest {
 
         assertContains(error.message.orEmpty(), "Symbolic links are not allowed")
     }
+
+    private fun workspaceRead(): WorkspaceRead =
+        WorkspaceRead(
+            VirtualPaths(
+                sessionRoot = dir,
+                skillsRoot = dir.resolve("skills"),
+                globalRoot = dir.resolve("global"),
+                workRoot = dir.resolve("work"),
+                projectRoot = dir.resolve("project"),
+            ),
+        )
 }

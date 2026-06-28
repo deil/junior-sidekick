@@ -12,10 +12,12 @@ Sidekick exposes local files through stable virtual roots.
 │   │       └── <skill-directory>/
 │   │           ├── SKILL.md
 │   │           └── <skill-resources>
-│   └── global/
-│       └── <repository-checkout>/
-│           └── <configured-path>/
-│               └── <global-context-files>
+│   ├── global/
+│   │   └── <repository-checkout>/
+│   │       └── <configured-path>/
+│   │           └── <global-context-files>
+│   └── project/ (read-write)
+│       └── <channel-scoped-project-files>
 └── work/ (read-write)
     └── <bash-files>
 ```
