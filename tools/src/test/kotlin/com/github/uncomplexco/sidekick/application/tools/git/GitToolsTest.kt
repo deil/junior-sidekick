@@ -26,6 +26,7 @@ class GitToolsTest {
         assertEquals("/data/project/private", result.path)
         assertEquals("develop", result.branch)
         assertEquals("abc123", result.commit_hash)
+        assertEquals("cloned", result.status)
         assertEquals("git@github.com:acme/private.git", git.clonedUrl)
         assertEquals("/keys/github", git.clonedSshKeyFile)
         assertEquals(listOf("develop", "master", "main"), git.clonedPreferredBranches)
@@ -45,6 +46,7 @@ class GitToolsTest {
         assertEquals("/data/project/repo", result.path)
         assertEquals("main", result.branch)
         assertEquals("def456", result.commit_hash)
+        assertEquals("fetched_fast_forwarded", result.status)
         assertEquals(checkout, git.fetchedCheckout)
     }
 
@@ -137,7 +139,7 @@ private class FakeGitRepository(
         clonedUrl = url
         clonedSshKeyFile = sshKeyFile
         clonedPreferredBranches = preferredBranches
-        return GitRepositoryState(checkout, "develop", "abc123")
+        return GitRepositoryState(checkout, "develop", "abc123", GitRepositoryStatus.CLONED)
     }
 
     override fun fetch(
@@ -145,7 +147,7 @@ private class FakeGitRepository(
         sshKeyFile: String,
     ): GitRepositoryState {
         fetchedCheckout = checkout
-        return GitRepositoryState(checkout, "main", "def456")
+        return GitRepositoryState(checkout, "main", "def456", GitRepositoryStatus.FETCHED_FAST_FORWARDED)
     }
 
     override fun isGitRepository(checkout: Path): Boolean = checkout in gitRepositories

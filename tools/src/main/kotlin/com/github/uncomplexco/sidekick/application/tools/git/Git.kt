@@ -37,7 +37,7 @@ class GitTools(
     private val git: GitRepository = JGitRepository(),
 ) : ToolSet {
     @Tool("git__clone")
-    @LLMDescription("Clone or fetch a private GitHub or Bitbucket repository into the project workspace")
+    @LLMDescription("Clone or fetch and fast-forward a private GitHub or Bitbucket repository into the project workspace")
     fun clone(
         @LLMDescription("GitHub or Bitbucket repository URL. SSH and HTTPS clone URLs are supported")
         url: String,
@@ -174,19 +174,32 @@ data class GitCloneResult(
     val path: String,
     val branch: String,
     val commit_hash: String,
+    val status: String,
 )
 
 data class GitRepositoryState(
     val path: Path,
     val branch: String,
     val commitHash: String,
+    val status: GitRepositoryStatus,
 )
+
+enum class GitRepositoryStatus {
+    CLONED,
+    FETCHED_FAST_FORWARDED,
+    FETCHED_UP_TO_DATE,
+    FETCHED_DIVERGED,
+    FETCHED_FAST_FORWARD_FAILED,
+    FETCHED_DETACHED_HEAD,
+    FETCHED_NO_REMOTE_BRANCH,
+}
 
 private fun GitRepositoryState.toToolResult(virtualPaths: VirtualPaths): GitCloneResult =
     GitCloneResult(
         path = virtualPaths.virtualPath(path.pathString),
         branch = branch,
         commit_hash = commitHash,
+        status = status.name.lowercase(),
     )
 
 private fun isEmptyDirectory(path: Path): Boolean = Files.list(path).use { entries -> entries.findAny().isEmpty }
