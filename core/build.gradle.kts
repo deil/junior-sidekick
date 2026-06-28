@@ -12,7 +12,7 @@ java {
 }
 
 dependencies {
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.0.6"))
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.0.7"))
     api("com.slack.api:slack-api-client:1.49.0")
 
     implementation("org.springframework.boot:spring-boot")
@@ -25,8 +25,8 @@ dependencies {
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.7.0.202606012155-r")
 
     implementation("ai.koog:koog-agents:1.0.0")
-    implementation("io.modelcontextprotocol:kotlin-sdk-client:0.8.1")
-    implementation("io.modelcontextprotocol:kotlin-sdk-core:0.8.1")
+    implementation("io.modelcontextprotocol:kotlin-sdk-client:0.13.0")
+    implementation("io.modelcontextprotocol:kotlin-sdk-core:0.13.0")
 
     testImplementation("org.springframework:spring-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
