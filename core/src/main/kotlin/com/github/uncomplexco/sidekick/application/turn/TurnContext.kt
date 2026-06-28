@@ -1,7 +1,8 @@
 package com.github.uncomplexco.sidekick.application.turn
 
-import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.chat.ChatChannelMetadata
+import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
@@ -18,6 +19,7 @@ data class TurnContext(
     val sessionFiles: List<SessionFileRef>,
     val intelligenceLevel: ConversationIntelligenceLevel,
     val history: ConversationHistory,
+    val channelMetadata: ChatChannelMetadata? = null,
     val mcpServers: List<ConnectedMcpServer>,
 ) {
     val currentMessageId = currentMessageIds.last()

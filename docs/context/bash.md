@@ -98,9 +98,9 @@ agent.tools.bash.http.base-url=http://localhost:7171
 agent.tools.bash.http.token=<token>
 ```
 
-The HTTP provider sends the current conversation bash work directory as a dynamic `rw` mount at `/work`.
+The HTTP provider sends writable virtual roots, including the current conversation bash work directory at `/work` and the channel-scoped project directory at `/data/project`, as dynamic `rw` mounts.
 
-When `agent.tools.bash.scratch-gid` is set, Sidekick prepares the conversation work directory with that host GID and mode `2770` before requesting the sandbox mount. Configure `sandbox.gid` to the same GID so the sandbox process can write to `/work` while keeping its non-root UID.
+When `agent.tools.bash.scratch-gid` is set, Sidekick prepares writable sandbox roots with that host GID and mode `2770` before requesting sandbox mounts. Configure `sandbox.gid` to the same GID so the sandbox process can write to `/work` and `/data/project` while keeping its non-root UID.
 
 Create a shared host group for Sidekick and the sandbox service, then use its numeric GID in both configs:
 

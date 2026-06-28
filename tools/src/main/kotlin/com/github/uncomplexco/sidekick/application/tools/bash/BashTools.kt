@@ -67,8 +67,8 @@ class BashTools(
             """.trimIndent(),
         )
 
-        prepareWorkRoot()
-        prepareReadOnlyRoots()
+        prepareVirtualRoots()
+
         val result =
             try {
                 sandboxExecutor.execute(
@@ -101,23 +101,23 @@ class BashTools(
         )
     }
 
-    private fun prepareReadOnlyRoots() {
+    private fun prepareVirtualRoots() {
         virtualPaths.roots.filter { !it.writable }.forEach { Files.createDirectories(it.real) }
-    }
 
-    private fun prepareWorkRoot() {
-        Files.createDirectories(virtualPaths.workRoot)
+        virtualPaths.roots.filter { it.writable }.forEach { root ->
+            Files.createDirectories(root.real)
 
-        config.scratchGid?.also { gid ->
-            Files.setAttribute(virtualPaths.workRoot, "unix:gid", gid)
+            config.scratchGid?.also { gid ->
+                Files.setAttribute(root.real, "unix:gid", gid)
+            }
+
+            Files.setPosixFilePermissions(root.real, writableRootPermissions)
+            Files.setAttribute(root.real, "unix:mode", WRITABLE_ROOT_MODE)
         }
-
-        Files.setPosixFilePermissions(virtualPaths.workRoot, workPermissions)
-        Files.setAttribute(virtualPaths.workRoot, "unix:mode", WORK_MODE)
     }
 
     private companion object {
-        private val workPermissions =
+        private val writableRootPermissions =
             setOf(
                 PosixFilePermission.OWNER_READ,
                 PosixFilePermission.OWNER_WRITE,
@@ -126,7 +126,7 @@ class BashTools(
                 PosixFilePermission.GROUP_WRITE,
                 PosixFilePermission.GROUP_EXECUTE,
             )
-        private const val WORK_MODE = 0b010111111000
+        private const val WRITABLE_ROOT_MODE = 0b010111111000
     }
 }
 

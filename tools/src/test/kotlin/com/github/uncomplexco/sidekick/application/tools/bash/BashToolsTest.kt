@@ -96,9 +96,11 @@ class BashToolsTest {
     }
 
     @Test
-    fun `bash applies configured scratch gid and group-writable setgid permissions to work mount`() {
+    fun `bash applies configured scratch gid and group-writable setgid permissions to writable mounts`() {
         // Arrange
         val scratch = Files.createTempDirectory("bash-tools-test")
+        val workRoot = scratch.resolve("work")
+        val projectRoot = scratch.resolve("project")
         val gid = Files.getAttribute(scratch, "unix:gid") as Int
         val config =
             BashToolConfig().apply {
@@ -106,7 +108,7 @@ class BashToolsTest {
                 scratchGid = gid
             }
         val tools =
-            BashTools(config, VirtualPaths(scratch.resolve("session"), scratch.resolve("skills"), scratch.resolve("global"), scratch, scratch.resolve("project"))) { command ->
+            BashTools(config, VirtualPaths(scratch.resolve("session"), scratch.resolve("skills"), scratch.resolve("global"), workRoot, projectRoot)) { command ->
                 ExecutionResult(
                     ok = true,
                     exitCode = 0,
@@ -121,8 +123,16 @@ class BashToolsTest {
         tools.bash(command = "pwd", description = "prints working directory")
 
         // Assert
-        assertEquals(gid, Files.getAttribute(scratch, "unix:gid"))
-        val mode = (Files.getAttribute(scratch, "unix:mode") as Int) and 0b111111111111
+        assertWritableMountMode(workRoot, gid)
+        assertWritableMountMode(projectRoot, gid)
+    }
+
+    private fun assertWritableMountMode(
+        path: java.nio.file.Path,
+        gid: Int,
+    ) {
+        assertEquals(gid, Files.getAttribute(path, "unix:gid"))
+        val mode = (Files.getAttribute(path, "unix:mode") as Int) and 0b111111111111
         assertEquals(0b010111111000, mode)
     }
 

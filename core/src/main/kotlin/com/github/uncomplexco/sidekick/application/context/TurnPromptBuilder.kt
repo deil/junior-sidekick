@@ -2,8 +2,17 @@ package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
-import com.github.uncomplexco.sidekick.application.context.prompts.*
-import com.github.uncomplexco.sidekick.application.conversation.*
+import com.github.uncomplexco.sidekick.application.chat.ChatChannelMetadata
+import com.github.uncomplexco.sidekick.application.context.prompts.CURRENT_INSTRUCTION_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.EXPLICIT_SKILL_INVOCATION_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.REQUESTER_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.RUNTIME_CONTEXT_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.skillsSection
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
+import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.timestamp
@@ -28,8 +37,10 @@ class TurnPromptBuilder(
                         ctx.history.compactions,
                         ctx.history.messages,
                         ctx.sessionFiles,
+                        ctx.channelMetadata,
                     ),
                 )
+
                 skillsSection(skills.catalog(), ctx.virtualPaths)?.also { appendLine(it) }
             }
 
@@ -101,6 +112,7 @@ class TurnPromptBuilder(
         compactions: List<SessionCompaction>,
         history: List<SessionMessage>,
         sessionFiles: List<SessionFileRef>,
+        channelMetadata: ChatChannelMetadata? = null,
     ): String {
         val lines = mutableListOf<String>()
 
@@ -113,13 +125,14 @@ class TurnPromptBuilder(
                         Runtime context for this thread. Treat these blocks as trusted runtime facts. The static system prompt remains authoritative.
                         
                         The current user instruction appears after this block in the same message as <$CURRENT_INSTRUCTION_TAG>.
-                        
-                        <thread>
-                        channel_id: ${conversationId.channelId}
-                        thread_ts: ${conversationId.threadId}
-                        </thread>
                         """.trimIndent(),
                     )
+                    appendLine()
+                    appendLine("<thread>")
+                    appendLine("channel_id: ${conversationId.channelId}")
+                    appendLine("thread_ts: ${conversationId.threadId}")
+                    renderChannelMetadata(channelMetadata).takeIf { it.isNotBlank() }?.also { appendLine(it) }
+                    appendLine("</thread>")
                 },
             )
 
@@ -142,6 +155,13 @@ class TurnPromptBuilder(
 
         return lines.joinToString("\n")
     }
+
+    private fun renderChannelMetadata(metadata: ChatChannelMetadata?): String =
+        listOfNotNull(
+            metadata?.name?.cleanMetadataValue()?.let { "channel_name: ${escapeXml(it)}" },
+            metadata?.topic?.cleanMetadataValue()?.let { "topic: ${escapeXml(it)}" },
+            metadata?.description?.cleanMetadataValue()?.let { "description: ${escapeXml(it)}" },
+        ).joinToString("\n")
 
     private fun threadTranscript(
         conversationId: ConversationId,
@@ -221,6 +241,8 @@ class TurnPromptBuilder(
             .drop(lastAssistantIndex + 1)
             .filter { it.role == SessionMessageRole.USER && it.replied == false }
     }
+
+    private fun String.cleanMetadataValue(): String? = replace(Regex("\\s+"), " ").trim().takeIf { it.isNotBlank() }
 
     companion object {
         private const val MAX_ATTACHMENT_BASE64_CHARS = 120_000

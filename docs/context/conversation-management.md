@@ -121,6 +121,12 @@ When seeding runs, Slack thread replies are loaded, the current triggering messa
 
 The triggering message is recorded through the normal turn path. That keeps the turn boundary clean: seeded messages become context, the triggering message becomes the current turn.
 
+## Channel metadata in prompt context
+
+For the first Koog turn in a Slack channel/thread session, Sidekick may include Slack channel metadata in the turn runtime context: channel name, channel topic, and channel description. This follows the same first-turn-only rule as the existing Slack `channel_id` and `thread_ts` runtime context; once Koog history exists, channel metadata is not repeated.
+
+Slack channel metadata is turn-local prompt context, not persisted session state. Lookup failures, missing Slack scopes, rate limits, empty values, DMs, and multi-person DMs silently omit the metadata.
+
 ## Persisted history
 
 Session state is stored under the configured agent state directory, not the workspace. The important files are:

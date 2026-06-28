@@ -1,14 +1,16 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
+import com.github.uncomplexco.sidekick.application.chat.ChatChannelMetadata
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
 import com.slack.api.bolt.context.builtin.EventContext
 import com.slack.api.model.Attachment
+import com.slack.api.model.Conversation
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.net.URI
@@ -118,12 +120,32 @@ fun slackActivityIndicator(
         }
     }
 
-private val slackAssistantStatusTexts =
-    listOf(
-        "consulting the tiny compiler",
-        "untangling the thread",
-        "thinking with tabs open",
+fun loadSlackChannelMetadata(
+    ctx: EventContext,
+    conversationId: ConversationId,
+): ChatChannelMetadata? {
+    if (conversationId.channelId.startsWith("D")) return null
+
+    return runCatching {
+        val response = ctx.client().conversationsInfo { req -> req.channel(conversationId.channelId) }
+        if (!response.isOk) return@runCatching null
+
+        response.channel?.toChatChannelMetadata()
+    }.getOrElse {
+        log.debug("Slack channel metadata lookup failed for channel={}", conversationId.channelId, it)
+        null
+    }
+}
+
+internal fun Conversation.toChatChannelMetadata(): ChatChannelMetadata? {
+    if (isMpim) return null
+
+    return ChatChannelMetadata(
+        name = nameNormalized ?: name,
+        topic = topic?.value ?: "",
+        description = purpose?.value ?: "",
     )
+}
 
 internal fun incomingChatFiles(
     files: List<SlackFile>?,
@@ -205,10 +227,7 @@ private fun List<SlackFile>?.toIncomingChatFiles(): List<IncomingChatFile> =
             )
         }
 
-internal fun downloadFileName(file: IncomingChatFile): String {
-    val rawName = file.name ?: file.id
-    return "${sanitizeFileName(file.id)}-${sanitizeFileName(rawName)}"
-}
+internal fun downloadFileName(file: IncomingChatFile): String = "${sanitizeFileName(file.id)}-${sanitizeFileName(file.name)}"
 
 private fun sanitizeFileName(value: String): String =
     value
