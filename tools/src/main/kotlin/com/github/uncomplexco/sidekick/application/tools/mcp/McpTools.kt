@@ -9,7 +9,6 @@ import ai.koog.serialization.JSONPrimitive
 import ai.koog.serialization.JSONSerializer
 import ai.koog.serialization.kotlinx.toKoogJSONElement
 import ai.koog.serialization.kotlinx.toKotlinxJsonElement
-import ai.koog.serialization.kotlinx.toKotlinxJsonObject
 import ai.koog.serialization.typeToken
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
@@ -54,7 +53,7 @@ class McpServerTool(
     override suspend fun execute(args: JSONObject): CallToolResult =
         client.callTool(
             name = originalToolName,
-            arguments = args.toKotlinxJsonObject(),
+            arguments = prepareMcpToolArguments(originalToolName, args, json),
         )
 
     override fun decodeResult(

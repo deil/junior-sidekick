@@ -186,7 +186,7 @@ class DefaultMcpServersRegistry(
         return ToolRegistry {
             tools.forEach { tool ->
                 runCatching {
-                    val descriptor = DefaultMcpToolDescriptorParser.parse(tool)
+                    val descriptor = prepareMcpToolDescriptor(tool.name, DefaultMcpToolDescriptorParser.parse(tool))
                     tool(
                         McpServerTool(
                             client = client,

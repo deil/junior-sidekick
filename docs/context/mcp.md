@@ -48,6 +48,8 @@ Each MCP tool is exposed as a Koog tool named `${mcpServerId}__${toolName}`. The
 
 Each configured MCP server also gets a local status tool named `get_mcp_status_<server.id>` with description `Check whether the requester is already connected to <server.id> MCP server`. It returns `{ "server_id": "<server.id>", "connected": true|false }` by checking the turn context's connected MCP servers.
 
+Atlassian `createJiraIssue.additional_fields` is a special case: Koog currently mishandles its unconstrained object schema and tends to emit `{}`. Sidekick exposes that one parameter as a JSON-encoded string, then parses it back to an object before forwarding the MCP call.
+
 ## Key Files
 
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/koog/SidekickAgent.kt` – owns MCP connection lifecycle around Koog turn execution.
