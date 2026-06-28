@@ -31,6 +31,8 @@ dependencies {
     implementation("ai.koog:agents-mcp:1.0.0-beta-preview7")
     implementation("io.modelcontextprotocol:kotlin-sdk-client:0.8.1")
     implementation("io.modelcontextprotocol:kotlin-sdk-core:0.8.1")
+    implementation("org.eclipse.jgit:org.eclipse.jgit:7.7.0.202606012155-r")
+    implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.7.0.202606012155-r")
 
     testImplementation("org.springframework:spring-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")

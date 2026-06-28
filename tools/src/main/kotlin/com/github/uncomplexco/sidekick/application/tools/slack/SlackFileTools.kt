@@ -5,13 +5,11 @@ import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceRead
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import org.springframework.util.MimeType
 import org.springframework.util.MimeTypeUtils
-import java.nio.file.Path
 
 @LLMDescription("Slack file tools for the current inbound message")
 class SlackFileTools(
@@ -32,8 +30,7 @@ class SlackFileTools(
         val file = ctx.sessionFiles.find { it.id == fileId || it.displayName == fileId }!!
         validate(isSupportedSlackTextFile(file)) { "Only text Slack files are supported." }
 
-        val realPath = parseVirtualPath(file.localPath, virtualPaths)
-        return files.readFile(Path.of(realPath), file.localPath, offset, limit)
+        return files.read(path = file.localPath, offset = offset, limit = limit, displayPath = file.localPath)
     }
 }
 
