@@ -1,6 +1,6 @@
 # MCP Tools
 
-Sidekick connects configured MCP servers for each turn from `agent.mcp.servers` configuration and exposes their MCP tools as Koog tools.
+Sidekick connects configured MCP servers from `agent.mcp.servers` and exposes their MCP tools as Koog tools.
 
 ## Configuration
 
@@ -42,18 +42,26 @@ agent.mcp.servers[0].env.GRAFANA_SERVICE_ACCOUNT_TOKEN=...
 
 ## Runtime
 
-`DefaultMcpServers` connects configured MCP servers through the Kotlin MCP SDK. `SidekickAgent` opens those connections before Koog execution, adds their tool registries to the local Sidekick registry, and closes the connections after the turn.
-
 Each MCP tool is exposed as a Koog tool named `${mcpServerId}__${toolName}`. The wrapper calls the original MCP tool name under the hood.
 
-Each configured MCP server also gets a local status tool named `get_mcp_status_<server.id>` with description `Check whether the requester is already connected to <server.id> MCP server`. It returns `{ "server_id": "<server.id>", "connected": true|false }` by checking the turn context's connected MCP servers.
+Each configured MCP server also gets local helper tools:
 
-Atlassian `createJiraIssue.additional_fields` is a special case: Koog currently mishandles its unconstrained object schema and tends to emit `{}`. Sidekick exposes that one parameter as a JSON-encoded string, then parses it back to an object before forwarding the MCP call.
+- `get_mcp_status_<server.id>` – checks whether the server is already connected.
+- `connect_mcp_<server.id>` – starts the connection flow for that server.
+
+## Workarounds
+
+### Atlassian MCP
+
+`createJiraIssue.additional_fields` and `editJiraIssue.fields` are free-form JSON objects. Koog currently mishandles those unconstrained object schemas and tends to emit `{}` instead of the intended custom fields.
+
+Sidekick works around this by exposing those parameters to the model as JSON-encoded strings. Before forwarding the MCP call, Sidekick parses the string back into a JSON object so the Atlassian MCP server still receives the shape it expects.
 
 ## Key Files
 
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/koog/SidekickAgent.kt` – owns MCP connection lifecycle around Koog turn execution.
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnContext.kt` – carries turn-scoped connected MCP servers.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/mcp/Mcp.kt` – MCP configuration, connection, and registry wiring.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/mcp/McpTools.kt` – Koog tool wrappers for MCP calls and MCP status.
-- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/ToolRegistryFactory.kt` – builds local-only Sidekick tools.
+
+## Related
+
+- Kotlin MCP SDK - [io.modelcontextprotocol:kotlin-sdk](https://github.com/modelcontextprotocol/kotlin-sdk)

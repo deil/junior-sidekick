@@ -20,17 +20,7 @@ class McpToolWorkaroundsTest {
                 description = "Create Jira issue",
                 requiredParameters =
                     listOf(
-                        ToolParameterDescriptor(
-                            name = "additional_fields",
-                            description = "REQUIRED for custom fields.",
-                            type =
-                                ToolParameterType.Object(
-                                    properties = emptyList(),
-                                    requiredProperties = emptyList(),
-                                    additionalProperties = true,
-                                    additionalPropertiesType = null,
-                                ),
-                        ),
+                        unconstrainedObjectParameter("additional_fields", "REQUIRED for custom fields."),
                     ),
             )
 
@@ -40,6 +30,28 @@ class McpToolWorkaroundsTest {
         assertEquals(ToolParameterType.String, parameter.type)
         assertEquals(
             "REQUIRED for custom fields. Pass this arbitrary JSON object as a JSON-encoded string.",
+            parameter.description,
+        )
+    }
+
+    @Test
+    fun `reports Atlassian edit issue fields as string`() {
+        val descriptor =
+            ToolDescriptor(
+                name = "editJiraIssue",
+                description = "Edit Jira issue",
+                requiredParameters =
+                    listOf(
+                        unconstrainedObjectParameter("fields", "Fields to update."),
+                    ),
+            )
+
+        val prepared = prepareMcpToolDescriptor("editJiraIssue", descriptor)
+
+        val parameter = prepared.requiredParameters.single()
+        assertEquals(ToolParameterType.String, parameter.type)
+        assertEquals(
+            "Fields to update. Pass this arbitrary JSON object as a JSON-encoded string.",
             parameter.description,
         )
     }
@@ -61,6 +73,22 @@ class McpToolWorkaroundsTest {
     }
 
     @Test
+    fun `parses Atlassian edit issue fields string before MCP call`() {
+        val args =
+            JSONObject(
+                mapOf(
+                    "issue_key" to JSONPrimitive("ABC-123"),
+                    "fields" to JSONPrimitive("{\"customfield_123\":\"321\",\"labels\":[\"bug\"]}"),
+                ),
+            )
+
+        val prepared = prepareMcpToolArguments("editJiraIssue", args)
+
+        val fields = assertIs<JsonObject>(prepared["fields"])
+        assertEquals(JsonPrimitive("321"), fields["customfield_123"])
+    }
+
+    @Test
     fun `leaves other MCP tool arguments unchanged`() {
         val args = JSONObject(mapOf("additional_fields" to JSONPrimitive("{\"x\":1}")))
 
@@ -68,4 +96,19 @@ class McpToolWorkaroundsTest {
 
         assertEquals(JsonPrimitive("{\"x\":1}"), prepared["additional_fields"])
     }
+
+    private fun unconstrainedObjectParameter(
+        name: String,
+        description: String,
+    ) = ToolParameterDescriptor(
+        name = name,
+        description = description,
+        type =
+            ToolParameterType.Object(
+                properties = emptyList(),
+                requiredProperties = emptyList(),
+                additionalProperties = true,
+                additionalPropertiesType = null,
+            ),
+    )
 }

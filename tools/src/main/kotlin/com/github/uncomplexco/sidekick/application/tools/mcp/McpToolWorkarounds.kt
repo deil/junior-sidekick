@@ -13,11 +13,17 @@ internal fun prepareMcpToolDescriptor(
     originalToolName: String,
     descriptor: ToolDescriptor,
 ): ToolDescriptor {
-    if (originalToolName != ATLASSIAN_CREATE_JIRA_ISSUE_TOOL) return descriptor
+    val jsonObjectStringField = atlassianJsonObjectStringField(originalToolName) ?: return descriptor
 
     return descriptor.copy(
-        requiredParameters = descriptor.requiredParameters.map(::stringifyAtlassianAdditionalFields),
-        optionalParameters = descriptor.optionalParameters.map(::stringifyAtlassianAdditionalFields),
+        requiredParameters =
+            descriptor.requiredParameters.map {
+                stringifyAtlassianJsonObjectField(it, jsonObjectStringField)
+            },
+        optionalParameters =
+            descriptor.optionalParameters.map {
+                stringifyAtlassianJsonObjectField(it, jsonObjectStringField)
+            },
     )
 }
 
@@ -27,28 +33,31 @@ internal fun prepareMcpToolArguments(
     json: Json = Json.Default,
 ): JsonObject {
     val arguments = args.toKotlinxJsonObject()
-    if (originalToolName != ATLASSIAN_CREATE_JIRA_ISSUE_TOOL) return arguments
+    val jsonObjectStringField = atlassianJsonObjectStringField(originalToolName) ?: return arguments
 
-    val additionalFields = arguments[ATLASSIAN_ADDITIONAL_FIELDS] ?: return arguments
-    if (additionalFields !is JsonPrimitive || !additionalFields.isString) return arguments
+    val fieldValue = arguments[jsonObjectStringField] ?: return arguments
+    if (fieldValue !is JsonPrimitive || !fieldValue.isString) return arguments
 
     val parsed =
-        runCatching { json.parseToJsonElement(additionalFields.content) }
+        runCatching { json.parseToJsonElement(fieldValue.content) }
             .getOrElse {
                 throw IllegalArgumentException(
-                    "createJiraIssue additional_fields must be a valid JSON object string",
+                    "$originalToolName $jsonObjectStringField must be a valid JSON object string",
                     it,
                 )
             }
     val parsedObject =
         parsed as? JsonObject
-            ?: throw IllegalArgumentException("createJiraIssue additional_fields must be a JSON object string")
+            ?: throw IllegalArgumentException("$originalToolName $jsonObjectStringField must be a JSON object string")
 
-    return JsonObject(arguments + (ATLASSIAN_ADDITIONAL_FIELDS to parsedObject))
+    return JsonObject(arguments + (jsonObjectStringField to parsedObject))
 }
 
-private fun stringifyAtlassianAdditionalFields(parameter: ToolParameterDescriptor): ToolParameterDescriptor {
-    if (parameter.name != ATLASSIAN_ADDITIONAL_FIELDS) return parameter
+private fun stringifyAtlassianJsonObjectField(
+    parameter: ToolParameterDescriptor,
+    fieldName: String,
+): ToolParameterDescriptor {
+    if (parameter.name != fieldName) return parameter
     if (!parameter.type.isUnconstrainedObject()) return parameter
 
     return parameter.copy(
@@ -67,5 +76,14 @@ private fun ToolParameterType.isUnconstrainedObject(): Boolean {
         objectType.additionalPropertiesType == null
 }
 
+private fun atlassianJsonObjectStringField(originalToolName: String): String? =
+    when (originalToolName) {
+        ATLASSIAN_CREATE_JIRA_ISSUE_TOOL -> ATLASSIAN_ADDITIONAL_FIELDS
+        ATLASSIAN_EDIT_JIRA_ISSUE_TOOL -> ATLASSIAN_FIELDS
+        else -> null
+    }
+
 private const val ATLASSIAN_CREATE_JIRA_ISSUE_TOOL = "createJiraIssue"
+private const val ATLASSIAN_EDIT_JIRA_ISSUE_TOOL = "editJiraIssue"
 private const val ATLASSIAN_ADDITIONAL_FIELDS = "additional_fields"
+private const val ATLASSIAN_FIELDS = "fields"
