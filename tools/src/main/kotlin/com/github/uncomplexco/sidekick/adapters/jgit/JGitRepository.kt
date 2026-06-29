@@ -57,18 +57,22 @@ class JGitRepository : GitRepository {
             git.repository.config.getString("remote", REMOTE_ORIGIN, "url")
         }
 
-    override fun pushPlan(checkout: Path): GitPushPlan =
+    override fun pushPlan(
+        checkout: Path,
+        branch: String?,
+    ): GitPushPlan =
         Git.open(checkout.toFile()).use { git ->
-            git.pushPlan(checkout)
+            git.pushPlan(checkout, branch)
         }
 
     override fun push(
         checkout: Path,
         sshKeyFile: String,
+        branch: String?,
         tags: Boolean,
     ): GitPushState {
         Git.open(checkout.toFile()).use { git ->
-            val plan = git.pushPlan(checkout)
+            val plan = git.pushPlan(checkout, branch)
             plan.status?.let { return plan.toState(it, plan.message) }
 
             return runCatching {

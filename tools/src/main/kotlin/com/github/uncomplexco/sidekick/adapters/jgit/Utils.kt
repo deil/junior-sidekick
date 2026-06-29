@@ -19,15 +19,24 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.security.PublicKey
 
-internal fun Git.pushPlan(checkout: Path): GitPushPlan {
-    val branch = repository.currentBranch()
-    val commitHash = repository.resolve(JGitRepository.HEAD)?.name ?: ""
+internal fun Git.pushPlan(
+    checkout: Path,
+    branch: String?,
+): GitPushPlan {
+    val currentBranch = repository.currentBranch()
+    val selectedBranch = branch ?: currentBranch
+    val branchRef = repository.findRef("refs/heads/$selectedBranch")
+    if (branch != null && branchRef == null) {
+        throw IllegalArgumentException("Local branch does not exist: $selectedBranch")
+    }
+
+    val commitHash = branchRef?.objectId?.name ?: repository.resolve(JGitRepository.HEAD)?.name ?: ""
     val dirty = !status().call().isClean
     val fullBranch = repository.fullBranch
-    if (fullBranch == null || !fullBranch.startsWith(Constants.R_HEADS)) {
+    if (branch == null && (fullBranch == null || !fullBranch.startsWith(Constants.R_HEADS))) {
         return GitPushPlan(
             path = checkout,
-            branch = branch,
+            branch = selectedBranch,
             commitHash = commitHash,
             dirty = dirty,
             remote = null,
@@ -38,12 +47,19 @@ internal fun Git.pushPlan(checkout: Path): GitPushPlan {
         )
     }
 
-    val remote = repository.config.getString("branch", branch, "remote")
-    val upstream = repository.config.getString("branch", branch, "merge")
+    val remote =
+        repository.config.getString("branch", selectedBranch, "remote")
+            ?: JGitRepository.REMOTE_ORIGIN.takeIf { branch != null }
+    val upstream =
+        if (branch == null) {
+            repository.config.getString("branch", selectedBranch, "merge")
+        } else {
+            "refs/heads/$selectedBranch"
+        }
     if (remote.isNullOrBlank() || upstream.isNullOrBlank()) {
         return GitPushPlan(
             path = checkout,
-            branch = branch,
+            branch = selectedBranch,
             commitHash = commitHash,
             dirty = dirty,
             remote = remote,
@@ -58,7 +74,7 @@ internal fun Git.pushPlan(checkout: Path): GitPushPlan {
     if (remoteUrl.isNullOrBlank()) {
         return GitPushPlan(
             path = checkout,
-            branch = branch,
+            branch = selectedBranch,
             commitHash = commitHash,
             dirty = dirty,
             remote = remote,
@@ -71,14 +87,14 @@ internal fun Git.pushPlan(checkout: Path): GitPushPlan {
 
     return GitPushPlan(
         path = checkout,
-        branch = branch,
+        branch = selectedBranch,
         commitHash = commitHash,
         dirty = dirty,
         remote = remote,
         upstream = upstream,
         remoteUrl = remoteUrl,
         status = null,
-        message = "Ready to push $branch to $remote/$upstream",
+        message = "Ready to push $selectedBranch to $remote/$upstream",
     )
 }
 

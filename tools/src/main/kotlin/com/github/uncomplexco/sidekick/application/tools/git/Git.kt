@@ -39,7 +39,7 @@ class GitTools(
     @Tool("git__clone")
     @LLMDescription("Clone or fetch and fast-forward a private GitHub or Bitbucket repository into the project workspace")
     fun clone(
-        @LLMDescription("GitHub or Bitbucket repository URL. SSH and HTTPS clone URLs are supported")
+        @LLMDescription("GitHub or Bitbucket repository URL. Both SSH and HTTPS clone URLs are supported")
         url: String,
         @LLMDescription("Destination folder path. Must be under /data/project")
         path: String,
@@ -49,7 +49,7 @@ class GitTools(
 
         val repository = parseRepositoryUrl(url)
         val sshKeyFile = sshKeyFile(repository.provider)
-        val checkout = resolveProjectPath(path)
+        val checkout = resolveWritablePath(path)
 
         return try {
             if (Files.exists(checkout, LinkOption.NOFOLLOW_LINKS)) {
@@ -68,22 +68,26 @@ class GitTools(
     @Tool("git__push")
     @LLMDescription("Push the current branch upstream from a Git repository in the project workspace")
     fun push(
-        @LLMDescription("Repository folder path. Must be under /data/project")
+        @LLMDescription("Repository folder path")
         path: String,
-        @LLMDescription("Also push all tags, equivalent to git push --tags")
+        @LLMDescription("Branch name to push. Equivalent to 'git push origin <branch>'. Defaults to the current branch upstream")
+        branch: String? = null,
+        @LLMDescription("Also push all tags, equivalent to 'git push --tags'")
         tags: Boolean = false,
     ): GitPushResult {
-        validate(path.isNotBlank()) { "path is required" }
+        validate(path.isNotBlank()) { "'path' is required" }
+        validate(branch == null || branch.isNotBlank()) { "'branch' must not be blank" }
 
         val checkout = resolveProjectPath(path)
-        if (Files.isSymbolicLink(checkout)) {
-            throw ToolException.ValidationFailure("Path must not be a symbolic link: ${virtualPaths.virtualPath(checkout.pathString)}")
-        }
-        if (!git.isGitRepository(checkout)) {
-            throw ToolException.ValidationFailure("Path is not a Git repository: ${virtualPaths.virtualPath(checkout.pathString)}")
-        }
+        validate(!Files.isSymbolicLink(checkout)) { "'path' must not be a symbolic link" }
+        validate(git.isGitRepository(checkout)) { "'path' is not a Git repository" }
 
-        val plan = git.pushPlan(checkout)
+        val plan =
+            try {
+                git.pushPlan(checkout, branch)
+            } catch (error: IllegalArgumentException) {
+                throw ToolException.ValidationFailure(error.message ?: "Invalid git push request")
+            }
         if (plan.status != null) {
             return plan.toState(plan.status, plan.message).toToolResult(virtualPaths)
         }
@@ -93,7 +97,7 @@ class GitTools(
         val sshKeyFile = sshKeyFile(repository.provider)
 
         return try {
-            git.push(checkout, sshKeyFile, tags).toToolResult(virtualPaths)
+            git.push(checkout, sshKeyFile, branch, tags).toToolResult(virtualPaths)
         } catch (error: IllegalArgumentException) {
             throw ToolException.ValidationFailure(error.message ?: "Invalid git push request")
         }
@@ -132,9 +136,30 @@ class GitTools(
     }
 
     private fun prepareMissingDestination(checkout: Path) {
-        val parent = checkout.parent ?: throw ToolException.ValidationFailure("Path must be under $PROJECT_ROOT")
-        ensureNoSymlinksFromProjectRoot(parent)
+        val parent = checkout.parent ?: throw ToolException.ValidationFailure("Path must name a destination folder")
+        ensureNoSymlinksFromWritableRoot(parent)
         Files.createDirectories(parent)
+    }
+
+    private fun resolveWritablePath(path: String): Path {
+        val root =
+            virtualPaths.roots.firstOrNull { root -> path == root.virtual || path.startsWith("${root.virtual}/") }
+                ?: throw ToolException.ValidationFailure("Path must be under a writable workspace root")
+        if (!root.writable) {
+            throw ToolException.ValidationFailure("Path must be under a writable workspace root")
+        }
+
+        val relative = path.removePrefix(root.virtual).trimStart('/')
+        if (relative.isBlank()) {
+            throw ToolException.ValidationFailure("Path must name a destination folder")
+        }
+
+        val rootPath = root.real.toAbsolutePath().normalize()
+        val checkout = root.real.resolve(relative).toAbsolutePath().normalize()
+        if (!checkout.startsWith(rootPath)) {
+            throw ToolException.ValidationFailure("Path must be under a writable workspace root")
+        }
+        return checkout
     }
 
     private fun resolveProjectPath(path: String): Path {
@@ -161,6 +186,25 @@ class GitTools(
 
         var current = projectRoot
         val relative = projectRoot.relativize(absolutePath)
+        for (segment in relative) {
+            current = current.resolve(segment)
+            if (Files.isSymbolicLink(current)) {
+                throw ToolException.ValidationFailure(
+                    "Path must not traverse a symbolic link: ${virtualPaths.virtualPath(current.pathString)}",
+                )
+            }
+        }
+    }
+
+    private fun ensureNoSymlinksFromWritableRoot(path: Path) {
+        val absolutePath = path.toAbsolutePath().normalize()
+        val root =
+            virtualPaths.roots.firstOrNull { root -> root.writable && root.contains(absolutePath) }
+                ?: throw ToolException.ValidationFailure("Path must be under a writable workspace root")
+        val rootPath = root.real.toAbsolutePath().normalize()
+
+        var current = rootPath
+        val relative = rootPath.relativize(absolutePath)
         for (segment in relative) {
             current = current.resolve(segment)
             if (Files.isSymbolicLink(current)) {
@@ -202,11 +246,15 @@ interface GitRepository {
 
     fun originUrl(checkout: Path): String?
 
-    fun pushPlan(checkout: Path): GitPushPlan
+    fun pushPlan(
+        checkout: Path,
+        branch: String?,
+    ): GitPushPlan
 
     fun push(
         checkout: Path,
         sshKeyFile: String,
+        branch: String?,
         tags: Boolean,
     ): GitPushState
 }

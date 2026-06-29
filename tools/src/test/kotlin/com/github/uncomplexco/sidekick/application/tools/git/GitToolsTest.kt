@@ -33,6 +33,20 @@ class GitToolsTest {
     }
 
     @Test
+    fun `clones into work path using ssh url`() {
+        // Arrange
+        val git = FakeGitRepository()
+        val tools = tools(git)
+
+        // Act
+        val result = tools.clone("https://github.com/acme/private.git", "/work/private")
+
+        // Assert
+        assertEquals("/work/private", result.path)
+        assertEquals(dir.resolve("work/private").toAbsolutePath().normalize(), git.clonedCheckout)
+    }
+
+    @Test
     fun `fetches existing checkout with matching origin`() {
         // Arrange
         val checkout = Files.createDirectories(dir.resolve("project/repo"))
@@ -124,7 +138,24 @@ class GitToolsTest {
         assertEquals("refs/heads/main: ok", result.message)
         assertEquals(checkout, git.pushedCheckout)
         assertEquals("/keys/github", git.pushedSshKeyFile)
+        assertEquals(null, git.pushedBranch)
         assertEquals(false, git.pushedTags)
+    }
+
+    @Test
+    fun `pushes selected branch using provider key`() {
+        // Arrange
+        val checkout = Files.createDirectories(dir.resolve("project/repo"))
+        val git = FakeGitRepository(gitRepositories = setOf(checkout))
+        val tools = tools(git)
+
+        // Act
+        val result = tools.push("/data/project/repo", branch = "release")
+
+        // Assert
+        assertEquals("release", result.branch)
+        assertEquals("refs/heads/release", result.upstream)
+        assertEquals("release", git.pushedBranch)
     }
 
     @Test
@@ -148,7 +179,7 @@ class GitToolsTest {
         val git =
             FakeGitRepository(
                 gitRepositories = setOf(checkout),
-                pushPlan = { path ->
+                pushPlan = { path, _ ->
                     GitPushPlan(
                         path = path,
                         branch = "main",
@@ -180,7 +211,7 @@ class GitToolsTest {
         val git =
             FakeGitRepository(
                 gitRepositories = setOf(checkout),
-                pushPlan = { path ->
+                pushPlan = { path, _ ->
                     GitPushPlan(
                         path = path,
                         branch = "main",
@@ -234,14 +265,16 @@ class GitToolsTest {
 private class FakeGitRepository(
     private val gitRepositories: Set<Path> = emptySet(),
     private val origins: Map<Path, String> = emptyMap(),
-    private val pushPlan: ((Path) -> GitPushPlan)? = null,
+    private val pushPlan: ((Path, String?) -> GitPushPlan)? = null,
 ) : GitRepository {
     var clonedUrl: String? = null
     var clonedSshKeyFile: String? = null
+    var clonedCheckout: Path? = null
     var clonedPreferredBranches: List<String>? = null
     var fetchedCheckout: Path? = null
     var pushedCheckout: Path? = null
     var pushedSshKeyFile: String? = null
+    var pushedBranch: String? = null
     var pushedTags: Boolean? = null
 
     override fun clone(
@@ -253,6 +286,7 @@ private class FakeGitRepository(
     ): GitRepositoryState {
         clonedUrl = url
         clonedSshKeyFile = sshKeyFile
+        clonedCheckout = checkout
         clonedPreferredBranches = preferredBranches
         return GitRepositoryState(checkout, "develop", "abc123", GitRepositoryStatus.CLONED)
     }
@@ -269,36 +303,44 @@ private class FakeGitRepository(
 
     override fun originUrl(checkout: Path): String? = origins[checkout]
 
-    override fun pushPlan(checkout: Path): GitPushPlan =
-        pushPlan?.invoke(checkout) ?: GitPushPlan(
+    override fun pushPlan(
+        checkout: Path,
+        branch: String?,
+    ): GitPushPlan {
+        val selectedBranch = branch ?: "main"
+        return pushPlan?.invoke(checkout, branch) ?: GitPushPlan(
             path = checkout,
-            branch = "main",
+            branch = selectedBranch,
             commitHash = "ghi789",
             dirty = true,
             remote = "origin",
-            upstream = "refs/heads/main",
+            upstream = "refs/heads/$selectedBranch",
             remoteUrl = "git@github.com:acme/repo.git",
             status = null,
             message = "Ready",
         )
+    }
 
     override fun push(
         checkout: Path,
         sshKeyFile: String,
+        branch: String?,
         tags: Boolean,
     ): GitPushState {
+        val selectedBranch = branch ?: "main"
         pushedCheckout = checkout
         pushedSshKeyFile = sshKeyFile
+        pushedBranch = branch
         pushedTags = tags
         return GitPushState(
             path = checkout,
-            branch = "main",
+            branch = selectedBranch,
             commitHash = "ghi789",
             dirty = true,
             remote = "origin",
-            upstream = "refs/heads/main",
+            upstream = "refs/heads/$selectedBranch",
             status = GitPushStatus.PUSHED,
-            message = "refs/heads/main: ok",
+            message = "refs/heads/$selectedBranch: ok",
         )
     }
 }
