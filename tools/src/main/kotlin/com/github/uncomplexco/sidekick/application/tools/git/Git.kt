@@ -65,6 +65,40 @@ class GitTools(
         }.toToolResult(virtualPaths)
     }
 
+    @Tool("git__push")
+    @LLMDescription("Push the current branch upstream from a Git repository in the project workspace")
+    fun push(
+        @LLMDescription("Repository folder path. Must be under /data/project")
+        path: String,
+        @LLMDescription("Also push all tags, equivalent to git push --tags")
+        tags: Boolean = false,
+    ): GitPushResult {
+        validate(path.isNotBlank()) { "path is required" }
+
+        val checkout = resolveProjectPath(path)
+        if (Files.isSymbolicLink(checkout)) {
+            throw ToolException.ValidationFailure("Path must not be a symbolic link: ${virtualPaths.virtualPath(checkout.pathString)}")
+        }
+        if (!git.isGitRepository(checkout)) {
+            throw ToolException.ValidationFailure("Path is not a Git repository: ${virtualPaths.virtualPath(checkout.pathString)}")
+        }
+
+        val plan = git.pushPlan(checkout)
+        if (plan.status != null) {
+            return plan.toState(plan.status, plan.message).toToolResult(virtualPaths)
+        }
+
+        val remoteUrl = plan.remoteUrl ?: throw ToolException.ValidationFailure("Git repository upstream remote has no URL")
+        val repository = parseRepositoryUrl(remoteUrl)
+        val sshKeyFile = sshKeyFile(repository.provider)
+
+        return try {
+            git.push(checkout, sshKeyFile, tags).toToolResult(virtualPaths)
+        } catch (error: IllegalArgumentException) {
+            throw ToolException.ValidationFailure(error.message ?: "Invalid git push request")
+        }
+    }
+
     private fun cloneOrFetchExisting(
         repository: GitRepositoryUrl,
         sshKeyFile: String,
@@ -167,6 +201,14 @@ interface GitRepository {
     fun isGitRepository(checkout: Path): Boolean
 
     fun originUrl(checkout: Path): String?
+
+    fun pushPlan(checkout: Path): GitPushPlan
+
+    fun push(
+        checkout: Path,
+        sshKeyFile: String,
+        tags: Boolean,
+    ): GitPushState
 }
 
 @Serializable
@@ -184,6 +226,56 @@ data class GitRepositoryState(
     val status: GitRepositoryStatus,
 )
 
+@Serializable
+data class GitPushResult(
+    val path: String,
+    val branch: String,
+    val commit_hash: String,
+    val remote: String?,
+    val upstream: String?,
+    val dirty: Boolean,
+    val status: String,
+    val message: String,
+)
+
+data class GitPushPlan(
+    val path: Path,
+    val branch: String,
+    val commitHash: String,
+    val dirty: Boolean,
+    val remote: String?,
+    val upstream: String?,
+    val remoteUrl: String?,
+    val status: GitPushStatus?,
+    val message: String,
+) {
+    fun toState(
+        status: GitPushStatus,
+        message: String,
+    ): GitPushState =
+        GitPushState(
+            path = path,
+            branch = branch,
+            commitHash = commitHash,
+            dirty = dirty,
+            remote = remote,
+            upstream = upstream,
+            status = status,
+            message = message,
+        )
+}
+
+data class GitPushState(
+    val path: Path,
+    val branch: String,
+    val commitHash: String,
+    val dirty: Boolean,
+    val remote: String?,
+    val upstream: String?,
+    val status: GitPushStatus,
+    val message: String,
+)
+
 enum class GitRepositoryStatus {
     CLONED,
     FETCHED_FAST_FORWARDED,
@@ -194,12 +286,39 @@ enum class GitRepositoryStatus {
     FETCHED_NO_REMOTE_BRANCH,
 }
 
+enum class GitPushStatus {
+    PUSHED,
+    UP_TO_DATE,
+    REJECTED_NON_FAST_FORWARD,
+    REJECTED_REMOTE_CHANGED,
+    REJECTED_OTHER_REASON,
+    NON_EXISTING_REMOTE_REF,
+    AWAITING_REPORT,
+    NOT_ATTEMPTED,
+    FAILED,
+    DETACHED_HEAD,
+    NO_UPSTREAM,
+    NO_REMOTE,
+}
+
 private fun GitRepositoryState.toToolResult(virtualPaths: VirtualPaths): GitCloneResult =
     GitCloneResult(
         path = virtualPaths.virtualPath(path.pathString),
         branch = branch,
         commit_hash = commitHash,
         status = status.name.lowercase(),
+    )
+
+private fun GitPushState.toToolResult(virtualPaths: VirtualPaths): GitPushResult =
+    GitPushResult(
+        path = virtualPaths.virtualPath(path.pathString),
+        branch = branch,
+        commit_hash = commitHash,
+        remote = remote,
+        upstream = upstream,
+        dirty = dirty,
+        status = status.name.lowercase(),
+        message = message,
     )
 
 private fun isEmptyDirectory(path: Path): Boolean = Files.list(path).use { entries -> entries.findAny().isEmpty }

@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.jgit
 
 import com.github.uncomplexco.sidekick.application.tools.git.GitRepositoryStatus
+import com.github.uncomplexco.sidekick.application.tools.git.GitPushStatus
 import org.eclipse.jgit.api.Git
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -51,10 +52,104 @@ class JGitRepositoryTest {
         assertEquals(false, result.commitHash == originalHead)
     }
 
+    @Test
+    fun `push sends current branch without tags by default`() {
+        // Arrange
+        val remote = createBareRemote()
+        val checkout = dir.resolve("checkout")
+        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        commit(checkout, "two")
+        tag(checkout, "v1")
+        val expectedHead = head(checkout)
+
+        // Act
+        val result = JGitRepository().push(checkout, sshKeyFile = "ignored", tags = false)
+
+        // Assert
+        assertEquals(GitPushStatus.PUSHED, result.status)
+        assertEquals(expectedHead, result.commitHash)
+        assertEquals(expectedHead, head(remote))
+        assertEquals(false, hasTag(remote, "v1"))
+    }
+
+    @Test
+    fun `push sends all tags when tags option is true`() {
+        // Arrange
+        val remote = createBareRemote()
+        val checkout = dir.resolve("checkout")
+        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        tag(checkout, "v1")
+
+        // Act
+        val result = JGitRepository().push(checkout, sshKeyFile = "ignored", tags = true)
+
+        // Assert
+        assertEquals(GitPushStatus.PUSHED, result.status)
+        assertEquals(true, hasTag(remote, "v1"))
+    }
+
+    @Test
+    fun `push reports up to date when branch and tags are already pushed`() {
+        // Arrange
+        val remote = createBareRemote()
+        val checkout = dir.resolve("checkout")
+        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+
+        // Act
+        val result = JGitRepository().push(checkout, sshKeyFile = "ignored", tags = false)
+
+        // Assert
+        assertEquals(GitPushStatus.UP_TO_DATE, result.status)
+    }
+
+    @Test
+    fun `push reports non-fast-forward rejection`() {
+        // Arrange
+        val remote = createBareRemote()
+        val checkout = dir.resolve("checkout")
+        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        val other = dir.resolve("other")
+        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(other.toFile()).call().close()
+        commit(other, "remote-two")
+        JGitRepository().push(other, sshKeyFile = "ignored", tags = false)
+        commit(checkout, "local-two")
+
+        // Act
+        val result = JGitRepository().push(checkout, sshKeyFile = "ignored", tags = false)
+
+        // Assert
+        assertEquals(GitPushStatus.REJECTED_NON_FAST_FORWARD, result.status)
+        assertEquals(head(checkout), result.commitHash)
+    }
+
+    @Test
+    fun `push plan reports dirty working tree without blocking`() {
+        // Arrange
+        val remote = createBareRemote()
+        val checkout = dir.resolve("checkout")
+        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        Files.writeString(checkout.resolve("dirty.txt"), "dirty\n")
+
+        // Act
+        val result = JGitRepository().push(checkout, sshKeyFile = "ignored", tags = false)
+
+        // Assert
+        assertEquals(GitPushStatus.UP_TO_DATE, result.status)
+        assertEquals(true, result.dirty)
+    }
+
     private fun createRepository(name: String): Path {
         val repository = Files.createDirectories(dir.resolve(name))
         Git.init().setDirectory(repository.toFile()).call().close()
         return repository
+    }
+
+    private fun createBareRemote(): Path {
+        val seed = createRepository("seed-${System.nanoTime()}")
+        commit(seed, "one")
+        val remote = dir.resolve("remote-${System.nanoTime()}.git")
+        Git.cloneRepository().setURI(seed.toUri().toString()).setDirectory(remote.toFile()).setBare(true).call().close()
+        return remote
     }
 
     private fun commit(
@@ -67,6 +162,23 @@ class JGitRepositoryTest {
             git.commit().setMessage(text).call()
         }
     }
+
+    private fun tag(
+        repository: Path,
+        name: String,
+    ) {
+        Git.open(repository.toFile()).use { git ->
+            git.tag().setName(name).call()
+        }
+    }
+
+    private fun hasTag(
+        repository: Path,
+        name: String,
+    ): Boolean =
+        Git.open(repository.toFile()).use { git ->
+            git.repository.findRef("refs/tags/$name") != null
+        }
 
     private fun head(repository: Path): String =
         Git.open(repository.toFile()).use { git ->

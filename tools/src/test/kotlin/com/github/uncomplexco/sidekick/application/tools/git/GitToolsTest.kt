@@ -103,6 +103,117 @@ class GitToolsTest {
         }
     }
 
+    @Test
+    fun `pushes repository current branch upstream using provider key`() {
+        // Arrange
+        val checkout = Files.createDirectories(dir.resolve("project/repo"))
+        val git = FakeGitRepository(gitRepositories = setOf(checkout))
+        val tools = tools(git)
+
+        // Act
+        val result = tools.push("/data/project/repo")
+
+        // Assert
+        assertEquals("/data/project/repo", result.path)
+        assertEquals("main", result.branch)
+        assertEquals("ghi789", result.commit_hash)
+        assertEquals("origin", result.remote)
+        assertEquals("refs/heads/main", result.upstream)
+        assertEquals(true, result.dirty)
+        assertEquals("pushed", result.status)
+        assertEquals("refs/heads/main: ok", result.message)
+        assertEquals(checkout, git.pushedCheckout)
+        assertEquals("/keys/github", git.pushedSshKeyFile)
+        assertEquals(false, git.pushedTags)
+    }
+
+    @Test
+    fun `pushes tags when tags option is true`() {
+        // Arrange
+        val checkout = Files.createDirectories(dir.resolve("project/repo"))
+        val git = FakeGitRepository(gitRepositories = setOf(checkout))
+        val tools = tools(git)
+
+        // Act
+        tools.push("/data/project/repo", tags = true)
+
+        // Assert
+        assertEquals(true, git.pushedTags)
+    }
+
+    @Test
+    fun `push returns no upstream status without attempting push`() {
+        // Arrange
+        val checkout = Files.createDirectories(dir.resolve("project/repo"))
+        val git =
+            FakeGitRepository(
+                gitRepositories = setOf(checkout),
+                pushPlan = { path ->
+                    GitPushPlan(
+                        path = path,
+                        branch = "main",
+                        commitHash = "ghi789",
+                        dirty = false,
+                        remote = null,
+                        upstream = null,
+                        remoteUrl = null,
+                        status = GitPushStatus.NO_UPSTREAM,
+                        message = "Current branch has no configured upstream",
+                    )
+                },
+            )
+        val tools = tools(git)
+
+        // Act
+        val result = tools.push("/data/project/repo")
+
+        // Assert
+        assertEquals("no_upstream", result.status)
+        assertEquals("Current branch has no configured upstream", result.message)
+        assertEquals(null, git.pushedCheckout)
+    }
+
+    @Test
+    fun `push rejects unsupported upstream remote provider`() {
+        // Arrange
+        val checkout = Files.createDirectories(dir.resolve("project/repo"))
+        val git =
+            FakeGitRepository(
+                gitRepositories = setOf(checkout),
+                pushPlan = { path ->
+                    GitPushPlan(
+                        path = path,
+                        branch = "main",
+                        commitHash = "ghi789",
+                        dirty = false,
+                        remote = "origin",
+                        upstream = "refs/heads/main",
+                        remoteUrl = "ssh://git@example.com/acme/repo.git",
+                        status = null,
+                        message = "Ready",
+                    )
+                },
+            )
+        val tools = tools(git)
+
+        // Act / Assert
+        assertThrows<ToolException.ValidationFailure> {
+            tools.push("/data/project/repo")
+        }
+    }
+
+    @Test
+    fun `push rejects non repository path`() {
+        // Arrange
+        Files.createDirectories(dir.resolve("project/repo"))
+        val tools = tools(FakeGitRepository())
+
+        // Act / Assert
+        assertThrows<ToolException.ValidationFailure> {
+            tools.push("/data/project/repo")
+        }
+    }
+
     private fun tools(git: FakeGitRepository): GitTools {
         val config = GitToolConfig()
         config.github.sshKeyFile = "/keys/github"
@@ -123,11 +234,15 @@ class GitToolsTest {
 private class FakeGitRepository(
     private val gitRepositories: Set<Path> = emptySet(),
     private val origins: Map<Path, String> = emptyMap(),
+    private val pushPlan: ((Path) -> GitPushPlan)? = null,
 ) : GitRepository {
     var clonedUrl: String? = null
     var clonedSshKeyFile: String? = null
     var clonedPreferredBranches: List<String>? = null
     var fetchedCheckout: Path? = null
+    var pushedCheckout: Path? = null
+    var pushedSshKeyFile: String? = null
+    var pushedTags: Boolean? = null
 
     override fun clone(
         url: String,
@@ -153,4 +268,37 @@ private class FakeGitRepository(
     override fun isGitRepository(checkout: Path): Boolean = checkout in gitRepositories
 
     override fun originUrl(checkout: Path): String? = origins[checkout]
+
+    override fun pushPlan(checkout: Path): GitPushPlan =
+        pushPlan?.invoke(checkout) ?: GitPushPlan(
+            path = checkout,
+            branch = "main",
+            commitHash = "ghi789",
+            dirty = true,
+            remote = "origin",
+            upstream = "refs/heads/main",
+            remoteUrl = "git@github.com:acme/repo.git",
+            status = null,
+            message = "Ready",
+        )
+
+    override fun push(
+        checkout: Path,
+        sshKeyFile: String,
+        tags: Boolean,
+    ): GitPushState {
+        pushedCheckout = checkout
+        pushedSshKeyFile = sshKeyFile
+        pushedTags = tags
+        return GitPushState(
+            path = checkout,
+            branch = "main",
+            commitHash = "ghi789",
+            dirty = true,
+            remote = "origin",
+            upstream = "refs/heads/main",
+            status = GitPushStatus.PUSHED,
+            message = "refs/heads/main: ok",
+        )
+    }
 }
