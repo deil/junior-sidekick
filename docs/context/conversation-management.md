@@ -16,6 +16,19 @@ App mentions are always explicit turns. Plain message events are only allowed th
 
 The Slack adapter maps Slack events into `ChatConversationId`, `InboundMessage`, and `ChatPlatformAdapter`. `InboundMessageFilter` owns the decision to handle or ignore the message.
 
+## Session subscription
+
+Sessions are subscribed by default. When an explicit mention matches a deterministic unsubscribe command, `ReplyDecisionService.shouldReply()` returns a decision that does not run Sidekick, marks the current user message skipped with reason `UNSUBSCRIBE_COMMAND`, sets the current session unsubscribed, and posts the out-of-band acknowledgement `Unsubscribed. Mention me to resume.`
+
+The unsubscribe command patterns are deterministic:
+
+- `unsubscribe`
+- `stop (replying|responding|participating|watching)`
+- `(mute|leave) this thread`
+- `don't (reply|participate|watch)`
+
+Unsubscribed sessions drop passive Slack thread messages in `InboundMessageFilter.shouldTriggerTurn()` before they become turns. Explicit mentions are still admitted and resubscribe the session unless the mention is itself an unsubscribe command.
+
 ```text
 Slack event
   |

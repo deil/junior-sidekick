@@ -70,6 +70,24 @@ class FilesystemConversationStateStoreTest {
         assertEquals(ConversationIntelligenceLevel.ULTRATHINK, loaded.intelligenceLevel)
     }
 
+    @Test
+    fun `stores conversation subscription and defaults to subscribed`() {
+        // Arrange
+        val store = store()
+        val conversationId = ConversationId("C123", "1700000000.000")
+
+        // Act
+        val initial = store.load(conversationId)
+        assertEquals(true, initial.subscribed)
+
+        initial.subscribed = false
+        store.save(conversationId, initial)
+        val loaded = store.load(conversationId)
+
+        // Assert
+        assertEquals(false, loaded.subscribed)
+    }
+
     private fun store(): FilesystemConversationStateStore =
         FilesystemConversationStateStore(
             AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString()),

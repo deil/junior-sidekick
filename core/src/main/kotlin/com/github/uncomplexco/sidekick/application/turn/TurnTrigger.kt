@@ -79,7 +79,7 @@ class InboundMessageFilter(
                 }
 
                 val conversationId = convert(chatConversationId)
-                if (!conversations.exists(conversationId)) {
+                if (!conversations.exists(conversationId) || !conversations.isSubscribed(conversationId)) {
                     return TurnTriggerDecision.Ignore
                 }
 

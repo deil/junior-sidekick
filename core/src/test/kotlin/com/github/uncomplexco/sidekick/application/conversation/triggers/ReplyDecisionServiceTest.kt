@@ -38,6 +38,66 @@ class ReplyDecisionServiceTest {
     }
 
     @Test
+    fun `explicit unsubscribe command short-circuits reply and unsubscribes`() {
+        // Arrange
+        val classifier = SimpleReplyDecisionClassifier()
+        val commands =
+            listOf(
+                "<@sidekick> unsubscribe",
+                "<@sidekick> stop replying",
+                "<@sidekick> stop responding",
+                "<@sidekick> stop participating",
+                "<@sidekick> stop watching",
+                "<@sidekick> mute this thread",
+                "<@sidekick> leave this thread",
+                "<@sidekick> don't reply",
+                "<@sidekick> don't participate",
+                "<@sidekick> don't watch",
+            )
+
+        commands.forEach { command ->
+            val input =
+                ReplyDecisionInput(
+                    text = command,
+                    botUser = botUser(),
+                    messageHistory = emptyList(),
+                    hasAssistantHistory = true,
+                    isExplicitMention = true,
+                )
+
+            // Act
+            val decision = classifier.classify(input)!!
+
+            // Assert
+            assertEquals(false, decision.shouldReply, command)
+            assertEquals(true, decision.shouldUnsubscribe, command)
+            assertEquals(ReplyDecisionReason.UNSUBSCRIBE_COMMAND, decision.reason, command)
+        }
+    }
+
+    @Test
+    fun `explicit unsubscribe command is detected independent of scope`() {
+        // Arrange
+        val classifier = SimpleReplyDecisionClassifier()
+        val input =
+            ReplyDecisionInput(
+                text = "<@sidekick> unsubscribe",
+                botUser = botUser(),
+                messageHistory = emptyList(),
+                hasAssistantHistory = true,
+                isExplicitMention = true,
+            )
+
+        // Act
+        val decision = classifier.classify(input)!!
+
+        // Assert
+        assertEquals(false, decision.shouldReply)
+        assertEquals(true, decision.shouldUnsubscribe)
+        assertEquals(ReplyDecisionReason.UNSUBSCRIBE_COMMAND, decision.reason)
+    }
+
+    @Test
     fun `slack user mention to someone else does not reply`() {
         // Arrange
         val classifier = SimpleReplyDecisionClassifier()

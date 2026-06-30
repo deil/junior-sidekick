@@ -24,6 +24,7 @@ data class ConversationState(
     val id: ConversationId,
     var files: MutableList<SessionFileRef>,
     var intelligenceLevel: ConversationIntelligenceLevel = ConversationIntelligenceLevel.NORMAL,
+    var subscribed: Boolean = true,
     var compactions: MutableList<SessionCompaction> = mutableListOf(),
     var messages: MutableList<SessionMessage> = mutableListOf(),
     var koogMessages: MutableList<Message> = mutableListOf(),
@@ -39,6 +40,7 @@ enum class ConversationIntelligenceLevel {
 @Serializable
 data class ConversationSettings(
     val intelligenceLevel: ConversationIntelligenceLevel = ConversationIntelligenceLevel.NORMAL,
+    val subscribed: Boolean = true,
 )
 
 @Serializable

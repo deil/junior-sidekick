@@ -28,6 +28,7 @@ data class ReplyDecisionInput(
 
 enum class ReplyDecisionReason {
     EXPLICIT_MENTION,
+    UNSUBSCRIBE_COMMAND,
     DIRECTED_TO_OTHER_PARTY,
     EMPTY_MESSAGE,
     ACKNOWLEDGMENT,
@@ -41,6 +42,7 @@ data class ReplyDecision(
     val shouldReply: Boolean,
     val reason: ReplyDecisionReason,
     val detail: String? = null,
+    val shouldUnsubscribe: Boolean = false,
 )
 
 @Component
@@ -54,6 +56,14 @@ class ReplyDecisionService(
 @Component
 class SimpleReplyDecisionClassifier {
     fun classify(input: ReplyDecisionInput): ReplyDecision? {
+        if (input.isExplicitMention && isUnsubscribeCommand(input.text)) {
+            return ReplyDecision(
+                shouldReply = false,
+                reason = ReplyDecisionReason.UNSUBSCRIBE_COMMAND,
+                shouldUnsubscribe = true,
+            )
+        }
+
         if (input.isExplicitMention || explicitMention(input.text, input.botUser.username)) {
             return ReplyDecision(true, ReplyDecisionReason.EXPLICIT_MENTION)
         }
@@ -81,6 +91,8 @@ class SimpleReplyDecisionClassifier {
 
     private fun isAcknowledgmentOnly(text: String): Boolean = ACKNOWLEDGMENT_ONLY_RE.matches(text)
 
+    private fun isUnsubscribeCommand(text: String): Boolean = UNSUBSCRIBE_COMMAND_RE.containsMatchIn(text)
+
     private fun explicitMention(
         text: String,
         botUsername: String,
@@ -105,6 +117,11 @@ class SimpleReplyDecisionClassifier {
         private val ACKNOWLEDGMENT_ONLY_RE =
             Regex(
                 "^(?:thanks(?: you)?|thank you|thx|ty|got it|sounds good|ok(?:ay)?|cool|nice|perfect|awesome|great|makes sense|understood|roger|yep|yup|kk|on it|will do)(?:[.!]+)?$",
+                RegexOption.IGNORE_CASE,
+            )
+        private val UNSUBSCRIBE_COMMAND_RE =
+            Regex(
+                "\\b(?:unsubscribe|stop (?:replying|responding|participating|watching)|(?:mute|leave) this thread|don't (?:reply|participate|watch))\\b",
                 RegexOption.IGNORE_CASE,
             )
     }

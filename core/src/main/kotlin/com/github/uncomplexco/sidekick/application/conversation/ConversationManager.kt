@@ -20,6 +20,17 @@ class ConversationManager(
 ) {
     fun exists(conversationId: ConversationId): Boolean = store.exists(conversationId)
 
+    fun isSubscribed(conversationId: ConversationId): Boolean = store.load(conversationId).subscribed
+
+    suspend fun setSubscribed(
+        conversationId: ConversationId,
+        subscribed: Boolean,
+    ) = store.withSessionLock(conversationId) {
+        val state = store.load(conversationId)
+        state.subscribed = subscribed
+        store.save(conversationId, state)
+    }
+
     suspend fun recordIncomingMessages(
         conversationId: ConversationId,
         seedHistory: Boolean,

@@ -14,7 +14,7 @@ import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.turn.koog.SidekickAgent
-import org.slf4j.LoggerFactory
+import com.github.uncomplexco.sidekick.application.utils.Loggers
 import org.springframework.stereotype.Component
 
 @Component
@@ -112,6 +112,7 @@ class TurnExecutor(
 
         if (shouldReply.shouldReply) {
             chat.activity.`continue`()
+            conversationManager.setSubscribed(decision.conversationId, true)
 
             val agentReply = agent.runTurn(turn, currentMessage, chat)
             val replyMessageId = chat.reply.postReply(agentReply)
@@ -124,6 +125,17 @@ class TurnExecutor(
                 createdAtMs = replyMessageId.timestamp,
                 originalMessageId = message.id,
             )
+        } else if (shouldReply.shouldUnsubscribe) {
+            log.debug(
+                "Unsubscribing session for message id=${message.id}: ${shouldReply.reason} ${shouldReply.detail}",
+            )
+            conversationManager.markMessageSkipped(
+                conversationId = decision.conversationId,
+                messageId = message.id,
+                reason = shouldReply.reason.toString(),
+            )
+            conversationManager.setSubscribed(decision.conversationId, false)
+            runCatching { chat.reply.postReply(UNSUBSCRIBE_ACK) }
         } else {
             log.debug(
                 "Skipping reply for message id=${message.id}: ${shouldReply.reason} ${shouldReply.detail}",
@@ -138,6 +150,7 @@ class TurnExecutor(
 
     companion object {
         private const val MAX_MESSAGE_FILES = 3
-        private val log = LoggerFactory.getLogger("sidekick.turn-executor")
+        private const val UNSUBSCRIBE_ACK = "Unsubscribed. Mention me to resume."
+        private val log = Loggers.TURN_EXECUTOR
     }
 }
