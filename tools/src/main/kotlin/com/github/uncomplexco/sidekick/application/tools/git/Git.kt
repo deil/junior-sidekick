@@ -66,7 +66,9 @@ class GitTools(
     }
 
     @Tool("git__push")
-    @LLMDescription("Push the current branch upstream from a Git repository in the project workspace")
+    @LLMDescription(
+        "Update remote refs along with associated objects. Use instead of direct 'git push' invocation for private repositories.",
+    )
     fun push(
         @LLMDescription("Repository folder path")
         path: String,
@@ -100,6 +102,37 @@ class GitTools(
             git.push(checkout, sshKeyFile, branch, tags).toToolResult(virtualPaths)
         } catch (error: IllegalArgumentException) {
             throw ToolException.ValidationFailure(error.message ?: "Invalid git push request")
+        }
+    }
+
+    @Tool("git__pull")
+    @LLMDescription(
+        "Fetch from and integrate with another repository or a local branch. Use instead of direct 'git pull' invocation for private repositories",
+    )
+    fun pull(
+        @LLMDescription("Repository folder path")
+        path: String,
+        @LLMDescription("Name of a remote that is the source of a fetch or pull operation")
+        remote: String,
+        @LLMDescription("Specifies which refs to fetch and which local refs to update")
+        refspec: String,
+    ): GitPullResult {
+        validate(path.isNotBlank()) { "'path' is required" }
+        validate(remote.isNotBlank()) { "'remote' is required" }
+        validate(refspec.isNotBlank()) { "'refspec' is required" }
+
+        val checkout = resolveProjectPath(path)
+        validate(!Files.isSymbolicLink(checkout)) { "'path' must not be a symbolic link" }
+        validate(git.isGitRepository(checkout)) { "'path' is not a Git repository" }
+
+        val remoteUrl = git.remoteUrl(checkout, remote) ?: throw ToolException.ValidationFailure("Git repository remote has no URL")
+        val repository = parseRepositoryUrl(remoteUrl)
+        val sshKeyFile = sshKeyFile(repository.provider)
+
+        return try {
+            git.pull(checkout, sshKeyFile, remote, refspec).toToolResult(virtualPaths)
+        } catch (error: IllegalArgumentException) {
+            throw ToolException.ValidationFailure(error.message ?: "Invalid git pull request")
         }
     }
 
@@ -155,7 +188,11 @@ class GitTools(
         }
 
         val rootPath = root.real.toAbsolutePath().normalize()
-        val checkout = root.real.resolve(relative).toAbsolutePath().normalize()
+        val checkout =
+            root.real
+                .resolve(relative)
+                .toAbsolutePath()
+                .normalize()
         if (!checkout.startsWith(rootPath)) {
             throw ToolException.ValidationFailure("Path must be under a writable workspace root")
         }
@@ -246,6 +283,11 @@ interface GitRepository {
 
     fun originUrl(checkout: Path): String?
 
+    fun remoteUrl(
+        checkout: Path,
+        remote: String,
+    ): String?
+
     fun pushPlan(
         checkout: Path,
         branch: String?,
@@ -257,6 +299,13 @@ interface GitRepository {
         branch: String?,
         tags: Boolean,
     ): GitPushState
+
+    fun pull(
+        checkout: Path,
+        sshKeyFile: String,
+        remote: String,
+        refspec: String,
+    ): GitPullState
 }
 
 @Serializable
@@ -324,6 +373,27 @@ data class GitPushState(
     val message: String,
 )
 
+@Serializable
+data class GitPullResult(
+    val path: String,
+    val branch: String,
+    val commit_hash: String,
+    val remote: String,
+    val upstream: String,
+    val status: String,
+    val message: String,
+)
+
+data class GitPullState(
+    val path: Path,
+    val branch: String,
+    val commitHash: String,
+    val remote: String,
+    val upstream: String,
+    val status: GitPullStatus,
+    val message: String,
+)
+
 enum class GitRepositoryStatus {
     CLONED,
     FETCHED_FAST_FORWARDED,
@@ -349,6 +419,15 @@ enum class GitPushStatus {
     NO_REMOTE,
 }
 
+enum class GitPullStatus {
+    FAST_FORWARDED,
+    UP_TO_DATE,
+    MERGED,
+    CONFLICTING,
+    CHECKOUT_CONFLICT,
+    FAILED,
+}
+
 private fun GitRepositoryState.toToolResult(virtualPaths: VirtualPaths): GitCloneResult =
     GitCloneResult(
         path = virtualPaths.virtualPath(path.pathString),
@@ -365,6 +444,17 @@ private fun GitPushState.toToolResult(virtualPaths: VirtualPaths): GitPushResult
         remote = remote,
         upstream = upstream,
         dirty = dirty,
+        status = status.name.lowercase(),
+        message = message,
+    )
+
+private fun GitPullState.toToolResult(virtualPaths: VirtualPaths): GitPullResult =
+    GitPullResult(
+        path = virtualPaths.virtualPath(path.pathString),
+        branch = branch,
+        commit_hash = commitHash,
+        remote = remote,
+        upstream = upstream,
         status = status.name.lowercase(),
         message = message,
     )

@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.jgit
 
 import com.github.uncomplexco.sidekick.application.tools.git.GitRepositoryStatus
+import com.github.uncomplexco.sidekick.application.tools.git.GitPullStatus
 import com.github.uncomplexco.sidekick.application.tools.git.GitPushStatus
 import org.eclipse.jgit.api.Git
 import org.junit.jupiter.api.Test
@@ -50,6 +51,27 @@ class JGitRepositoryTest {
         assertEquals(GitRepositoryStatus.FETCHED_DIVERGED, result.status)
         assertEquals(head(checkout), result.commitHash)
         assertEquals(false, result.commitHash == originalHead)
+    }
+
+    @Test
+    fun `pull fast-forwards current branch from remote refspec`() {
+        // Arrange
+        val remote = createRepository("remote")
+        commit(remote, "one")
+        val checkout = dir.resolve("checkout")
+        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        val branch = currentBranch(checkout)
+        commit(remote, "two")
+        val expectedHead = head(remote)
+
+        // Act
+        val result = JGitRepository().pull(checkout, sshKeyFile = "ignored", remote = "origin", refspec = branch)
+
+        // Assert
+        assertEquals(GitPullStatus.FAST_FORWARDED, result.status)
+        assertEquals(branch, result.branch)
+        assertEquals(expectedHead, result.commitHash)
+        assertEquals(expectedHead, head(checkout))
     }
 
     @Test

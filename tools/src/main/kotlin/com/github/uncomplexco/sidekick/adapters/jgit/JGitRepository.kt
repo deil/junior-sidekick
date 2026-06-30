@@ -3,6 +3,8 @@ package com.github.uncomplexco.sidekick.adapters.jgit
 import com.github.uncomplexco.sidekick.application.tools.git.GitPushPlan
 import com.github.uncomplexco.sidekick.application.tools.git.GitPushState
 import com.github.uncomplexco.sidekick.application.tools.git.GitPushStatus
+import com.github.uncomplexco.sidekick.application.tools.git.GitPullState
+import com.github.uncomplexco.sidekick.application.tools.git.GitPullStatus
 import com.github.uncomplexco.sidekick.application.tools.git.GitRepository
 import com.github.uncomplexco.sidekick.application.tools.git.GitRepositoryState
 import com.github.uncomplexco.sidekick.application.tools.git.GitRepositoryStatus
@@ -57,6 +59,14 @@ class JGitRepository : GitRepository {
             git.repository.config.getString("remote", REMOTE_ORIGIN, "url")
         }
 
+    override fun remoteUrl(
+        checkout: Path,
+        remote: String,
+    ): String? =
+        Git.open(checkout.toFile()).use { git ->
+            git.repository.config.getString("remote", remote, "url")
+        }
+
     override fun pushPlan(
         checkout: Path,
         branch: String?,
@@ -89,6 +99,47 @@ class JGitRepository : GitRepository {
                 plan.toState(status, message)
             }.getOrElse { error ->
                 plan.toState(GitPushStatus.FAILED, error.message ?: "Git push failed")
+            }
+        }
+    }
+
+    override fun pull(
+        checkout: Path,
+        sshKeyFile: String,
+        remote: String,
+        refspec: String,
+    ): GitPullState {
+        Git.open(checkout.toFile()).use { git ->
+            return runCatching {
+                val oldHead = git.repository.resolve(HEAD)?.name
+                val result =
+                    git
+                        .pull()
+                        .setRemote(remote)
+                        .setRemoteBranchName(refspec)
+                        .applySsh(sshKeyFile, checkout)
+                        .call()
+                val newHead = git.repository.resolve(HEAD).name
+                val status = result.mergeResult?.mergeStatus.toPullStatus(result.isSuccessful, oldHead != newHead)
+                GitPullState(
+                    path = checkout,
+                    branch = git.repository.currentBranch(),
+                    commitHash = newHead,
+                    remote = remote,
+                    upstream = refspec,
+                    status = status,
+                    message = result.mergeResult?.mergeStatus?.name ?: if (result.isSuccessful) "up to date" else "Git pull failed",
+                )
+            }.getOrElse { error ->
+                GitPullState(
+                    path = checkout,
+                    branch = git.repository.currentBranch(),
+                    commitHash = git.repository.resolve(HEAD)?.name ?: "",
+                    remote = remote,
+                    upstream = refspec,
+                    status = GitPullStatus.FAILED,
+                    message = error.message ?: "Git pull failed",
+                )
             }
         }
     }
@@ -167,6 +218,29 @@ class JGitRepository : GitRepository {
             if (tags) {
                 add(RefSpec("refs/tags/*:refs/tags/*"))
             }
+        }
+
+    private fun MergeResult.MergeStatus?.toPullStatus(
+        successful: Boolean,
+        headChanged: Boolean,
+    ): GitPullStatus =
+        when (this) {
+            MergeResult.MergeStatus.FAST_FORWARD -> GitPullStatus.FAST_FORWARDED
+            MergeResult.MergeStatus.ALREADY_UP_TO_DATE -> GitPullStatus.UP_TO_DATE
+            MergeResult.MergeStatus.MERGED,
+            MergeResult.MergeStatus.MERGED_NOT_COMMITTED,
+            MergeResult.MergeStatus.MERGED_SQUASHED,
+            MergeResult.MergeStatus.MERGED_SQUASHED_NOT_COMMITTED,
+            -> GitPullStatus.MERGED
+
+            MergeResult.MergeStatus.CONFLICTING -> GitPullStatus.CONFLICTING
+            MergeResult.MergeStatus.CHECKOUT_CONFLICT -> GitPullStatus.CHECKOUT_CONFLICT
+            else ->
+                when {
+                    !successful -> GitPullStatus.FAILED
+                    headChanged -> GitPullStatus.FAST_FORWARDED
+                    else -> GitPullStatus.UP_TO_DATE
+                }
         }
 
     companion object {

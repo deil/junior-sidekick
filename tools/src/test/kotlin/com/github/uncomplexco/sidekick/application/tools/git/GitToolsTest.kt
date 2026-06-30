@@ -245,6 +245,29 @@ class GitToolsTest {
         }
     }
 
+    @Test
+    fun `pulls remote refspec using provider key`() {
+        // Arrange
+        val checkout = Files.createDirectories(dir.resolve("project/repo"))
+        val git = FakeGitRepository(gitRepositories = setOf(checkout), origins = mapOf(checkout to "git@github.com:acme/repo.git"))
+        val tools = tools(git)
+
+        // Act
+        val result = tools.pull("/data/project/repo", remote = "origin", refspec = "main")
+
+        // Assert
+        assertEquals("/data/project/repo", result.path)
+        assertEquals("main", result.branch)
+        assertEquals("jkl012", result.commit_hash)
+        assertEquals("origin", result.remote)
+        assertEquals("main", result.upstream)
+        assertEquals("fast_forwarded", result.status)
+        assertEquals(checkout, git.pulledCheckout)
+        assertEquals("/keys/github", git.pulledSshKeyFile)
+        assertEquals("origin", git.pulledRemote)
+        assertEquals("main", git.pulledRefspec)
+    }
+
     private fun tools(git: FakeGitRepository): GitTools {
         val config = GitToolConfig()
         config.github.sshKeyFile = "/keys/github"
@@ -276,6 +299,10 @@ private class FakeGitRepository(
     var pushedSshKeyFile: String? = null
     var pushedBranch: String? = null
     var pushedTags: Boolean? = null
+    var pulledCheckout: Path? = null
+    var pulledSshKeyFile: String? = null
+    var pulledRemote: String? = null
+    var pulledRefspec: String? = null
 
     override fun clone(
         url: String,
@@ -302,6 +329,11 @@ private class FakeGitRepository(
     override fun isGitRepository(checkout: Path): Boolean = checkout in gitRepositories
 
     override fun originUrl(checkout: Path): String? = origins[checkout]
+
+    override fun remoteUrl(
+        checkout: Path,
+        remote: String,
+    ): String? = origins[checkout]
 
     override fun pushPlan(
         checkout: Path,
@@ -341,6 +373,27 @@ private class FakeGitRepository(
             upstream = "refs/heads/$selectedBranch",
             status = GitPushStatus.PUSHED,
             message = "refs/heads/$selectedBranch: ok",
+        )
+    }
+
+    override fun pull(
+        checkout: Path,
+        sshKeyFile: String,
+        remote: String,
+        refspec: String,
+    ): GitPullState {
+        pulledCheckout = checkout
+        pulledSshKeyFile = sshKeyFile
+        pulledRemote = remote
+        pulledRefspec = refspec
+        return GitPullState(
+            path = checkout,
+            branch = "main",
+            commitHash = "jkl012",
+            remote = remote,
+            upstream = refspec,
+            status = GitPullStatus.FAST_FORWARDED,
+            message = "FAST_FORWARD",
         )
     }
 }
