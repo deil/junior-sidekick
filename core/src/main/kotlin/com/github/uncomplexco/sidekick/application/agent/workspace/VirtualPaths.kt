@@ -2,6 +2,8 @@ package com.github.uncomplexco.sidekick.application.agent.workspace
 
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.onProjectCreated
+import com.github.uncomplexco.sidekick.application.agent.onWorkCreated
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
 import org.springframework.stereotype.Component
@@ -72,6 +74,7 @@ class VirtualPathsFactory(
                 .resolve(sanitizePathSegment(conversationId.lockKey()))
                 .resolve("work")
         Files.createDirectories(workRoot)
+        onWorkCreated(config, workRoot)
         val projectRoot =
             Files.createDirectories(
                 config
@@ -79,6 +82,7 @@ class VirtualPathsFactory(
                     .resolve("projects")
                     .resolve(sanitizePathSegment(conversationId.channelId)),
             )
+        onProjectCreated(config, projectRoot)
 
         return VirtualPaths(
             sessionRoot = attachmentsRoot,

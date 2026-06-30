@@ -29,6 +29,37 @@ class VirtualPathTest {
         assertEquals(true, Files.isDirectory(virtualPaths.sessionRoot))
     }
 
+    @Test
+    fun `factory copies work and project templates`() {
+        val stateRoot = dir.resolve("state")
+        val workingRoot = dir.resolve("workspace")
+        Files.createDirectories(workingRoot.resolve("templates/work/bin"))
+        Files.writeString(workingRoot.resolve("templates/work/bin/tool.sh"), "work\n")
+        Files.createDirectories(workingRoot.resolve("templates/project/docs"))
+        Files.writeString(workingRoot.resolve("templates/project/docs/readme.md"), "project\n")
+        val conversationId = ConversationId("C123", "1700000000.000")
+
+        val virtualPaths = VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString())).forConversation(conversationId)
+
+        assertEquals("work\n", Files.readString(virtualPaths.workRoot.resolve("bin/tool.sh")))
+        assertEquals("project\n", Files.readString(virtualPaths.projectRoot.resolve("docs/readme.md")))
+    }
+
+    @Test
+    fun `factory does not overwrite existing files with templates`() {
+        val stateRoot = dir.resolve("state")
+        val workingRoot = dir.resolve("workspace")
+        Files.createDirectories(workingRoot.resolve("templates/project"))
+        Files.writeString(workingRoot.resolve("templates/project/config.txt"), "template\n")
+        Files.createDirectories(workingRoot.resolve("projects/C123"))
+        Files.writeString(workingRoot.resolve("projects/C123/config.txt"), "existing\n")
+        val conversationId = ConversationId("C123", "1700000000.000")
+
+        val virtualPaths = VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString())).forConversation(conversationId)
+
+        assertEquals("existing\n", Files.readString(virtualPaths.projectRoot.resolve("config.txt")))
+    }
+
     @ParameterizedTest
     @MethodSource("virtualToRealCases")
     fun `maps virtual paths to real paths`(
