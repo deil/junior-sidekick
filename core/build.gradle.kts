@@ -25,6 +25,7 @@ dependencies {
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.7.0.202606012155-r")
 
     implementation("ai.koog:koog-agents:1.0.0")
+    implementation("ai.koog:prompt-executor-openrouter-client:1.0.0")
     implementation("io.modelcontextprotocol:kotlin-sdk-client:0.13.0")
     implementation("io.modelcontextprotocol:kotlin-sdk-core:0.13.0")
 

@@ -1,12 +1,13 @@
 package com.github.uncomplexco.sidekick.application.agent
 
-import ai.koog.prompt.executor.clients.openai.OpenAIChatParams
 import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
+import ai.koog.prompt.executor.clients.openrouter.OpenRouterParams
+import ai.koog.prompt.executor.clients.openrouter.models.ProviderPreferences
 import ai.koog.prompt.llm.LLMCapability
 import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Configuration
 import java.nio.file.Files
@@ -94,19 +95,17 @@ class KoogConfig(
             ConversationIntelligenceLevel.ULTRATHINK -> ultrathinkProfile
         }
 
-    fun openRouterParams(profile: LlmProfile = normalProfile): OpenAIChatParams =
-        OpenAIChatParams(
-            reasoningEffort = profile.reasoningEffort,
+    fun openRouterParams(profile: LlmProfile = normalProfile): OpenRouterParams =
+        OpenRouterParams(
+            provider =
+                ProviderPreferences(
+                    only = listOf(profile.provider),
+                ),
             additionalProperties =
                 mapOf(
-                    "provider" to
+                    "reasoning" to
                         buildJsonObject {
-                            put(
-                                "only",
-                                buildJsonArray {
-                                    add(JsonPrimitive(profile.provider))
-                                },
-                            )
+                            put("effort", JsonPrimitive(profile.reasoningEffort.name.lowercase()))
                         },
                 ),
         )
