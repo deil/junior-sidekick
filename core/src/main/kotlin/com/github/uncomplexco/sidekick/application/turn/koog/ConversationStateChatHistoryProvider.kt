@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.turn.koog
 
 import ai.koog.agents.chatMemory.feature.ChatHistoryProvider
 import ai.koog.prompt.message.Message
+import ai.koog.prompt.message.MessagePart
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import org.springframework.stereotype.Component
@@ -26,10 +27,23 @@ class ConversationStateChatHistoryProvider(
         val id = ConversationId.fromLockKey(conversationId)
         store.withSessionLock(id) {
             val state = store.load(id)
-            state.koogMessages = messages.map { it.withIdIfMissing() }.toMutableList()
+            val messagesWithIds = messages.map { it.withIdIfMissing() }
+            state.koogMessages = messagesWithIds.toMutableList()
+            state.stats =
+                state.stats.copy(
+                    totalTokens = messagesWithIds.latestTotalTokens(),
+                    messages = messagesWithIds.count { it is Message.User || it is Message.Assistant },
+                    toolCalls = messagesWithIds.sumOf { message -> message.parts.count { it is MessagePart.Tool.Call } },
+                )
             store.save(id, state)
         }
     }
+
+    private fun List<Message>.latestTotalTokens(): Int? =
+        filterIsInstance<Message.Assistant>()
+            .lastOrNull()
+            ?.metaInfo
+            ?.totalTokensCount
 
     private fun Message.withIdIfMissing(): Message =
         when (this) {

@@ -7,6 +7,7 @@ import ai.koog.prompt.message.ResponseMetaInfo
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
+import com.github.uncomplexco.sidekick.application.conversation.ConversationStats
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -86,6 +87,26 @@ class FilesystemConversationStateStoreTest {
 
         // Assert
         assertEquals(false, loaded.subscribed)
+    }
+
+    @Test
+    fun `stores conversation stats in stats json`() {
+        // Arrange
+        val store = store()
+        val conversationId = ConversationId("C123", "1700000000.000")
+
+        // Act
+        val state = store.load(conversationId)
+        state.stats = ConversationStats(totalTokens = 123, messages = 4, toolCalls = 2)
+        store.save(conversationId, state)
+        val loaded = store.load(conversationId)
+
+        // Assert
+        assertEquals(123, loaded.stats.totalTokens)
+        assertEquals(4, loaded.stats.messages)
+        assertEquals(2, loaded.stats.toolCalls)
+        assertEquals(true, Files.exists(dir.resolve("state/slack/channels/C123/threads/1700000000.000/stats.json")))
+        assertEquals(false, Files.exists(dir.resolve("state/slack/channels/C123/threads/1700000000.000/inflight.json")))
     }
 
     private fun store(): FilesystemConversationStateStore =

@@ -28,7 +28,7 @@ data class ConversationState(
     var compactions: MutableList<SessionCompaction> = mutableListOf(),
     var messages: MutableList<SessionMessage> = mutableListOf(),
     var koogMessages: MutableList<Message> = mutableListOf(),
-    var inflight: ConversationInFlightState = ConversationInFlightState(),
+    var stats: ConversationStats = ConversationStats(),
 )
 
 @Serializable
@@ -83,7 +83,10 @@ data class SessionCompaction(
 )
 
 @Serializable
-data class ConversationInFlightState(
+data class ConversationStats(
     val activeTurnId: String? = null,
     val lastCompletedAtMs: Long? = null,
+    val totalTokens: Int? = null,
+    val messages: Int = 0,
+    val toolCalls: Int = 0,
 )

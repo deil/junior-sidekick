@@ -3,8 +3,8 @@ package com.github.uncomplexco.sidekick.adapters.files
 import ai.koog.prompt.message.Message
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.ConversationInFlightState
 import com.github.uncomplexco.sidekick.application.conversation.ConversationSettings
+import com.github.uncomplexco.sidekick.application.conversation.ConversationStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationState
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
@@ -47,11 +47,11 @@ class FilesystemConversationStateStore(
                 ConversationSettings(),
             )
 
-        val inflight =
+        val stats =
             loadJson(
-                folder.resolve("inflight.json"),
-                ConversationInFlightState.serializer(),
-                ConversationInFlightState(),
+                folder.resolve("stats.json"),
+                ConversationStats.serializer(),
+                ConversationStats(),
             )
 
         return ConversationState(
@@ -62,7 +62,7 @@ class FilesystemConversationStateStore(
             compactions = compactions.sortedBy { it.createdAtMs }.toMutableList(),
             messages = messages.sortedBy { it.createdAtMs }.toMutableList(),
             koogMessages = koogMessages.toMutableList(),
-            inflight = inflight,
+            stats = stats,
         )
     }
 
@@ -84,7 +84,7 @@ class FilesystemConversationStateStore(
                 subscribed = state.subscribed,
             ),
         )
-        writeJson(folder.resolve("inflight.json"), ConversationInFlightState.serializer(), state.inflight)
+        writeJson(folder.resolve("stats.json"), ConversationStats.serializer(), state.stats)
     }
 
     override suspend fun <T> withSessionLock(

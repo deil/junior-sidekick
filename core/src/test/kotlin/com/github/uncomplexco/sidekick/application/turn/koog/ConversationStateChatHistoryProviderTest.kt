@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.turn.koog
 
 import ai.koog.prompt.message.Message
+import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
@@ -39,6 +40,46 @@ class ConversationStateChatHistoryProviderTest {
             // Assert
             assertEquals("existing-id", saved[0].id)
             assertNotNull(saved[1].id)
+        }
+
+    @Test
+    fun `updates stats from stored koog messages`() =
+        runBlocking {
+            // Arrange
+            val store = store()
+            val provider = ConversationStateChatHistoryProvider(store)
+            val requestMetaInfo = RequestMetaInfo(Instant.parse("2026-01-01T00:00:00Z"))
+            val firstResponseMetaInfo =
+                ResponseMetaInfo(
+                    timestamp = Instant.parse("2026-01-01T00:00:01Z"),
+                    totalTokensCount = 100,
+                    inputTokensCount = 90,
+                    outputTokensCount = 10,
+                )
+            val latestResponseMetaInfo =
+                ResponseMetaInfo(
+                    timestamp = Instant.parse("2026-01-01T00:00:02Z"),
+                    totalTokensCount = 250,
+                    inputTokensCount = 230,
+                    outputTokensCount = 20,
+                )
+            val messages =
+                listOf(
+                    Message.System("system", requestMetaInfo),
+                    Message.User("hello", requestMetaInfo),
+                    Message.Assistant(MessagePart.Tool.Call("call-1", "lookup", "{}"), firstResponseMetaInfo),
+                    Message.User(MessagePart.Tool.Result("call-1", "lookup", "result"), requestMetaInfo),
+                    Message.Assistant("done", latestResponseMetaInfo),
+                )
+
+            // Act
+            provider.store("C123:1700000000.000", messages)
+            val stats = store.load(ConversationId("C123", "1700000000.000")).stats
+
+            // Assert
+            assertEquals(250, stats.totalTokens)
+            assertEquals(4, stats.messages)
+            assertEquals(1, stats.toolCalls)
         }
 
     private fun store(): FilesystemConversationStateStore =

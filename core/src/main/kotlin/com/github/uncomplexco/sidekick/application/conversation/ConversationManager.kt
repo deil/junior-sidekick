@@ -102,9 +102,9 @@ class ConversationManager(
             ),
         )
 
-        if (state.inflight.activeTurnId == turnId) {
-            state.inflight =
-                state.inflight.copy(
+        if (state.stats.activeTurnId == turnId) {
+            state.stats =
+                state.stats.copy(
                     activeTurnId = null,
                     lastCompletedAtMs = createdAtMs,
                 )
