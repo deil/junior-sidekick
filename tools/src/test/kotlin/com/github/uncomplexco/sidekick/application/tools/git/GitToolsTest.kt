@@ -139,6 +139,7 @@ class GitToolsTest {
         assertEquals(checkout, git.pushedCheckout)
         assertEquals("/keys/github", git.pushedSshKeyFile)
         assertEquals(null, git.pushedBranch)
+        assertEquals(false, git.pushedAll)
         assertEquals(false, git.pushedTags)
     }
 
@@ -150,7 +151,7 @@ class GitToolsTest {
         val tools = tools(git)
 
         // Act
-        val result = tools.push("/data/project/repo", branch = "release")
+        val result = tools.push("/data/project/repo", refspec = "release")
 
         // Assert
         assertEquals("release", result.branch)
@@ -170,6 +171,34 @@ class GitToolsTest {
 
         // Assert
         assertEquals(true, git.pushedTags)
+    }
+
+    @Test
+    fun `pushes all branches when all option is true`() {
+        // Arrange
+        val checkout = Files.createDirectories(dir.resolve("project/repo"))
+        val git = FakeGitRepository(gitRepositories = setOf(checkout))
+        val tools = tools(git)
+
+        // Act
+        tools.push("/data/project/repo", all = true)
+
+        // Assert
+        assertEquals(true, git.pushedAll)
+        assertEquals(null, git.pushedBranch)
+    }
+
+    @Test
+    fun `push rejects all with refspec`() {
+        // Arrange
+        val checkout = Files.createDirectories(dir.resolve("project/repo"))
+        val git = FakeGitRepository(gitRepositories = setOf(checkout))
+        val tools = tools(git)
+
+        // Act / Assert
+        assertThrows<ToolException.ValidationFailure> {
+            tools.push("/data/project/repo", refspec = "release", all = true)
+        }
     }
 
     @Test
@@ -298,6 +327,7 @@ private class FakeGitRepository(
     var pushedCheckout: Path? = null
     var pushedSshKeyFile: String? = null
     var pushedBranch: String? = null
+    var pushedAll: Boolean? = null
     var pushedTags: Boolean? = null
     var pulledCheckout: Path? = null
     var pulledSshKeyFile: String? = null
@@ -357,12 +387,14 @@ private class FakeGitRepository(
         checkout: Path,
         sshKeyFile: String,
         branch: String?,
+        all: Boolean,
         tags: Boolean,
     ): GitPushState {
         val selectedBranch = branch ?: "main"
         pushedCheckout = checkout
         pushedSshKeyFile = sshKeyFile
         pushedBranch = branch
+        pushedAll = all
         pushedTags = tags
         return GitPushState(
             path = checkout,

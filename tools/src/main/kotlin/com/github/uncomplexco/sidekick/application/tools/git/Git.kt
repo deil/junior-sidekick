@@ -67,18 +67,27 @@ class GitTools(
 
     @Tool("git__push")
     @LLMDescription(
-        "Update remote refs along with associated objects. Use instead of direct 'git push' invocation for private repositories.",
+        "Update remote refs along with associated objects. Use instead of direct 'git push' invocation for private repositories",
     )
     fun push(
         @LLMDescription("Repository folder path")
         path: String,
-        @LLMDescription("Branch name to push. Equivalent to 'git push origin <branch>'. Defaults to the current branch upstream")
-        branch: String? = null,
-        @LLMDescription("Also push all tags, equivalent to 'git push --tags'")
+        @LLMDescription(
+            "What destination ref to update with what source object. Equivalent to 'git push origin <branch>'. Defaults to the current branch upstream",
+        )
+        refspec: String? = null,
+        @LLMDescription(
+            "Push all branches (i.e. refs under refs/heads/); cannot be used with other <refspec>. Equivalent to 'git push --all",
+        )
+        all: Boolean = false,
+        @LLMDescription(
+            "All refs under refs/tags are pushed, in addition to refspecs explicitly listed in <refspec>. Equivalent to 'git push --tags'",
+        )
         tags: Boolean = false,
     ): GitPushResult {
         validate(path.isNotBlank()) { "'path' is required" }
-        validate(branch == null || branch.isNotBlank()) { "'branch' must not be blank" }
+        validate(refspec == null || refspec.isNotBlank()) { "'branch' must not be blank" }
+        validate(!all || refspec == null) { "'all' cannot be used with 'refspec'" }
 
         val checkout = resolveProjectPath(path)
         validate(!Files.isSymbolicLink(checkout)) { "'path' must not be a symbolic link" }
@@ -86,7 +95,7 @@ class GitTools(
 
         val plan =
             try {
-                git.pushPlan(checkout, branch)
+                git.pushPlan(checkout, refspec)
             } catch (error: IllegalArgumentException) {
                 throw ToolException.ValidationFailure(error.message ?: "Invalid git push request")
             }
@@ -99,7 +108,7 @@ class GitTools(
         val sshKeyFile = sshKeyFile(repository.provider)
 
         return try {
-            git.push(checkout, sshKeyFile, branch, tags).toToolResult(virtualPaths)
+            git.push(checkout, sshKeyFile, refspec, all, tags).toToolResult(virtualPaths)
         } catch (error: IllegalArgumentException) {
             throw ToolException.ValidationFailure(error.message ?: "Invalid git push request")
         }
@@ -297,6 +306,7 @@ interface GitRepository {
         checkout: Path,
         sshKeyFile: String,
         branch: String?,
+        all: Boolean,
         tags: Boolean,
     ): GitPushState
 

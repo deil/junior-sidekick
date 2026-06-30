@@ -79,6 +79,7 @@ class JGitRepository : GitRepository {
         checkout: Path,
         sshKeyFile: String,
         branch: String?,
+        all: Boolean,
         tags: Boolean,
     ): GitPushState {
         Git.open(checkout.toFile()).use { git ->
@@ -90,7 +91,16 @@ class JGitRepository : GitRepository {
                     git
                         .push()
                         .setRemote(plan.remote!!)
-                        .setRefSpecs(pushRefSpecs(plan, tags))
+                        .apply {
+                            if (all) {
+                                setPushAll()
+                                if (tags) {
+                                    setPushTags()
+                                }
+                            } else {
+                                setRefSpecs(pushRefSpecs(plan, tags))
+                            }
+                        }
                         .applySsh(sshKeyFile, checkout)
                         .call()
                         .flatMap { result -> result.remoteUpdates }
