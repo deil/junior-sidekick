@@ -40,3 +40,9 @@ kotlin {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+dependencyManagement {
+    imports {
+        mavenBom("org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.11.0")
+    }
+}
