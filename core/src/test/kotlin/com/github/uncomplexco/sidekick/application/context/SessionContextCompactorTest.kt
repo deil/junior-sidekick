@@ -3,8 +3,9 @@ package com.github.uncomplexco.sidekick.application.context
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationState
+import com.github.uncomplexco.sidekick.application.conversation.ConversationStats
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
-import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
+import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import kotlinx.coroutines.runBlocking
@@ -33,7 +34,7 @@ class SessionContextCompactorTest {
                 )
 
             // Act
-            compactor.compactIfNeeded(state)
+            compactor.compactIfNeeded(state) {}
 
             // Assert
             assertEquals(0, summarizer.batches.size)
@@ -42,13 +43,14 @@ class SessionContextCompactorTest {
         }
 
     @Test
-    fun `compacts oldest batch and keeps latest live messages`() =
+    fun `compacts oldest messages and keeps latest live messages`() =
         runBlocking {
             // Arrange
             val summarizer = RecordingSummarizer()
             val compactor = compactor(summarizer)
             val state =
                 state(
+                    totalTokens = 201_000,
                     messages =
                         (1..37).map {
                             message(id = "m$it", createdAtMs = it.toLong(), text = longText())
@@ -56,23 +58,24 @@ class SessionContextCompactorTest {
                 )
 
             // Act
-            compactor.compactIfNeeded(state)
+            compactor.compactIfNeeded(state) {}
 
             // Assert
-            assertEquals(listOf((1..24).map { "m$it" }), summarizer.batches)
+            assertEquals(listOf((1..21).map { "m$it" }), summarizer.batches)
             assertEquals(1, state.compactions.size)
-            assertEquals((1..24).map { "m$it" }, state.compactions.single().coveredMessageIds)
-            assertEquals((25..37).map { "m$it" }, state.messages.map { it.id })
+            assertEquals((1..21).map { "m$it" }, state.compactions.single().coveredMessageIds)
+            assertEquals((22..37).map { "m$it" }, state.messages.map { it.id })
         }
 
     @Test
-    fun `compacts repeatedly until target or minimum live messages`() =
+    fun `compacts once and preserves minimum live messages`() =
         runBlocking {
             // Arrange
             val summarizer = RecordingSummarizer()
             val compactor = compactor(summarizer)
             val state =
                 state(
+                    totalTokens = 201_000,
                     messages =
                         (1..60).map {
                             message(id = "m$it", createdAtMs = it.toLong(), text = longText())
@@ -80,19 +83,13 @@ class SessionContextCompactorTest {
                 )
 
             // Act
-            compactor.compactIfNeeded(state)
+            compactor.compactIfNeeded(state) {}
 
             // Assert
-            assertEquals(
-                listOf(
-                    (1..24).map { "m$it" },
-                    (25..48).map { "m$it" },
-                ),
-                summarizer.batches,
-            )
-            assertEquals(2, state.compactions.size)
-            assertEquals((49..60).map { "m$it" }, state.messages.map { it.id })
-            assertTrue(state.messages.size >= 12)
+            assertEquals(listOf((1..44).map { "m$it" }), summarizer.batches)
+            assertEquals(1, state.compactions.size)
+            assertEquals((45..60).map { "m$it" }, state.messages.map { it.id })
+            assertTrue(state.messages.size >= 16)
         }
 
     @Test
@@ -103,8 +100,9 @@ class SessionContextCompactorTest {
             val compactor = compactor(summarizer)
             val state =
                 state(
+                    totalTokens = 201_000,
                     messages =
-                        (1..37).map {
+                        (1..40).map {
                             message(
                                 id = "m$it",
                                 createdAtMs = it.toLong(),
@@ -115,25 +113,23 @@ class SessionContextCompactorTest {
                 )
 
             // Act
-            compactor.compactIfNeeded(state)
+            compactor.compactIfNeeded(state) {}
 
             // Assert
             assertEquals(8, state.compactions.single().assistantMessageCount)
         }
 
-    private fun compactor(summarizer: RecordingSummarizer): SessionContextCompactor {
-        val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
-        return SessionContextCompactor(
-            TurnPromptBuilder(config, skills = { com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog(emptyList()) }),
-            summarizer,
-        )
-    }
+    private fun compactor(summarizer: RecordingSummarizer): SessionContextCompactor = SessionContextCompactor(summarizer)
 
-    private fun state(messages: List<SessionMessage>): ConversationState =
+    private fun state(
+        messages: List<SessionMessage>,
+        totalTokens: Int = 0,
+    ): ConversationState =
         ConversationState(
             id = ConversationId("C123", "1700000000.000"),
             files = mutableListOf(),
             messages = messages.toMutableList(),
+            stats = ConversationStats(totalTokens = totalTokens),
         )
 
     private fun message(
@@ -158,8 +154,8 @@ class SessionContextCompactorTest {
 
         override suspend fun summarize(
             conversationId: ConversationId,
+            compactions: List<SessionCompaction>,
             messages: List<SessionMessage>,
-            files: List<SessionFileRef>,
         ): String {
             batches += messages.map { it.id }
             return "summary for ${messages.first().id}..${messages.last().id}"

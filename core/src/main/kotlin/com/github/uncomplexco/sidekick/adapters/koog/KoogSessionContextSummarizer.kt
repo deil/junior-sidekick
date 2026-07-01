@@ -6,34 +6,52 @@ import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.context.SessionContextSummarizer
-import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags
 import com.github.uncomplexco.sidekick.application.context.prompts.Prompts
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
+import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.utils.Loggers
-import org.slf4j.LoggerFactory
+import com.github.uncomplexco.sidekick.application.utils.trimEnd
+import com.github.uncomplexco.sidekick.application.utils.trimStart
+import com.github.uncomplexco.sidekick.application.utils.xmlTag
 import org.springframework.stereotype.Component
 
 @Component
 class KoogSessionContextSummarizer(
     private val config: KoogConfig,
-    private val turnPromptBuilder: TurnPromptBuilder,
 ) : SessionContextSummarizer {
     override suspend fun summarize(
         conversationId: ConversationId,
+        compactions: List<SessionCompaction>,
         messages: List<SessionMessage>,
-        files: List<SessionFileRef>,
     ): String {
-        val transcript =
-            turnPromptBuilder
-                .buildThreadContext(
-                    conversationId = conversationId,
-                    compactions = emptyList(),
-                    history = messages,
-                    sessionFiles = files,
-                )
         log.debug("Starting session context summarization for {} messages", messages.size)
+
+        val transcript =
+            buildString {
+                if (!compactions.isEmpty()) {
+                    appendLine(
+                        xmlTag(
+                            ContextTags.THREAD_SUMMARIES,
+                            trimStart(
+                                buildString {
+                                    compactions.forEach { compaction ->
+                                        appendLine(xmlTag(ContextTags.HANDOFF_SUMMARY, compaction.summary))
+                                    }
+                                },
+                                MAX_INPUT_SUMMARIES_CHARS,
+                            ),
+                        ),
+                    )
+
+                    appendLine()
+                }
+
+                messages.forEach { message ->
+                    appendLine("[${message.role}] ${trimEnd(message.text, MAX_MESSAGE_CHARS)}\n")
+                }
+            }
 
         return runCatching {
             openRouterExecutor(config.openRouterApiKey).use { executor ->
@@ -55,20 +73,22 @@ class KoogSessionContextSummarizer(
                     ).textContent()
                     .trim()
                     .takeIf { it.isNotBlank() }
-                    ?.take(MAX_SUMMARY_CHARS)
+                    ?.take(MAX_GENERATED_SUMMARY_CHARS)
                     ?.also { log.debug("Session context summarization completed") }
             }
         }.getOrElse { error ->
             log.warn("Session context summarization failed", error)
             null
-        } ?: transcript.take(FALLBACK_SUMMARY_CHARS).also {
+        } ?: trimStart(transcript, FALLBACK_SUMMARY_CHARS).also {
             log.debug("Using fallback session context summary excerpt")
         }
     }
 
     companion object {
-        private const val MAX_SUMMARY_CHARS = 3500
-        private const val FALLBACK_SUMMARY_CHARS = 2800
+        const val MAX_MESSAGE_CHARS = 4000
+        const val MAX_INPUT_SUMMARIES_CHARS = 1000
+        const val MAX_GENERATED_SUMMARY_CHARS = 3500
+        const val FALLBACK_SUMMARY_CHARS = 40000
         private val log = Loggers.CONTEXT
     }
 }

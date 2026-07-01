@@ -366,11 +366,10 @@ class InboundMessageFilterTest {
         val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
         return ConversationManager(
             FilesystemConversationStateStore(config),
-            SessionContextCompactor(
-                TurnPromptBuilder(config, skills = { com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog(emptyList()) }),
-                summarizer = { _, messages, _ -> "summary for ${messages.size} messages" },
-            ),
             VirtualPathsFactory(config),
+            SessionContextCompactor(
+                summarizer = { _, _, messages -> "summary for ${messages.size} messages" },
+            ),
         )
     }
 

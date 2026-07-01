@@ -86,11 +86,10 @@ class ConversationManagerSkillInvocationTest {
 
         return ConversationManager(
             store,
-            SessionContextCompactor(
-                TurnPromptBuilder(config, skills = { SkillCatalog(emptyList()) }),
-                summarizer = { _, messages, _ -> "summary for ${messages.size} messages" },
-            ),
             VirtualPathsFactory(config),
+            SessionContextCompactor(
+                summarizer = { _, _, messages -> "summary for ${messages.size} messages" },
+            ),
         )
     }
 

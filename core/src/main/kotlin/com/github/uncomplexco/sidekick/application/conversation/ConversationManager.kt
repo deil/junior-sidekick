@@ -7,6 +7,7 @@ import com.github.uncomplexco.sidekick.application.context.SessionContextCompact
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.filterOutRecentMessages
+import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import org.springframework.stereotype.Component
 import kotlin.uuid.ExperimentalUuidApi
@@ -15,8 +16,8 @@ import kotlin.uuid.Uuid
 @Component
 class ConversationManager(
     private val store: ConversationStateStore,
-    private val contextCompactor: SessionContextCompactor,
     private val virtualPathsFactory: VirtualPathsFactory,
+    private val contextCompactor: SessionContextCompactor,
 ) {
     fun exists(conversationId: ConversationId): Boolean = store.exists(conversationId)
 
@@ -29,6 +30,20 @@ class ConversationManager(
         val state = store.load(conversationId)
         state.subscribed = subscribed
         store.save(conversationId, state)
+    }
+
+    suspend fun compactIfNeeded(
+        conversationId: ConversationId,
+        hooks: (hook: SessionContextCompactor.CompactionHook) -> Unit,
+    ) {
+        store.withSessionLock(conversationId) {
+            val state = store.load(conversationId)
+            if (state.messages.isEmpty()) return@withSessionLock
+
+            if (contextCompactor.compactIfNeeded(state, hooks)) {
+                store.save(conversationId, state)
+            }
+        }
     }
 
     suspend fun recordIncomingMessages(
@@ -44,7 +59,6 @@ class ConversationManager(
             val state = loadOrSeedState(conversationId, seedHistory, historyLoader)
             upsertFiles(state.files, files.map { it.toSessionFileRef() })
             upsertMessage(state.messages, message)
-            contextCompactor.compactIfNeeded(state)
             store.save(conversationId, state)
 
             TurnContext(

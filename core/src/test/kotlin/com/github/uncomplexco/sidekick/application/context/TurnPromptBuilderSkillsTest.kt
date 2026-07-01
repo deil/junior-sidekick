@@ -5,9 +5,9 @@ import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
-import com.github.uncomplexco.sidekick.application.context.prompts.CURRENT_INSTRUCTION_TAG
-import com.github.uncomplexco.sidekick.application.context.prompts.EXPLICIT_SKILL_INVOCATION_TAG
-import com.github.uncomplexco.sidekick.application.context.prompts.RUNTIME_CONTEXT_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.CURRENT_INSTRUCTION_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.EXPLICIT_SKILL_INVOCATION_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.RUNTIME_CONTEXT_TAG
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path

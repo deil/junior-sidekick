@@ -4,6 +4,8 @@ import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.skills.Skills.Companion.SKILL_FILE_NAME
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.AVAILABLE_SKILLS_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.SKILLS_SECTION_TAG
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
 

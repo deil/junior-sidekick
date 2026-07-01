@@ -2,10 +2,14 @@ package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
-import com.github.uncomplexco.sidekick.application.context.prompts.CURRENT_INSTRUCTION_TAG
-import com.github.uncomplexco.sidekick.application.context.prompts.EXPLICIT_SKILL_INVOCATION_TAG
-import com.github.uncomplexco.sidekick.application.context.prompts.REQUESTER_TAG
-import com.github.uncomplexco.sidekick.application.context.prompts.RUNTIME_CONTEXT_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.CURRENT_INSTRUCTION_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.EXPLICIT_SKILL_INVOCATION_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.HANDOFF_SUMMARY
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.REQUESTER_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.RUNTIME_CONTEXT_TAG
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.THREAD_SUMMARIES
+import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.THREAD_TRANSCRIPT
+import com.github.uncomplexco.sidekick.application.context.prompts.Prompts
 import com.github.uncomplexco.sidekick.application.context.prompts.skillsSection
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
@@ -127,24 +131,27 @@ class TurnPromptBuilder(
                         channel_id: ${conversationId.channelId}
                         thread_ts: ${conversationId.threadId}
                         </thread>
+                        
                         """.trimIndent(),
                     )
                 },
             )
 
         if (compactions.isNotEmpty()) {
-            lines += "<thread-compactions>"
+            lines += "<${THREAD_SUMMARIES}>"
+            lines += Prompts.TURN_HANDOFF_HEADER
+
             compactions.forEachIndexed { index, compaction ->
                 lines +=
-                    "<compaction index=\"${index + 1}\" covered_messages=\"${compaction.coveredMessageIds.size}\" created_at=\"${
+                    "<${HANDOFF_SUMMARY} index=\"${index + 1}\" covered_messages=\"${compaction.coveredMessageIds.size}\" created_at=\"${
                         timestamp(
                             compaction.createdAtMs,
                         )
                     }\"/>"
                 lines += compaction.summary
-                lines += "</compaction>"
+                lines += "</${HANDOFF_SUMMARY}>"
             }
-            lines += "</thread-compactions>"
+            lines += "</${THREAD_SUMMARIES}>\n"
         }
 
         threadTranscript(conversationId, history, sessionFiles)?.also { lines += it }
@@ -170,7 +177,7 @@ class TurnPromptBuilder(
                             },
                         )
                     }.joinToString("\n")
-            return xmlTag("thread-transcript", transcript)
+            return xmlTag(THREAD_TRANSCRIPT, transcript)
         }
 
         return null

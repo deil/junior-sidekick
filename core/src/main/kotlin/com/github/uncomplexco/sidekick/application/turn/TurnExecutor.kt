@@ -7,6 +7,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationManager
 import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
@@ -84,6 +85,13 @@ class TurnExecutor(
                     detectUserSkillInvocation(message.text, skills.catalog())
                         ?.let { ExplicitSkillInvocation(it.skill.name) },
             )
+
+        conversationManager.compactIfNeeded(decision.conversationId) { hook ->
+            when (hook) {
+                SessionContextCompactor.CompactionHook.PreCompaction -> chat.activity.`continue`("Compacting conversation...")
+                SessionContextCompactor.CompactionHook.PostCompaction -> chat.activity.`continue`()
+            }
+        }
 
         val turn =
             conversationManager.recordIncomingMessages(
