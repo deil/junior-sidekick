@@ -51,7 +51,7 @@ class SystemPromptBuilder(
         val path =
             config
                 .workingDirectoryPath()
-                .resolve("global/context")
+                .resolve("projects")
                 .resolve(sanitizePathSegment(conversationId.channelId))
                 .resolve("AGENTS.md")
         if (!Files.isRegularFile(path)) {

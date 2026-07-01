@@ -45,14 +45,26 @@ class SystemPromptBuilderBehaviorTest {
     @Test
     fun `embeds channel project context before behavior`() {
         val workingDir = Files.createDirectories(dir.resolve("workspace"))
-        val contextDir = Files.createDirectories(workingDir.resolve("global/context/C123"))
-        Files.writeString(contextDir.resolve("AGENTS.md"), "Project line 1\nProject line 2")
+        val projectDir = Files.createDirectories(workingDir.resolve("projects/C123"))
+        Files.writeString(projectDir.resolve("AGENTS.md"), "Project line 1\nProject line 2")
 
         val prompt = builder(workingDir).buildSystemPrompt("sidekick", conversationId())
 
         assertTrue(prompt.contains("# Project context"), prompt)
         assertTrue(prompt.contains("Project line 1\nProject line 2"), prompt)
         assertTrue(prompt.indexOf("# Project context") < prompt.indexOf("<behavior>"), prompt)
+    }
+
+    @Test
+    fun `ignores legacy global project context`() {
+        val workingDir = Files.createDirectories(dir.resolve("workspace"))
+        val contextDir = Files.createDirectories(workingDir.resolve("global/context/C123"))
+        Files.writeString(contextDir.resolve("AGENTS.md"), "Legacy project context")
+
+        val prompt = builder(workingDir).buildSystemPrompt("sidekick", conversationId())
+
+        assertFalse(prompt.contains("# Project context"), prompt)
+        assertFalse(prompt.contains("Legacy project context"), prompt)
     }
 
     @Test
