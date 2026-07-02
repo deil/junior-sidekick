@@ -10,7 +10,7 @@ Sidekick uses virtual paths when exposing local files to tools and prompts.
 
 `/data/global` points at `${agent.working-directory}/global`.
 
-`/work` points at the current session's durable bash work directory under `agent.state-directory` and is writable.
+`/work` points at the current session's durable bash work directory under `${agent.working-directory}/threads/<conversation-id>` and is writable.
 
 `/data/project` points at `${agent.working-directory}/projects/<channel-id>` and is writable.
 

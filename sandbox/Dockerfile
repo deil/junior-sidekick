@@ -33,7 +33,12 @@ RUN apt-get update \
         whois \
         xz-utils \
         zip \
+        ibglib2.0-0 libnss3 libnspr4 libatk1.0-0 \
+        libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libatspi2.0-0 \
+        libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 \
+        libpango-1.0-0 libcairo2 libasound2 libxshmfence1 \
     && curl https://mise.run | sh \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
     && sed -i 's#^nobody:\([^:]*\):65534:65534:[^:]*:[^:]*:[^:]*#sidekick:\1:65534:65534:Sidekick:/work:/bin/bash#' /etc/passwd \
     && sed -i 's#^nogroup:\([^:]*\):65534:#sidekick:\1:65534:#' /etc/group \
     && mkdir -p /data/session /data/skills /data/global /data/project /work \

@@ -2,9 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-IMAGE_NAME="${IMAGE_NAME:-sidekick-bash-rootfs}"
+IMAGE_NAME="${IMAGE_NAME:-sidekick-sandbox-rootfs}"
 OUTPUT_DIR="${OUTPUT_DIR:-$REPO_ROOT/data/sandbox/bash-rootfs}"
 
 docker build -t "$IMAGE_NAME" "$SCRIPT_DIR"

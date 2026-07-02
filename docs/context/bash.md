@@ -52,7 +52,7 @@ Inside the sandbox:
 - `/data/session` is the current conversation attachments directory, mounted read-only.
 - `/data/skills` is the skills directory, mounted read-only.
 - `/data/global` is the global workspace directory, mounted read-only.
-- `/work` is the current conversation's durable bash work directory under `agent.state-directory/bash/<conversation-id>/work`, mounted read-write.
+- `/work` is the current conversation's durable bash work directory under `${agent.working-directory}/threads/<conversation-id>`, mounted read-write.
 - `/data/project` is `${agent.working-directory}/projects/<channel-id>`, mounted read-write.
 - `/tmp` is an empty tmpfs for the command run.
 - `/proc` is procfs for the sandbox PID namespace.

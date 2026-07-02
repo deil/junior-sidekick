@@ -23,7 +23,7 @@ class VirtualPathTest {
 
         val virtualPaths = VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString())).forConversation(conversationId)
 
-        assertEquals(stateRoot.resolve("bash/C123_1700000000.000/work"), virtualPaths.workRoot)
+        assertEquals(workingRoot.resolve("threads/C123_1700000000.000"), virtualPaths.workRoot)
         assertEquals(stateRoot.resolve("slack/channels/C123/threads/1700000000.000/attachments"), virtualPaths.sessionRoot)
         assertEquals(workingRoot.resolve("projects/C123"), virtualPaths.projectRoot)
         assertEquals(true, Files.isDirectory(virtualPaths.sessionRoot))

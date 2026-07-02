@@ -69,10 +69,9 @@ class VirtualPathsFactory(
 
         val workRoot =
             config
-                .stateDirectoryPath()
-                .resolve("bash")
+                .workingDirectoryPath()
+                .resolve("threads")
                 .resolve(sanitizePathSegment(conversationId.lockKey()))
-                .resolve("work")
         Files.createDirectories(workRoot)
         onWorkCreated(config, workRoot)
         val projectRoot =

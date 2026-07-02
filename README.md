@@ -18,6 +18,9 @@ According to GPT-5.5 summary, it receives Slack events, resolves user identity, 
 - Slack-native interaction through app mentions, DMs, channel messages, and Slack assistant chat.
 - Thread-aware replies for channel conversations.
 - Koog-based agent runtime using OpenRouter as the LLM gateway.
+- File-based workspace operations for reading, searching, and editing project files.
+- Git tools for cloning, pulling, and pushing private GitHub and Bitbucket repositories.
+- Sandboxed bash execution for running workspace commands with configurable network access.
 
 ## Configuration
 
@@ -75,11 +78,12 @@ Additional bot token scopes required by optional Slack agent tools:
 - Kotlin / Spring Boot
 - [Slack Bolt for JVM](https://github.com/slackapi/java-slack-sdk)
 - [Koog](https://github.com/JetBrains/koog)
+- [Bubblewrap](https://github.com/containers/bubblewrap)
 - [mise](https://mise.jdx.dev/)
 
 ## Status
 
-Sidekick is early-stage software. The core Slack-to-agent loop works, but APIs and runtime boundaries are still evolving. Expect sharp edges while the project settles.
+Sidekick is a research preview, not a polished product. The core Slack-to-agent loop works, but the project is actively exploring what a Slack-native AI teammate can do for a team. Expect sharp edges and frequent changes while the shape of the product is still being discovered.
 
 ## License
 
