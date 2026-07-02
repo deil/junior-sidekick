@@ -12,6 +12,22 @@ Supported transports:
 
 Each server defaults MCP request timeout handling to 30 seconds; override per server with `agent.mcp.servers[n].timeout-seconds`.
 
+HTTP transports support static authorization header configuration with `auth=header`. Sidekick sends `auth-header.value` as the `Authorization` header value exactly as configured, so include the auth scheme yourself:
+
+```properties
+agent.mcp.servers[0].id=myserver
+agent.mcp.servers[0].transport=streamable-http
+agent.mcp.servers[0].url=https://example.com/mcp
+agent.mcp.servers[0].auth=header
+agent.mcp.servers[0].auth-header.value=Bearer your-token
+```
+
+For basic auth:
+
+```properties
+agent.mcp.servers[0].auth-header.value=Basic base64-user-pass
+```
+
 Example Grafana MCP over SSE:
 
 ```properties

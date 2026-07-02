@@ -45,6 +45,11 @@ data class McpServerConfig(
     var env: Map<String, String> = emptyMap(),
     var timeoutSeconds: Long = 30,
     var auth: String = "",
+    var authHeader: McpAuthHeaderConfig = McpAuthHeaderConfig(),
+)
+
+data class McpAuthHeaderConfig(
+    var value: String = "",
 )
 
 @Component
@@ -63,16 +68,26 @@ class DefaultMcpServersRegistry(
         }
 
     private suspend fun connect(server: McpServerConfig): ConnectedMcpServer =
-        if (server.auth == "oauth") {
-            val accessToken = oauth.accessToken(server) ?: error("MCP server ${server.id} requires OAuth")
-            connect(server, accessToken)
-        } else {
-            connect(server, accessToken = null)
+        when (server.auth) {
+            "oauth" -> {
+                val accessToken = oauth.accessToken(server) ?: error("MCP server ${server.id} requires OAuth")
+                connect(server, authHeaderValue = "Bearer $accessToken")
+            }
+
+            "header" -> {
+                val authHeaderValue = server.authHeader.value.takeIf { it.isNotBlank() }
+                    ?: error("MCP server ${server.id} requires auth-header.value")
+                connect(server, authHeaderValue)
+            }
+
+            else -> {
+                connect(server, authHeaderValue = null)
+            }
         }
 
     private suspend fun connect(
         server: McpServerConfig,
-        accessToken: String?,
+        authHeaderValue: String?,
     ): ConnectedMcpServer =
         when (server.transport) {
             "stdio" -> {
@@ -80,13 +95,13 @@ class DefaultMcpServersRegistry(
             }
 
             "sse" -> {
-                httpServer(server, accessToken) { client -> SseClientTransport(client, server.url) }
+                httpServer(server, authHeaderValue) { client -> SseClientTransport(client, server.url) }
             }
 
             "streamable-http" -> {
                 httpServer(
                     server,
-                    accessToken,
+                    authHeaderValue,
                 ) { client -> client.mcpStreamableHttpTransport(server.url) }
             }
 
@@ -109,17 +124,17 @@ class DefaultMcpServersRegistry(
 
     private suspend fun httpServer(
         server: McpServerConfig,
-        accessToken: String?,
+        authHeaderValue: String?,
         transportFactory: (HttpClient) -> Transport,
     ): ConnectedMcpServer {
-        val httpClient = mcpHttpClient(server, accessToken)
+        val httpClient = mcpHttpClient(server, authHeaderValue)
         val transport = transportFactory(httpClient)
         transport.onClose { httpClient.close() }
         try {
             return connectedServer(server, transport)
         } catch (error: Throwable) {
             if (server.transport == "sse") {
-                logSseErrorResponse(server, accessToken)
+                logSseErrorResponse(server, authHeaderValue)
             }
             httpClient.close()
             throw error
@@ -128,7 +143,7 @@ class DefaultMcpServersRegistry(
 
     private fun logSseErrorResponse(
         server: McpServerConfig,
-        accessToken: String?,
+        authHeaderValue: String?,
     ) {
         runCatching {
             val requestBuilder =
@@ -137,7 +152,7 @@ class DefaultMcpServersRegistry(
                     .timeout(Duration.ofSeconds(5))
                     .header("Accept", "text/event-stream")
                     .GET()
-            accessToken?.let { requestBuilder.header("Authorization", "Bearer $it") }
+            authHeaderValue?.let { requestBuilder.header("Authorization", it) }
 
             val response =
                 JavaHttpClient.newHttpClient().send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString())
@@ -203,16 +218,16 @@ class DefaultMcpServersRegistry(
 
     private fun mcpHttpClient(
         server: McpServerConfig,
-        accessToken: String?,
+        authHeaderValue: String?,
     ): HttpClient =
         HttpClient {
             install(SSE)
             install(HttpTimeout) {
                 requestTimeoutMillis = server.timeoutSeconds.seconds.inWholeMilliseconds
             }
-            accessToken?.let { token ->
+            authHeaderValue?.let { headerValue ->
                 defaultRequest {
-                    header("Authorization", "Bearer $token")
+                    header("Authorization", headerValue)
                 }
             }
         }
