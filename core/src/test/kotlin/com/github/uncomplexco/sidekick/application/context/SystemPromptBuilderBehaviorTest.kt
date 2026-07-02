@@ -29,7 +29,7 @@ class SystemPromptBuilderBehaviorTest {
         assertTrue(prompt.indexOf("# Personality") < prompt.indexOf("Soul line 1"), prompt)
         assertTrue(prompt.indexOf("Soul line 2") < prompt.indexOf("World line 1"), prompt)
         assertTrue(prompt.indexOf("# World") < prompt.indexOf("World line 1"), prompt)
-        assertTrue(prompt.indexOf("World line 2") < prompt.indexOf("<behavior>"), prompt)
+        assertTrue(prompt.indexOf("Soul line 2") < prompt.indexOf("# World"), prompt)
     }
 
     @Test
@@ -37,22 +37,24 @@ class SystemPromptBuilderBehaviorTest {
         val prompt = builder(dir.resolve("workspace")).buildSystemPrompt("sidekick", conversationId())
 
         assertTrue(prompt.contains("<identity>"), prompt)
-        assertTrue(prompt.contains("<behavior>"), prompt)
         assertFalse(prompt.contains("SOUL.md"), prompt)
         assertFalse(prompt.contains("WORLD.md"), prompt)
     }
 
     @Test
-    fun `embeds channel project context before behavior`() {
+    fun `embeds channel project context before operating rules`() {
         val workingDir = Files.createDirectories(dir.resolve("workspace"))
         val projectDir = Files.createDirectories(workingDir.resolve("projects/C123"))
         Files.writeString(projectDir.resolve("AGENTS.md"), "Project line 1\nProject line 2")
+        Files.writeString(workingDir.resolve("RULES.md"), "Rules line 1\nRules line 2")
 
         val prompt = builder(workingDir).buildSystemPrompt("sidekick", conversationId())
 
         assertTrue(prompt.contains("# Project context"), prompt)
         assertTrue(prompt.contains("Project line 1\nProject line 2"), prompt)
-        assertTrue(prompt.indexOf("# Project context") < prompt.indexOf("<behavior>"), prompt)
+        assertTrue(prompt.contains("# Operating rules"), prompt)
+        assertTrue(prompt.contains("Rules line 1\nRules line 2"), prompt)
+        assertTrue(prompt.indexOf("# Project context") < prompt.indexOf("# Operating rules"), prompt)
     }
 
     @Test

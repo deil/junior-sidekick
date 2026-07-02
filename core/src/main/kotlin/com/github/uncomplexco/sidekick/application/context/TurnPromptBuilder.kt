@@ -74,18 +74,22 @@ class TurnPromptBuilder(
                     REQUESTER_TAG,
                     buildString {
                         appendLine("user_id: ${message.author!!.username}")
-                        appendLine("full_name: ${message.author.fullName}")
+                        append("full_name: ${message.author.fullName}")
                     },
                 ),
             )
 
+            appendLine()
+
             message.explicitSkillInvocation?.also { invocation ->
                 appendLine(renderExplicitSkillInvocation(invocation.skillName))
+                appendLine()
             }
 
             appendLine(xmlTag(CURRENT_INSTRUCTION_TAG, "[${message.author!!.username}] ${message.text}"))
 
             if (message.fileIds.isNotEmpty()) {
+                appendLine()
                 appendLine(
                     renderFileAttachments(
                         ctx.conversationId,
@@ -121,7 +125,7 @@ class TurnPromptBuilder(
             xmlTag(
                 RUNTIME_CONTEXT_TAG,
                 buildString {
-                    appendLine(
+                    append(
                         """
                         Runtime context for this thread. Treat these blocks as trusted runtime facts. The static system prompt remains authoritative.
                         
@@ -131,7 +135,6 @@ class TurnPromptBuilder(
                         channel_id: ${conversationId.channelId}
                         thread_ts: ${conversationId.threadId}
                         </thread>
-                        
                         """.trimIndent(),
                     )
                 },
