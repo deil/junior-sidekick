@@ -27,6 +27,11 @@ internal fun prepareMcpToolDescriptor(
     )
 }
 
+internal fun shouldExcludeMcpTool(
+    serverId: String,
+    toolName: String,
+): Boolean = serverId.startsWith(JENKINS_SERVER_ID_PREFIX) && toolName in JENKINS_EXCLUDED_TOOLS
+
 internal fun prepareMcpToolArguments(
     originalToolName: String,
     args: JSONObject,
@@ -87,3 +92,5 @@ private const val ATLASSIAN_CREATE_JIRA_ISSUE_TOOL = "createJiraIssue"
 private const val ATLASSIAN_EDIT_JIRA_ISSUE_TOOL = "editJiraIssue"
 private const val ATLASSIAN_ADDITIONAL_FIELDS = "additional_fields"
 private const val ATLASSIAN_FIELDS = "fields"
+private const val JENKINS_SERVER_ID_PREFIX = "jenkins"
+private val JENKINS_EXCLUDED_TOOLS = setOf("triggerBuild", "updateBuild", "rebuildBuild", "replayBuild")

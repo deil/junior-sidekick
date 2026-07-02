@@ -9,7 +9,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class McpToolWorkaroundsTest {
     @Test
@@ -95,6 +97,24 @@ class McpToolWorkaroundsTest {
         val prepared = prepareMcpToolArguments("otherTool", args)
 
         assertEquals(JsonPrimitive("{\"x\":1}"), prepared["additional_fields"])
+    }
+
+    @Test
+    fun `excludes destructive Jenkins MCP tools`() {
+        listOf("triggerBuild", "updateBuild", "rebuildBuild", "replayBuild").forEach { toolName ->
+            assertTrue(shouldExcludeMcpTool("jenkins", toolName), toolName)
+            assertTrue(shouldExcludeMcpTool("jenkins-prod", toolName), toolName)
+        }
+    }
+
+    @Test
+    fun `does not exclude Jenkins read tools`() {
+        assertFalse(shouldExcludeMcpTool("jenkins", "getBuild"))
+    }
+
+    @Test
+    fun `does not exclude tools from non Jenkins servers`() {
+        assertFalse(shouldExcludeMcpTool("ci", "triggerBuild"))
     }
 
     private fun unconstrainedObjectParameter(

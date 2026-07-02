@@ -200,6 +200,11 @@ class DefaultMcpServersRegistry(
         val tools = client.listTools().tools
         return ToolRegistry {
             tools.forEach { tool ->
+                if (shouldExcludeMcpTool(server.id, tool.name)) {
+                    log.warn("Excluding MCP tool {} from server {}", tool.name, server.id)
+                    return@forEach
+                }
+
                 runCatching {
                     val descriptor = prepareMcpToolDescriptor(tool.name, DefaultMcpToolDescriptorParser.parse(tool))
                     tool(

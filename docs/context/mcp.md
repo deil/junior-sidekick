@@ -73,6 +73,10 @@ Each configured MCP server also gets local helper tools:
 
 Sidekick works around this by exposing those parameters to the model as JSON-encoded strings. Before forwarding the MCP call, Sidekick parses the string back into a JSON object so the Atlassian MCP server still receives the shape it expects.
 
+### Jenkins MCP
+
+For MCP servers whose `id` starts with `jenkins`, Sidekick excludes build-mutating tools from registration: `triggerBuild`, `updateBuild`, `rebuildBuild`, and `replayBuild`. Each excluded tool is logged with its server id and tool name.
+
 ## Key Files
 
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/mcp/Mcp.kt` – MCP configuration, connection, and registry wiring.
