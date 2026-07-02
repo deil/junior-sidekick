@@ -82,14 +82,26 @@ Turn processing
         v
       SidekickAgent.runTurn
         |
-        | Koog runs the agent turn with the model profile selected by session intelligence level and returns reply text
-        v
+        +-- success: Koog returns reply text
+        |     |
+        |     v
       ChatPlatformAdapter.reply.postReply
-        |
-        v
+        |     |
+        |     v
       SessionManager.recordAssistantReply
+        |     |
+        |     v
+        |   turn complete
         |
-        v
+        +-- agent/model failure:
+              |
+              v
+            post temporary failure reply
+              |
+              v
+            SessionManager.markMessageSkipped(reason=AGENT_FAILURE)
+              |
+              v
       turn complete
 ```
 
@@ -153,6 +165,8 @@ Ambiguous passive turns go to `LlmReplyDecisionClassifier`.
 
 It builds the prompt, selects the configured Koog model profile from `TurnContext.intelligenceLevel`, runs Koog, executes tools as needed, and returns reply text. This is the point where Sidekick generates the actual answer.
 
+The OpenRouter client is wrapped with Koog `RetryingLLMClient` using `RetryConfig.PRODUCTION`, so transient provider failures such as 429s and temporary unavailability are retried before the turn sees an error. If agent execution still fails after retries, `TurnExecutor` posts a compact temporary-failure reply and marks the triggering message skipped with `AGENT_FAILURE`; it does not record an assistant reply in session history.
+
 Session intelligence level is per conversation and defaults to `normal`. The `enableTokenmaxxin` system tool switches the current conversation between `normal` and `ultrathink`; the selected intelligence level applies when future turns initialize Koog.
 
 ### Reply delivery and completion
@@ -161,7 +175,7 @@ When Sidekick replies, the chat adapter posts the reply and returns the chat mes
 
 `SessionManager.recordAssistantReply` then marks the user message as replied, stores the assistant message, updates inflight state, saves the session, and completes the turn.
 
-When Sidekick skips, `SessionManager.markMessageSkipped` records the skip reason and completes the turn without calling Koog or posting to chat.
+When Sidekick skips by reply policy, `SessionManager.markMessageSkipped` records the skip reason and completes the turn without calling Koog or posting to chat. Agent/model failures are different: Sidekick posts a temporary-failure reply first, then marks the triggering message skipped with `AGENT_FAILURE`.
 
 ## Boundaries
 
@@ -171,6 +185,7 @@ The turn boundary starts after `InboundMessageFilter` returns `TurnTriggerDecisi
 
 - `SessionManager.recordAssistantReply`
 - `SessionManager.markMessageSkipped`
+- `SessionManager.markMessageSkipped` after an agent/model failure fallback reply
 - an unhandled error before completion
 
 `TurnContext` is not durable session state. It is the turn-local working set derived from session state for one run.

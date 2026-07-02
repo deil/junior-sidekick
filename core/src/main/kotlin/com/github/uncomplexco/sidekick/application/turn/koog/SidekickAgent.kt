@@ -63,8 +63,8 @@ class SidekickAgent(
     private val toolRegistryFactory: ToolRegistryFactory,
     private val mcpServersRegistry: McpServersRegistry,
     private val chatHistoryProvider: ChatHistoryProvider,
-) {
-    suspend fun runTurn(
+) : AgentTurnRunner {
+    override suspend fun runTurn(
         ctx: TurnContext,
         message: SessionMessage,
         chat: ChatPlatformAdapter,
@@ -75,13 +75,11 @@ class SidekickAgent(
         try {
             val mcpToolRegistry = mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
             val toolRegistry = toolRegistryFactory.build(ctxWithMcp, chat.activity, chat.reply) + mcpToolRegistry
-            val strategy = sidekickStrategy(message)
             val llmProfile = koogConfig.profile(ctx.intelligenceLevel)
 
             val agent =
                 AIAgent(
                     promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey),
-                    strategy = strategy,
                     agentConfig =
                         AIAgentConfig(
                             prompt =
@@ -126,28 +124,12 @@ class SidekickAgent(
             mcpServers.forEach { it.close() }
         }
     }
-
-    private fun sidekickStrategy(message: SessionMessage) =
-        strategy<String, String>("sidekick") {
-            val classify by node<String, ReplyRoute>("classify") { input ->
-                ReplyRoute(input, shouldReply = true)
-            }
-            val reply by nodeLLMRequest("reply")
-            val executeTools by nodeExecuteTools("executeTools")
-            val sendToolResults by nodeLLMSendToolResults("sendToolResults")
-
-            edge(nodeStart forwardTo classify)
-            edge(classify forwardTo reply onCondition { it.shouldReply } transformed { it.input })
-            edge(classify forwardTo nodeFinish onCondition { !it.shouldReply } transformed { "" })
-            edge(reply forwardTo executeTools onToolCalls { true })
-            edge(reply forwardTo nodeFinish onTextMessage { true })
-            edge(executeTools forwardTo sendToolResults)
-            edge(sendToolResults forwardTo executeTools onToolCalls { true })
-            edge(sendToolResults forwardTo nodeFinish onTextMessage { true })
-        }
 }
 
-private data class ReplyRoute(
-    val input: String,
-    val shouldReply: Boolean,
-)
+fun interface AgentTurnRunner {
+    suspend fun runTurn(
+        ctx: TurnContext,
+        message: SessionMessage,
+        chat: ChatPlatformAdapter,
+    ): String
+}

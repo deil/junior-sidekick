@@ -14,8 +14,9 @@ import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInv
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
-import com.github.uncomplexco.sidekick.application.turn.koog.SidekickAgent
+import com.github.uncomplexco.sidekick.application.turn.koog.AgentTurnRunner
 import com.github.uncomplexco.sidekick.application.utils.Loggers
+import kotlinx.coroutines.CancellationException
 import org.springframework.stereotype.Component
 
 @Component
@@ -24,7 +25,7 @@ class TurnExecutor(
     private val conversationManager: ConversationManager,
     private val replyTrigger: ReplyDecisionService,
     private val agentConfig: AgentConfig,
-    private val agent: SidekickAgent,
+    private val agent: AgentTurnRunner,
     private val skills: SkillCatalogProvider,
 ) {
     suspend fun run(
@@ -122,7 +123,27 @@ class TurnExecutor(
             chat.activity.`continue`()
             conversationManager.setSubscribed(decision.conversationId, true)
 
-            val agentReply = agent.runTurn(turn, currentMessage, chat)
+            val agentReply =
+                try {
+                    agent.runTurn(turn, currentMessage, chat)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    log.warn(
+                        "{} failed to generate reply for message id={}: {}",
+                        decision.conversationId.lockKey(),
+                        message.id,
+                        error.message,
+                        error,
+                    )
+                    conversationManager.markMessageSkipped(
+                        conversationId = decision.conversationId,
+                        messageId = message.id,
+                        reason = AGENT_FAILURE_REASON,
+                    )
+                    runCatching { chat.reply.postReply(TEMPORARY_FAILURE_REPLY) }
+                    return
+                }
             val replyMessageId = chat.reply.postReply(agentReply)
 
             conversationManager.recordAssistantReply(
@@ -159,6 +180,8 @@ class TurnExecutor(
     companion object {
         private const val MAX_MESSAGE_FILES = 3
         private const val UNSUBSCRIBE_ACK = "Unsubscribed. Mention me to resume."
+        private const val AGENT_FAILURE_REASON = "AGENT_FAILURE"
+        private const val TEMPORARY_FAILURE_REPLY = "I hit a temporary model/provider error while processing this. Please retry in a minute."
         private val log = Loggers.TURN_EXECUTOR
     }
 }
