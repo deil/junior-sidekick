@@ -138,10 +138,11 @@ class LlmReplyDecisionClassifier(
 ) {
     suspend fun classify(input: ReplyDecisionInput): ReplyDecision {
         return runCatching {
+            val aiModelProfile = config.fastProfile
             val model =
                 LLModel(
                     provider = LLMProvider.OpenRouter,
-                    id = config.model,
+                    id = aiModelProfile.model,
                     capabilities = config.modelCapabilities(),
                     contextLength = 128_000,
                 )
@@ -161,10 +162,19 @@ class LlmReplyDecisionClassifier(
             val prompt =
                 prompt(
                     id = "sidekick-reply-decision",
-                    params = config.openRouterParams(),
+                    params = config.openRouterParams(aiModelProfile),
                 ) {
                     system(buildRouterSystemPrompt(input.botUser.fullName!!, input.botUser.username))
-                    user(buildRouterPrompt(input.text, historyText, input.messageHistory.lastOrNull { it.role == SessionMessageRole.ASSISTANT }))
+                    user(
+                        buildRouterPrompt(
+                            input.text,
+                            historyText,
+                            input.messageHistory.lastOrNull {
+                                it.role ==
+                                    SessionMessageRole.ASSISTANT
+                            },
+                        ),
+                    )
                 }
 
             val result = executeClassifier(prompt, model)

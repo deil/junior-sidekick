@@ -2,9 +2,10 @@ package com.github.uncomplexco.sidekick.application.tools.slack
 
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
+import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import org.junit.jupiter.api.Test
@@ -12,7 +13,6 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertContains
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -49,20 +49,23 @@ class SlackFileToolsTest {
             SlackFileTools(
                 ctx =
                     TurnContext(
-                        conversationId = conversationId,
-                        virtualPaths = virtualPaths,
+                        conversation =
+                            ConversationContext(
+                                conversationId = conversationId,
+                                virtualPaths = virtualPaths,
+                                history =
+                                    ConversationHistory(
+                                        compactions = emptyList(),
+                                        messages = emptyList(),
+                                        hasKoogMessages = false,
+                                    ),
+                                mcpServers = emptyList(),
+                            ),
                         turnId = "turn",
                         currentMessageIds = listOf("m1"),
                         currentFiles = emptyList(),
                         sessionFiles = listOf(file),
-                        intelligenceLevel = ConversationIntelligenceLevel.NORMAL,
-                        history =
-                            ConversationHistory(
-                                compactions = emptyList(),
-                                messages = emptyList(),
-                                hasKoogMessages = false,
-                            ),
-                        mcpServers = emptyList(),
+                        aiModelProfile = AiModelProfile.NORMAL,
                     ),
                 virtualPaths = virtualPaths,
             ).slackFileRead("F123")

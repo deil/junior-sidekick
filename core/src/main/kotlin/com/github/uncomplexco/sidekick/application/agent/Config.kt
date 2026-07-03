@@ -4,10 +4,9 @@ import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.executor.clients.openrouter.OpenRouterParams
 import ai.koog.prompt.executor.clients.openrouter.models.ProviderPreferences
 import ai.koog.prompt.llm.LLMCapability
-import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
+import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Configuration
 import java.nio.file.Files
@@ -54,26 +53,36 @@ class AgentConfig(
 class KoogConfig(
     @Value($$"${adapters.open-router.api-key}")
     val openRouterApiKey: String,
+    @Value($$"${agent.llm.fast.model}")
+    private val fastModel: String,
+    @Value($$"${agent.llm.fast.provider}")
+    private val fastProvider: String,
+    @Value($$"${agent.llm.fast.reasoning-effort}")
+    private val fastReasoningEffort: String,
     @Value($$"${agent.llm.default.model}")
     private val defaultModel: String,
     @Value($$"${agent.llm.default.provider}")
     private val defaultProvider: String,
-    @Value($$"${agent.llm.default.reasoning-effort}")
+    @Value($$"${agent.llm.default.reasoning-effort:medium}")
     private val defaultReasoningEffort: String,
     @Value($$"${agent.llm.ultrathink.model}")
     private val ultrathinkModel: String,
     @Value($$"${agent.llm.ultrathink.provider}")
     private val ultrathinkProvider: String,
-    @Value($$"${agent.llm.ultrathink.reasoning-effort}")
+    @Value($$"${agent.llm.ultrathink.reasoning-effort:high}")
     private val ultrathinkReasoningEffort: String,
     @Value($$"${agent.llm.max-agent-iterations:50}")
     val maxAgentIterations: Int,
 ) {
-    val provider = normalProfile.provider
-    val model = normalProfile.model
-    val reasoningEffort = normalProfile.reasoningEffort
+    val fastProfile: LlmProfile
+        get() =
+            LlmProfile(
+                model = fastModel,
+                provider = fastProvider,
+                reasoningEffort = parseReasoningEffort(fastReasoningEffort),
+            )
 
-    private val normalProfile: LlmProfile
+    val normalProfile: LlmProfile
         get() =
             LlmProfile(
                 model = defaultModel,
@@ -81,7 +90,7 @@ class KoogConfig(
                 reasoningEffort = parseReasoningEffort(defaultReasoningEffort),
             )
 
-    private val ultrathinkProfile: LlmProfile
+    val ultrathinkProfile: LlmProfile
         get() =
             LlmProfile(
                 model = ultrathinkModel,
@@ -89,13 +98,14 @@ class KoogConfig(
                 reasoningEffort = parseReasoningEffort(ultrathinkReasoningEffort),
             )
 
-    fun profile(intelligenceLevel: ConversationIntelligenceLevel): LlmProfile =
-        when (intelligenceLevel) {
-            ConversationIntelligenceLevel.NORMAL -> normalProfile
-            ConversationIntelligenceLevel.ULTRATHINK -> ultrathinkProfile
+    fun profile(level: AiModelProfile): LlmProfile =
+        when (level) {
+            AiModelProfile.FAST -> fastProfile
+            AiModelProfile.NORMAL -> normalProfile
+            AiModelProfile.ULTRATHINK -> ultrathinkProfile
         }
 
-    fun openRouterParams(profile: LlmProfile = normalProfile): OpenRouterParams =
+    fun openRouterParams(profile: LlmProfile): OpenRouterParams =
         OpenRouterParams(
             provider =
                 ProviderPreferences(

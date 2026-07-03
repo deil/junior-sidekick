@@ -4,10 +4,10 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.CURRENT_INSTRUCTION_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.EXPLICIT_SKILL_INVOCATION_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.RUNTIME_CONTEXT_TAG
+import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -202,20 +202,25 @@ class TurnPromptBuilderSkillsTest {
 
     private fun context(hasKoogMessages: Boolean = false): com.github.uncomplexco.sidekick.application.turn.TurnContext =
         com.github.uncomplexco.sidekick.application.turn.TurnContext(
-            conversationId = com.github.uncomplexco.sidekick.application.conversation.ConversationId("C123", "1700000000.000"),
-            virtualPaths = virtualPaths(),
+            conversation =
+                com.github.uncomplexco.sidekick.application.turn.ConversationContext(
+                    conversationId =
+                        com.github.uncomplexco.sidekick.application.conversation
+                            .ConversationId("C123", "1700000000.000"),
+                    virtualPaths = virtualPaths(),
+                    history =
+                        com.github.uncomplexco.sidekick.application.turn.ConversationHistory(
+                            compactions = emptyList(),
+                            messages = emptyList(),
+                            hasKoogMessages = hasKoogMessages,
+                        ),
+                    mcpServers = emptyList(),
+                ),
             turnId = "turn",
             currentMessageIds = listOf("m1"),
             currentFiles = emptyList(),
             sessionFiles = emptyList(),
-            intelligenceLevel = com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel.NORMAL,
-            history =
-                com.github.uncomplexco.sidekick.application.turn.ConversationHistory(
-                    compactions = emptyList(),
-                    messages = emptyList(),
-                    hasKoogMessages = hasKoogMessages,
-                ),
-            mcpServers = emptyList(),
+            aiModelProfile = com.github.uncomplexco.sidekick.application.conversation.AiModelProfile.NORMAL,
         )
 
     private fun virtualPaths(): VirtualPaths =
@@ -234,7 +239,9 @@ class TurnPromptBuilderSkillsTest {
         com.github.uncomplexco.sidekick.application.conversation.SessionMessage(
             id = "m1",
             role = com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole.USER,
-            author = com.github.uncomplexco.sidekick.application.conversation.MessageAuthor(username = "alice", fullName = "Alice"),
+            author =
+                com.github.uncomplexco.sidekick.application.conversation
+                    .MessageAuthor(username = "alice", fullName = "Alice"),
             text = text,
             createdAtMs = 1,
             explicitSkillInvocation = explicitSkillInvocation,

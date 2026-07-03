@@ -4,9 +4,9 @@ import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsF
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
+import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.turn.filterOutRecentMessages
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import org.springframework.stereotype.Component
 import kotlin.uuid.ExperimentalUuidApi
@@ -60,21 +60,26 @@ class ConversationManager(
             upsertMessage(state.messages, message)
             store.save(conversationId, state)
 
+            val conversation =
+                ConversationContext(
+                    conversationId = conversationId,
+                    virtualPaths = virtualPathsFactory.forConversation(conversationId),
+                    history =
+                        ConversationHistory(
+                            compactions = state.compactions,
+                            messages = filterOutRecentMessages(state.messages, messages),
+                            hasKoogMessages = state.koogMessages.isNotEmpty(),
+                        ),
+                    mcpServers = emptyList(),
+                )
+
             TurnContext(
-                conversationId = conversationId,
-                virtualPaths = virtualPathsFactory.forConversation(conversationId),
+                conversation = conversation,
                 turnId = turnId,
                 currentMessageIds = messages.map { it.id },
                 currentFiles = files,
                 sessionFiles = state.files,
-                intelligenceLevel = state.intelligenceLevel,
-                history =
-                    ConversationHistory(
-                        compactions = state.compactions,
-                        messages = filterOutRecentMessages(state.messages, messages),
-                        hasKoogMessages = state.koogMessages.isNotEmpty(),
-                    ),
-                mcpServers = emptyList(),
+                aiModelProfile = state.aiModel,
             )
         }
 
@@ -196,3 +201,8 @@ class ConversationManager(
         private const val CONTEXT_MAX_MESSAGE_CHARS = 3200
     }
 }
+
+fun filterOutRecentMessages(
+    messages: List<SessionMessage>,
+    recentMessages: List<SessionMessage>,
+): List<SessionMessage> = messages.filter { hist -> recentMessages.none { hist.id == it.id } }

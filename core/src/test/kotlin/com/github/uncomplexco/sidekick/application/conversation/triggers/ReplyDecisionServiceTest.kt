@@ -251,6 +251,9 @@ class ReplyDecisionServiceTest {
     private fun koogConfig() =
         KoogConfig(
             openRouterApiKey = "test-key",
+            fastModel = "openai/gpt-5.4-mini",
+            fastProvider = "azure",
+            fastReasoningEffort = "low",
             defaultModel = "openai/gpt-5.4-mini",
             defaultProvider = "azure",
             defaultReasoningEffort = "medium",

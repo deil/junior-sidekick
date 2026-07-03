@@ -4,8 +4,8 @@ import ai.koog.prompt.message.Message
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationSettings
-import com.github.uncomplexco.sidekick.application.conversation.ConversationStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationState
+import com.github.uncomplexco.sidekick.application.conversation.ConversationStats
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
@@ -57,7 +57,7 @@ class FilesystemConversationStateStore(
         return ConversationState(
             id = id,
             files = files.toMutableList(),
-            intelligenceLevel = settings.intelligenceLevel,
+            aiModel = settings.intelligenceLevel,
             subscribed = settings.subscribed,
             compactions = compactions.sortedBy { it.createdAtMs }.toMutableList(),
             messages = messages.sortedBy { it.createdAtMs }.toMutableList(),
@@ -80,7 +80,7 @@ class FilesystemConversationStateStore(
             folder.resolve("settings.json"),
             ConversationSettings.serializer(),
             ConversationSettings(
-                intelligenceLevel = state.intelligenceLevel,
+                intelligenceLevel = state.aiModel,
                 subscribed = state.subscribed,
             ),
         )

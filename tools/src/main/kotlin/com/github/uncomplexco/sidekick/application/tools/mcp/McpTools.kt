@@ -107,7 +107,7 @@ private class McpStatusTool(
             ),
     ) {
     override suspend fun execute(args: JSONObject): JSONObject {
-        val connected = ctx.mcpServers.any { it.id == serverId }
+        val connected = ctx.conversation.mcpServers.any { it.id == serverId }
         return JSONObject(
             mapOf(
                 "server_id" to JSONPrimitive(serverId),

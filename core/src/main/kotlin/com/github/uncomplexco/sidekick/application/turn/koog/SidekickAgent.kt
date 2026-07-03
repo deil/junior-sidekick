@@ -66,13 +66,13 @@ class SidekickAgent(
         message: SessionMessage,
         chat: ChatPlatformAdapter,
     ): String {
-        val mcpServers = mcpServersRegistry.connect(ctx.conversationId, message.author?.username.orEmpty())
-        val ctxWithMcp = ctx.copy(mcpServers = mcpServers)
+        val mcpServers = mcpServersRegistry.connect(ctx.conversation.conversationId, message.author?.username.orEmpty())
+        val ctxWithMcp = ctx.copy(conversation = ctx.conversation.copy(mcpServers = mcpServers))
 
         try {
             val mcpToolRegistry = mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
             val toolRegistry = toolRegistryFactory.build(ctxWithMcp, chat) + mcpToolRegistry
-            val llmProfile = koogConfig.profile(ctx.intelligenceLevel)
+            val aiModelProfile = koogConfig.profile(ctx.aiModelProfile)
 
             val agent =
                 AIAgent(
@@ -83,14 +83,14 @@ class SidekickAgent(
                             prompt =
                                 prompt(
                                     id = "sidekick-base-prompt",
-                                    params = koogConfig.openRouterParams(llmProfile),
+                                    params = koogConfig.openRouterParams(aiModelProfile),
                                 ) {
-                                    system(systemPromptBuilder.buildSystemPrompt(config.botUsername!!, ctx.conversationId))
+                                    system(systemPromptBuilder.buildSystemPrompt(config.botUsername!!, ctx.conversation.conversationId))
                                 },
                             model =
                                 LLModel(
                                     provider = LLMProvider.OpenRouter,
-                                    id = llmProfile.model,
+                                    id = aiModelProfile.model,
                                     capabilities = koogConfig.modelCapabilities(),
                                 ),
                             maxAgentIterations = koogConfig.maxAgentIterations,
@@ -117,7 +117,7 @@ class SidekickAgent(
                 }
 
             val input = turnPromptBuilder.buildSessionTurnPrompt(message, ctxWithMcp)
-            return agent.run(input, ctx.conversationId.lockKey())
+            return agent.run(input, ctx.conversation.conversationId.lockKey())
         } finally {
             mcpServers.forEach { it.close() }
         }

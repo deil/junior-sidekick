@@ -53,6 +53,8 @@ class KoogSessionContextSummarizer(
                 }
             }
 
+        val aiModelProfile = config.fastProfile
+
         return runCatching {
             openRouterExecutor(config.openRouterApiKey).use { executor ->
                 executor
@@ -60,14 +62,14 @@ class KoogSessionContextSummarizer(
                         prompt =
                             prompt(
                                 id = "sidekick-session-context-compaction",
-                                params = config.openRouterParams(),
+                                params = config.openRouterParams(aiModelProfile),
                             ) {
                                 user("${Prompts.CONTEXT_COMPACTION_PROMPT}\n$transcript")
                             },
                         model =
                             LLModel(
                                 provider = LLMProvider.OpenRouter,
-                                id = config.model,
+                                id = aiModelProfile.model,
                                 capabilities = config.modelCapabilities(),
                             ),
                     ).textContent()

@@ -44,7 +44,7 @@ class SlackHistoryTools(
     ): SlackChannelHistoryResult {
         val requestedLimit = normalizeSlackHistoryLimit(limit)
         val scanDepth = normalizeSlackHistoryScanDepth(scan_depth)
-        val channelId = ctx.conversationId.channelId
+        val channelId = ctx.conversation.conversationId.channelId
 
         val loadedMessages = mutableListOf<SlackMessage>()
         var nextCursor = cursor?.takeIf { it.isNotBlank() }
@@ -114,7 +114,7 @@ class SlackHistoryTools(
         val requestedLimit = normalizeSlackHistoryLimit(limit)
         val scanDepth = normalizeSlackHistoryScanDepth(scan_depth)
         val threadTs = thread_ts.trim()
-        val channelId = ctx.conversationId.channelId
+        val channelId = ctx.conversation.conversationId.channelId
 
         val loadedMessages = mutableListOf<SlackMessage>()
         var nextCursor = cursor?.takeIf { it.isNotBlank() }

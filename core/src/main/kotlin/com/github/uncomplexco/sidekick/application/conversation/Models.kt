@@ -12,7 +12,7 @@ data class ConversationId(
         buildString {
             append(channelId)
             append(':')
-            append(threadId ?: "session")
+            append(threadId)
         }
 
     companion object {
@@ -23,7 +23,7 @@ data class ConversationId(
 data class ConversationState(
     val id: ConversationId,
     var files: MutableList<SessionFileRef>,
-    var intelligenceLevel: ConversationIntelligenceLevel = ConversationIntelligenceLevel.NORMAL,
+    var aiModel: AiModelProfile = AiModelProfile.NORMAL,
     var subscribed: Boolean = true,
     var compactions: MutableList<SessionCompaction> = mutableListOf(),
     var messages: MutableList<SessionMessage> = mutableListOf(),
@@ -32,14 +32,15 @@ data class ConversationState(
 )
 
 @Serializable
-enum class ConversationIntelligenceLevel {
+enum class AiModelProfile {
+    FAST,
     NORMAL,
     ULTRATHINK,
 }
 
 @Serializable
 data class ConversationSettings(
-    val intelligenceLevel: ConversationIntelligenceLevel = ConversationIntelligenceLevel.NORMAL,
+    val intelligenceLevel: AiModelProfile = AiModelProfile.NORMAL,
     val subscribed: Boolean = true,
 )
 

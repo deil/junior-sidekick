@@ -33,17 +33,17 @@ class TurnPromptBuilder(
         ctx: TurnContext,
     ): String =
         buildString {
-            if (!ctx.history.hasKoogMessages) {
+            if (!ctx.conversation.history.hasKoogMessages) {
                 appendLine(
                     buildThreadContext(
-                        ctx.conversationId,
-                        ctx.history.compactions,
-                        ctx.history.messages,
+                        ctx.conversation.conversationId,
+                        ctx.conversation.history.compactions,
+                        ctx.conversation.history.messages,
                         ctx.sessionFiles,
                     ),
                 )
 
-                skillsSection(skills.catalog(), ctx.virtualPaths)?.also { appendLine(it) }
+                skillsSection(skills.catalog(), ctx.conversation.virtualPaths)?.also { appendLine(it) }
             }
 
             val skippedMessages = pendingSkippedMessages(ctx)
@@ -57,7 +57,7 @@ class TurnPromptBuilder(
                                     renderSessionMessage(
                                         idx,
                                         skippedMessage,
-                                        ctx.conversationId,
+                                        ctx.conversation.conversationId,
                                         skippedMessage.fileIds.mapNotNull { fileId ->
                                             ctx.sessionFiles.find { file -> file.id == fileId }
                                         },
@@ -92,7 +92,7 @@ class TurnPromptBuilder(
                 appendLine()
                 appendLine(
                     renderFileAttachments(
-                        ctx.conversationId,
+                        ctx.conversation.conversationId,
                         message.fileIds.map { fileId ->
                             ctx.sessionFiles.find { file -> file.id == fileId }!!
                         },
@@ -231,12 +231,12 @@ class TurnPromptBuilder(
     }
 
     private fun pendingSkippedMessages(ctx: TurnContext): List<SessionMessage> {
-        if (!ctx.history.hasKoogMessages) {
+        if (!ctx.conversation.history.hasKoogMessages) {
             return emptyList()
         }
 
-        val lastAssistantIndex = ctx.history.messages.indexOfLast { it.role == SessionMessageRole.ASSISTANT }
-        return ctx.history.messages
+        val lastAssistantIndex = ctx.conversation.history.messages.indexOfLast { it.role == SessionMessageRole.ASSISTANT }
+        return ctx.conversation.history.messages
             .drop(lastAssistantIndex + 1)
             .filter { it.role == SessionMessageRole.USER && it.replied == false }
     }

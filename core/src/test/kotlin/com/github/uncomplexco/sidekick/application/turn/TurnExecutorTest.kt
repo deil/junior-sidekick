@@ -94,6 +94,9 @@ class TurnExecutorTest {
     private fun koogConfig(): KoogConfig =
         KoogConfig(
             openRouterApiKey = "test-key",
+            fastModel = "openai/gpt-5.4-mini",
+            fastProvider = "azure",
+            fastReasoningEffort = "low",
             defaultModel = "z-ai/glm-5.2",
             defaultProvider = "azure",
             defaultReasoningEffort = "medium",

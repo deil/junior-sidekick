@@ -112,10 +112,10 @@ class TurnExecutor(
                             username = agentConfig.botUsername!!,
                             fullName = agentConfig.name,
                         ),
-                    messageHistory = turn.history.messages,
+                    messageHistory = turn.conversation.history.messages,
                     isExplicitMention = decision.explicitMention,
                     isPrivateMessage = message.type == ChatMessageType.ASSISTANT_MESSAGE,
-                    hasAssistantHistory = turn.history.messages.any { it.role == SessionMessageRole.ASSISTANT },
+                    hasAssistantHistory = turn.conversation.history.messages.any { it.role == SessionMessageRole.ASSISTANT },
                 ),
             )
 

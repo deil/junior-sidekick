@@ -1,7 +1,5 @@
-package com.github.uncomplexco.sidekick.application.turn
+package com.github.uncomplexco.sidekick.application.conversation
 
-import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
-import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 

@@ -8,6 +8,6 @@ fun slackTools(
     slackClient: MethodsClient,
     ctx: TurnContext,
 ): List<ToolBase<*, *>> =
-    SlackCanvasTools(slackClient, ctx.conversationId).asTools() + SlackChannelTools(slackClient).asTools() +
+    SlackCanvasTools(slackClient, ctx.conversation.conversationId).asTools() + SlackChannelTools(slackClient).asTools() +
         SlackHistoryTools(slackClient, ctx).asTools() + SlackUserTools(slackClient).asTools() +
-        SlackReactionTools(slackClient, ctx).asTools() + SlackFileTools(ctx, ctx.virtualPaths).asTools()
+        SlackReactionTools(slackClient, ctx).asTools() + SlackFileTools(ctx, ctx.conversation.virtualPaths).asTools()

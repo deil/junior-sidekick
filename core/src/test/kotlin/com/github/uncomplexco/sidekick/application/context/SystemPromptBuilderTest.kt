@@ -2,12 +2,13 @@ package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
+import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import org.junit.jupiter.api.Test
@@ -122,7 +123,10 @@ class TurnPromptBuilderTest {
                 stateDir = dir.resolve("state").toString(),
                 workingDir = dir.resolve("workspace").toString(),
             ),
-            skills = { com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog(emptyList()) },
+            skills = {
+                com.github.uncomplexco.sidekick.application.agent.skills
+                    .SkillCatalog(emptyList())
+            },
         )
 
     private fun context(
@@ -132,20 +136,23 @@ class TurnPromptBuilderTest {
         historyMessages: List<SessionMessage> = emptyList(),
     ): TurnContext =
         TurnContext(
-            conversationId = conversationId,
-            virtualPaths = virtualPaths(),
+            conversation =
+                ConversationContext(
+                    conversationId = conversationId,
+                    virtualPaths = virtualPaths(),
+                    history =
+                        ConversationHistory(
+                            compactions = emptyList(),
+                            messages = historyMessages,
+                            hasKoogMessages = hasKoogMessages,
+                        ),
+                    mcpServers = emptyList(),
+                ),
             turnId = "turn",
             currentMessageIds = listOf("m1"),
             currentFiles = emptyList(),
             sessionFiles = listOfNotNull(file),
-            intelligenceLevel = ConversationIntelligenceLevel.NORMAL,
-            history =
-                ConversationHistory(
-                    compactions = emptyList(),
-                    messages = historyMessages,
-                    hasKoogMessages = hasKoogMessages,
-                ),
-            mcpServers = emptyList(),
+            aiModelProfile = AiModelProfile.NORMAL,
         )
 
     private fun virtualPaths(): VirtualPaths =

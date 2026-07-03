@@ -52,19 +52,19 @@ class DefaultToolRegistryFactory(
                 tools(
                     BashTools(
                         bashToolConfig,
-                        ctx.virtualPaths,
+                        ctx.conversation.virtualPaths,
                         sandboxExecutorFactory.create(),
                     ),
                 )
             }
             tools(WebFetchTools(agentConfig.name))
-            tools(GitTools(gitToolConfig, ctx.virtualPaths))
-            tools(WorkspaceFileTools(ctx.virtualPaths))
-            tools(SkillTools(skills, ctx.virtualPaths, skillCatalogReloader))
+            tools(GitTools(gitToolConfig, ctx.conversation.virtualPaths))
+            tools(WorkspaceFileTools(ctx.conversation.virtualPaths))
+            tools(SkillTools(skills, ctx.conversation.virtualPaths, skillCatalogReloader))
             tools(
                 InternalFileExchangeTools(
                     filePublisher,
-                    ctx.virtualPaths,
+                    ctx.conversation.virtualPaths,
                 ),
             )
             tools(slackTools(sharedContext.slackClient, ctx))

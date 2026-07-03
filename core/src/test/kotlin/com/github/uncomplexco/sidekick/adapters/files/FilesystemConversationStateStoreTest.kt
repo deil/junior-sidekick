@@ -5,8 +5,8 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.ConversationIntelligenceLevel
 import com.github.uncomplexco.sidekick.application.conversation.ConversationStats
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -61,14 +61,14 @@ class FilesystemConversationStateStoreTest {
 
         // Act
         val initial = store.load(conversationId)
-        assertEquals(ConversationIntelligenceLevel.NORMAL, initial.intelligenceLevel)
+        assertEquals(AiModelProfile.NORMAL, initial.aiModel)
 
-        initial.intelligenceLevel = ConversationIntelligenceLevel.ULTRATHINK
+        initial.aiModel = AiModelProfile.ULTRATHINK
         store.save(conversationId, initial)
         val loaded = store.load(conversationId)
 
         // Assert
-        assertEquals(ConversationIntelligenceLevel.ULTRATHINK, loaded.intelligenceLevel)
+        assertEquals(AiModelProfile.ULTRATHINK, loaded.aiModel)
     }
 
     @Test
