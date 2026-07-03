@@ -7,7 +7,6 @@ import com.github.uncomplexco.sidekick.application.context.SessionContextCompact
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.filterOutRecentMessages
-import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import org.springframework.stereotype.Component
 import kotlin.uuid.ExperimentalUuidApi

@@ -3,35 +3,37 @@ package com.github.uncomplexco.sidekick.application.chat
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
-import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
-import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
-import com.slack.api.methods.MethodsClient
 
-data class ReplyResult(
-    val messageId: String,
-    val timestamp: Long,
-)
+interface ChatPlatformAdapter {
+    val botUsername: String
+    val activity: TurnActivityIndicator
 
-fun interface ChatFileIngestor {
-    fun ingest(
+    fun loadHistory(conversationId: ConversationId): List<ChatMessage>
+
+    suspend fun postReply(text: String): ReplyResult
+
+    fun ingestFiles(
         conversationId: ConversationId,
         files: List<IncomingChatFile>,
     ): List<IncomingChatFile>
 }
 
-class ChatPlatformAdapter(
-    val botUsername: String,
-    val historyLoader: (ConversationId) -> List<ChatMessage>,
-    val reply: ReplyToMessage,
-    val activity: ChatActivityIndicator,
-    val fileIngestor: ChatFileIngestor,
-)
+interface TurnActivityIndicator {
+    fun start(text: String? = null)
 
-interface SlackClientProvider {
-    fun client(): MethodsClient
+    fun `continue`(text: String? = null)
 
-    fun hasToken(): Boolean
+    fun toolCall(name: String)
+
+    fun clear()
+
+    fun endTurn()
 }
+
+data class ChatThreadId(
+    val threadTs: String,
+    val isStarted: Boolean,
+)
 
 data class ChatConversationId(
     val channelId: String,
@@ -63,3 +65,8 @@ enum class ChatMessageType {
     PASSIVE_MESSAGE,
     ASSISTANT_MESSAGE,
 }
+
+data class ReplyResult(
+    val messageId: String,
+    val timestamp: Long,
+)

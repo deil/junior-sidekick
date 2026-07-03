@@ -25,8 +25,6 @@ import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
-import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -35,8 +33,7 @@ private val log = LoggerFactory.getLogger(SidekickAgent::class.java)
 fun interface ToolRegistryFactory {
     suspend fun build(
         ctx: TurnContext,
-        activity: ChatActivityIndicator,
-        reply: ReplyToMessage,
+        chat: ChatPlatformAdapter,
     ): ToolRegistry
 }
 
@@ -74,7 +71,7 @@ class SidekickAgent(
 
         try {
             val mcpToolRegistry = mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
-            val toolRegistry = toolRegistryFactory.build(ctxWithMcp, chat.activity, chat.reply) + mcpToolRegistry
+            val toolRegistry = toolRegistryFactory.build(ctxWithMcp, chat) + mcpToolRegistry
             val llmProfile = koogConfig.profile(ctx.intelligenceLevel)
 
             val agent =

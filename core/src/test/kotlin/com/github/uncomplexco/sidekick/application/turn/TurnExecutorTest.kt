@@ -6,17 +6,19 @@ import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
+import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
+import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationManager
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.turn.koog.AgentTurnRunner
-import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -102,19 +104,26 @@ class TurnExecutorTest {
         )
 
     private fun chat(replies: MutableList<String>): ChatPlatformAdapter =
-        ChatPlatformAdapter(
-            botUsername = "USIDEKICK",
-            historyLoader = { emptyList() },
-            reply = { text ->
+        object : ChatPlatformAdapter {
+            override val botUsername = "USIDEKICK"
+            override val activity = NoopActivityIndicator
+
+            override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+
+            override suspend fun postReply(text: String): ReplyResult {
                 replies += text
-                ReplyResult("reply-${replies.size}", replies.size.toLong())
-            },
-            activity = NoopActivityIndicator,
-            fileIngestor = { _, files -> files },
-        )
+                return ReplyResult("reply-${replies.size}", replies.size.toLong())
+            }
+
+            override fun ingestFiles(
+                conversationId: ConversationId,
+                files: List<IncomingChatFile>,
+            ): List<IncomingChatFile> = files
+
+        }
 }
 
-private object NoopActivityIndicator : ChatActivityIndicator {
+private object NoopActivityIndicator : TurnActivityIndicator {
     override fun start(text: String?) = Unit
 
     override fun `continue`(text: String?) = Unit

@@ -5,7 +5,7 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.slack.api.bolt.context.builtin.EventContext
 
-fun loadThreadHistory(
+internal fun loadThreadHistory(
     ctx: EventContext,
     threadTs: String,
     currentTs: String?,

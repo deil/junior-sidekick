@@ -1,7 +1,12 @@
 package com.github.uncomplexco.sidekick.application.tools
 
+import com.github.uncomplexco.sidekick.application.chat.ChatMessage
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.chat.ReplyResult
+import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
-import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -11,13 +16,13 @@ import kotlin.time.Instant
 class SystemToolsTest {
     @Test
     fun `report assistant activity updates chat activity indicator`() {
-        val activity = RecordingChatActivityIndicator()
-        val tools = SystemTools(activity = activity)
+        val chat = RecordingChatPlatform()
+        val tools = SystemTools(chat = chat)
 
         val result = tools.reportAssistantActivity("Reading project files")
 
         assertTrue(result.ok)
-        assertEquals(listOf<String?>("Reading project files"), activity.continuedWith)
+        assertEquals(listOf<String?>("Reading project files"), chat.continuedWith)
     }
 
     @Test
@@ -59,18 +64,31 @@ class SystemToolsTest {
     }
 }
 
-private class RecordingChatActivityIndicator : ChatActivityIndicator {
+private class RecordingChatPlatform : ChatPlatformAdapter {
+    override val botUsername = "USIDEKICK"
     val continuedWith = mutableListOf<String?>()
+    override val activity =
+        object : TurnActivityIndicator {
+            override fun start(text: String?) = Unit
 
-    override fun start(text: String?) = Unit
+            override fun `continue`(text: String?) {
+                continuedWith += text
+            }
 
-    override fun `continue`(text: String?) {
-        continuedWith += text
-    }
+            override fun toolCall(name: String) = Unit
 
-    override fun toolCall(name: String) = Unit
+            override fun clear() = Unit
 
-    override fun clear() = Unit
+            override fun endTurn() = Unit
+        }
 
-    override fun endTurn() = Unit
+    override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+
+    override suspend fun postReply(text: String): ReplyResult = ReplyResult("reply", 1)
+
+    override fun ingestFiles(
+        conversationId: ConversationId,
+        files: List<IncomingChatFile>,
+    ): List<IncomingChatFile> = files
+
 }

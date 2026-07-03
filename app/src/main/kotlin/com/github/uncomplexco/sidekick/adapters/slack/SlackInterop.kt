@@ -2,11 +2,14 @@ package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
+import com.github.uncomplexco.sidekick.application.chat.ChatMessage
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
+import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
-import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
+import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.slack.api.bolt.context.builtin.EventContext
 import com.slack.api.model.Attachment
 import org.slf4j.Logger
@@ -20,103 +23,134 @@ import java.nio.file.Path
 import java.time.Duration
 import com.slack.api.model.File as SlackFile
 
-fun replyInSlack(
-    ctx: EventContext,
-    threadTs: String?,
-): ReplyToMessage =
-    { text ->
+class SlackChatPlatformAdapter(
+    private val ctx: EventContext,
+    private val threadId: ChatThreadId,
+    private val historyLoader: (ConversationId) -> List<ChatMessage>,
+    private val fileIngestor: SlackFileIngestor,
+) : ChatPlatformAdapter {
+    override val botUsername: String = ctx.botUserId
+    override val activity: TurnActivityIndicator = SlackActivityIndicator(ctx, threadId.threadTs)
+
+    override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = historyLoader(conversationId)
+
+    override suspend fun postReply(text: String): ReplyResult {
         val postResponse =
             ctx.client().chatPostMessage { req ->
                 req.channel(ctx.channelId)
-                if (threadTs != null) {
-                    req.threadTs(threadTs)
-                }
+                req.threadTs(threadId.threadTs)
 
                 req.markdownText(text)
             }
 
         if (!postResponse.isOk) {
-            log.warn("Slack markdown post failed, fallback to plain text")
+            Loggers.SLACK.warn("Slack markdown post failed, fallback to plain text")
             ctx.say(text)
         }
 
-        ReplyResult(
+        return ReplyResult(
             messageId = postResponse.ts,
             timestamp = slackTsToMillis(postResponse.ts),
         )
     }
 
-fun slackActivityIndicator(
+    override fun ingestFiles(
+        conversationId: ConversationId,
+        files: List<IncomingChatFile>,
+    ): List<IncomingChatFile> = fileIngestor.ingest(conversationId, files)
+}
+
+fun slackChatPlatformAdapter(
+    ctx: EventContext,
+    threadId: ChatThreadId,
+    currentMessageTs: String,
+    fileIngestor: SlackFileIngestor,
+): SlackChatPlatformAdapter =
+    SlackChatPlatformAdapter(
+        ctx = ctx,
+        threadId = threadId,
+        historyLoader = { sessionId ->
+            if (threadId.isStarted) {
+                loadThreadHistory(ctx, threadId.threadTs, currentMessageTs, sessionId, fileIngestor)
+            } else {
+                emptyList()
+            }
+        },
+        fileIngestor = fileIngestor,
+    )
+
+private class SlackActivityIndicator(
     ctx: EventContext,
     threadTs: String,
-): ChatActivityIndicator =
-    object : ChatActivityIndicator {
-        val STATUS_LISTENING = "listening..."
-        val STATUS_THINKING = "thinking..."
-        private var turnActive = false
+) : TurnActivityIndicator {
+    private val ctx = ctx
+    private val threadTs = threadTs
+    val STATUS_LISTENING = "listening..."
+    val STATUS_THINKING = "thinking..."
+    private var turnActive = false
 
-        override fun start(text: String?) {
-            turnActive = true
+    override fun start(text: String?) {
+        turnActive = true
 
-            setStatus(status = STATUS_LISTENING, emoji = ":eyes:", loadingMessages = listOf(STATUS_LISTENING))
-        }
+        setStatus(status = STATUS_LISTENING, emoji = ":eyes:", loadingMessages = listOf(STATUS_LISTENING))
+    }
 
-        override fun `continue`(text: String?) {
-            setStatus(
-                status = STATUS_THINKING,
-                emoji = ":face_in_clouds:",
-                loadingMessages = listOf(text ?: STATUS_THINKING),
-            )
-        }
+    override fun `continue`(text: String?) {
+        setStatus(
+            status = STATUS_THINKING,
+            emoji = ":face_in_clouds:",
+            loadingMessages = listOf(text ?: STATUS_THINKING),
+        )
+    }
 
-        override fun toolCall(name: String) {
-            setStatus(
-                status = STATUS_THINKING,
-                emoji = ":satellite_antenna:",
-                loadingMessages = listOf("-> $name..."),
-            )
-        }
+    override fun toolCall(name: String) {
+        setStatus(
+            status = STATUS_THINKING,
+            emoji = ":satellite_antenna:",
+            loadingMessages = listOf("-> $name..."),
+        )
+    }
 
-        override fun clear() {
-            if (turnActive) {
-                `continue`()
-            } else {
-                setStatus("")
-            }
-        }
-
-        override fun endTurn() {
-            turnActive = false
+    override fun clear() {
+        if (turnActive) {
+            `continue`()
+        } else {
             setStatus("")
         }
+    }
 
-        private fun setStatus(
-            status: String,
-            emoji: String? = null,
-            loadingMessages: List<String>? = null,
-        ) {
-            runCatching {
-                val response =
-                    ctx.client().assistantThreadsSetStatus { req ->
-                        req.channelId(ctx.channelId)
-                        req.threadTs(threadTs)
-                        req.status(status)
-                        if (loadingMessages != null) {
-                            req.loadingMessages(loadingMessages)
-                        }
+    override fun endTurn() {
+        turnActive = false
+        setStatus("")
+    }
 
-                        emoji?.also { req.iconEmoji(it) }
-
-                        req
+    private fun setStatus(
+        status: String,
+        emoji: String? = null,
+        loadingMessages: List<String>? = null,
+    ) {
+        runCatching {
+            val response =
+                ctx.client().assistantThreadsSetStatus { req ->
+                    req.channelId(ctx.channelId)
+                    req.threadTs(threadTs)
+                    req.status(status)
+                    if (loadingMessages != null) {
+                        req.loadingMessages(loadingMessages)
                     }
-                if (!response.isOk) {
-                    log.warn("Slack assistant status update failed: {}", response.error)
+
+                    emoji?.also { req.iconEmoji(it) }
+
+                    req
                 }
-            }.onFailure {
-                log.warn("Slack assistant status update failed", it)
+            if (!response.isOk) {
+                Loggers.SLACK.warn("Slack assistant status update failed: {}", response.error)
             }
+        }.onFailure {
+            Loggers.SLACK.warn("Slack assistant status update failed", it)
         }
     }
+}
 
 internal fun incomingChatFiles(
     files: List<SlackFile>?,
@@ -175,7 +209,7 @@ class SlackFileIngestor(
             Files.write(target, response.body())
             return@runCatching target
         }.getOrElse {
-            log.warn("Slack file ingest failed for file id={}", file.id, it)
+            Loggers.SLACK.warn("Slack file ingest failed for file id={}", file.id, it)
             null
         }
 }
@@ -217,7 +251,5 @@ internal fun containsMention(
     text: String,
     username: String,
 ): Boolean = text.contains("<@$username>")
-
-internal val log: Logger = LoggerFactory.getLogger(SlackAppFactory::class.java)
 
 private const val MAX_MESSAGE_FILES = 3

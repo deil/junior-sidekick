@@ -3,9 +3,10 @@ package com.github.uncomplexco.sidekick.adapters.slack
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
-import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
+import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
 import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
@@ -72,7 +73,7 @@ class SlackAppFactory {
 
         app.event(AppMentionEvent::class.java) { payload, ctx ->
             val event = payload.event
-            log.debug("AppMentionEvent in ${event.channel}")
+            Loggers.SLACK.debug("AppMentionEvent in ${event.channel}")
             if (!event.text.isNullOrBlank() && eventDeduper.put(event.channel, event.ts)) {
                 async(app) {
                     val conversationId = event.toConversationId()
@@ -87,18 +88,11 @@ class SlackAppFactory {
                             type = ChatMessageType.EXPLICIT_MENTION,
                             files = incomingChatFiles(event.files, event.attachments),
                         ),
-                        ChatPlatformAdapter(
-                            botUsername = ctx.botUserId,
-                            historyLoader = { sessionId ->
-                                if (event.threadTs != null) {
-                                    loadThreadHistory(ctx, event.threadTs, event.ts, sessionId, slackFileIngestor)
-                                } else {
-                                    emptyList()
-                                }
-                            },
-                            reply = replyInSlack(ctx, responseThreadTs),
-                            activity = slackActivityIndicator(ctx, responseThreadTs),
-                            fileIngestor = slackFileIngestor::ingest,
+                        slackChatPlatformAdapter(
+                            ctx = ctx,
+                            threadId = ChatThreadId(responseThreadTs, event.threadTs != null),
+                            currentMessageTs = event.ts,
+                            fileIngestor = slackFileIngestor,
                         ),
                     )
                 }
@@ -129,18 +123,11 @@ class SlackAppFactory {
                                 type = ChatMessageType.PASSIVE_MESSAGE,
                                 files = incomingChatFiles(event.files, event.attachments),
                             ),
-                            ChatPlatformAdapter(
-                                botUsername = ctx.botUserId,
-                                historyLoader = { sessionId ->
-                                    if (event.threadTs != null) {
-                                        loadThreadHistory(ctx, event.threadTs, event.ts, sessionId, slackFileIngestor)
-                                    } else {
-                                        emptyList()
-                                    }
-                                },
-                                reply = replyInSlack(ctx, event.threadTs),
-                                activity = slackActivityIndicator(ctx, responseThreadTs),
-                                fileIngestor = slackFileIngestor::ingest,
+                            slackChatPlatformAdapter(
+                                ctx = ctx,
+                                threadId = ChatThreadId(responseThreadTs, event.threadTs != null),
+                                currentMessageTs = event.ts,
+                                fileIngestor = slackFileIngestor,
                             ),
                         )
                     }
@@ -152,7 +139,7 @@ class SlackAppFactory {
 
         app.event(MessageFileShareEvent::class.java) { payload, ctx ->
             val event = payload.event
-            log.debug("MessageFileShareEvent in ${event.channel}")
+            Loggers.SLACK.debug("MessageFileShareEvent in ${event.channel}")
             val files = incomingChatFiles(event.files, event.attachments)
             if (eventDeduper.put(event.channel, event.ts)) {
                 if (event.channelType != "im") {
@@ -177,18 +164,11 @@ class SlackAppFactory {
                                     },
                                 files = files,
                             ),
-                            ChatPlatformAdapter(
-                                botUsername = ctx.botUserId,
-                                historyLoader = { sessionId ->
-                                    if (event.threadTs != null) {
-                                        loadThreadHistory(ctx, event.threadTs, event.ts, sessionId, slackFileIngestor)
-                                    } else {
-                                        emptyList()
-                                    }
-                                },
-                                reply = replyInSlack(ctx, responseThreadTs),
-                                activity = slackActivityIndicator(ctx, responseThreadTs),
-                                fileIngestor = slackFileIngestor::ingest,
+                            slackChatPlatformAdapter(
+                                ctx = ctx,
+                                threadId = ChatThreadId(responseThreadTs, event.threadTs != null),
+                                currentMessageTs = event.ts,
+                                fileIngestor = slackFileIngestor,
                             ),
                         )
                     }
@@ -234,7 +214,7 @@ private fun logAppHomePublishFailure(
     view: View,
 ) {
     val blocks = view.blocks.orEmpty()
-    log.warn(
+    Loggers.SLACK.warn(
         "Slack App Home publish failed: error={} needed={} provided={} response_messages={} response_warnings={} request_id={} user={} block_count={} max_block_text_length={}",
         response.error,
         response.needed,
@@ -283,18 +263,11 @@ internal fun buildSlackAssistant(
                     type = ChatMessageType.ASSISTANT_MESSAGE,
                     files = emptyList(),
                 ),
-                ChatPlatformAdapter(
-                    botUsername = ctx.botUserId,
-                    historyLoader = { sessionId ->
-                        if (req.event.threadTs != null) {
-                            loadThreadHistory(ctx, req.event.threadTs, req.event.ts, sessionId, slackFileIngestor)
-                        } else {
-                            emptyList()
-                        }
-                    },
-                    reply = replyInSlack(ctx, req.event.threadTs),
-                    activity = slackActivityIndicator(ctx, responseThreadTs),
-                    fileIngestor = slackFileIngestor::ingest,
+                slackChatPlatformAdapter(
+                    ctx = ctx,
+                    threadId = ChatThreadId(responseThreadTs, req.event.threadTs != null),
+                    currentMessageTs = req.event.ts,
+                    fileIngestor = slackFileIngestor,
                 ),
             )
         }
@@ -317,18 +290,11 @@ internal fun buildSlackAssistant(
                     type = ChatMessageType.ASSISTANT_MESSAGE,
                     files = incomingChatFiles(req.event.files, req.event.attachments),
                 ),
-                ChatPlatformAdapter(
-                    botUsername = ctx.botUserId,
-                    historyLoader = { sessionId ->
-                        if (req.event.threadTs != null) {
-                            loadThreadHistory(ctx, req.event.threadTs, req.event.ts, sessionId, slackFileIngestor)
-                        } else {
-                            emptyList()
-                        }
-                    },
-                    reply = replyInSlack(ctx, req.event.threadTs),
-                    activity = slackActivityIndicator(ctx, responseThreadTs),
-                    fileIngestor = slackFileIngestor::ingest,
+                slackChatPlatformAdapter(
+                    ctx = ctx,
+                    threadId = ChatThreadId(responseThreadTs, req.event.threadTs != null),
+                    currentMessageTs = req.event.ts,
+                    fileIngestor = slackFileIngestor,
                 ),
             )
         }

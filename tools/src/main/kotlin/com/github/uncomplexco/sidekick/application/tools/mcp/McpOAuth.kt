@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools.mcp
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -65,7 +65,7 @@ class McpOAuthService(
 
     suspend fun connect(
         server: McpServerConfig,
-        reply: ReplyToMessage,
+        chat: ChatPlatformAdapter,
     ): ConnectMcpResult {
         if (server.auth != "oauth") {
             return ConnectMcpResult(serverId = server.id, auth = "none", started = false, message = "MCP server ${server.id} does not require OAuth")
@@ -100,7 +100,7 @@ class McpOAuthService(
                     "code_challenge_method" to "S256",
                     "state" to state,
                 )
-        reply.postReply("Connect ${server.id} MCP server: $authorizationUrl")
+        chat.postReply("Connect ${server.id} MCP server: $authorizationUrl")
 
         return ConnectMcpResult(serverId = server.id, auth = "oauth", started = true, message = "OAuth authorization link sent")
     }

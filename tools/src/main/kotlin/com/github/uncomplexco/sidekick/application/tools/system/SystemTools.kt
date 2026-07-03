@@ -4,7 +4,7 @@ import ai.koog.agents.core.tools.ToolException
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
-import com.github.uncomplexco.sidekick.ports.chat.ChatActivityIndicator
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import kotlinx.serialization.Serializable
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -12,7 +12,7 @@ import kotlin.time.Instant
 @LLMDescription("General system/runtime tools")
 class SystemTools(
     private val clock: Clock = Clock.System,
-    private val activity: ChatActivityIndicator? = null,
+    private val chat: ChatPlatformAdapter? = null,
 ) : ToolSet {
     @Tool(TOOL_REPORT_ASSISTANT_ACTIVITY)
     @LLMDescription(
@@ -22,7 +22,7 @@ class SystemTools(
         @LLMDescription("Short user-facing activity message describing what is happening now.")
         message: String,
     ): ReportAssistantActivityResult {
-        activity?.`continue`(message)
+        chat?.activity?.`continue`(message)
         return ReportAssistantActivityResult(ok = true)
     }
 

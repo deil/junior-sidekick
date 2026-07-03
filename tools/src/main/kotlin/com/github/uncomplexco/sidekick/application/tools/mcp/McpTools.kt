@@ -10,8 +10,8 @@ import ai.koog.serialization.JSONSerializer
 import ai.koog.serialization.kotlinx.toKoogJSONElement
 import ai.koog.serialization.kotlinx.toKotlinxJsonElement
 import ai.koog.serialization.typeToken
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.ports.chat.ReplyToMessage
 import io.modelcontextprotocol.kotlin.sdk.client.Client
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
@@ -35,7 +35,7 @@ class McpAuthTools(
     private val config: McpToolsConfig,
     private val oauth: McpOAuthService,
 ) {
-    fun asTools(reply: ReplyToMessage): List<ToolBase<*, *>> = config.servers.map { server -> ConnectMcpTool(server, oauth, reply) }
+    fun asTools(chat: ChatPlatformAdapter): List<ToolBase<*, *>> = config.servers.map { server -> ConnectMcpTool(server, oauth, chat) }
 }
 
 class McpServerTool(
@@ -120,7 +120,7 @@ private class McpStatusTool(
 private class ConnectMcpTool(
     private val server: McpServerConfig,
     private val oauth: McpOAuthService,
-    private val reply: ReplyToMessage,
+    private val chat: ChatPlatformAdapter,
 ) : Tool<JSONObject, JSONObject>(
         argsType = typeToken<JSONObject>(),
         resultType = typeToken<JSONObject>(),
@@ -131,7 +131,7 @@ private class ConnectMcpTool(
             ),
     ) {
     override suspend fun execute(args: JSONObject): JSONObject {
-        val result = oauth.connect(server, reply)
+        val result = oauth.connect(server, chat)
         return JSONObject(
             mapOf(
                 "server_id" to JSONPrimitive(result.serverId),

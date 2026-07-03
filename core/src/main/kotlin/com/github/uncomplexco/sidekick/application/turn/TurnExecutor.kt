@@ -69,7 +69,7 @@ class TurnExecutor(
         }
 
         val attachedFiles =
-            chat.fileIngestor.ingest(
+            chat.ingestFiles(
                 decision.conversationId,
                 message.files.take(MAX_MESSAGE_FILES),
             )
@@ -98,7 +98,7 @@ class TurnExecutor(
             conversationManager.recordIncomingMessages(
                 conversationId = decision.conversationId,
                 seedHistory = decision.seedHistory,
-                historyLoader = chat.historyLoader,
+                historyLoader = chat::loadHistory,
                 messages = listOf(currentMessage),
                 files = attachedFiles,
             )
@@ -141,10 +141,10 @@ class TurnExecutor(
                         messageId = message.id,
                         reason = AGENT_FAILURE_REASON,
                     )
-                    runCatching { chat.reply.postReply(TEMPORARY_FAILURE_REPLY) }
+                    runCatching { chat.postReply(TEMPORARY_FAILURE_REPLY) }
                     return
                 }
-            val replyMessageId = chat.reply.postReply(agentReply)
+            val replyMessageId = chat.postReply(agentReply)
 
             conversationManager.recordAssistantReply(
                 conversationId = decision.conversationId,
@@ -164,7 +164,7 @@ class TurnExecutor(
                 reason = shouldReply.reason.toString(),
             )
             conversationManager.setSubscribed(decision.conversationId, false)
-            runCatching { chat.reply.postReply(UNSUBSCRIBE_ACK) }
+            runCatching { chat.postReply(UNSUBSCRIBE_ACK) }
         } else {
             log.debug(
                 "Skipping reply for message id=${message.id}: ${shouldReply.reason} ${shouldReply.detail}",
