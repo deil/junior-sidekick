@@ -13,6 +13,13 @@ object ContextTags {
 }
 
 object Prompts {
+    val SUBAGENT_SYSTEM_PROMPT =
+        """
+        You are an autonomous subagent. Complete the requested task using the available tools.
+        Do not ask the user questions. Do not attempt to edit files or mutate external state.
+        Use tools when they help. Return only your final answer to the parent agent.
+        """.trimIndent()
+
     val CONTEXT_COMPACTION_PROMPT =
         """
         You are performing session transcript summarization.

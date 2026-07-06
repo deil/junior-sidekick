@@ -18,6 +18,8 @@ import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.slackTools
+import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunner
+import com.github.uncomplexco.sidekick.application.tools.subagents.TaskTools
 import com.github.uncomplexco.sidekick.application.tools.system.ConversationIntelligenceLevelTools
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
@@ -40,6 +42,7 @@ class DefaultToolRegistryFactory(
     private val gitToolConfig: GitToolConfig,
     private val sandboxExecutorFactory: SandboxExecutorFactory,
     private val conversationStateStore: ConversationStateStore,
+    private val subagentRunner: SubagentRunner,
 ) : ToolRegistryFactory {
     override suspend fun build(
         ctx: TurnContext,
@@ -58,6 +61,7 @@ class DefaultToolRegistryFactory(
                 )
             }
             tools(WebFetchTools(agentConfig.name))
+            tools(TaskTools(subagentRunner, ctx, chat))
             tools(GitTools(gitToolConfig, ctx.conversation.virtualPaths))
             tools(WorkspaceFileTools(ctx.conversation.virtualPaths))
             tools(SkillTools(skills, ctx.conversation.virtualPaths, skillCatalogReloader))
