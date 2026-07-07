@@ -23,9 +23,9 @@ class VirtualPathTest {
 
         val virtualPaths = VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString())).forConversation(conversationId)
 
-        assertEquals(workingRoot.resolve("threads/C123_1700000000.000"), virtualPaths.workRoot)
+        assertEquals(workingRoot.resolve("data/workspaces/threads/C123_1700000000.000"), virtualPaths.workRoot)
         assertEquals(stateRoot.resolve("slack/channels/C123/threads/1700000000.000/attachments"), virtualPaths.sessionRoot)
-        assertEquals(workingRoot.resolve("projects/C123"), virtualPaths.projectRoot)
+        assertEquals(workingRoot.resolve("data/workspaces/projects/C123"), virtualPaths.projectRoot)
         assertEquals(true, Files.isDirectory(virtualPaths.sessionRoot))
     }
 
@@ -51,8 +51,8 @@ class VirtualPathTest {
         val workingRoot = dir.resolve("workspace")
         Files.createDirectories(workingRoot.resolve("templates/project"))
         Files.writeString(workingRoot.resolve("templates/project/config.txt"), "template\n")
-        Files.createDirectories(workingRoot.resolve("projects/C123"))
-        Files.writeString(workingRoot.resolve("projects/C123/config.txt"), "existing\n")
+        Files.createDirectories(workingRoot.resolve("data/workspaces/projects/C123"))
+        Files.writeString(workingRoot.resolve("data/workspaces/projects/C123/config.txt"), "existing\n")
         val conversationId = ConversationId("C123", "1700000000.000")
 
         val virtualPaths = VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString())).forConversation(conversationId)

@@ -28,9 +28,9 @@ class TaskTools(
     fun task(
         @LLMDescription("Short 3-5 word label for the task")
         description: String,
-        @LLMDescription("Full detailed instruction for the subagent")
+        @LLMDescription("The task for the subagent to perform")
         prompt: String,
-        @LLMDescription("Which subagent to run. Defaults to 'default'")
+        @LLMDescription("The type of specialized agent to use for this task. Defaults to 'default'")
         subagent_type: String = "default",
     ): String {
         validateTaskArgument(description, "description", TASK_DESCRIPTION_MAX_CHARS)
@@ -48,7 +48,7 @@ class TaskTools(
                     )
                 }
 
-            return trimEnd(result, TASK_RESULT_MAX_CHARS, TASK_RESULT_TRUNCATION_MARKER)
+            return result
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -72,7 +72,5 @@ class TaskTools(
         const val TOOL_TASK = "Task"
         const val TASK_DESCRIPTION_MAX_CHARS = 80
         const val TASK_PROMPT_MAX_CHARS = 10_000
-        const val TASK_RESULT_MAX_CHARS = 50_000
-        const val TASK_RESULT_TRUNCATION_MARKER = "\n\n(Subagent result truncated at $TASK_RESULT_MAX_CHARS characters.)"
     }
 }

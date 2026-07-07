@@ -190,7 +190,7 @@ internal fun appHomeView(agentConfig: AgentConfig): View =
         .build()
 
 internal fun descriptionMarkdownBlocks(agentConfig: AgentConfig): List<LayoutBlock> {
-    val path = agentConfig.workingDirectoryPath().resolve("DESCRIPTION.md")
+    val path = agentConfig.workspaceLayout().configDirectoryPath().resolve("DESCRIPTION.md")
     val markdown =
         when {
             Files.isRegularFile(path) -> Files.readString(path).trim()

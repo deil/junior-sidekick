@@ -31,8 +31,7 @@ class TaskToolsTest {
         val result = tools.task("Find owners", "Inspect the repo", "default")
 
         assertEquals(listOf("Inspect the repo"), runner.prompts)
-        val marker = TaskTools.TASK_RESULT_TRUNCATION_MARKER
-        assertEquals("x".repeat(TaskTools.TASK_RESULT_MAX_CHARS - marker.length) + marker, result)
+        assertEquals("x".repeat(50_010), result)
         assertEquals(listOf("default task - Find owners", null), chat.continuedWith)
     }
 

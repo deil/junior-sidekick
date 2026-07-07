@@ -15,12 +15,12 @@ import kotlin.io.path.isDirectory
 import kotlin.io.path.name
 
 @Serializable
-data class SkillsConfig(
-    val skills: List<SkillsRepository> = emptyList(),
+data class ExtensionsConfig(
+    val extensions: List<ExtensionRepository> = emptyList(),
 )
 
 @Serializable
-data class SkillsRepository(
+data class ExtensionRepository(
     val url: String,
     val path: String = "",
     val sshKeyPath: String? = null,
@@ -48,32 +48,32 @@ class LoadSkillsOnStartup(
     private val skills: Skills,
 ) : ApplicationRunner {
     override fun run(args: ApplicationArguments) {
-        skills.syncAndScan(config.workingDirectoryPath())
+        skills.syncAndScan(config)
     }
 }
 
 @Component
 class Skills : SkillCatalogProvider {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json
     private var catalog: SkillCatalog = SkillCatalog(emptyList())
 
-    fun syncAndScan(workingDirectory: Path): SkillCatalog {
-        val config = loadConfig(workingDirectory)
-        if (config.skills.isEmpty()) {
+    fun syncAndScan(config: AgentConfig): SkillCatalog {
+        val extensionsConfig = loadConfig(config)
+        if (extensionsConfig.extensions.isEmpty()) {
             catalog = SkillCatalog(emptyList())
             return catalog
         }
 
         log.info(
-            "Configured remote skill repositories: {}",
-            config.skills.joinToString { "${it.url}:${it.path}" },
+            "Configured extension repositories: {}",
+            extensionsConfig.extensions.joinToString { "${it.url}:${it.path}" },
         )
 
         val checkouts =
-            config.skills.map { repository ->
-                val checkout = checkoutPath(workingDirectory, repository)
-                log.info("Syncing skill repository {} into {}", repository.url, checkout)
-                syncRepository(repository, checkout, workingDirectory)
+            extensionsConfig.extensions.map { repository ->
+                val checkout = checkoutPath(config, repository)
+                log.info("Syncing extension repository {} into {}", repository.url, checkout)
+                syncRepository(repository, checkout, config.workingDirectoryPath())
                 repository to checkout
             }
 
@@ -88,7 +88,7 @@ class Skills : SkillCatalogProvider {
 
         log.info(
             "Identified skills: {}",
-            formatSkills(catalog.skills, workingDirectory),
+            formatSkills(catalog.skills, config.workingDirectoryPath()),
         )
 
         return catalog
@@ -96,22 +96,22 @@ class Skills : SkillCatalogProvider {
 
     override fun catalog(): SkillCatalog = catalog
 
-    fun loadConfig(workingDirectory: Path): SkillsConfig {
-        val configFile = workingDirectory.resolve(SKILLS_CONFIG_FILE)
+    fun loadConfig(config: AgentConfig): ExtensionsConfig {
+        val configFile = config.workspaceLayout().extensionsConfigPath()
         if (!Files.exists(configFile)) {
-            return SkillsConfig()
+            return ExtensionsConfig()
         }
 
-        return json.decodeFromString<SkillsConfig>(Files.readString(configFile))
+        return json.decodeFromString<ExtensionsConfig>(Files.readString(configFile))
     }
 
     fun checkoutPath(
-        workingDirectory: Path,
-        repository: SkillsRepository,
-    ): Path = gitRepositoryCheckoutPath(workingDirectory.resolve(SKILLS_CHECKOUT_DIRECTORY), repository.url)
+        config: AgentConfig,
+        repository: ExtensionRepository,
+    ): Path = gitRepositoryCheckoutPath(config.workspaceLayout().extensionsRepositoryDirectoryPath(), repository.url)
 
     fun scanRepository(
-        repository: SkillsRepository,
+        repository: ExtensionRepository,
         checkout: Path,
     ): SkillCatalog {
         val skillsPath = checkout.resolve(repository.path.ifBlank { "." }).normalize()
@@ -159,10 +159,10 @@ class Skills : SkillCatalogProvider {
     }
 
     private fun syncRepository(
-        repository: SkillsRepository,
+        repository: ExtensionRepository,
         checkout: Path,
         workingDirectory: Path,
-    ) = syncGitRepository(repository.url, repository.sshKeyPath, checkout, workingDirectory, "Skill repository")
+    ) = syncGitRepository(repository.url, repository.sshKeyPath, checkout, workingDirectory, "Extension repository")
 
     private fun parseSkill(skillFile: Path): Skill {
         val lines = Files.readString(skillFile).lines()
@@ -205,8 +205,6 @@ class Skills : SkillCatalogProvider {
 
     companion object {
         private val log = LoggerFactory.getLogger(Skills::class.java)
-        private const val SKILLS_CONFIG_FILE = "skills.json"
-        private const val SKILLS_CHECKOUT_DIRECTORY = "skills"
         const val SKILL_FILE_NAME = "SKILL.md"
         private const val FRONT_MATTER_DELIMITER = "---"
         private const val MAX_DESCRIPTION_LENGTH = 1536

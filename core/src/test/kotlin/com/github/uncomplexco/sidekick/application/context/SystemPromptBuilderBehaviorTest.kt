@@ -16,8 +16,9 @@ class SystemPromptBuilderBehaviorTest {
     @Test
     fun `embeds optional soul and world files after identity`() {
         val workingDir = Files.createDirectories(dir.resolve("workspace"))
-        Files.writeString(workingDir.resolve("SOUL.md"), "Soul line 1\nSoul line 2")
-        Files.writeString(workingDir.resolve("WORLD.md"), "World line 1\nWorld line 2")
+        Files.createDirectories(workingDir.resolve("config"))
+        Files.writeString(workingDir.resolve("config/SOUL.md"), "Soul line 1\nSoul line 2")
+        Files.writeString(workingDir.resolve("config/WORLD.md"), "World line 1\nWorld line 2")
 
         val prompt = builder(workingDir).buildSystemPrompt("sidekick", conversationId())
 
@@ -44,9 +45,10 @@ class SystemPromptBuilderBehaviorTest {
     @Test
     fun `embeds channel project context before operating rules`() {
         val workingDir = Files.createDirectories(dir.resolve("workspace"))
-        val projectDir = Files.createDirectories(workingDir.resolve("projects/C123"))
+        val projectDir = Files.createDirectories(workingDir.resolve("data/workspaces/projects/C123"))
         Files.writeString(projectDir.resolve("AGENTS.md"), "Project line 1\nProject line 2")
-        Files.writeString(workingDir.resolve("RULES.md"), "Rules line 1\nRules line 2")
+        Files.createDirectories(workingDir.resolve("config"))
+        Files.writeString(workingDir.resolve("config/RULES.md"), "Rules line 1\nRules line 2")
 
         val prompt = builder(workingDir).buildSystemPrompt("sidekick", conversationId())
 
@@ -60,7 +62,7 @@ class SystemPromptBuilderBehaviorTest {
     @Test
     fun `ignores legacy global project context`() {
         val workingDir = Files.createDirectories(dir.resolve("workspace"))
-        val contextDir = Files.createDirectories(workingDir.resolve("global/context/C123"))
+        val contextDir = Files.createDirectories(workingDir.resolve("data/repositories/knowledge/context/C123"))
         Files.writeString(contextDir.resolve("AGENTS.md"), "Legacy project context")
 
         val prompt = builder(workingDir).buildSystemPrompt("sidekick", conversationId())

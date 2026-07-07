@@ -226,10 +226,10 @@ class TurnPromptBuilderSkillsTest {
     private fun virtualPaths(): VirtualPaths =
         VirtualPaths(
             sessionRoot = dir.resolve("state/session/attachments"),
-            skillsRoot = dir.resolve("workspace/skills"),
-            globalRoot = dir.resolve("workspace/global"),
+            skillsRoot = dir.resolve("workspace/data/repositories/extensions"),
+            globalRoot = dir.resolve("workspace/data/repositories/knowledge"),
             workRoot = dir.resolve("state/bash/work"),
-            projectRoot = dir.resolve("workspace"),
+            projectRoot = dir.resolve("workspace/data/workspaces/projects/C123"),
         )
 
     private fun message(
@@ -256,7 +256,7 @@ class TurnPromptBuilderSkillsTest {
         Skill(
             name = name,
             description = description,
-            folder = dir.resolve("workspace/skills/repo/$name"),
+            folder = dir.resolve("workspace/data/repositories/extensions/repo/$name"),
             disableModelInvocation = disableModelInvocation,
             userInvocable = userInvocable,
         )

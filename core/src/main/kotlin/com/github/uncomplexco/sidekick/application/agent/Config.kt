@@ -5,6 +5,7 @@ import ai.koog.prompt.executor.clients.openrouter.OpenRouterParams
 import ai.koog.prompt.executor.clients.openrouter.models.ProviderPreferences
 import ai.koog.prompt.llm.LLMCapability
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
+import com.github.uncomplexco.sidekick.application.agent.workspace.WorkspaceLayout
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import org.springframework.beans.factory.annotation.Value
@@ -34,19 +35,7 @@ class AgentConfig(
         return path
     }
 
-    fun skillsDirectoryPath(): Path {
-        val path = workingDirectoryPath().resolve("skills")
-        Files.createDirectories(path)
-        require(Files.isDirectory(path)) { "Configured agent skills directory is not a directory: $path" }
-        return path
-    }
-
-    fun globalDirectoryPath(): Path {
-        val path = workingDirectoryPath().resolve("global")
-        Files.createDirectories(path)
-        require(Files.isDirectory(path)) { "Configured agent global directory is not a directory: $path" }
-        return path
-    }
+    fun workspaceLayout(): WorkspaceLayout = WorkspaceLayout(Path.of(workingDir))
 }
 
 @Configuration

@@ -19,10 +19,11 @@ class SystemPromptBuilder(
         val sections = mutableListOf<String>()
         sections += baseSystemPrompt()
         sections += identitySection(username)
-        optionalMarkdownSection(heading = "Personality", file = "SOUL.md")?.also { sections += it }
-        optionalMarkdownSection(heading = "World", file = "WORLD.md")?.also { sections += it }
+        val workspace = config.workspaceLayout()
+        optionalMarkdownSection(heading = "Personality", path = workspace.configDirectoryPath().resolve("SOUL.md"))?.also { sections += it }
+        optionalMarkdownSection(heading = "World", path = workspace.configDirectoryPath().resolve("WORLD.md"))?.also { sections += it }
         optionalProjectContext(conversationId)?.also { sections += it }
-        optionalMarkdownSection(heading = "Operating rules", file = "RULES.md")?.also { sections += it }
+        optionalMarkdownSection(heading = "Operating rules", path = workspace.configDirectoryPath().resolve("RULES.md"))?.also { sections += it }
 
         return sections.joinToString("\n\n")
     }
@@ -36,9 +37,8 @@ class SystemPromptBuilder(
 
     private fun optionalMarkdownSection(
         heading: String,
-        file: String,
+        path: java.nio.file.Path,
     ): String? {
-        val path = config.workingDirectoryPath().resolve(file)
         if (!Files.isRegularFile(path)) {
             return null
         }
@@ -49,8 +49,8 @@ class SystemPromptBuilder(
     private fun optionalProjectContext(conversationId: ConversationId): String? {
         val path =
             config
-                .workingDirectoryPath()
-                .resolve("projects")
+                .workspaceLayout()
+                .projectWorkspacesDirectoryPath()
                 .resolve(sanitizePathSegment(conversationId.channelId))
                 .resolve("AGENTS.md")
         if (!Files.isRegularFile(path)) {

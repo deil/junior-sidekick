@@ -51,9 +51,9 @@ Inside the sandbox:
 - `/` is the configured rootfs from `agent.tools.bash.bwrap.rootfs` for the direct `bwrap` provider, mounted read-only.
 - `/data/session` is the current conversation attachments directory, mounted read-only.
 - `/data/skills` is the skills directory, mounted read-only.
-- `/data/global` is the global workspace directory, mounted read-only.
-- `/work` is the current conversation's durable bash work directory under `${agent.working-directory}/threads/<conversation-id>`, mounted read-write.
-- `/data/project` is `${agent.working-directory}/projects/<channel-id>`, mounted read-write.
+- `/data/global` is the knowledge repository directory, mounted read-only.
+- `/work` is the current conversation's durable bash work directory under `${agent.working-directory}/data/workspaces/threads/<conversation-id>`, mounted read-write.
+- `/data/project` is `${agent.working-directory}/data/workspaces/projects/<channel-id>`, mounted read-write.
 - `/tmp` is an empty tmpfs for the command run.
 - `/proc` is procfs for the sandbox PID namespace.
 - `/dev` is a minimal sandbox device filesystem.

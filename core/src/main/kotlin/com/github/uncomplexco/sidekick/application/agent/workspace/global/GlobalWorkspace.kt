@@ -14,7 +14,7 @@ import java.nio.file.Path
 
 @Serializable
 data class GlobalWorkspaceConfig(
-    val global: List<GlobalWorkspaceRepository> = emptyList(),
+    val knowledge: List<GlobalWorkspaceRepository> = emptyList(),
 )
 
 @Serializable
@@ -30,35 +30,35 @@ class LoadGlobalWorkspaceOnStartup(
     private val globalWorkspace: GlobalWorkspace,
 ) : ApplicationRunner {
     override fun run(args: ApplicationArguments) {
-        globalWorkspace.sync(config.workingDirectoryPath())
+        globalWorkspace.sync(config)
     }
 }
 
 @Component
 class GlobalWorkspace {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json
 
-    fun sync(workingDirectory: Path): List<Path> {
-        val config = loadConfig(workingDirectory)
-        if (config.global.isEmpty()) {
+    fun sync(config: AgentConfig): List<Path> {
+        val workspaceConfig = loadConfig(config)
+        if (workspaceConfig.knowledge.isEmpty()) {
             return emptyList()
         }
 
         log.info(
-            "Configured global workspace repositories: {}",
-            config.global.joinToString { "${it.url}:${it.path}" },
+            "Configured knowledge repositories: {}",
+            workspaceConfig.knowledge.joinToString { "${it.url}:${it.path}" },
         )
 
-        return config.global.map { repository ->
-            val checkout = checkoutPath(workingDirectory, repository)
-            log.info("Syncing global workspace repository {} into {}", repository.url, checkout)
-            syncRepository(repository, checkout, workingDirectory)
+        return workspaceConfig.knowledge.map { repository ->
+            val checkout = checkoutPath(config, repository)
+            log.info("Syncing knowledge repository {} into {}", repository.url, checkout)
+            syncRepository(repository, checkout, config.workingDirectoryPath())
             checkout
         }
     }
 
-    fun loadConfig(workingDirectory: Path): GlobalWorkspaceConfig {
-        val configFile = workingDirectory.resolve(GLOBAL_CONFIG_FILE)
+    fun loadConfig(config: AgentConfig): GlobalWorkspaceConfig {
+        val configFile = config.workspaceLayout().knowledgeConfigPath()
         if (!Files.exists(configFile)) {
             return GlobalWorkspaceConfig()
         }
@@ -67,19 +67,17 @@ class GlobalWorkspace {
     }
 
     fun checkoutPath(
-        workingDirectory: Path,
+        config: AgentConfig,
         repository: GlobalWorkspaceRepository,
-    ): Path = gitRepositoryCheckoutPath(workingDirectory.resolve(GLOBAL_CHECKOUT_DIRECTORY), repository.url)
+    ): Path = gitRepositoryCheckoutPath(config.workspaceLayout().knowledgeRepositoryDirectoryPath(), repository.url)
 
     private fun syncRepository(
         repository: GlobalWorkspaceRepository,
         checkout: Path,
         workingDirectory: Path,
-    ) = syncGitRepository(repository.url, repository.sshKeyPath, checkout, workingDirectory, "Global workspace repository")
+    ) = syncGitRepository(repository.url, repository.sshKeyPath, checkout, workingDirectory, "Knowledge repository")
 
     private companion object {
         private val log = LoggerFactory.getLogger(GlobalWorkspace::class.java)
-        private const val GLOBAL_CONFIG_FILE = "global.json"
-        private const val GLOBAL_CHECKOUT_DIRECTORY = "global"
     }
 }

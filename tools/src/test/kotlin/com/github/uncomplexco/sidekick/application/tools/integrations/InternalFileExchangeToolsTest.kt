@@ -110,7 +110,7 @@ class InternalFileExchangeToolsTest {
             ).publishFileInternally("/data/global/handbook/security.md", "security.md", "text/markdown")
 
         assertTrue(result.ok)
-        assertEquals(dir.resolve("workspace/global/handbook/security.md").toString(), publishedPath)
+        assertEquals(dir.resolve("workspace/data/repositories/knowledge/handbook/security.md").toString(), publishedPath)
     }
 
     @Test
@@ -167,10 +167,10 @@ class InternalFileExchangeToolsTest {
             filePublisher,
             VirtualPaths(
                 sessionRoot = conversationId.folder(dir).resolve("attachments"),
-                skillsRoot = dir.resolve("workspace/skills"),
-                globalRoot = dir.resolve("workspace/global"),
+                skillsRoot = dir.resolve("workspace/data/repositories/extensions"),
+                globalRoot = dir.resolve("workspace/data/repositories/knowledge"),
                 workRoot = conversationId.folder(dir).resolve("work"),
-                projectRoot = dir.resolve("workspace"),
+                projectRoot = dir.resolve("workspace/data/workspaces/projects/C123"),
             ),
         )
 }

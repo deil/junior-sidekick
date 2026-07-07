@@ -1,16 +1,16 @@
 # Skills
 
-Sidekick discovers skills from remote Git repositories listed in `${agent.working-directory}/skills.json`.
+Sidekick discovers skills from remote extension repositories listed in `${agent.working-directory}/config/extensions.json`.
 
 ## Source Model
 
-Remote Git repositories are the only supported skill source. Sidekick does not read project-local `.agents/skills`, user-local skill directories, or bundled application resources.
+Remote extension Git repositories are the only supported skill source. Sidekick does not read project-local `.agents/skills`, user-local skill directories, or bundled application resources.
 
 Configuration shape:
 
 ```json
 {
-  "skills": [
+  "extensions": [
     {
       "url": "git@github.com:deil/skills",
       "path": "skills",
@@ -20,21 +20,21 @@ Configuration shape:
 }
 ```
 
-`url` is the Git repository URL. `path` is the repository-relative directory containing skill folders. `sshKeyPath` is optional and points to a private key file used for Git SSH operations for that repository. Missing `skills.json` and empty `skills` lists are no-ops.
+`url` is the Git repository URL. `path` is the repository-relative directory containing skill folders. `sshKeyPath` is optional and points to a private key file used for Git SSH operations for that repository. Missing `extensions.json` and empty `extensions` lists are no-ops.
 
 `path` is optional. If omitted or blank, Sidekick scans the repository root for skill folders.
 
-`skills.json` is read from the agent working directory, not the repository root or state directory.
+`extensions.json` is read from `${agent.working-directory}/config`, not the repository root or state directory.
 
 ## Checkout Storage
 
-Configured repositories are cloned or refreshed under the agent working directory:
+Configured extension repositories are cloned or refreshed under the agent working directory:
 
 ```text
-${agent.working-directory}/skills/
+${agent.working-directory}/data/repositories/extensions/
 ```
 
-Each repository gets a stable unique checkout folder so repositories with the same final path segment do not collide. The checkout location is working data, not session state.
+Each repository gets a stable unique checkout folder so repositories with the same final path segment do not collide. The checkout location is Sidekick-managed workspace data, not session state.
 
 ## Discovery
 
@@ -90,7 +90,7 @@ User-invocable skills are skills where `userInvocable == true`. They are listed 
 
 The catalog follows Agent Skills progressive disclosure: the turn prompt includes only the skill name, description, and virtual location of `SKILL.md`. Full skill instructions are not embedded in the base system prompt or turn prompt.
 
-`/data/skills` locations resolve through `parseVirtualPath()` against `AgentConfig.skillsDirectoryPath()`.
+`/data/skills` locations resolve through `parseVirtualPath()` against `WorkspaceLayout.extensionsRepositoryDirectoryPath()`, backed by `${agent.working-directory}/data/repositories/extensions`.
 
 The skills catalog is thread-context bootstrap data, not static system prompt state. It is rendered by `buildThreadContext()` only when the turn is bootstrapping model-visible session context; follow-up turns with existing Koog history do not repeat it.
 
@@ -173,7 +173,7 @@ git@github.com:other/skills.git -> skills-<different-12-char-url-hash>
 
 The hash is based on the full URL, not just the repository name, so two repositories with the same final path segment still get different checkout folders.
 
-The checkout directory is `AgentConfig.skillsDirectoryPath()`, derived from `agent.working-directory`; persisted session state remains under `agent.state-directory`.
+The checkout directory is `WorkspaceLayout.extensionsRepositoryDirectoryPath()`, derived from `agent.working-directory/data/repositories/extensions`; persisted session state remains under `agent.state-directory`.
 
 Repository clone and refresh use the shared JGit adapter, not the `git` CLI. Repository refresh resets the checkout to `origin/HEAD`.
 

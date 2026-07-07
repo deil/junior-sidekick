@@ -69,24 +69,24 @@ class VirtualPathsFactory(
 
         val workRoot =
             config
-                .workingDirectoryPath()
-                .resolve("threads")
+                .workspaceLayout()
+                .sessionWorkspacesDirectoryPath()
                 .resolve(sanitizePathSegment(conversationId.lockKey()))
         Files.createDirectories(workRoot)
         onWorkCreated(config, workRoot)
         val projectRoot =
             Files.createDirectories(
                 config
-                    .workingDirectoryPath()
-                    .resolve("projects")
+                    .workspaceLayout()
+                    .projectWorkspacesDirectoryPath()
                     .resolve(sanitizePathSegment(conversationId.channelId)),
             )
         onProjectCreated(config, projectRoot)
 
         return VirtualPaths(
             sessionRoot = attachmentsRoot,
-            skillsRoot = config.skillsDirectoryPath(),
-            globalRoot = config.globalDirectoryPath(),
+            skillsRoot = config.workspaceLayout().extensionsRepositoryDirectoryPath(),
+            globalRoot = config.workspaceLayout().knowledgeRepositoryDirectoryPath(),
             workRoot = workRoot,
             projectRoot = projectRoot,
         )

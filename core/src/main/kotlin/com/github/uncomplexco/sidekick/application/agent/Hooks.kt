@@ -27,7 +27,7 @@ private fun copyTemplate(
     destination: Path,
 ) {
     try {
-        val template = config.workingDirectoryPath().resolve("templates").resolve(name)
+        val template = config.workspaceLayout().templatesDirectoryPath().resolve(name)
         if (!Files.isDirectory(template)) {
             return
         }

@@ -55,7 +55,7 @@ class SkillTools(
 
     @Tool
     @LLMDescription(
-        "Reload skills by re-reading skills.json, refreshing configured skill repositories, and rebuilding the available skills catalog.",
+        "Reload skills by re-reading extensions.json, refreshing configured extension repositories, and rebuilding the available skills catalog.",
     )
     fun reloadSkills(): ReloadSkillsResult {
         val result = skillCatalogReloader.reloadSkills()
