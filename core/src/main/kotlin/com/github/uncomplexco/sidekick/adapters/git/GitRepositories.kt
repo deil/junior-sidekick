@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.git
 
+import com.github.uncomplexco.sidekick.application.utils.sha256
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.TransportConfigCallback
 import org.eclipse.jgit.lib.Constants
@@ -13,7 +14,6 @@ import org.eclipse.jgit.transport.sshd.SshdSessionFactoryBuilder
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.nio.file.Path
-import java.security.MessageDigest
 import java.security.PublicKey
 
 fun gitRepositoryCheckoutPath(
@@ -68,35 +68,31 @@ fun syncGitRepository(
     }
 }
 
-private fun defaultRemoteBranch(git: Git): String =
-    Constants.R_REMOTES + "origin/" + git.repository.branchName()
+private fun defaultRemoteBranch(git: Git): String = Constants.R_REMOTES + "origin/" + git.repository.branchName()
 
 private fun Repository.branchName(): String = branch
 
 private fun org.eclipse.jgit.api.CloneCommand.applySsh(
     sshKeyPath: String?,
     workingDirectory: Path,
-) =
-    apply {
-        sshKeyPath?.let { setTransportConfigCallback(sshKeyCallback(it, workingDirectory)) }
-    }
+) = apply {
+    sshKeyPath?.let { setTransportConfigCallback(sshKeyCallback(it, workingDirectory)) }
+}
 
 private fun org.eclipse.jgit.api.FetchCommand.applySsh(
     sshKeyPath: String?,
     workingDirectory: Path,
-) =
-    apply {
-        sshKeyPath?.let { setTransportConfigCallback(sshKeyCallback(it, workingDirectory)) }
-    }
+) = apply {
+    sshKeyPath?.let { setTransportConfigCallback(sshKeyCallback(it, workingDirectory)) }
+}
 
 private fun sshKeyCallback(
     sshKeyPath: String,
     workingDirectory: Path,
-) =
-    SshKeyTransportConfigCallback(
-        sshKeyPath = Path.of(sshKeyPath).toAbsolutePath().normalize(),
-        sshHomeDirectory = workingDirectory.resolve("tmp").toAbsolutePath().normalize(),
-    )
+) = SshKeyTransportConfigCallback(
+    sshKeyPath = Path.of(sshKeyPath).toAbsolutePath().normalize(),
+    sshHomeDirectory = workingDirectory.resolve("tmp").toAbsolutePath().normalize(),
+)
 
 private class SshKeyTransportConfigCallback(
     private val sshKeyPath: Path,
@@ -128,9 +124,4 @@ private object TrustingServerKeyDatabase : ServerKeyDatabase {
         config: ServerKeyDatabase.Configuration,
         provider: CredentialsProvider?,
     ): Boolean = true
-}
-
-private fun sha256(value: String): String {
-    val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
-    return digest.joinToString("") { "%02x".format(it) }
 }

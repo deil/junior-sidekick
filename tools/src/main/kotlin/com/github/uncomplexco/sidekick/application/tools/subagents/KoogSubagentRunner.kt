@@ -9,14 +9,13 @@ import ai.koog.agents.core.dsl.extension.nodeLLMSendToolResults
 import ai.koog.agents.core.dsl.extension.onTextMessage
 import ai.koog.agents.core.dsl.extension.onToolCalls
 import ai.koog.agents.core.tools.ToolRegistry
+import ai.koog.agents.features.opentelemetry.feature.OpenTelemetry
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import com.github.uncomplexco.sidekick.application.context.prompts.Prompts.SUBAGENT_SYSTEM_PROMPT
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
@@ -27,12 +26,15 @@ import java.util.UUID
 class KoogSubagentRunner(
     private val agentConfig: AgentConfig,
     private val koogConfig: KoogConfig,
+    private val agentDefinitions: AgentDefinitionCatalog,
 ) : SubagentRunner {
     override suspend fun run(
         ctx: TurnContext,
+        subagentType: String,
         prompt: String,
     ): String {
         val aiModelProfile = koogConfig.normalProfile
+        val systemPrompt = agentDefinitions.systemPrompt(subagentType)
         val agent =
             AIAgent(
                 promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey),
@@ -43,7 +45,7 @@ class KoogSubagentRunner(
                                 id = "sidekick-subagent-prompt",
                                 params = koogConfig.openRouterParams(aiModelProfile),
                             ) {
-                                system(SUBAGENT_SYSTEM_PROMPT)
+                                system(systemPrompt)
                             },
                         model =
                             LLModel(
@@ -58,6 +60,11 @@ class KoogSubagentRunner(
                         tools(WorkspaceFileTools(ctx.conversation.virtualPaths))
                         tools(WebFetchTools(agentConfig.name))
                     },
+                installFeatures = {
+                    install(OpenTelemetry) {
+                        setServiceInfo(agentConfig.name, "1.0.0")
+                    }
+                },
             )
 
         return agent.run(prompt, "subagent-${UUID.randomUUID()}")

@@ -3,6 +3,8 @@ package com.github.uncomplexco.sidekick.application.agent.skills
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.adapters.git.gitRepositoryCheckoutPath
 import com.github.uncomplexco.sidekick.adapters.git.syncGitRepository
+import com.github.uncomplexco.sidekick.application.markdown.hasMarkdownFrontmatter
+import com.github.uncomplexco.sidekick.application.markdown.parseMarkdownFrontmatter
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
@@ -165,27 +167,11 @@ class Skills : SkillCatalogProvider {
     ) = syncGitRepository(repository.url, repository.sshKeyPath, checkout, workingDirectory, "Extension repository")
 
     private fun parseSkill(skillFile: Path): Skill {
-        val lines = Files.readString(skillFile).lines()
-        require(lines.firstOrNull()?.trim() == FRONT_MATTER_DELIMITER) {
+        val markdown = Files.readString(skillFile)
+        require(hasMarkdownFrontmatter(markdown)) {
             "$SKILL_FILE_NAME must start with YAML frontmatter"
         }
-
-        val closingDelimiterIndex = lines.drop(1).indexOfFirst { it.trim() == FRONT_MATTER_DELIMITER }
-        require(closingDelimiterIndex >= 0) {
-            "$SKILL_FILE_NAME must contain a closing YAML frontmatter delimiter"
-        }
-
-        val frontmatter =
-            lines
-                .subList(1, closingDelimiterIndex + 1)
-                .mapNotNull { line ->
-                    val separatorIndex = line.indexOf(':')
-                    if (separatorIndex <= 0) {
-                        null
-                    } else {
-                        line.substring(0, separatorIndex).trim() to cleanYamlScalar(line.substring(separatorIndex + 1))
-                    }
-                }.toMap()
+        val frontmatter = parseMarkdownFrontmatter(markdown).frontmatter
 
         val name = frontmatter["name"]?.takeUnless { it.isBlank() }
         val description = frontmatter["description"]?.takeUnless { it.isBlank() }?.take(MAX_DESCRIPTION_LENGTH)
@@ -206,7 +192,6 @@ class Skills : SkillCatalogProvider {
     companion object {
         private val log = LoggerFactory.getLogger(Skills::class.java)
         const val SKILL_FILE_NAME = "SKILL.md"
-        private const val FRONT_MATTER_DELIMITER = "---"
         private const val MAX_DESCRIPTION_LENGTH = 1536
         private val SKILL_NAME_RE = Regex("^[a-z0-9](?:(?:[a-z0-9]|-(?!-)){0,62}[a-z0-9])?$")
     }

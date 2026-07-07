@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.tools
 import ai.koog.agents.core.tools.ToolRegistry
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.tools.subagents.AgentDefinitionCatalog
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
@@ -19,7 +20,7 @@ import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.slackTools
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunner
-import com.github.uncomplexco.sidekick.application.tools.subagents.TaskTools
+import com.github.uncomplexco.sidekick.application.tools.subagents.TaskTool
 import com.github.uncomplexco.sidekick.application.tools.system.ConversationIntelligenceLevelTools
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
@@ -43,6 +44,7 @@ class DefaultToolRegistryFactory(
     private val sandboxExecutorFactory: SandboxExecutorFactory,
     private val conversationStateStore: ConversationStateStore,
     private val subagentRunner: SubagentRunner,
+    private val agentDefinitions: AgentDefinitionCatalog,
 ) : ToolRegistryFactory {
     override suspend fun build(
         ctx: TurnContext,
@@ -61,7 +63,7 @@ class DefaultToolRegistryFactory(
                 )
             }
             tools(WebFetchTools(agentConfig.name))
-            tools(TaskTools(subagentRunner, ctx, chat))
+            tool(TaskTool(subagentRunner, ctx, chat, agentDefinitions.availableAgents()))
             tools(GitTools(gitToolConfig, ctx.conversation.virtualPaths))
             tools(WorkspaceFileTools(ctx.conversation.virtualPaths))
             tools(SkillTools(skills, ctx.conversation.virtualPaths, skillCatalogReloader))

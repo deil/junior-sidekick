@@ -13,6 +13,7 @@ import ai.koog.agents.core.dsl.extension.onTextMessage
 import ai.koog.agents.core.dsl.extension.onToolCalls
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.features.eventHandler.feature.handleEvents
+import ai.koog.agents.features.opentelemetry.feature.OpenTelemetry
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
@@ -99,6 +100,10 @@ class SidekickAgent(
                 ) {
                     install(ChatMemory) {
                         chatHistoryProvider = this@SidekickAgent.chatHistoryProvider
+                    }
+
+                    install(OpenTelemetry) {
+                        setServiceInfo(config.name, "1.0.0")
                     }
 
                     handleEvents {

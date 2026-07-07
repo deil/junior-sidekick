@@ -1,8 +1,6 @@
-package com.github.uncomplexco.sidekick.application.agent.skills
+package com.github.uncomplexco.sidekick.application.utils
 
 import java.security.MessageDigest
-
-fun cleanYamlScalar(value: String): String = value.trim().removeSurrounding("\"").removeSurrounding("'")
 
 fun sha256(value: String): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
