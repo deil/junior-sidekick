@@ -22,14 +22,14 @@ class TaskTool(
     private val runner: SubagentRunner,
     private val ctx: TurnContext,
     private val chat: ChatPlatformAdapter,
-    availableAgents: List<AgentDefinition>,
+    availableSubagents: List<Subagent>,
 ) : Tool<TaskTool.Args, String>(
         argsType = typeToken<Args>(),
         resultType = typeToken<String>(),
         name = TOOL_TASK,
-        description = taskDescription(availableAgents),
+        description = taskDescription(availableSubagents),
     ) {
-    private val availableAgentTypes = availableAgents.map { it.name }.toSet()
+    private val availableSubagentTypes = availableSubagents.map { it.name }.toSet()
 
     @Serializable
     data class Args(
@@ -48,7 +48,7 @@ class TaskTool(
         validateTaskArgument(description, "description", TASK_DESCRIPTION_MAX_CHARS)
         validateTaskArgument(args.prompt, "prompt", TASK_PROMPT_MAX_CHARS)
         validateTaskArgument(subagentType, "subagent_type", null)
-        validate(subagentType in availableAgentTypes) { "Unknown subagent_type: $subagentType" }
+        validate(subagentType in availableSubagentTypes) { "Unknown subagent_type: $subagentType" }
 
         chat.activity.`continue`("$subagentType task - $description")
 
@@ -83,12 +83,12 @@ class TaskTool(
     }
 }
 
-fun taskDescription(availableAgents: List<AgentDefinition>): String =
+fun taskDescription(availableSubagents: List<Subagent>): String =
     buildString {
         appendLine("Launch a subagent to perform a delegated task in a fresh context, and return its final answer.")
         appendLine()
         appendLine("Available agent types and the tools they have access to:")
-        availableAgents.forEach { agent ->
-            appendLine("  - ${agent.name}: ${agent.description}")
+        availableSubagents.forEach { subagent ->
+            appendLine("  - ${subagent.name}: ${subagent.description}")
         }
     }

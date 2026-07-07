@@ -1,10 +1,11 @@
 package com.github.uncomplexco.sidekick.application.agent.skills
 
-import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.adapters.git.gitRepositoryCheckoutPath
 import com.github.uncomplexco.sidekick.adapters.git.syncGitRepository
+import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.markdown.hasMarkdownFrontmatter
 import com.github.uncomplexco.sidekick.application.markdown.parseMarkdownFrontmatter
+import com.github.uncomplexco.sidekick.application.utils.Loggers
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
@@ -66,7 +67,7 @@ class Skills : SkillCatalogProvider {
             return catalog
         }
 
-        log.info(
+        Loggers.EXTENSIONS.info(
             "Configured extension repositories: {}",
             extensionsConfig.extensions.joinToString { "${it.url}:${it.path}" },
         )
@@ -74,7 +75,7 @@ class Skills : SkillCatalogProvider {
         val checkouts =
             extensionsConfig.extensions.map { repository ->
                 val checkout = checkoutPath(config, repository)
-                log.info("Syncing extension repository {} into {}", repository.url, checkout)
+                Loggers.EXTENSIONS.info("Syncing extension repository {} into {}", repository.url, checkout)
                 syncRepository(repository, checkout, config.workingDirectoryPath())
                 repository to checkout
             }
@@ -88,7 +89,7 @@ class Skills : SkillCatalogProvider {
                     )
                 }
 
-        log.info(
+        Loggers.EXTENSIONS.info(
             "Identified skills: {}",
             formatSkills(catalog.skills, config.workingDirectoryPath()),
         )
@@ -118,7 +119,7 @@ class Skills : SkillCatalogProvider {
     ): SkillCatalog {
         val skillsPath = checkout.resolve(repository.path.ifBlank { "." }).normalize()
         if (!Files.isDirectory(skillsPath)) {
-            log.warn("Skipping skill repository path {}: configured skills path does not exist", skillsPath)
+            Loggers.EXTENSIONS.warn("Skipping skill repository path {}: configured skills path does not exist", skillsPath)
             return SkillCatalog(emptyList())
         }
 
@@ -130,14 +131,14 @@ class Skills : SkillCatalogProvider {
                 .forEach { skillFolder ->
                     val skillFile = skillFolder.resolve(SKILL_FILE_NAME)
                     if (!Files.isRegularFile(skillFile)) {
-                        log.warn("Skipping skill folder {}: missing {}", skillFolder, SKILL_FILE_NAME)
+                        Loggers.EXTENSIONS.warn("Skipping skill folder {}: missing {}", skillFolder, SKILL_FILE_NAME)
                         return@forEach
                     }
 
                     try {
                         skills += parseSkill(skillFile)
                     } catch (ex: IllegalArgumentException) {
-                        log.warn("Skipping skill folder {}: {}", skillFolder, ex.message ?: "invalid $SKILL_FILE_NAME")
+                        Loggers.EXTENSIONS.warn("Skipping skill folder {}: {}", skillFolder, ex.message ?: "invalid $SKILL_FILE_NAME")
                     }
                 }
         }
@@ -190,9 +191,8 @@ class Skills : SkillCatalogProvider {
     }
 
     companion object {
-        private val log = LoggerFactory.getLogger(Skills::class.java)
         const val SKILL_FILE_NAME = "SKILL.md"
-        private const val MAX_DESCRIPTION_LENGTH = 1536
-        private val SKILL_NAME_RE = Regex("^[a-z0-9](?:(?:[a-z0-9]|-(?!-)){0,62}[a-z0-9])?$")
+        const val MAX_DESCRIPTION_LENGTH = 1536
+        val SKILL_NAME_RE = Regex("^[a-z0-9](?:(?:[a-z0-9]|-(?!-)){0,62}[a-z0-9])?$")
     }
 }

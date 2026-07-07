@@ -26,7 +26,7 @@ import java.util.UUID
 class KoogSubagentRunner(
     private val agentConfig: AgentConfig,
     private val koogConfig: KoogConfig,
-    private val agentDefinitions: AgentDefinitionCatalog,
+    private val subagents: SubagentCatalogProvider,
 ) : SubagentRunner {
     override suspend fun run(
         ctx: TurnContext,
@@ -34,7 +34,13 @@ class KoogSubagentRunner(
         prompt: String,
     ): String {
         val aiModelProfile = koogConfig.normalProfile
-        val systemPrompt = agentDefinitions.systemPrompt(subagentType)
+        val systemPrompt =
+            subagents
+                .catalog()
+                .subagents
+                .firstOrNull { it.name == subagentType }
+                ?.systemPrompt
+                ?: throw IllegalArgumentException("Unknown subagent type: $subagentType")
         val agent =
             AIAgent(
                 promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey),

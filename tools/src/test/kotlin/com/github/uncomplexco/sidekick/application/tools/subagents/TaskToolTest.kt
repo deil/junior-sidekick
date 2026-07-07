@@ -82,7 +82,7 @@ class TaskToolTest {
             runner = runner,
             ctx = turnContext(tempDir),
             chat = chat,
-            availableAgents = listOf(AgentDefinition("general", "General-purpose subagent", "Prompt")),
+            availableSubagents = listOf(Subagent("general", "General-purpose subagent", "Prompt")),
         )
 }
 
