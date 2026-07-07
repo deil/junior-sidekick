@@ -2,14 +2,7 @@ package com.github.uncomplexco.sidekick.application.tools.subagents
 
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
-import ai.koog.agents.core.dsl.builder.strategy
-import ai.koog.agents.core.dsl.extension.nodeExecuteTools
-import ai.koog.agents.core.dsl.extension.nodeLLMRequest
-import ai.koog.agents.core.dsl.extension.nodeLLMSendToolResults
-import ai.koog.agents.core.dsl.extension.onTextMessage
-import ai.koog.agents.core.dsl.extension.onToolCalls
 import ai.koog.agents.core.tools.ToolRegistry
-import ai.koog.agents.features.opentelemetry.feature.OpenTelemetry
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
@@ -66,11 +59,6 @@ class KoogSubagentRunner(
                         tools(WorkspaceFileTools(ctx.conversation.virtualPaths))
                         tools(WebFetchTools(agentConfig.name))
                     },
-                installFeatures = {
-                    install(OpenTelemetry) {
-                        setServiceInfo(agentConfig.name, "1.0.0")
-                    }
-                },
             )
 
         return agent.run(prompt, "subagent-${UUID.randomUUID()}")
