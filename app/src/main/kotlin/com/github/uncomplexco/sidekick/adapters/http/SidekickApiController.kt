@@ -19,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
@@ -35,6 +36,7 @@ import kotlin.uuid.Uuid
 
 @RestController
 @RequestMapping("/api")
+@ConditionalOnProperty(name = ["adapters.http.enabled"], havingValue = "true")
 class SidekickApiController(
     private val handleIncomingChatMessage: HandleIncomingChatMessageUsecase,
     private val conversationStateStore: ConversationStateStore,
