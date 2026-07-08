@@ -34,8 +34,6 @@ class TurnExecutor(
         chat: ChatPlatformAdapter,
     ) {
         try {
-            chat.activity.start()
-
             val decision =
                 when (val triggerDecision = turnTrigger.shouldTriggerTurn(conversationId, messages)) {
                     TurnTriggerDecision.Ignore -> {
@@ -48,6 +46,7 @@ class TurnExecutor(
                     }
                 }
 
+            chat.activity.start()
             messages.sortedBy { it.createdAtMs }.forEach { message ->
                 handle(message.copy(files = message.files.take(MAX_MESSAGE_FILES)), decision, chat)
             }
@@ -115,7 +114,9 @@ class TurnExecutor(
                     messageHistory = turn.conversation.history.messages,
                     isExplicitMention = decision.explicitMention,
                     isPrivateMessage = message.type == ChatMessageType.ASSISTANT_MESSAGE,
-                    hasAssistantHistory = turn.conversation.history.messages.any { it.role == SessionMessageRole.ASSISTANT },
+                    hasAssistantHistory =
+                        turn.conversation.history.messages
+                            .any { it.role == SessionMessageRole.ASSISTANT },
                 ),
             )
 

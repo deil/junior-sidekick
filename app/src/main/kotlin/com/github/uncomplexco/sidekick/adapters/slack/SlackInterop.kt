@@ -124,14 +124,11 @@ private class SlackActivityIndicator(
 ) : TurnActivityIndicator {
     private val ctx = ctx
     private val threadTs = threadTs
-    val STATUS_LISTENING = "listening..."
     val STATUS_THINKING = "thinking..."
     private var turnActive = false
 
     override fun start(text: String?) {
         turnActive = true
-
-        setStatus(status = STATUS_LISTENING, emoji = ":eyes:", loadingMessages = listOf(STATUS_LISTENING))
     }
 
     override fun `continue`(text: String?) {
