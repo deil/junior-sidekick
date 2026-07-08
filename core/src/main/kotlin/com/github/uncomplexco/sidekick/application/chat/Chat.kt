@@ -10,6 +10,12 @@ interface ChatPlatformAdapter {
 
     fun loadHistory(conversationId: ConversationId): List<ChatMessage>
 
+    fun markQueued(message: InboundMessage) {
+    }
+
+    fun markProcessing(message: InboundMessage) {
+    }
+
     suspend fun postReply(text: String): ReplyResult
 
     fun ingestFiles(

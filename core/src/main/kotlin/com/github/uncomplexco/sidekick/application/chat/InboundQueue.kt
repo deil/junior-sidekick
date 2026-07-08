@@ -32,6 +32,8 @@ class InboundMessagesQueue(
                 queue[key] = mutableListOf(message)
                 startQueueConsumer(key, chat)
             }
+
+            chat.markQueued(message)
         }
     }
 
@@ -49,6 +51,7 @@ class InboundMessagesQueue(
             val messages = drain(key) ?: break
 
             try {
+                messages.forEach(chat::markProcessing)
                 turnExecutor.run(key.conversationId, messages, chat)
             } catch (e: Exception) {
                 log.error("${key.conversationId.logLabel()}: error processing messages: ${e.message}", e)

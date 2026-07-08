@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
@@ -34,6 +35,14 @@ class SlackChatPlatformAdapter(
 
     override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = historyLoader(conversationId)
 
+    override fun markQueued(message: InboundMessage) {
+        updateQueueReaction(message, queued = true)
+    }
+
+    override fun markProcessing(message: InboundMessage) {
+        updateQueueReaction(message, queued = false)
+    }
+
     override suspend fun postReply(text: String): ReplyResult {
         val postResponse =
             ctx.client().chatPostMessage { req ->
@@ -58,7 +67,37 @@ class SlackChatPlatformAdapter(
         conversationId: ConversationId,
         files: List<IncomingChatFile>,
     ): List<IncomingChatFile> = fileIngestor.ingest(conversationId, files)
+
+    private fun updateQueueReaction(
+        message: InboundMessage,
+        queued: Boolean,
+    ) {
+        runCatching {
+            val response =
+                if (queued) {
+                    ctx.client().reactionsAdd { req ->
+                        req.channel(ctx.channelId)
+                        req.timestamp(message.id)
+                        req.name(QUEUE_REACTION)
+                    }
+                } else {
+                    ctx.client().reactionsRemove { req ->
+                        req.channel(ctx.channelId)
+                        req.timestamp(message.id)
+                        req.name(QUEUE_REACTION)
+                    }
+                }
+
+            if (!response.isOk) {
+                Loggers.SLACK.warn("Slack queue reaction update failed: {}", response.error)
+            }
+        }.onFailure {
+            Loggers.SLACK.warn("Slack queue reaction update failed", it)
+        }
+    }
 }
+
+private const val QUEUE_REACTION = "stopwatch"
 
 fun slackChatPlatformAdapter(
     ctx: EventContext,
