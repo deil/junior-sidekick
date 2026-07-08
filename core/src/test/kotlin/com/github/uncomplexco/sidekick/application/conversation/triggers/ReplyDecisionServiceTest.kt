@@ -1,8 +1,6 @@
 package com.github.uncomplexco.sidekick.application.conversation.triggers
 
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
-import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
-import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.turn.LlmReplyDecisionClassifier
 import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionInput
@@ -12,7 +10,6 @@ import com.github.uncomplexco.sidekick.application.turn.SimpleReplyDecisionClass
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 class ReplyDecisionServiceTest {
     @Test
@@ -140,7 +137,7 @@ class ReplyDecisionServiceTest {
     }
 
     @Test
-    fun `private message without assistant history delegates to llm classifier`() {
+    fun `private message without assistant history replies without llm classifier`() {
         // Arrange
         val classifier = SimpleReplyDecisionClassifier()
         val input =
@@ -153,10 +150,11 @@ class ReplyDecisionServiceTest {
             )
 
         // Act
-        val decision = classifier.classify(input)
+        val decision = classifier.classify(input)!!
 
         // Assert
-        assertNull(decision)
+        assertEquals(true, decision.shouldReply)
+        assertEquals(ReplyDecisionReason.PRIVATE_MESSAGE, decision.reason)
     }
 
     @Test
@@ -175,38 +173,23 @@ class ReplyDecisionServiceTest {
         val decision = classifier.classify(input)
 
         // Assert
-        assertNull(decision)
+        assertEquals(null, decision)
     }
 
     @Test
-    fun `private message without prior assistant message can be classified by llm`() =
+    fun `private message without prior assistant message bypasses llm classifier`() =
         runBlocking {
             // Arrange
             val service =
                 ReplyDecisionService(
                     SimpleReplyDecisionClassifier(),
-                    LlmReplyDecisionClassifier(koogConfig()) { _, _ ->
-                        LlmReplyDecisionClassifier.ReplyClassifierResult(
-                            shouldReply = true,
-                            confidence = 0.95,
-                            reason = "direct_private_request",
-                        )
-                    },
+                    LlmReplyDecisionClassifier(koogConfig()) { _, _ -> error("classifier should not run") },
                 )
             val input =
                 ReplyDecisionInput(
                     text = "identify where https://headshots.ltd is hosted; use bash tool",
                     botUser = botUser(),
-                    messageHistory =
-                        listOf(
-                            SessionMessage(
-                                id = "m1",
-                                role = SessionMessageRole.USER,
-                                author = MessageAuthor(username = "anton", fullName = "Anton"),
-                                text = "identify where https://headshots.ltd is hosted; use bash tool",
-                                createdAtMs = 1,
-                            ),
-                        ),
+                    messageHistory = emptyList(),
                     hasAssistantHistory = false,
                     isPrivateMessage = true,
                 )
@@ -216,8 +199,8 @@ class ReplyDecisionServiceTest {
 
             // Assert
             assertEquals(true, decision.shouldReply)
-            assertEquals(ReplyDecisionReason.CLASSIFIER, decision.reason)
-            assertEquals("direct_private_request", decision.detail)
+            assertEquals(ReplyDecisionReason.PRIVATE_MESSAGE, decision.reason)
+            assertEquals(null, decision.detail)
         }
 
     @Test

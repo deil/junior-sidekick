@@ -28,6 +28,7 @@ data class ReplyDecisionInput(
 
 enum class ReplyDecisionReason {
     EXPLICIT_MENTION,
+    PRIVATE_MESSAGE,
     UNSUBSCRIBE_COMMAND,
     DIRECTED_TO_OTHER_PARTY,
     EMPTY_MESSAGE,
@@ -82,7 +83,9 @@ class SimpleReplyDecisionClassifier {
             return ReplyDecision(false, ReplyDecisionReason.ACKNOWLEDGMENT)
         }
 
-        if (!input.isPrivateMessage && !input.hasAssistantHistory) {
+        if (input.isPrivateMessage) {
+            return ReplyDecision(true, ReplyDecisionReason.PRIVATE_MESSAGE)
+        } else if (!input.hasAssistantHistory) {
             return ReplyDecision(false, ReplyDecisionReason.SIDE_CONVERSATION, "not_subscribed_to_thread")
         }
 
