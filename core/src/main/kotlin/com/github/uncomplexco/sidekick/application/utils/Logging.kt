@@ -6,6 +6,7 @@ object Loggers {
     val TURN_EXECUTOR = LoggerFactory.getLogger("sidekick.turn-executor")
     val CONTEXT = LoggerFactory.getLogger("sidekick.context")
     val TOOLS = LoggerFactory.getLogger("sidekick.tools")
+    val TOOLS_LOOP = LoggerFactory.getLogger("sidekick.tools.loop")
     val MCP = LoggerFactory.getLogger("sidekick.mcp")
     val SLACK = LoggerFactory.getLogger("sidekick.slack")
     val EXTENSIONS = LoggerFactory.getLogger("sidekick.extensions")

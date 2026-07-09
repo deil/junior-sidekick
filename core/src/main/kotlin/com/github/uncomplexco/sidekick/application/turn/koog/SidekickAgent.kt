@@ -30,10 +30,16 @@ import org.springframework.stereotype.Component
 
 private val log = LoggerFactory.getLogger(SidekickAgent::class.java)
 
-fun interface ToolRegistryFactory {
-    suspend fun build(
+interface ToolRegistryFactory {
+    suspend fun buildExecutionTools(
         ctx: TurnContext,
         chat: ChatPlatformAdapter,
+    ): ToolRegistry
+
+    suspend fun buildOrchestrationTools(
+        toolRegistry: ToolRegistry,
+        chat: ChatPlatformAdapter,
+        ctx: TurnContext,
     ): ToolRegistry
 }
 
@@ -71,12 +77,14 @@ class SidekickAgent(
 
         try {
             val mcpToolRegistry = mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
-            val toolRegistry = toolRegistryFactory.build(ctxWithMcp, chat) + mcpToolRegistry
+            val baseTools = toolRegistryFactory.buildExecutionTools(ctxWithMcp, chat) + mcpToolRegistry
+            val toolRegistry =
+                baseTools + toolRegistryFactory.buildOrchestrationTools(toolRegistry = baseTools, chat = chat, ctx = ctxWithMcp)
             val aiModelProfile = koogConfig.profile(ctx.aiModelProfile)
 
             val agent =
                 AIAgent(
-                    strategy = sidekickStrategy(message),
+                    strategy = sidekickStrategy(),
                     promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey),
                     agentConfig =
                         AIAgentConfig(
@@ -124,7 +132,7 @@ class SidekickAgent(
     }
 }
 
-private fun sidekickStrategy(message: SessionMessage) =
+fun sidekickStrategy() =
     strategy<String, String>("sidekick") {
         val classify by node<String, ReplyRoute>("classify") { input ->
             ReplyRoute(input, shouldReply = true)
