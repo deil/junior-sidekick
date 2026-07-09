@@ -23,6 +23,8 @@ import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentCatal
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunner
 import com.github.uncomplexco.sidekick.application.tools.subagents.TaskTool
 import com.github.uncomplexco.sidekick.application.tools.system.ConversationIntelligenceLevelTools
+import com.github.uncomplexco.sidekick.application.tools.system.LoopFactory
+import com.github.uncomplexco.sidekick.application.tools.system.LoopTools
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
@@ -46,40 +48,61 @@ class DefaultToolRegistryFactory(
     private val conversationStateStore: ConversationStateStore,
     private val subagentRunner: SubagentRunner,
     private val subagents: SubagentCatalogProvider,
+    private val loopFactory: LoopFactory,
 ) : ToolRegistryFactory {
-    override suspend fun build(
+    override suspend fun buildExecutionTools(
         ctx: TurnContext,
         chat: ChatPlatformAdapter,
-    ): ToolRegistry =
-        ToolRegistry {
-            tools(SystemTools(chat = chat))
-            if (chat is SlackBackedChatPlatformAdapter) {
-                tools(ConversationIntelligenceLevelTools(sharedContext.slackClient, ctx, conversationStateStore))
-            }
-            if (bashToolConfig.enabled) {
-                tools(
-                    BashTools(
-                        bashToolConfig,
-                        ctx.conversation.virtualPaths,
-                        sandboxExecutorFactory.create(),
-                    ),
-                )
-            }
-            tools(WebFetchTools(agentConfig.name))
-            tool(TaskTool(subagentRunner, ctx, chat, subagents.catalog().subagents))
-            tools(GitTools(gitToolConfig, ctx.conversation.virtualPaths))
-            tools(WorkspaceFileTools(ctx.conversation.virtualPaths))
-            tools(SkillTools(skills, ctx.conversation.virtualPaths, skillCatalogReloader))
+    ) = ToolRegistry {
+        tools(SystemTools(chat = chat))
+
+        tools(WorkspaceFileTools(ctx.conversation.virtualPaths))
+        if (bashToolConfig.enabled) {
             tools(
-                InternalFileExchangeTools(
-                    filePublisher,
+                BashTools(
+                    bashToolConfig,
                     ctx.conversation.virtualPaths,
+                    sandboxExecutorFactory.create(),
                 ),
             )
-            if (chat is SlackBackedChatPlatformAdapter) {
-                tools(slackTools(sharedContext.slackClient, ctx))
-            }
-            tools(McpStatusTools(ctx, mcpToolsConfig.servers).asTools())
-            tools(mcpAuthTools.asTools(chat))
         }
+
+        tools(WebFetchTools(agentConfig.name))
+
+        tools(SkillTools(skills, ctx.conversation.virtualPaths, skillCatalogReloader))
+
+        tool(TaskTool(subagentRunner, ctx, chat, subagents.catalog().subagents))
+
+        tools(GitTools(gitToolConfig, ctx.conversation.virtualPaths))
+        tools(
+            InternalFileExchangeTools(
+                filePublisher,
+                ctx.conversation.virtualPaths,
+            ),
+        )
+        if (chat is SlackBackedChatPlatformAdapter) {
+            tools(slackTools(sharedContext.slackClient, ctx))
+        }
+        tools(McpStatusTools(ctx, mcpToolsConfig.servers).asTools())
+        tools(mcpAuthTools.asTools(chat))
+    }
+
+    override suspend fun buildOrchestrationTools(
+        toolRegistry: ToolRegistry,
+        chat: ChatPlatformAdapter,
+        ctx: TurnContext,
+    ) = ToolRegistry {
+        if (chat is SlackBackedChatPlatformAdapter) {
+            tools(ConversationIntelligenceLevelTools(sharedContext.slackClient, ctx, conversationStateStore))
+        }
+
+        tools(
+            LoopTools(
+                factory = loopFactory,
+                chat = chat,
+                toolRegistry = toolRegistry,
+                ctx = ctx,
+            ),
+        )
+    }
 }
