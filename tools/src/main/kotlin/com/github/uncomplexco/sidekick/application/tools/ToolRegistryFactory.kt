@@ -5,6 +5,7 @@ import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
 import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
@@ -18,8 +19,8 @@ import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.slackTools
-import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunner
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentCatalogProvider
+import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunner
 import com.github.uncomplexco.sidekick.application.tools.subagents.TaskTool
 import com.github.uncomplexco.sidekick.application.tools.system.ConversationIntelligenceLevelTools
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
@@ -52,7 +53,9 @@ class DefaultToolRegistryFactory(
     ): ToolRegistry =
         ToolRegistry {
             tools(SystemTools(chat = chat))
-            tools(ConversationIntelligenceLevelTools(sharedContext.slackClient, ctx, conversationStateStore))
+            if (chat is SlackBackedChatPlatformAdapter) {
+                tools(ConversationIntelligenceLevelTools(sharedContext.slackClient, ctx, conversationStateStore))
+            }
             if (bashToolConfig.enabled) {
                 tools(
                     BashTools(
@@ -73,7 +76,9 @@ class DefaultToolRegistryFactory(
                     ctx.conversation.virtualPaths,
                 ),
             )
-            tools(slackTools(sharedContext.slackClient, ctx))
+            if (chat is SlackBackedChatPlatformAdapter) {
+                tools(slackTools(sharedContext.slackClient, ctx))
+            }
             tools(McpStatusTools(ctx, mcpToolsConfig.servers).asTools())
             tools(mcpAuthTools.asTools(chat))
         }

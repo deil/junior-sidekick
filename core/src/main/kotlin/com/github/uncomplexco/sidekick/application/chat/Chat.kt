@@ -24,6 +24,8 @@ interface ChatPlatformAdapter {
     ): List<IncomingChatFile>
 }
 
+interface SlackBackedChatPlatformAdapter : ChatPlatformAdapter
+
 interface TurnActivityIndicator {
     fun start(text: String? = null)
 

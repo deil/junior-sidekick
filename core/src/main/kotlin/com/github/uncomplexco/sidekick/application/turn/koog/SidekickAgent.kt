@@ -76,7 +76,7 @@ class SidekickAgent(
 
             val agent =
                 AIAgent(
-                    strategy = sidekickStrategy(message),
+                    strategy = sidekickStrategy(),
                     promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey),
                     agentConfig =
                         AIAgentConfig(
@@ -124,7 +124,7 @@ class SidekickAgent(
     }
 }
 
-private fun sidekickStrategy(message: SessionMessage) =
+fun sidekickStrategy() =
     strategy<String, String>("sidekick") {
         val classify by node<String, ReplyRoute>("classify") { input ->
             ReplyRoute(input, shouldReply = true)

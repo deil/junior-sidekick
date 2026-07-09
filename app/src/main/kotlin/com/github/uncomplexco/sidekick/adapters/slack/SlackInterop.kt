@@ -3,11 +3,11 @@ package com.github.uncomplexco.sidekick.adapters.slack
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
-import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
+import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.Loggers
@@ -29,7 +29,7 @@ class SlackChatPlatformAdapter(
     private val threadId: ChatThreadId,
     private val historyLoader: (ConversationId) -> List<ChatMessage>,
     private val fileIngestor: SlackFileIngestor,
-) : ChatPlatformAdapter {
+) : SlackBackedChatPlatformAdapter {
     override val botUsername: String = ctx.botUserId
     override val activity: TurnActivityIndicator = SlackActivityIndicator(ctx, threadId.threadTs)
 
