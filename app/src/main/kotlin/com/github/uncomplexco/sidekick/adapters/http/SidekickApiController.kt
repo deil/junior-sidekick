@@ -5,6 +5,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
@@ -196,10 +197,10 @@ class HttpChatPlatformAdapter(
 
     override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
-    override suspend fun postReply(text: String): ReplyResult {
-        val reply = ApiReply(id = newId("api_reply"), text = text, createdAtMs = System.currentTimeMillis())
-        replies += reply
-        return ReplyResult(reply.id, reply.createdAtMs)
+    override suspend fun postReply(reply: ChatReply): ReplyResult {
+        val apiReply = ApiReply(id = newId("api_reply"), text = reply.text, createdAtMs = System.currentTimeMillis())
+        replies += apiReply
+        return ReplyResult(apiReply.id, apiReply.createdAtMs)
     }
 
     override fun ingestFiles(

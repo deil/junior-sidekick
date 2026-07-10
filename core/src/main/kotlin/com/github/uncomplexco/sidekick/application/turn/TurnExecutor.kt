@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.agent.skills.detectUserSkillI
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
@@ -142,15 +143,20 @@ class TurnExecutor(
                         messageId = message.id,
                         reason = AGENT_FAILURE_REASON,
                     )
-                    runCatching { chat.postReply(TEMPORARY_FAILURE_REPLY) }
+                    runCatching { chat.postReply(ChatReply(TEMPORARY_FAILURE_REPLY)) }
                     return
                 }
-            val replyMessageId = chat.postReply(agentReply)
+            val replyMessageId =
+                try {
+                    chat.postReply(agentReply)
+                } finally {
+                    agentReply.deleteAttachments()
+                }
 
             conversationManager.recordAssistantReply(
                 conversationId = decision.conversationId,
                 turnId = turn.turnId,
-                text = agentReply,
+                text = agentReply.text,
                 replyId = replyMessageId.messageId,
                 createdAtMs = replyMessageId.timestamp,
                 originalMessageId = message.id,
@@ -165,7 +171,7 @@ class TurnExecutor(
                 reason = shouldReply.reason.toString(),
             )
             conversationManager.setSubscribed(decision.conversationId, false)
-            runCatching { chat.postReply(UNSUBSCRIBE_ACK) }
+            runCatching { chat.postReply(ChatReply(UNSUBSCRIBE_ACK)) }
         } else {
             log.debug(
                 "Skipping reply for message id=${message.id}: ${shouldReply.reason} ${shouldReply.detail}",
@@ -179,10 +185,10 @@ class TurnExecutor(
     }
 
     companion object {
-        private const val MAX_MESSAGE_FILES = 3
-        private const val UNSUBSCRIBE_ACK = "Unsubscribed. Mention me to resume."
-        private const val AGENT_FAILURE_REASON = "AGENT_FAILURE"
-        private const val TEMPORARY_FAILURE_REPLY = "I hit a temporary model/provider error while processing this. Please retry in a minute."
+        const val MAX_MESSAGE_FILES = 5
+        private const val UNSUBSCRIBE_ACK = "Unsubscribed. Mention me to resume"
+        const val AGENT_FAILURE_REASON = "AGENT_FAILURE"
+        const val TEMPORARY_FAILURE_REPLY = "I hit a temporary model/provider error while processing this. Please retry"
         private val log = Loggers.TURN_EXECUTOR
     }
 }

@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.ToolException
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
@@ -131,7 +132,7 @@ private class RecordingChatPlatform : ChatPlatformAdapter {
 
     override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
-    override suspend fun postReply(text: String): ReplyResult = ReplyResult("reply", 1)
+    override suspend fun postReply(reply: ChatReply): ReplyResult = ReplyResult("reply", 1)
 
     override fun ingestFiles(
         conversationId: ConversationId,

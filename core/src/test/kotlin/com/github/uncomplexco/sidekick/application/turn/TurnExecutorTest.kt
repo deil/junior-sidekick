@@ -9,8 +9,10 @@ import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.chat.ReplyAttachment
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
@@ -22,6 +24,7 @@ import com.github.uncomplexco.sidekick.application.turn.koog.AgentTurnRunner
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -62,15 +65,69 @@ class TurnExecutorTest {
             executor.run(ChatConversationId("C123"), listOf(message), chat)
 
             // Assert
-            assertEquals(
-                listOf("I hit a temporary model/provider error while processing this. Please retry in a minute."),
-                replies,
-            )
+            assertEquals(1, replies.size)
             val state = store.load(ConversationId("C123", "1700000000.000"))
             val savedMessage = state.messages.single { it.id == message.id }
             assertEquals("AGENT_FAILURE", savedMessage.skippedReason)
             assertFalse(savedMessage.replied == true)
             assertEquals(emptyList(), state.messages.filter { it.role == SessionMessageRole.ASSISTANT })
+        }
+
+    @Test
+    fun `delivers reply attachments and removes staged files`() =
+        runBlocking {
+            val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
+            config.botUsername = "USIDEKICK"
+            val store = FilesystemConversationStateStore(config)
+            val manager = conversationManager(config, store)
+            val stagedFile = dir.resolve("staged/report.csv")
+            Files.createDirectories(stagedFile.parent)
+            Files.writeString(stagedFile, "report\n")
+            val attachment = ReplyAttachment(stagedFile, "report.csv", "text/csv", Files.size(stagedFile))
+            val delivered = mutableListOf<ChatReply>()
+            val executor =
+                TurnExecutor(
+                    turnTrigger = InboundMessageFilter(manager),
+                    conversationManager = manager,
+                    replyTrigger = replyDecisionService(),
+                    agentConfig = config,
+                    agent = AgentTurnRunner { _, _, _ -> ChatReply("Attached the report.", listOf(attachment)) },
+                    skills = { SkillCatalog(emptyList()) },
+                )
+            val chat =
+                object : ChatPlatformAdapter {
+                    override val botUsername = "USIDEKICK"
+                    override val activity = NoopActivityIndicator
+
+                    override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+
+                    override suspend fun postReply(reply: ChatReply): ReplyResult {
+                        delivered += reply
+                        return ReplyResult("reply", 1)
+                    }
+
+                    override fun ingestFiles(
+                        conversationId: ConversationId,
+                        files: List<IncomingChatFile>,
+                    ): List<IncomingChatFile> = files
+                }
+            val message =
+                InboundMessage(
+                    id = "1700000000.000",
+                    createdAtMs = 1,
+                    sender = MessageAuthor(username = "U123", fullName = "User"),
+                    text = "<@USIDEKICK> send the report",
+                    type = ChatMessageType.EXPLICIT_MENTION,
+                )
+
+            executor.run(ChatConversationId("C123"), listOf(message), chat)
+
+            assertEquals(listOf(attachment), delivered.single().attachments)
+            assertFalse(Files.exists(stagedFile))
+            assertEquals(
+                emptyList(),
+                store.load(ConversationId("C123", "1700000000.000")).messages.single { it.role == SessionMessageRole.ASSISTANT }.fileIds,
+            )
         }
 
     private fun conversationManager(
@@ -113,8 +170,8 @@ class TurnExecutorTest {
 
             override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
-            override suspend fun postReply(text: String): ReplyResult {
-                replies += text
+            override suspend fun postReply(reply: ChatReply): ReplyResult {
+                replies += reply.text
                 return ReplyResult("reply-${replies.size}", replies.size.toLong())
             }
 

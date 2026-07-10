@@ -10,6 +10,7 @@ import com.github.uncomplexco.sidekick.application.runtime.SharedContext
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
 import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
+import com.github.uncomplexco.sidekick.application.tools.files.ReplyAttachmentTools
 import com.github.uncomplexco.sidekick.application.tools.git.GitToolConfig
 import com.github.uncomplexco.sidekick.application.tools.git.GitTools
 import com.github.uncomplexco.sidekick.application.tools.integrations.FilePublisher
@@ -28,6 +29,7 @@ import com.github.uncomplexco.sidekick.application.tools.system.LoopTools
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
@@ -53,6 +55,7 @@ class DefaultToolRegistryFactory(
     override suspend fun buildExecutionTools(
         ctx: TurnContext,
         chat: ChatPlatformAdapter,
+        replyAttachments: ReplyAttachmentCollector,
     ) = ToolRegistry {
         tools(SystemTools(chat = chat))
 
@@ -81,6 +84,7 @@ class DefaultToolRegistryFactory(
             ),
         )
         if (chat is SlackBackedChatPlatformAdapter) {
+            tools(ReplyAttachmentTools(replyAttachments))
             tools(slackTools(sharedContext.slackClient, ctx))
         }
         tools(McpStatusTools(ctx, mcpToolsConfig.servers).asTools())

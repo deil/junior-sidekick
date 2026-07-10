@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.adapters.slack
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
+import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
@@ -43,12 +44,33 @@ class SlackChatPlatformAdapter(
         updateQueueReaction(message, queued = false)
     }
 
-    override suspend fun postReply(text: String): ReplyResult {
+    override suspend fun postReply(reply: ChatReply): ReplyResult {
+        val filePermalinks =
+            reply.attachments.mapNotNull { attachment ->
+                try {
+                    val response =
+                        ctx.client().filesUploadV2 { req ->
+                            req.file(attachment.path.toFile())
+                            req.filename(attachment.name)
+                            req.title(attachment.name)
+                        }
+                    if (!response.isOk) {
+                        Loggers.SLACK.warn("Slack reply attachment upload failed for {}: {}", attachment.name, response.error)
+                        null
+                    } else {
+                        response.file?.permalink ?: response.files.orEmpty().firstOrNull()?.permalink
+                    }
+                } catch (error: Exception) {
+                    Loggers.SLACK.warn("Slack reply attachment upload failed for {}", attachment.name, error)
+                    null
+                }
+            }
+        val text = (listOf(reply.text) + filePermalinks).joinToString("\n")
+
         val postResponse =
             ctx.client().chatPostMessage { req ->
                 req.channel(ctx.channelId)
                 req.threadTs(threadId.threadTs)
-
                 req.markdownText(text)
             }
 
@@ -57,10 +79,7 @@ class SlackChatPlatformAdapter(
             ctx.say(text)
         }
 
-        return ReplyResult(
-            messageId = postResponse.ts,
-            timestamp = slackTsToMillis(postResponse.ts),
-        )
+        return ReplyResult(postResponse.ts, slackTsToMillis(postResponse.ts))
     }
 
     override fun ingestFiles(

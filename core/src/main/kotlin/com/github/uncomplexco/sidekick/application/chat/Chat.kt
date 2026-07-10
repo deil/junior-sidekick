@@ -3,6 +3,8 @@ package com.github.uncomplexco.sidekick.application.chat
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
+import java.nio.file.Files
+import java.nio.file.Path
 
 interface ChatPlatformAdapter {
     val botUsername: String
@@ -16,7 +18,7 @@ interface ChatPlatformAdapter {
     fun markProcessing(message: InboundMessage) {
     }
 
-    suspend fun postReply(text: String): ReplyResult
+    suspend fun postReply(reply: ChatReply): ReplyResult
 
     fun ingestFiles(
         conversationId: ConversationId,
@@ -77,4 +79,20 @@ enum class ChatMessageType {
 data class ReplyResult(
     val messageId: String,
     val timestamp: Long,
+)
+
+data class ChatReply(
+    val text: String,
+    val attachments: List<ReplyAttachment> = emptyList(),
+) {
+    fun deleteAttachments() {
+        attachments.forEach { Files.deleteIfExists(it.path) }
+    }
+}
+
+data class ReplyAttachment(
+    val path: Path,
+    val name: String,
+    val mimeType: String,
+    val bytes: Long,
 )

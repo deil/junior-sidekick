@@ -5,8 +5,8 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPath
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
 import kotlinx.serialization.Serializable
 import org.springframework.http.MediaType
@@ -55,14 +55,14 @@ class InternalFileExchangeTools(
 ) : ToolSet {
     @Tool
     @LLMDescription(
-        "Publish an existing local file to the internal file exchange and returns a secure share URL. Use this for files that exist locally or attached files that are already downloaded.",
+        "Publish a file to the internal file exchange and returns a secure share URL. Use this for files that exist in the workspace, or attached files that are already downloaded",
     )
     fun publishFileInternally(
-        @LLMDescription("Local path to the file to publish.")
+        @LLMDescription("Absolute path to the file to publish")
         path: VirtualPath,
-        @LLMDescription("Name of the file.")
+        @LLMDescription("Name of the file")
         title: String,
-        @LLMDescription("File MIME type. Only text files are accepted.")
+        @LLMDescription("File MIME type. Only text files are accepted")
         mimeType: String,
     ): InternalFilePublishResult {
         val mediaType = MediaType.parseMediaType(mimeType)
@@ -94,12 +94,12 @@ class InternalFileExchangeTools(
 
     @Tool
     @LLMDescription(
-        "Publish new inline Markdown/HTML/text content to the internal file exchange and return a share URL. Do not use this for files with known local path unless you intentionally transformed or extracted content.",
+        "Publish new inline Markdown/HTML/text content to the internal file exchange and return a secure share URL. Do not use this for files that exist in the workspace unless you intentionally transformed or extracted content",
     )
     fun publishSnippetInternally(
         @LLMDescription("HTML or Markdown content to publish.")
         content: String,
-        @LLMDescription("Name of the snippet.")
+        @LLMDescription("Snippet title")
         title: String,
         @LLMDescription("MIME type of the content. Only text, HTML or Markdown are accepted.")
         mimeType: String,

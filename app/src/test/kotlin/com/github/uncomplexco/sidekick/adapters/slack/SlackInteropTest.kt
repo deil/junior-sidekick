@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.adapters.slack
 import org.junit.jupiter.api.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.assertTrue
 
 class SlackInteropTest {
     @Test

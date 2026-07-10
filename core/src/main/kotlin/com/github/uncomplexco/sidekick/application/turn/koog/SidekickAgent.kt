@@ -19,12 +19,14 @@ import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
+import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -34,6 +36,7 @@ interface ToolRegistryFactory {
     suspend fun buildExecutionTools(
         ctx: TurnContext,
         chat: ChatPlatformAdapter,
+        replyAttachments: ReplyAttachmentCollector,
     ): ToolRegistry
 
     suspend fun buildOrchestrationTools(
@@ -71,13 +74,14 @@ class SidekickAgent(
         ctx: TurnContext,
         message: SessionMessage,
         chat: ChatPlatformAdapter,
-    ): String {
+    ): ChatReply {
         val mcpServers = mcpServersRegistry.connect(ctx.conversation.conversationId, message.author?.username.orEmpty())
         val ctxWithMcp = ctx.copy(conversation = ctx.conversation.copy(mcpServers = mcpServers))
+        val replyAttachments = ReplyAttachmentCollector(ctx.conversation.virtualPaths)
 
         try {
             val mcpToolRegistry = mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
-            val baseTools = toolRegistryFactory.buildExecutionTools(ctxWithMcp, chat) + mcpToolRegistry
+            val baseTools = toolRegistryFactory.buildExecutionTools(ctxWithMcp, chat, replyAttachments) + mcpToolRegistry
             val toolRegistry =
                 baseTools + toolRegistryFactory.buildOrchestrationTools(toolRegistry = baseTools, chat = chat, ctx = ctxWithMcp)
             val aiModelProfile = koogConfig.profile(ctx.aiModelProfile)
@@ -125,7 +129,10 @@ class SidekickAgent(
                 }
 
             val input = turnPromptBuilder.buildSessionTurnPrompt(message, ctxWithMcp)
-            return agent.run(input, ctx.conversation.conversationId.lockKey())
+            return ChatReply(agent.run(input, ctx.conversation.conversationId.lockKey()), replyAttachments.collected())
+        } catch (error: Exception) {
+            replyAttachments.clear()
+            throw error
         } finally {
             mcpServers.forEach { it.close() }
         }
@@ -161,5 +168,5 @@ fun interface AgentTurnRunner {
         ctx: TurnContext,
         message: SessionMessage,
         chat: ChatPlatformAdapter,
-    ): String
+    ): ChatReply
 }
