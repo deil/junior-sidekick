@@ -4,10 +4,9 @@ import com.github.uncomplexco.sidekick.adapters.git.gitRepositoryCheckoutPath
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.ExtensionRepository
 import com.github.uncomplexco.sidekick.application.agent.skills.ExtensionsConfig
-import com.github.uncomplexco.sidekick.application.markdown.parseMarkdownFrontmatter
 import com.github.uncomplexco.sidekick.application.utils.Loggers
+import com.github.uncomplexco.sidekick.application.utils.parseMarkdownFrontmatter
 import kotlinx.serialization.json.Json
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path

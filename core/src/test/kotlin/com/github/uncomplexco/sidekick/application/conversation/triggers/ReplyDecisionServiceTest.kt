@@ -243,6 +243,7 @@ class ReplyDecisionServiceTest {
             ultrathinkModel = "openai/gpt-5.4-mini",
             ultrathinkProvider = "azure",
             ultrathinkReasoningEffort = "high",
+            imageModel = "image-model",
             maxAgentIterations = 50,
         )
 }

@@ -60,6 +60,8 @@ class KoogConfig(
     private val ultrathinkProvider: String,
     @Value($$"${agent.llm.ultrathink.reasoning-effort:high}")
     private val ultrathinkReasoningEffort: String,
+    @Value($$"${agent.llm.image.model}")
+    val imageModel: String,
     @Value($$"${agent.llm.max-agent-iterations:50}")
     val maxAgentIterations: Int,
 ) {

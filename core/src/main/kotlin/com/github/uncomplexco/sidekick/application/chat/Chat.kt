@@ -10,7 +10,7 @@ interface ChatPlatformAdapter {
     val botUsername: String
     val activity: TurnActivityIndicator
 
-    fun loadHistory(conversationId: ConversationId): List<ChatMessage>
+    suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage>
 
     fun markQueued(message: InboundMessage) {
     }
@@ -20,7 +20,7 @@ interface ChatPlatformAdapter {
 
     suspend fun postReply(reply: ChatReply): ReplyResult
 
-    fun ingestFiles(
+    suspend fun ingestFiles(
         conversationId: ConversationId,
         files: List<IncomingChatFile>,
     ): List<IncomingChatFile>

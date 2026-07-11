@@ -99,14 +99,14 @@ class TurnExecutorTest {
                     override val botUsername = "USIDEKICK"
                     override val activity = NoopActivityIndicator
 
-                    override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+                    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
                     override suspend fun postReply(reply: ChatReply): ReplyResult {
                         delivered += reply
                         return ReplyResult("reply", 1)
                     }
 
-                    override fun ingestFiles(
+                    override suspend fun ingestFiles(
                         conversationId: ConversationId,
                         files: List<IncomingChatFile>,
                     ): List<IncomingChatFile> = files
@@ -160,6 +160,7 @@ class TurnExecutorTest {
             ultrathinkModel = "openai/gpt-5.5",
             ultrathinkProvider = "azure",
             ultrathinkReasoningEffort = "high",
+            imageModel = "image-model",
             maxAgentIterations = 50,
         )
 
@@ -168,14 +169,14 @@ class TurnExecutorTest {
             override val botUsername = "USIDEKICK"
             override val activity = NoopActivityIndicator
 
-            override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+            override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
             override suspend fun postReply(reply: ChatReply): ReplyResult {
                 replies += reply.text
                 return ReplyResult("reply-${replies.size}", replies.size.toLong())
             }
 
-            override fun ingestFiles(
+            override suspend fun ingestFiles(
                 conversationId: ConversationId,
                 files: List<IncomingChatFile>,
             ): List<IncomingChatFile> = files

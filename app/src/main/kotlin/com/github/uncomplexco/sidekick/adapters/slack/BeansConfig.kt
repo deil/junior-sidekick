@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
+import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
 import com.slack.api.bolt.AppConfig
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -26,5 +27,6 @@ class BeansConfig {
     fun slackFileIngestor(
         @Value("\${adapters.slack.bot.token:}") botToken: String,
         virtualPathsFactory: VirtualPathsFactory,
-    ): SlackFileIngestor = SlackFileIngestor(botToken, virtualPathsFactory)
+        imageSummarizer: ImageSummarizer,
+    ): SlackFileIngestor = SlackFileIngestor(botToken, virtualPathsFactory, imageSummarizer)
 }

@@ -5,7 +5,7 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.slack.api.bolt.context.builtin.EventContext
 
-internal fun loadThreadHistory(
+internal suspend fun loadThreadHistory(
     ctx: EventContext,
     threadTs: String,
     currentTs: String?,
@@ -28,7 +28,12 @@ internal fun loadThreadHistory(
             val text = it.text.trim()
             if (currentTs != null && it.ts == currentTs) return@mapNotNull null
 
-            val files = fileIngestor.ingest(conversationId, incomingChatFiles(it.files, it.attachments))
+            val files =
+                fileIngestor.ingest(
+                    conversationId,
+                    incomingChatFiles(it.files, it.attachments),
+                    summarizeImages = false,
+                )
             if (text.isBlank() && files.isEmpty()) return@mapNotNull null
 
             val botMessage = it.botId != null && it.botId == ctx.botUserId

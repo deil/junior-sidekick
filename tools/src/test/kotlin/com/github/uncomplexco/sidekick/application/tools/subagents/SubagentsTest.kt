@@ -2,7 +2,7 @@ package com.github.uncomplexco.sidekick.application.tools.subagents
 
 import com.github.uncomplexco.sidekick.adapters.git.gitRepositoryCheckoutPath
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.markdown.parseMarkdownFrontmatter
+import com.github.uncomplexco.sidekick.application.utils.parseMarkdownFrontmatter
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -20,7 +20,12 @@ class SubagentsTest {
         val subagents = Subagents()
 
         // Act
-        val prompt = subagents.catalog().subagents.single { it.name == "general" }.systemPrompt
+        val prompt =
+            subagents
+                .catalog()
+                .subagents
+                .single { it.name == "general" }
+                .systemPrompt
 
         // Assert
         assertTrue(prompt.startsWith("You are a general-purpose subagent."), prompt)
@@ -44,7 +49,8 @@ class SubagentsTest {
     fun `loads subagents from configured extension repositories`() {
         // Arrange
         val config = config()
-        val checkout = gitRepositoryCheckoutPath(config.workspaceLayout().extensionsRepositoryDirectoryPath(), "git@github.com:deil/agents.git")
+        val checkout =
+            gitRepositoryCheckoutPath(config.workspaceLayout().extensionsRepositoryDirectoryPath(), "git@github.com:deil/agents.git")
         writeSubagentFile(
             checkout.resolve("sidekick/agents/explore.md"),
             "explore",
@@ -73,7 +79,8 @@ class SubagentsTest {
     fun `skips invalid extension subagents`() {
         // Arrange
         val config = config()
-        val checkout = gitRepositoryCheckoutPath(config.workspaceLayout().extensionsRepositoryDirectoryPath(), "git@github.com:deil/agents.git")
+        val checkout =
+            gitRepositoryCheckoutPath(config.workspaceLayout().extensionsRepositoryDirectoryPath(), "git@github.com:deil/agents.git")
         writeSubagentFile(checkout.resolve("agents/valid.md"), "valid", "Valid agent", "Run valid tasks.")
         writeSubagentFile(checkout.resolve("agents/wrong-file.md"), "wrong-name", "Wrong file", "Skip me.")
         writeSubagentFile(checkout.resolve("agents/unsafe.md"), "../unsafe", "Unsafe", "Skip me.")

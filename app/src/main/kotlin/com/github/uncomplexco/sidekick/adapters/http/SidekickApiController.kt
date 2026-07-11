@@ -195,7 +195,7 @@ class HttpChatPlatformAdapter(
 
     override val botUsername: String = "sidekick-api"
 
-    override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
     override suspend fun postReply(reply: ChatReply): ReplyResult {
         val apiReply = ApiReply(id = newId("api_reply"), text = reply.text, createdAtMs = System.currentTimeMillis())
@@ -203,7 +203,7 @@ class HttpChatPlatformAdapter(
         return ReplyResult(apiReply.id, apiReply.createdAtMs)
     }
 
-    override fun ingestFiles(
+    override suspend fun ingestFiles(
         conversationId: ConversationId,
         files: List<IncomingChatFile>,
     ): List<IncomingChatFile> = emptyList()

@@ -48,7 +48,7 @@ class ConversationManager(
     suspend fun recordIncomingMessages(
         conversationId: ConversationId,
         seedHistory: Boolean,
-        historyLoader: (ConversationId) -> List<ChatMessage>,
+        historyLoader: suspend (ConversationId) -> List<ChatMessage>,
         messages: List<SessionMessage>,
         files: List<IncomingChatFile>,
     ): TurnContext =
@@ -154,10 +154,10 @@ class ConversationManager(
         }
     }
 
-    private fun loadOrSeedState(
+    private suspend fun loadOrSeedState(
         conversationId: ConversationId,
         seedHistory: Boolean,
-        historyLoader: (ConversationId) -> List<ChatMessage>,
+        historyLoader: suspend (ConversationId) -> List<ChatMessage>,
     ): ConversationState {
         val state = store.load(conversationId)
         if (state.messages.isEmpty() && seedHistory) {
@@ -195,6 +195,7 @@ class ConversationManager(
             displayName = permalink,
             urlPrivateDownload = urlPrivateDownload,
             localPath = localPath!!,
+            summary = summary,
         )
 
     companion object {

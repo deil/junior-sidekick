@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application.markdown
+package com.github.uncomplexco.sidekick.application.utils
 
 data class MarkdownDocument(
     val frontmatter: Map<String, String>,

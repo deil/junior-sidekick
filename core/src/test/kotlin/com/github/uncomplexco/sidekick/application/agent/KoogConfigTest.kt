@@ -22,6 +22,7 @@ class KoogConfigTest {
                 ultrathinkModel = "openai/gpt-5.4-mini",
                 ultrathinkProvider = "atlas-cloud/fp8",
                 ultrathinkReasoningEffort = "high",
+                imageModel = "image-model",
                 maxAgentIterations = 50,
             )
 

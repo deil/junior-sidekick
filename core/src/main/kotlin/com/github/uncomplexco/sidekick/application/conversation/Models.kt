@@ -53,6 +53,7 @@ data class SessionFileRef(
     val filetype: String?,
     val urlPrivateDownload: String,
     val localPath: VirtualPath,
+    val summary: String? = null,
 )
 
 @Serializable

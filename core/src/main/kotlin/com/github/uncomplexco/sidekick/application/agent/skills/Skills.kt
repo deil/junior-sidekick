@@ -3,12 +3,11 @@ package com.github.uncomplexco.sidekick.application.agent.skills
 import com.github.uncomplexco.sidekick.adapters.git.gitRepositoryCheckoutPath
 import com.github.uncomplexco.sidekick.adapters.git.syncGitRepository
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.markdown.hasMarkdownFrontmatter
-import com.github.uncomplexco.sidekick.application.markdown.parseMarkdownFrontmatter
 import com.github.uncomplexco.sidekick.application.utils.Loggers
+import com.github.uncomplexco.sidekick.application.utils.hasMarkdownFrontmatter
+import com.github.uncomplexco.sidekick.application.utils.parseMarkdownFrontmatter
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component

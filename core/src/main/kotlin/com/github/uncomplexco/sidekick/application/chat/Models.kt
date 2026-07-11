@@ -10,6 +10,7 @@ data class IncomingChatFile(
     val urlPrivateDownload: String,
     val permalink: String,
     val localPath: String?,
+    val summary: String? = null,
 )
 
 data class InboundMessage(

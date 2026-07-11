@@ -1,5 +1,7 @@
 package com.github.uncomplexco.sidekick.application.markdown
 
+import com.github.uncomplexco.sidekick.application.utils.hasMarkdownFrontmatter
+import com.github.uncomplexco.sidekick.application.utils.parseMarkdownFrontmatter
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals

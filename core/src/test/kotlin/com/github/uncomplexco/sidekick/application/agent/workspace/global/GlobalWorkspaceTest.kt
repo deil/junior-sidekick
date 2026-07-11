@@ -1,6 +1,8 @@
 package com.github.uncomplexco.sidekick.application.agent.workspace.global
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.workspace.GlobalWorkspace
+import com.github.uncomplexco.sidekick.application.agent.workspace.GlobalWorkspaceRepository
 import org.eclipse.jgit.api.Git
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -63,7 +65,11 @@ class GlobalWorkspaceTest {
 
         val first = globalWorkspace.checkoutPath(config(), repo)
         val second = globalWorkspace.checkoutPath(config(), repo)
-        val other = globalWorkspace.checkoutPath(config(), GlobalWorkspaceRepository("git@github.com:deil/other-global.git", "docs"))
+        val other =
+            globalWorkspace.checkoutPath(
+                config(),
+                GlobalWorkspaceRepository("git@github.com:deil/other-global.git", "docs"),
+            )
 
         assertEquals(first, second)
         assertTrue(first.startsWith(dir.resolve("workspace/data/repositories/knowledge")))

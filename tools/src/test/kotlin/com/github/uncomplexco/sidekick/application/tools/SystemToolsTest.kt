@@ -83,11 +83,11 @@ private class RecordingChatPlatform : ChatPlatformAdapter {
             override fun endTurn() = Unit
         }
 
-    override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
     override suspend fun postReply(reply: ChatReply): ReplyResult = ReplyResult("reply", 1)
 
-    override fun ingestFiles(
+    override suspend fun ingestFiles(
         conversationId: ConversationId,
         files: List<IncomingChatFile>,
     ): List<IncomingChatFile> = files

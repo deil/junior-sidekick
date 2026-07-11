@@ -1,8 +1,8 @@
-package com.github.uncomplexco.sidekick.application.agent.workspace.global
+package com.github.uncomplexco.sidekick.application.agent.workspace
 
-import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.adapters.git.gitRepositoryCheckoutPath
 import com.github.uncomplexco.sidekick.adapters.git.syncGitRepository
+import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory

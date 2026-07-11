@@ -5,17 +5,16 @@ import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsF
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
-import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.slack.api.bolt.context.builtin.EventContext
 import com.slack.api.model.Attachment
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -28,13 +27,13 @@ import com.slack.api.model.File as SlackFile
 class SlackChatPlatformAdapter(
     private val ctx: EventContext,
     private val threadId: ChatThreadId,
-    private val historyLoader: (ConversationId) -> List<ChatMessage>,
+    private val historyLoader: suspend (ConversationId) -> List<ChatMessage>,
     private val fileIngestor: SlackFileIngestor,
 ) : SlackBackedChatPlatformAdapter {
     override val botUsername: String = ctx.botUserId
     override val activity: TurnActivityIndicator = SlackActivityIndicator(ctx, threadId.threadTs)
 
-    override fun loadHistory(conversationId: ConversationId): List<ChatMessage> = historyLoader(conversationId)
+    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = historyLoader(conversationId)
 
     override fun markQueued(message: InboundMessage) {
         updateQueueReaction(message, queued = true)
@@ -58,7 +57,10 @@ class SlackChatPlatformAdapter(
                         Loggers.SLACK.warn("Slack reply attachment upload failed for {}: {}", attachment.name, response.error)
                         null
                     } else {
-                        response.file?.permalink ?: response.files.orEmpty().firstOrNull()?.permalink
+                        response.file?.permalink ?: response.files
+                            .orEmpty()
+                            .firstOrNull()
+                            ?.permalink
                     }
                 } catch (error: Exception) {
                     Loggers.SLACK.warn("Slack reply attachment upload failed for {}", attachment.name, error)
@@ -82,7 +84,7 @@ class SlackChatPlatformAdapter(
         return ReplyResult(postResponse.ts, slackTsToMillis(postResponse.ts))
     }
 
-    override fun ingestFiles(
+    override suspend fun ingestFiles(
         conversationId: ConversationId,
         files: List<IncomingChatFile>,
     ): List<IncomingChatFile> = fileIngestor.ingest(conversationId, files)
@@ -223,6 +225,7 @@ internal fun incomingChatFiles(
 class SlackFileIngestor(
     private val slackBotToken: String,
     private val virtualPathsFactory: VirtualPathsFactory,
+    private val imageSummarizer: ImageSummarizer,
     private val httpClient: HttpClient =
         HttpClient
             .newBuilder()
@@ -230,16 +233,31 @@ class SlackFileIngestor(
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build(),
 ) {
-    fun ingest(
+    suspend fun ingest(
         conversationId: ConversationId,
         files: List<IncomingChatFile>,
+        summarizeImages: Boolean = true,
     ): List<IncomingChatFile> =
         files
             .take(MAX_MESSAGE_FILES)
             .mapNotNull { file ->
                 val virtualPaths = virtualPathsFactory.forConversation(conversationId)
                 val localPath = download(virtualPaths, file) ?: return@mapNotNull null
-                file.copy(localPath = virtualPaths.virtualPath(localPath.toString()))
+                file.copy(
+                    localPath = virtualPaths.virtualPath(localPath.toString()),
+                    summary =
+                        if (summarizeImages && file.mimetype?.startsWith("image/") == true) {
+                            when (val result = imageSummarizer.summarize(localPath)) {
+                                is ImageSummarizer.Result.Success -> result.summary
+                                is ImageSummarizer.Result.Failure -> {
+                                    Loggers.SLACK.warn("Image summarization failed for file id={}", file.id, result.error)
+                                    null
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                )
             }
 
     private fun download(
