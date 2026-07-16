@@ -36,11 +36,11 @@ class SlackChatPlatformAdapter(
     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = historyLoader(conversationId)
 
     override fun markQueued(message: InboundMessage) {
-        updateQueueReaction(message, queued = true)
+        // updateQueueReaction(message, queued = true)
     }
 
     override fun markProcessing(message: InboundMessage) {
-        updateQueueReaction(message, queued = false)
+        // updateQueueReaction(message, queued = false)
     }
 
     override suspend fun postReply(reply: ChatReply): ReplyResult {
@@ -248,7 +248,10 @@ class SlackFileIngestor(
                     summary =
                         if (summarizeImages && file.mimetype?.startsWith("image/") == true) {
                             when (val result = imageSummarizer.summarize(localPath)) {
-                                is ImageSummarizer.Result.Success -> result.summary
+                                is ImageSummarizer.Result.Success -> {
+                                    result.summary
+                                }
+
                                 is ImageSummarizer.Result.Failure -> {
                                     Loggers.SLACK.warn("Image summarization failed for file id={}", file.id, result.error)
                                     null
