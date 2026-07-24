@@ -10,18 +10,19 @@ import ai.koog.serialization.JSONSerializer
 import ai.koog.serialization.kotlinx.toKoogJSONElement
 import ai.koog.serialization.kotlinx.toKotlinxJsonElement
 import ai.koog.serialization.typeToken
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths.Companion.WORK_ROOT
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import io.modelcontextprotocol.kotlin.sdk.client.Client
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
-import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import kotlinx.serialization.builtins.nullable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
 import org.springframework.stereotype.Component
+import java.nio.file.Files
+import java.nio.file.Path
+
+internal const val MAX_MCP_TOOL_OUTPUT_CHARACTERS = 50_000
 
 class McpStatusTools(
     private val ctx: TurnContext,
@@ -42,6 +43,7 @@ class McpServerTool(
     private val client: Client,
     private val originalToolName: String,
     descriptor: ToolDescriptor,
+    private val workRoot: Path,
 ) : Tool<JSONObject, CallToolResult?>(
         argsType = typeToken<JSONObject>(),
         resultType = typeToken<CallToolResult?>(),
@@ -69,28 +71,17 @@ class McpServerTool(
     override fun encodeResultToString(
         result: CallToolResult?,
         serializer: JSONSerializer,
-    ): String {
-        if (result?.isError == true) {
-            val errorText = result.content.filterIsInstance<TextContent>().joinToString("\n") { it.text }
-            if (errorText.isNotBlank()) return "Error: $errorText"
+    ): String = externalizeOutput(super.encodeResultToString(result, serializer))
 
-            val fallbackJson = json.encodeToJsonElement(resultSerializer, result).toKoogJSONElement()
-            return "Error: ${serializer.encodeJSONElementToString(fallbackJson)}"
-        }
+    private fun externalizeOutput(output: String): String {
+        if (output.length <= MAX_MCP_TOOL_OUTPUT_CHARACTERS) return output
 
-        val preparedResultJson: JsonElement =
-            result
-                ?.let {
-                    JsonObject(
-                        json
-                            .encodeToJsonElement(resultSerializer, result)
-                            .jsonObject
-                            .filter { (key, _) -> key !in listOf("type", "_meta") },
-                    )
-                }
-                ?: JsonNull
+        val tmpRoot = Files.createDirectories(workRoot.resolve("tmp"))
+        val resultPath = tmpRoot.resolve("tool_${System.currentTimeMillis()}_result.txt")
+        Files.writeString(resultPath, output)
+        val virtualPath = "$WORK_ROOT/tmp/${resultPath.fileName}"
 
-        return serializer.encodeJSONElementToString(preparedResultJson.toKoogJSONElement())
+        return "(Output too large. Saved to $virtualPath. Use ${WorkspaceFileTools.TOOL_READ} with path to continue.)"
     }
 }
 

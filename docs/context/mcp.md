@@ -65,6 +65,9 @@ Each configured MCP server also gets local helper tools:
 - `get_mcp_status_<server.id>` – checks whether the server is already connected.
 - `connect_mcp_<server.id>` – starts the connection flow for that server.
 
+MCP tool output up to 50,000 characters is returned directly to the model. Larger output is written unchanged to
+`/work/tmp/tool_<timestamp>_result.txt`; the model receives only the file path and a hint to continue with `Read`.
+
 ## Workarounds
 
 ### Atlassian MCP

@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component
 import java.net.URI
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.nio.file.Path
 import java.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import java.net.http.HttpClient as JavaHttpClient
@@ -60,47 +61,53 @@ class DefaultMcpServersRegistry(
     override suspend fun connect(
         conversationId: ConversationId,
         userId: String,
+        workRoot: Path,
     ): List<ConnectedMcpServer> =
         config.servers.mapNotNull { server ->
-            runCatching { connect(server) }
+            runCatching { connect(server, workRoot) }
                 .onFailure { log.warn("Failed to connect MCP server {}", server.id, it) }
                 .getOrNull()
         }
 
-    private suspend fun connect(server: McpServerConfig): ConnectedMcpServer =
+    private suspend fun connect(
+        server: McpServerConfig,
+        workRoot: Path,
+    ): ConnectedMcpServer =
         when (server.auth) {
             "oauth" -> {
                 val accessToken = oauth.accessToken(server) ?: error("MCP server ${server.id} requires OAuth")
-                connect(server, authHeaderValue = "Bearer $accessToken")
+                connect(server, workRoot, authHeaderValue = "Bearer $accessToken")
             }
 
             "header" -> {
                 val authHeaderValue = server.authHeader.value.takeIf { it.isNotBlank() }
                     ?: error("MCP server ${server.id} requires auth-header.value")
-                connect(server, authHeaderValue)
+                connect(server, workRoot, authHeaderValue)
             }
 
             else -> {
-                connect(server, authHeaderValue = null)
+                connect(server, workRoot, authHeaderValue = null)
             }
         }
 
     private suspend fun connect(
         server: McpServerConfig,
+        workRoot: Path,
         authHeaderValue: String?,
     ): ConnectedMcpServer =
         when (server.transport) {
             "stdio" -> {
-                stdioServer(server)
+                stdioServer(server, workRoot)
             }
 
             "sse" -> {
-                httpServer(server, authHeaderValue) { client -> SseClientTransport(client, server.url) }
+                httpServer(server, workRoot, authHeaderValue) { client -> SseClientTransport(client, server.url) }
             }
 
             "streamable-http" -> {
                 httpServer(
                     server,
+                    workRoot,
                     authHeaderValue,
                 ) { client -> client.mcpStreamableHttpTransport(server.url) }
             }
@@ -110,7 +117,10 @@ class DefaultMcpServersRegistry(
             }
         }
 
-    private suspend fun stdioServer(server: McpServerConfig): ConnectedMcpServer {
+    private suspend fun stdioServer(
+        server: McpServerConfig,
+        workRoot: Path,
+    ): ConnectedMcpServer {
         val processBuilder = ProcessBuilder(listOf(server.command) + server.args)
         processBuilder.environment().putAll(server.env)
         val process = processBuilder.start()
@@ -119,11 +129,12 @@ class DefaultMcpServersRegistry(
                 input = process.inputStream.asSource().buffered(),
                 output = process.outputStream.asSink().buffered(),
             )
-        return connectedServer(server, transport, process)
+        return connectedServer(server, transport, workRoot, process)
     }
 
     private suspend fun httpServer(
         server: McpServerConfig,
+        workRoot: Path,
         authHeaderValue: String?,
         transportFactory: (HttpClient) -> Transport,
     ): ConnectedMcpServer {
@@ -131,7 +142,7 @@ class DefaultMcpServersRegistry(
         val transport = transportFactory(httpClient)
         transport.onClose { httpClient.close() }
         try {
-            return connectedServer(server, transport)
+            return connectedServer(server, transport, workRoot)
         } catch (error: Throwable) {
             if (server.transport == "sse") {
                 logSseErrorResponse(server, authHeaderValue)
@@ -173,6 +184,7 @@ class DefaultMcpServersRegistry(
     private suspend fun connectedServer(
         server: McpServerConfig,
         transport: Transport,
+        workRoot: Path,
         process: Process? = null,
     ): ConnectedMcpServer {
         val client =
@@ -184,7 +196,7 @@ class DefaultMcpServersRegistry(
                     ),
                 options = ClientOptions().apply { timeout = server.timeoutSeconds.seconds },
             ).apply { connect(transport) }
-        val registry = toolRegistry(server, client)
+        val registry = toolRegistry(server, client, workRoot)
         return DefaultConnectedMcpServer(
             id = server.id,
             toolRegistry = registry,
@@ -196,6 +208,7 @@ class DefaultMcpServersRegistry(
     private suspend fun toolRegistry(
         server: McpServerConfig,
         client: Client,
+        workRoot: Path,
     ): ToolRegistry {
         val tools = client.listTools().tools
         return ToolRegistry {
@@ -212,6 +225,7 @@ class DefaultMcpServersRegistry(
                             client = client,
                             originalToolName = tool.name,
                             descriptor = descriptor.copy(name = "mcp__${server.id}__${descriptor.name}"),
+                            workRoot = workRoot,
                         ),
                     )
                 }.onFailure {

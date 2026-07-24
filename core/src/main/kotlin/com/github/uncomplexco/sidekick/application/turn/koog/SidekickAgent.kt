@@ -29,6 +29,7 @@ import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.nio.file.Path
 
 private val log = LoggerFactory.getLogger(SidekickAgent::class.java)
 
@@ -50,6 +51,7 @@ interface McpServersRegistry {
     suspend fun connect(
         conversationId: ConversationId,
         userId: String,
+        workRoot: Path,
     ): List<ConnectedMcpServer>
 }
 
@@ -75,7 +77,12 @@ class SidekickAgent(
         message: SessionMessage,
         chat: ChatPlatformAdapter,
     ): ChatReply {
-        val mcpServers = mcpServersRegistry.connect(ctx.conversation.conversationId, message.author?.username.orEmpty())
+        val mcpServers =
+            mcpServersRegistry.connect(
+                ctx.conversation.conversationId,
+                message.author?.username.orEmpty(),
+                ctx.conversation.virtualPaths.workRoot,
+            )
         val ctxWithMcp = ctx.copy(conversation = ctx.conversation.copy(mcpServers = mcpServers))
         val replyAttachments = ReplyAttachmentCollector(ctx.conversation.virtualPaths)
 
