@@ -136,7 +136,7 @@ class SimpleReplyDecisionClassifier {
 class LlmReplyDecisionClassifier(
     private val config: KoogConfig,
     private val executeClassifier: suspend (Prompt, LLModel) -> ReplyClassifierResult = { prompt, model ->
-        openRouterExecutor(config.openRouterApiKey, config.openRouterAppTitle).use { executor ->
+        config.openRouterExecutor().use { executor ->
             executor.executeStructured<ReplyClassifierResult>(prompt, model).getOrThrow().data
         }
     },
@@ -167,7 +167,7 @@ class LlmReplyDecisionClassifier(
             val prompt =
                 prompt(
                     id = "sidekick-reply-decision",
-                    params = config.openRouterParams(aiModelProfile, input.conversationId?.lockKey()),
+                    params = config.openRouterParams(aiModelProfile, input.conversationId),
                 ) {
                     system(buildRouterSystemPrompt(input.botUser.fullName!!, input.botUser.username))
                     user(

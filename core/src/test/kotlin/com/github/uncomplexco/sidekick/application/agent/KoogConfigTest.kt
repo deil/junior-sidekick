@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.agent
 
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
@@ -36,7 +37,7 @@ class KoogConfigTest {
         val config = testConfig()
 
         // Act
-        val params = config.openRouterParams(config.normalProfile, "channel:thread")
+        val params = config.openRouterParams(config.normalProfile, ConversationId("channel", "thread"))
 
         // Assert
         assertEquals("channel:thread", params.additionalProperties?.get("session_id")?.jsonPrimitive?.content)
@@ -67,6 +68,7 @@ class KoogConfigTest {
         KoogConfig(
             openRouterApiKey = "test-key",
             openRouterAppTitle = "Sidekick",
+            openRouterAppUrl = "",
             fastModel = "openai/gpt-5.4-mini",
             fastProvider = "azure",
             fastReasoningEffort = "low",

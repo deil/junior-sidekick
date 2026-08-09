@@ -56,13 +56,13 @@ class KoogSessionContextSummarizer(
         val aiModelProfile = config.fastProfile
 
         return runCatching {
-            openRouterExecutor(config.openRouterApiKey, config.openRouterAppTitle).use { executor ->
+            config.openRouterExecutor().use { executor ->
                 executor
                     .execute(
                         prompt =
                             prompt(
                                 id = "sidekick-session-context-compaction",
-                                params = config.openRouterParams(aiModelProfile, conversationId.lockKey()),
+                                params = config.openRouterParams(aiModelProfile, conversationId),
                             ) {
                                 user("${Prompts.CONTEXT_COMPACTION_PROMPT}\n$transcript")
                             },

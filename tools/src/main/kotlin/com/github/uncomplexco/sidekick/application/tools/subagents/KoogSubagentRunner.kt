@@ -36,7 +36,7 @@ class KoogSubagentRunner(
                 ?: throw IllegalArgumentException("Unknown subagent type: $subagentType")
         val agent =
             AIAgent(
-                promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey, koogConfig.openRouterAppTitle),
+                promptExecutor = koogConfig.openRouterExecutor(),
                 agentConfig =
                     AIAgentConfig(
                         prompt =
@@ -45,7 +45,7 @@ class KoogSubagentRunner(
                                 params =
                                     koogConfig.openRouterParams(
                                         aiModelProfile,
-                                        ctx.conversation.conversationId.lockKey(),
+                                        ctx.conversation.conversationId,
                                     ),
                             ) {
                                 system(systemPrompt)

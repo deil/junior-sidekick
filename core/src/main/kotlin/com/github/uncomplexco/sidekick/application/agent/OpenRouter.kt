@@ -10,22 +10,36 @@ import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.llm.LLMProvider
 import kotlinx.serialization.json.Json
 
-fun openRouterExecutor(
-    apiKey: String,
-    appTitle: String,
-): PromptExecutor =
+fun KoogConfig.openRouterExecutor(): PromptExecutor =
     MultiLLMPromptExecutor(
         LLMProvider.OpenRouter to
             OpenRouterLLMClient(
-                apiKey = apiKey,
-                httpClientFactory = OpenRouterHttpClientFactory(HttpClientFactoryResolver.resolve(), appTitle),
+                apiKey = openRouterApiKey,
+                httpClientFactory =
+                    OpenRouterHttpClientFactory(
+                        HttpClientFactoryResolver.resolve(),
+                        openRouterAppTitle,
+                        openRouterAppUrl,
+                    ),
             ).toRetryingClient(RetryConfig.PRODUCTION),
     )
 
 internal class OpenRouterHttpClientFactory(
     private val delegate: KoogHttpClient.Factory,
     private val appTitle: String,
+    appUrl: String?,
 ) : KoogHttpClient.Factory {
+    private val attributionHeaders =
+        appUrl
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let {
+                mapOf(
+                    "HTTP-Referer" to it,
+                    "X-OpenRouter-Title" to appTitle,
+                )
+            }.orEmpty()
+
     override fun create(
         clientName: String,
         baseUrl: String,
@@ -39,7 +53,7 @@ internal class OpenRouterHttpClientFactory(
         delegate.create(
             clientName = clientName,
             baseUrl = baseUrl,
-            headers = headers + ("X-OpenRouter-Title" to appTitle),
+            headers = headers + attributionHeaders,
             queryParameters = queryParameters,
             requestTimeoutMillis = requestTimeoutMillis,
             connectTimeoutMillis = connectTimeoutMillis,

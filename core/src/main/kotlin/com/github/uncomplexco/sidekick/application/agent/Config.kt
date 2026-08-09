@@ -3,8 +3,9 @@ package com.github.uncomplexco.sidekick.application.agent
 import ai.koog.prompt.executor.clients.openrouter.OpenRouterParams
 import ai.koog.prompt.executor.clients.openrouter.models.ProviderPreferences
 import ai.koog.prompt.llm.LLMCapability
-import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.agent.workspace.WorkspaceLayout
+import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import org.springframework.beans.factory.annotation.Value
@@ -40,9 +41,11 @@ class AgentConfig(
 @Configuration
 class KoogConfig(
     @Value($$"${adapters.open-router.api-key}")
-    val openRouterApiKey: String,
+    internal val openRouterApiKey: String,
     @Value($$"${agent.name}")
-    val openRouterAppTitle: String,
+    internal val openRouterAppTitle: String,
+    @Value($$"${adapters.open-router.app-url:}")
+    internal val openRouterAppUrl: String,
     @Value($$"${agent.llm.fast.model}")
     private val fastModel: String,
     @Value($$"${agent.llm.fast.provider}")
@@ -99,7 +102,7 @@ class KoogConfig(
 
     fun openRouterParams(
         profile: LlmProfile,
-        sessionId: String? = null,
+        conversationId: ConversationId? = null,
     ): OpenRouterParams =
         OpenRouterParams(
             provider =
@@ -114,7 +117,7 @@ class KoogConfig(
                             put("effort", JsonPrimitive(profile.reasoningEffort.apiValue))
                         },
                     )
-                    sessionId?.let { put("session_id", JsonPrimitive(it)) }
+                    conversationId?.let { put("session_id", JsonPrimitive(it.lockKey())) }
                 },
         )
 
