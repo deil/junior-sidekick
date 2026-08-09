@@ -1,6 +1,5 @@
 package com.github.uncomplexco.sidekick.application.agent
 
-import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.executor.clients.openrouter.OpenRouterParams
 import ai.koog.prompt.executor.clients.openrouter.models.ProviderPreferences
 import ai.koog.prompt.llm.LLMCapability
@@ -112,7 +111,7 @@ class KoogConfig(
                     put(
                         "reasoning",
                         buildJsonObject {
-                            put("effort", JsonPrimitive(profile.reasoningEffort.name.lowercase()))
+                            put("effort", JsonPrimitive(profile.reasoningEffort.apiValue))
                         },
                     )
                     sessionId?.let { put("session_id", JsonPrimitive(it)) }
@@ -132,5 +131,17 @@ data class LlmProfile(
     val provider: String,
     val reasoningEffort: ReasoningEffort,
 )
+
+enum class ReasoningEffort(
+    val apiValue: String,
+) {
+    NONE("none"),
+    MINIMAL("minimal"),
+    LOW("low"),
+    MEDIUM("medium"),
+    HIGH("high"),
+    XHIGH("xhigh"),
+    MAX("max"),
+}
 
 private fun parseReasoningEffort(value: String): ReasoningEffort = ReasoningEffort.valueOf(value.trim().uppercase().replace('-', '_'))
