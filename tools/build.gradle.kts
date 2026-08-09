@@ -27,8 +27,8 @@ dependencies {
     implementation("org.jsoup:jsoup:1.22.2")
     implementation("com.vladsch.flexmark:flexmark-html2md-converter:0.64.8")
 
-    implementation("ai.koog:koog-agents:1.0.0")
-    implementation("ai.koog:agents-mcp:1.0.0-beta-preview7")
+    implementation("ai.koog:koog-agents:1.1.1")
+    implementation("ai.koog:agents-mcp:1.1.1-beta")
     implementation("io.modelcontextprotocol:kotlin-sdk-client:0.13.0")
     implementation("io.modelcontextprotocol:kotlin-sdk-core:0.13.0")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.7.0.202606012155-r")
