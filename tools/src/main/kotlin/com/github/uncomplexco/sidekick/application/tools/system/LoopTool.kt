@@ -172,7 +172,7 @@ class Loop(
         val agent =
             AIAgent(
                 strategy = sidekickStrategy(),
-                promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey),
+                promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey, koogConfig.openRouterAppTitle),
                 agentConfig = agentConfig(ctx, chat, aiModelProfile, model),
                 toolRegistry = toolRegistry,
             )
@@ -201,7 +201,7 @@ class Loop(
         val agent =
             AIAgent(
                 strategy = structuredOutputWithToolsStrategy<String, T>(structuredOutputConfig) { input -> input },
-                promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey),
+                promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey, koogConfig.openRouterAppTitle),
                 agentConfig = agentConfig(ctx, chat, aiModelProfile, model),
                 toolRegistry = toolRegistry,
             )
@@ -229,7 +229,11 @@ class Loop(
             prompt =
                 prompt(
                     id = "sidekick-test-prompt",
-                    params = koogConfig.openRouterParams(aiModelProfile),
+                    params =
+                        koogConfig.openRouterParams(
+                            aiModelProfile,
+                            ctx.conversation.conversationId.lockKey(),
+                        ),
                 ) {
                     system(systemPromptBuilder.buildSystemPrompt(chat.botUsername, ctx.conversation.conversationId))
                 },

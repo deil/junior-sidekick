@@ -42,6 +42,8 @@ class AgentConfig(
 class KoogConfig(
     @Value($$"${adapters.open-router.api-key}")
     val openRouterApiKey: String,
+    @Value($$"${agent.name}")
+    val openRouterAppTitle: String,
     @Value($$"${agent.llm.fast.model}")
     private val fastModel: String,
     @Value($$"${agent.llm.fast.provider}")
@@ -96,19 +98,25 @@ class KoogConfig(
             AiModelProfile.ULTRATHINK -> ultrathinkProfile
         }
 
-    fun openRouterParams(profile: LlmProfile): OpenRouterParams =
+    fun openRouterParams(
+        profile: LlmProfile,
+        sessionId: String? = null,
+    ): OpenRouterParams =
         OpenRouterParams(
             provider =
                 ProviderPreferences(
                     only = listOf(profile.provider),
                 ),
             additionalProperties =
-                mapOf(
-                    "reasoning" to
+                buildMap {
+                    put(
+                        "reasoning",
                         buildJsonObject {
                             put("effort", JsonPrimitive(profile.reasoningEffort.name.lowercase()))
                         },
-                ),
+                    )
+                    sessionId?.let { put("session_id", JsonPrimitive(it)) }
+                },
         )
 
     fun modelCapabilities(): List<LLMCapability> =

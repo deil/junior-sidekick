@@ -96,13 +96,17 @@ class SidekickAgent(
             val agent =
                 AIAgent(
                     strategy = sidekickStrategy(),
-                    promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey),
+                    promptExecutor = openRouterExecutor(koogConfig.openRouterApiKey, koogConfig.openRouterAppTitle),
                     agentConfig =
                         AIAgentConfig(
                             prompt =
                                 prompt(
                                     id = "sidekick-base-prompt",
-                                    params = koogConfig.openRouterParams(aiModelProfile),
+                                    params =
+                                        koogConfig.openRouterParams(
+                                            aiModelProfile,
+                                            ctx.conversation.conversationId.lockKey(),
+                                        ),
                                 ) {
                                     system(systemPromptBuilder.buildSystemPrompt(config.botUsername!!, ctx.conversation.conversationId))
                                 },

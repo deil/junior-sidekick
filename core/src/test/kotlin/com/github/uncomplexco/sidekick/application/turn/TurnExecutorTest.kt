@@ -151,6 +151,7 @@ class TurnExecutorTest {
     private fun koogConfig(): KoogConfig =
         KoogConfig(
             openRouterApiKey = "test-key",
+            openRouterAppTitle = "Sidekick",
             fastModel = "openai/gpt-5.4-mini",
             fastProvider = "azure",
             fastReasoningEffort = "low",

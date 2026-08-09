@@ -8,6 +8,7 @@ import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
@@ -24,6 +25,7 @@ data class ReplyDecisionInput(
     val hasAssistantHistory: Boolean,
     val isExplicitMention: Boolean = false,
     val isPrivateMessage: Boolean = false,
+    val conversationId: ConversationId? = null,
 )
 
 enum class ReplyDecisionReason {
@@ -134,7 +136,7 @@ class SimpleReplyDecisionClassifier {
 class LlmReplyDecisionClassifier(
     private val config: KoogConfig,
     private val executeClassifier: suspend (Prompt, LLModel) -> ReplyClassifierResult = { prompt, model ->
-        openRouterExecutor(config.openRouterApiKey).use { executor ->
+        openRouterExecutor(config.openRouterApiKey, config.openRouterAppTitle).use { executor ->
             executor.executeStructured<ReplyClassifierResult>(prompt, model).getOrThrow().data
         }
     },
@@ -165,7 +167,7 @@ class LlmReplyDecisionClassifier(
             val prompt =
                 prompt(
                     id = "sidekick-reply-decision",
-                    params = config.openRouterParams(aiModelProfile),
+                    params = config.openRouterParams(aiModelProfile, input.conversationId?.lockKey()),
                 ) {
                     system(buildRouterSystemPrompt(input.botUser.fullName!!, input.botUser.username))
                     user(

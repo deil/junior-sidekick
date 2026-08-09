@@ -10,21 +10,7 @@ class KoogConfigTest {
     @Test
     fun `openrouter params carry provider preferences`() {
         // Arrange
-        val config =
-            KoogConfig(
-                openRouterApiKey = "test-key",
-                fastModel = "openai/gpt-5.4-mini",
-                fastProvider = "azure",
-                fastReasoningEffort = "low",
-                defaultModel = "z-ai/glm-5.2",
-                defaultProvider = "azure",
-                defaultReasoningEffort = "medium",
-                ultrathinkModel = "openai/gpt-5.4-mini",
-                ultrathinkProvider = "atlas-cloud/fp8",
-                ultrathinkReasoningEffort = "high",
-                imageModel = "image-model",
-                maxAgentIterations = 50,
-            )
+        val config = testConfig()
 
         // Act
         val params = config.openRouterParams(config.profile(AiModelProfile.NORMAL))
@@ -41,4 +27,33 @@ class KoogConfigTest {
                 ?.content,
         )
     }
+
+    @Test
+    fun `openrouter params carry session id`() {
+        // Arrange
+        val config = testConfig()
+
+        // Act
+        val params = config.openRouterParams(config.normalProfile, "channel:thread")
+
+        // Assert
+        assertEquals("channel:thread", params.additionalProperties?.get("session_id")?.jsonPrimitive?.content)
+    }
+
+    private fun testConfig() =
+        KoogConfig(
+            openRouterApiKey = "test-key",
+            openRouterAppTitle = "Sidekick",
+            fastModel = "openai/gpt-5.4-mini",
+            fastProvider = "azure",
+            fastReasoningEffort = "low",
+            defaultModel = "z-ai/glm-5.2",
+            defaultProvider = "azure",
+            defaultReasoningEffort = "medium",
+            ultrathinkModel = "openai/gpt-5.4-mini",
+            ultrathinkProvider = "atlas-cloud/fp8",
+            ultrathinkReasoningEffort = "high",
+            imageModel = "image-model",
+            maxAgentIterations = 50,
+        )
 }

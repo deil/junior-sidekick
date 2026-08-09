@@ -42,7 +42,7 @@ class KoogImageSummarizer(
             }
 
         return runCatching {
-            openRouterExecutor(config.openRouterApiKey).use { executor ->
+            openRouterExecutor(config.openRouterApiKey, config.openRouterAppTitle).use { executor ->
                 executor.execute(prompt, model).textContent()
             }
         }.fold(

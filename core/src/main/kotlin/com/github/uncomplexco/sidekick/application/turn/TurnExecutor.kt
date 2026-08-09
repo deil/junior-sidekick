@@ -115,6 +115,7 @@ class TurnExecutor(
                     messageHistory = turn.conversation.history.messages,
                     isExplicitMention = decision.explicitMention,
                     isPrivateMessage = message.type == ChatMessageType.ASSISTANT_MESSAGE,
+                    conversationId = decision.conversationId,
                     hasAssistantHistory =
                         turn.conversation.history.messages
                             .any { it.role == SessionMessageRole.ASSISTANT },
