@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.tools.subagents
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.tools.ToolRegistry
+import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
@@ -12,6 +13,7 @@ import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
 import org.springframework.stereotype.Component
 import java.util.UUID
 
@@ -25,8 +27,10 @@ class KoogSubagentRunner(
         ctx: TurnContext,
         subagentType: String,
         prompt: String,
-    ): String {
+    ): SubagentRunResult {
         val aiModelProfile = koogConfig.normalProfile
+        var toolCallCount = 0
+        var totalTokenCount = 0L
         val systemPrompt =
             subagents
                 .catalog()
@@ -63,8 +67,24 @@ class KoogSubagentRunner(
                         tools(WorkspaceFileTools(ctx.conversation.virtualPaths))
                         tools(WebFetchTools(agentConfig.name))
                     },
-            )
+            ) {
+                handleEvents {
+                    onLLMCallCompleted { llmCall ->
+                        totalTokenCount += llmCall.response?.metaInfo?.totalTokensCount ?: 0
+                    }
+                    onToolCallStarting {
+                        toolCallCount++
+                    }
+                }
+            }
 
-        return agent.run(prompt, "subagent-${UUID.randomUUID()}")
+        return SubagentRunResult(
+            output = agent.run(prompt, "subagent-${UUID.randomUUID()}"),
+            stats =
+                AgentUsageStats(
+                    toolCallCount = toolCallCount,
+                    totalTokenCount = totalTokenCount,
+                ),
+        )
     }
 }

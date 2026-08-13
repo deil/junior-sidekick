@@ -8,11 +8,13 @@ import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
+import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -84,6 +86,7 @@ class TaskToolTest {
             ctx = turnContext(tempDir),
             chat = chat,
             availableSubagents = listOf(Subagent("general", "General-purpose subagent", "Prompt")),
+            onSubagentCompleted = {},
         )
 }
 
@@ -97,10 +100,10 @@ private class RecordingSubagentRunner(
         ctx: TurnContext,
         subagentType: String,
         prompt: String,
-    ): String {
+    ): SubagentRunResult {
         subagentTypes += subagentType
         prompts += prompt
-        return result
+        return SubagentRunResult(result, AgentUsageStats(0, 0))
     }
 }
 
@@ -109,7 +112,7 @@ private class FailingSubagentRunner : SubagentRunner {
         ctx: TurnContext,
         subagentType: String,
         prompt: String,
-    ): String = error("boom")
+    ): SubagentRunResult = error("boom")
 }
 
 private class RecordingChatPlatform : ChatPlatformAdapter {
@@ -132,7 +135,10 @@ private class RecordingChatPlatform : ChatPlatformAdapter {
 
     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
-    override suspend fun postReply(reply: ChatReply): ReplyResult = ReplyResult("reply", 1)
+    override suspend fun postReply(
+        reply: ChatReply,
+        stats: TurnStats?,
+    ): ReplyResult = ReplyResult("reply", 1)
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,

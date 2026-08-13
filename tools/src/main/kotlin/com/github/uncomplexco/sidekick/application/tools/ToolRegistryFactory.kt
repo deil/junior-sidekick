@@ -31,6 +31,7 @@ import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
+import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
 import org.springframework.stereotype.Component
@@ -56,6 +57,7 @@ class DefaultToolRegistryFactory(
         ctx: TurnContext,
         chat: ChatPlatformAdapter,
         replyAttachments: ReplyAttachmentCollector,
+        onSubagentCompleted: (AgentUsageStats) -> Unit,
     ) = ToolRegistry {
         tools(SystemTools(chat = chat))
 
@@ -74,7 +76,7 @@ class DefaultToolRegistryFactory(
 
         tools(SkillTools(skills, ctx.conversation.virtualPaths, skillCatalogReloader))
 
-        tool(TaskTool(subagentRunner, ctx, chat, subagents.catalog().subagents))
+        tool(TaskTool(subagentRunner, ctx, chat, subagents.catalog().subagents, onSubagentCompleted))
 
         tools(GitTools(gitToolConfig, ctx.conversation.virtualPaths))
         tools(

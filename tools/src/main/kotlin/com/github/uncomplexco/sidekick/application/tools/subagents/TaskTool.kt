@@ -7,6 +7,7 @@ import ai.koog.agents.core.tools.validate
 import ai.koog.serialization.typeToken
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 
@@ -15,14 +16,20 @@ fun interface SubagentRunner {
         ctx: TurnContext,
         subagentType: String,
         prompt: String,
-    ): String
+    ): SubagentRunResult
 }
+
+data class SubagentRunResult(
+    val output: String,
+    val stats: AgentUsageStats,
+)
 
 class TaskTool(
     private val runner: SubagentRunner,
     private val ctx: TurnContext,
     private val chat: ChatPlatformAdapter,
     availableSubagents: List<Subagent>,
+    private val onSubagentCompleted: (AgentUsageStats) -> Unit,
 ) : Tool<TaskTool.Args, String>(
         argsType = typeToken<Args>(),
         resultType = typeToken<String>(),
@@ -53,11 +60,13 @@ class TaskTool(
         chat.activity.`continue`("$subagentType task - $description")
 
         try {
-            return runner.run(
+            val result = runner.run(
                 ctx = ctx,
                 subagentType = subagentType,
                 prompt = args.prompt,
             )
+            onSubagentCompleted(result.stats)
+            return result.output
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

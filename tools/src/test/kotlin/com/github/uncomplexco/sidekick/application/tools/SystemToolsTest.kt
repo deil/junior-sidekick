@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
+import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import org.junit.jupiter.api.Test
@@ -85,7 +86,10 @@ private class RecordingChatPlatform : ChatPlatformAdapter {
 
     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
-    override suspend fun postReply(reply: ChatReply): ReplyResult = ReplyResult("reply", 1)
+    override suspend fun postReply(
+        reply: ChatReply,
+        stats: TurnStats?,
+    ): ReplyResult = ReplyResult("reply", 1)
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,

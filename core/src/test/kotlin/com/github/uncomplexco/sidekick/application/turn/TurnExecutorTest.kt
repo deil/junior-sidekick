@@ -15,12 +15,16 @@ import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.chat.ReplyAttachment
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
+import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationManager
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.turn.koog.AgentTurnRunner
+import com.github.uncomplexco.sidekick.application.turn.koog.AgentTurnResult
+import com.github.uncomplexco.sidekick.application.turn.koog.AgentTurnStats
+import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -91,7 +95,13 @@ class TurnExecutorTest {
                     conversationManager = manager,
                     replyTrigger = replyDecisionService(),
                     agentConfig = config,
-                    agent = AgentTurnRunner { _, _, _ -> ChatReply("Attached the report.", listOf(attachment)) },
+                    agent =
+                        AgentTurnRunner { _, _, _ ->
+                            AgentTurnResult(
+                                reply = ChatReply("Attached the report.", listOf(attachment)),
+                                stats = AgentTurnStats(profileName = "normal", usage = AgentUsageStats(0, 0)),
+                            )
+                        },
                     skills = { SkillCatalog(emptyList()) },
                 )
             val chat =
@@ -101,7 +111,10 @@ class TurnExecutorTest {
 
                     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
-                    override suspend fun postReply(reply: ChatReply): ReplyResult {
+                    override suspend fun postReply(
+                        reply: ChatReply,
+                        stats: TurnStats?,
+                    ): ReplyResult {
                         delivered += reply
                         return ReplyResult("reply", 1)
                     }
@@ -173,7 +186,10 @@ class TurnExecutorTest {
 
             override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
-            override suspend fun postReply(reply: ChatReply): ReplyResult {
+            override suspend fun postReply(
+                reply: ChatReply,
+                stats: TurnStats?,
+            ): ReplyResult {
                 replies += reply.text
                 return ReplyResult("reply-${replies.size}", replies.size.toLong())
             }

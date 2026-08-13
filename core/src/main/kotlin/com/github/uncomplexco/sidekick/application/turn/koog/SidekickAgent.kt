@@ -38,6 +38,7 @@ interface ToolRegistryFactory {
         ctx: TurnContext,
         chat: ChatPlatformAdapter,
         replyAttachments: ReplyAttachmentCollector,
+        onSubagentCompleted: (AgentUsageStats) -> Unit,
     ): ToolRegistry
 
     suspend fun buildOrchestrationTools(
@@ -76,7 +77,9 @@ class SidekickAgent(
         ctx: TurnContext,
         message: SessionMessage,
         chat: ChatPlatformAdapter,
-    ): ChatReply {
+    ): AgentTurnResult {
+        var usage = AgentUsageStats()
+
         val mcpServers =
             mcpServersRegistry.connect(
                 ctx.conversation.conversationId,
@@ -88,7 +91,10 @@ class SidekickAgent(
 
         try {
             val mcpToolRegistry = mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
-            val baseTools = toolRegistryFactory.buildExecutionTools(ctxWithMcp, chat, replyAttachments) + mcpToolRegistry
+            val baseTools =
+                toolRegistryFactory.buildExecutionTools(ctxWithMcp, chat, replyAttachments) { subagentUsage ->
+                    usage += subagentUsage
+                } + mcpToolRegistry
             val toolRegistry =
                 baseTools + toolRegistryFactory.buildOrchestrationTools(toolRegistry = baseTools, chat = chat, ctx = ctxWithMcp)
             val aiModelProfile = koogConfig.profile(ctx.aiModelProfile)
@@ -125,7 +131,12 @@ class SidekickAgent(
                     }
 
                     handleEvents {
+                        onLLMCallCompleted { llmCall ->
+                            usage += AgentUsageStats(totalTokenCount = llmCall.response?.metaInfo?.totalTokensCount?.toLong() ?: 0)
+                        }
+
                         onToolCallStarting { toolCall ->
+                            usage += AgentUsageStats(toolCallCount = 1)
                             log.debug("onToolCallStarting: ${toolCall.toolName}")
                         }
 
@@ -140,7 +151,15 @@ class SidekickAgent(
                 }
 
             val input = turnPromptBuilder.buildSessionTurnPrompt(message, ctxWithMcp)
-            return ChatReply(agent.run(input, ctx.conversation.conversationId.lockKey()), replyAttachments.collected())
+            val reply = ChatReply(agent.run(input, ctx.conversation.conversationId.lockKey()), replyAttachments.collected())
+            return AgentTurnResult(
+                reply = reply,
+                stats =
+                    AgentTurnStats(
+                        profileName = ctx.aiModelProfile.name.lowercase(),
+                        usage = usage,
+                    ),
+            )
         } catch (error: Exception) {
             replyAttachments.clear()
             throw error
@@ -179,5 +198,26 @@ fun interface AgentTurnRunner {
         ctx: TurnContext,
         message: SessionMessage,
         chat: ChatPlatformAdapter,
-    ): ChatReply
+    ): AgentTurnResult
 }
+
+data class AgentTurnResult(
+    val reply: ChatReply,
+    val stats: AgentTurnStats,
+)
+
+data class AgentTurnStats(
+    val profileName: String,
+    val usage: AgentUsageStats,
+)
+
+data class AgentUsageStats(
+    val toolCallCount: Int = 0,
+    val totalTokenCount: Long = 0,
+)
+
+private operator fun AgentUsageStats.plus(other: AgentUsageStats): AgentUsageStats =
+    AgentUsageStats(
+        toolCallCount = toolCallCount + other.toolCallCount,
+        totalTokenCount = totalTokenCount + other.totalTokenCount,
+    )

@@ -8,6 +8,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationManager
@@ -19,6 +20,7 @@ import com.github.uncomplexco.sidekick.application.turn.koog.AgentTurnRunner
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import kotlinx.coroutines.CancellationException
 import org.springframework.stereotype.Component
+import kotlin.time.TimeSource
 
 @Component
 class TurnExecutor(
@@ -61,6 +63,8 @@ class TurnExecutor(
         decision: TurnTriggerDecision.ShouldHandle,
         chat: ChatPlatformAdapter,
     ) {
+        val turnStartedAt = TimeSource.Monotonic.markNow()
+
         if (message.files.isNotEmpty()) {
             val text = message.files.map { file -> "File: ${file.name} ${file.filetype} ${file.mimetype}" }
             log.debug(
@@ -126,7 +130,7 @@ class TurnExecutor(
             chat.activity.`continue`()
             conversationManager.setSubscribed(decision.conversationId, true)
 
-            val agentReply =
+            val agentResult =
                 try {
                     agent.runTurn(turn, currentMessage, chat)
                 } catch (error: CancellationException) {
@@ -147,9 +151,18 @@ class TurnExecutor(
                     runCatching { chat.postReply(ChatReply(TEMPORARY_FAILURE_REPLY)) }
                     return
                 }
+            val agentReply = agentResult.reply
             val replyMessageId =
                 try {
-                    chat.postReply(agentReply)
+                    chat.postReply(
+                        agentReply,
+                        TurnStats(
+                            profileName = agentResult.stats.profileName,
+                            executionTimeSeconds = turnStartedAt.elapsedNow().inWholeSeconds,
+                            toolCallCount = agentResult.stats.usage.toolCallCount,
+                            totalTokenCount = agentResult.stats.usage.totalTokenCount,
+                        ),
+                    )
                 } finally {
                     agentReply.deleteAttachments()
                 }

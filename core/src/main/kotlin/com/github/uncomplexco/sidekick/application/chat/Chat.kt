@@ -5,6 +5,7 @@ import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Locale
 
 interface ChatPlatformAdapter {
     val botUsername: String
@@ -18,7 +19,10 @@ interface ChatPlatformAdapter {
     fun markProcessing(message: InboundMessage) {
     }
 
-    suspend fun postReply(reply: ChatReply): ReplyResult
+    suspend fun postReply(
+        reply: ChatReply,
+        stats: TurnStats? = null,
+    ): ReplyResult
 
     suspend fun ingestFiles(
         conversationId: ConversationId,
@@ -80,6 +84,28 @@ data class ReplyResult(
     val messageId: String,
     val timestamp: Long,
 )
+
+data class TurnStats(
+    val profileName: String,
+    val executionTimeSeconds: Long,
+    val toolCallCount: Int,
+    val totalTokenCount: Long,
+) {
+    fun statusLine(): String =
+        listOfNotNull(
+            profileName,
+            formattedExecutionTime(),
+            String.format(Locale.ROOT, "%.1fK", totalTokenCount / 1000.0),
+            toolCallCount.takeIf { it > 0 }?.let { "$it tools" },
+        ).joinToString(" · ")
+
+    private fun formattedExecutionTime(): String =
+        if (executionTimeSeconds < 60) {
+            "${executionTimeSeconds}s"
+        } else {
+            "${executionTimeSeconds / 60}m ${executionTimeSeconds % 60}s"
+        }
+}
 
 data class ChatReply(
     val text: String,

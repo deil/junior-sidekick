@@ -10,6 +10,7 @@ import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
+import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
@@ -197,7 +198,10 @@ class HttpChatPlatformAdapter(
 
     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
-    override suspend fun postReply(reply: ChatReply): ReplyResult {
+    override suspend fun postReply(
+        reply: ChatReply,
+        stats: TurnStats?,
+    ): ReplyResult {
         val apiReply = ApiReply(id = newId("api_reply"), text = reply.text, createdAtMs = System.currentTimeMillis())
         replies += apiReply
         return ReplyResult(apiReply.id, apiReply.createdAtMs)

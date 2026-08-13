@@ -10,11 +10,17 @@ import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
+import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.slack.api.bolt.context.builtin.EventContext
 import com.slack.api.model.Attachment
+import com.slack.api.model.block.Blocks.asBlocks
+import com.slack.api.model.block.Blocks.context
+import com.slack.api.model.block.Blocks.markdown
+import com.slack.api.model.block.LayoutBlock
+import com.slack.api.model.block.composition.BlockCompositions.markdownText
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -43,7 +49,10 @@ class SlackChatPlatformAdapter(
         // updateQueueReaction(message, queued = false)
     }
 
-    override suspend fun postReply(reply: ChatReply): ReplyResult {
+    override suspend fun postReply(
+        reply: ChatReply,
+        stats: TurnStats?,
+    ): ReplyResult {
         val filePermalinks =
             reply.attachments.mapNotNull { attachment ->
                 try {
@@ -73,15 +82,23 @@ class SlackChatPlatformAdapter(
             ctx.client().chatPostMessage { req ->
                 req.channel(ctx.channelId)
                 req.threadTs(threadId.threadTs)
-                req.markdownText(text)
+                req.text(text)
+                req.blocks(replyBlocks(text, stats))
             }
 
-        if (!postResponse.isOk) {
-            Loggers.SLACK.warn("Slack markdown post failed, fallback to plain text")
-            ctx.say(text)
-        }
+        val response =
+            if (postResponse.isOk) {
+                postResponse
+            } else {
+                Loggers.SLACK.warn("Slack block post failed: {}; fallback to plain text", postResponse.error)
+                ctx.client().chatPostMessage { req ->
+                    req.channel(ctx.channelId)
+                    req.threadTs(threadId.threadTs)
+                    req.text(text)
+                }
+            }
 
-        return ReplyResult(postResponse.ts, slackTsToMillis(postResponse.ts))
+        return ReplyResult(response.ts, slackTsToMillis(response.ts))
     }
 
     override suspend fun ingestFiles(
@@ -317,6 +334,13 @@ private fun sanitizeFileName(value: String): String =
         .ifBlank { "file" }
 
 internal fun slackTsToMillis(ts: String): Long = (ts.toDouble().times(1000)).toLong()
+
+private fun replyBlocks(
+    text: String,
+    stats: TurnStats?,
+): List<LayoutBlock> =
+    asBlocks(markdown { it.text(text) }) +
+        stats?.let { asBlocks(context { block -> block.elements(listOf(markdownText(it.statusLine()))) }) }.orEmpty()
 
 internal fun isBotsOwnMessage(
     senderBotId: String?,
