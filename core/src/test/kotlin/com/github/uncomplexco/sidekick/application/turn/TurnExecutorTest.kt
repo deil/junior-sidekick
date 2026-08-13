@@ -80,6 +80,7 @@ class TurnExecutorTest {
     @Test
     fun `delivers reply attachments and removes staged files`() =
         runBlocking {
+            // Arrange
             val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
             config.botUsername = "USIDEKICK"
             val store = FilesystemConversationStateStore(config)
@@ -89,6 +90,7 @@ class TurnExecutorTest {
             Files.writeString(stagedFile, "report\n")
             val attachment = ReplyAttachment(stagedFile, "report.csv", "text/csv", Files.size(stagedFile))
             val delivered = mutableListOf<ChatReply>()
+            val deliveredStats = mutableListOf<TurnStats?>()
             val executor =
                 TurnExecutor(
                     turnTrigger = InboundMessageFilter(manager),
@@ -99,7 +101,11 @@ class TurnExecutorTest {
                         AgentTurnRunner { _, _, _ ->
                             AgentTurnResult(
                                 reply = ChatReply("Attached the report.", listOf(attachment)),
-                                stats = AgentTurnStats(profileName = "normal", usage = AgentUsageStats(0, 0)),
+                                stats =
+                                    AgentTurnStats(
+                                        profileName = "normal",
+                                        usage = AgentUsageStats(inputTokenCount = 1_200, outputTokenCount = 345),
+                                    ),
                             )
                         },
                     skills = { SkillCatalog(emptyList()) },
@@ -116,6 +122,7 @@ class TurnExecutorTest {
                         stats: TurnStats?,
                     ): ReplyResult {
                         delivered += reply
+                        deliveredStats += stats
                         return ReplyResult("reply", 1)
                     }
 
@@ -133,13 +140,20 @@ class TurnExecutorTest {
                     type = ChatMessageType.EXPLICIT_MENTION,
                 )
 
+            // Act
             executor.run(ChatConversationId("C123"), listOf(message), chat)
 
+            // Assert
             assertEquals(listOf(attachment), delivered.single().attachments)
+            assertEquals(1_200, deliveredStats.single()?.inputTokenCount)
+            assertEquals(345, deliveredStats.single()?.outputTokenCount)
             assertFalse(Files.exists(stagedFile))
+            val state = store.load(ConversationId("C123", "1700000000.000"))
+            assertEquals(1_200, state.stats.consumedInputTokens)
+            assertEquals(345, state.stats.consumedOutputTokens)
             assertEquals(
                 emptyList(),
-                store.load(ConversationId("C123", "1700000000.000")).messages.single { it.role == SessionMessageRole.ASSISTANT }.fileIds,
+                state.messages.single { it.role == SessionMessageRole.ASSISTANT }.fileIds,
             )
         }
 

@@ -89,6 +89,8 @@ data class ConversationStats(
     val activeTurnId: String? = null,
     val lastCompletedAtMs: Long? = null,
     val totalTokens: Int? = null,
+    val consumedInputTokens: Long = 0,
+    val consumedOutputTokens: Long = 0,
     val messages: Int = 0,
     val toolCalls: Int = 0,
 )

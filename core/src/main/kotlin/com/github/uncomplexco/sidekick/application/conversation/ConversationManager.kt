@@ -103,6 +103,8 @@ class ConversationManager(
         replyId: String,
         createdAtMs: Long,
         originalMessageId: String,
+        inputTokensConsumed: Long,
+        outputTokensConsumed: Long,
     ) = store.withSessionLock(conversationId) {
         val state = store.load(conversationId)
 
@@ -120,6 +122,11 @@ class ConversationManager(
             ),
         )
 
+        state.stats =
+            state.stats.copy(
+                consumedInputTokens = state.stats.consumedInputTokens + inputTokensConsumed,
+                consumedOutputTokens = state.stats.consumedOutputTokens + outputTokensConsumed,
+            )
         if (state.stats.activeTurnId == turnId) {
             state.stats =
                 state.stats.copy(

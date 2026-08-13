@@ -132,7 +132,11 @@ class SidekickAgent(
 
                     handleEvents {
                         onLLMCallCompleted { llmCall ->
-                            usage += AgentUsageStats(totalTokenCount = llmCall.response?.metaInfo?.totalTokensCount?.toLong() ?: 0)
+                            usage +=
+                                AgentUsageStats(
+                                    inputTokenCount = llmCall.response?.metaInfo?.inputTokensCount?.toLong() ?: 0,
+                                    outputTokenCount = llmCall.response?.metaInfo?.outputTokensCount?.toLong() ?: 0,
+                                )
                         }
 
                         onToolCallStarting { toolCall ->
@@ -213,11 +217,13 @@ data class AgentTurnStats(
 
 data class AgentUsageStats(
     val toolCallCount: Int = 0,
-    val totalTokenCount: Long = 0,
+    val inputTokenCount: Long = 0,
+    val outputTokenCount: Long = 0,
 )
 
 private operator fun AgentUsageStats.plus(other: AgentUsageStats): AgentUsageStats =
     AgentUsageStats(
         toolCallCount = toolCallCount + other.toolCallCount,
-        totalTokenCount = totalTokenCount + other.totalTokenCount,
+        inputTokenCount = inputTokenCount + other.inputTokenCount,
+        outputTokenCount = outputTokenCount + other.outputTokenCount,
     )

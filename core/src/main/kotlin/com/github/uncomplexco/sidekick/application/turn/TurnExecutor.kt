@@ -160,7 +160,8 @@ class TurnExecutor(
                             profileName = agentResult.stats.profileName,
                             executionTimeSeconds = turnStartedAt.elapsedNow().inWholeSeconds,
                             toolCallCount = agentResult.stats.usage.toolCallCount,
-                            totalTokenCount = agentResult.stats.usage.totalTokenCount,
+                            inputTokenCount = agentResult.stats.usage.inputTokenCount,
+                            outputTokenCount = agentResult.stats.usage.outputTokenCount,
                         ),
                     )
                 } finally {
@@ -174,6 +175,8 @@ class TurnExecutor(
                 replyId = replyMessageId.messageId,
                 createdAtMs = replyMessageId.timestamp,
                 originalMessageId = message.id,
+                inputTokensConsumed = agentResult.stats.usage.inputTokenCount,
+                outputTokensConsumed = agentResult.stats.usage.outputTokenCount,
             )
         } else if (shouldReply.shouldUnsubscribe) {
             log.debug(

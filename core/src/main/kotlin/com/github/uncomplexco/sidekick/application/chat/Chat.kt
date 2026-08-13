@@ -89,15 +89,23 @@ data class TurnStats(
     val profileName: String,
     val executionTimeSeconds: Long,
     val toolCallCount: Int,
-    val totalTokenCount: Long,
+    val inputTokenCount: Long,
+    val outputTokenCount: Long,
 ) {
     fun statusLine(): String =
         listOfNotNull(
             profileName,
             formattedExecutionTime(),
-            String.format(Locale.ROOT, "%.1fK", totalTokenCount / 1000.0),
+            "${formattedTokenCount(inputTokenCount)} → ${formattedTokenCount(outputTokenCount)}",
             toolCallCount.takeIf { it > 0 }?.let { "$it tools" },
         ).joinToString(" · ")
+
+    private fun formattedTokenCount(tokenCount: Long): String =
+        if (tokenCount < 1_000) {
+            tokenCount.toString()
+        } else {
+            String.format(Locale.ROOT, "%.1fK", tokenCount / 1000.0)
+        }
 
     private fun formattedExecutionTime(): String =
         if (executionTimeSeconds < 60) {

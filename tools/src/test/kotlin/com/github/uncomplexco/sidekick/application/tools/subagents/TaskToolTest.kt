@@ -103,7 +103,7 @@ private class RecordingSubagentRunner(
     ): SubagentRunResult {
         subagentTypes += subagentType
         prompts += prompt
-        return SubagentRunResult(result, AgentUsageStats(0, 0))
+        return SubagentRunResult(result, AgentUsageStats())
     }
 }
 

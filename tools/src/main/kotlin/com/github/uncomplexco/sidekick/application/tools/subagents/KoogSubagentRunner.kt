@@ -30,7 +30,8 @@ class KoogSubagentRunner(
     ): SubagentRunResult {
         val aiModelProfile = koogConfig.normalProfile
         var toolCallCount = 0
-        var totalTokenCount = 0L
+        var inputTokenCount = 0L
+        var outputTokenCount = 0L
         val systemPrompt =
             subagents
                 .catalog()
@@ -70,7 +71,8 @@ class KoogSubagentRunner(
             ) {
                 handleEvents {
                     onLLMCallCompleted { llmCall ->
-                        totalTokenCount += llmCall.response?.metaInfo?.totalTokensCount ?: 0
+                        inputTokenCount += llmCall.response?.metaInfo?.inputTokensCount ?: 0
+                        outputTokenCount += llmCall.response?.metaInfo?.outputTokensCount ?: 0
                     }
                     onToolCallStarting {
                         toolCallCount++
@@ -83,7 +85,8 @@ class KoogSubagentRunner(
             stats =
                 AgentUsageStats(
                     toolCallCount = toolCallCount,
-                    totalTokenCount = totalTokenCount,
+                    inputTokenCount = inputTokenCount,
+                    outputTokenCount = outputTokenCount,
                 ),
         )
     }
