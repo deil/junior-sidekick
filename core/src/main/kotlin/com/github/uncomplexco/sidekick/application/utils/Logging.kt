@@ -9,5 +9,6 @@ object Loggers {
     val TOOLS_LOOP = LoggerFactory.getLogger("sidekick.tools.loop")
     val MCP = LoggerFactory.getLogger("sidekick.mcp")
     val SLACK = LoggerFactory.getLogger("sidekick.slack")
+    val WEEKLY_STATS = LoggerFactory.getLogger("sidekick.weekly-stats")
     val EXTENSIONS = LoggerFactory.getLogger("sidekick.extensions")
 }
