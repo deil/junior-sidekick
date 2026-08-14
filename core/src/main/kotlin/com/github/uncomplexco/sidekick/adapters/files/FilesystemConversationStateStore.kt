@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.BasicFileAttributes
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
@@ -65,6 +66,37 @@ class FilesystemConversationStateStore(
             stats = stats,
         )
     }
+
+    override fun loadStartedBetween(
+        startInclusiveMs: Long,
+        endExclusiveMs: Long,
+    ): List<ConversationState> {
+        val channelsRoot = config.stateDirectoryPath().resolve("slack/channels")
+        if (!Files.isDirectory(channelsRoot)) return emptyList()
+
+        val conversationIds = mutableListOf<ConversationId>()
+        Files.newDirectoryStream(channelsRoot).use { channelFolders ->
+            channelFolders.filter { Files.isDirectory(it) }.forEach { channelFolder ->
+                val channelId = channelFolder.fileName.toString()
+                val threadsFolder = channelFolder.resolve("threads")
+                if (Files.isDirectory(threadsFolder)) {
+                    Files.newDirectoryStream(threadsFolder).use { threadFolders ->
+                        threadFolders
+                            .filter { Files.isRegularFile(it.resolve("messages.jsonl")) }
+                            .filter { it.creationTimeMs() in startInclusiveMs..<endExclusiveMs }
+                            .forEach {
+                                conversationIds += ConversationId(channelId, it.fileName.toString())
+                            }
+                    }
+                }
+            }
+        }
+
+        return conversationIds.map(::load)
+    }
+
+    private fun Path.creationTimeMs(): Long =
+        Files.readAttributes(this, BasicFileAttributes::class.java).creationTime().toMillis()
 
     override fun save(
         id: ConversationId,

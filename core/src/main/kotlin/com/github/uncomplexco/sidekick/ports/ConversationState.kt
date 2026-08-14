@@ -8,6 +8,11 @@ interface ConversationStateStore {
 
     fun load(id: ConversationId): ConversationState
 
+    fun loadStartedBetween(
+        startInclusiveMs: Long,
+        endExclusiveMs: Long,
+    ): List<ConversationState>
+
     fun save(
         id: ConversationId,
         state: ConversationState,

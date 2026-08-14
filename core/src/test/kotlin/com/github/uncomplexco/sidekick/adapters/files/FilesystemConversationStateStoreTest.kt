@@ -8,10 +8,13 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationStats
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.BasicFileAttributes
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.time.Instant
@@ -107,6 +110,33 @@ class FilesystemConversationStateStoreTest {
         assertEquals(2, loaded.stats.toolCalls)
         assertEquals(true, Files.exists(dir.resolve("state/slack/channels/C123/threads/1700000000.000/stats.json")))
         assertEquals(false, Files.exists(dir.resolve("state/slack/channels/C123/threads/1700000000.000/inflight.json")))
+    }
+
+    @Test
+    fun `loads conversations created within a period`() {
+        // Arrange
+        val store = store()
+        val threadId = ConversationId("C123", "1700000000.000")
+        val state = store.load(threadId)
+        state.messages +=
+            SessionMessage(
+                id = "message",
+                role = SessionMessageRole.USER,
+                text = "hello",
+                createdAtMs = 1,
+            )
+        store.save(threadId, state)
+        Files.createDirectories(dir.resolve("state/slack/channels/C789/threads/empty"))
+        val threadFolder = dir.resolve("state/slack/channels/C123/threads/1700000000.000")
+        val createdAt = Files.readAttributes(threadFolder, BasicFileAttributes::class.java).creationTime().toMillis()
+
+        // Act
+        val included = store.loadStartedBetween(createdAt, createdAt + 1)
+        val excludedAtEnd = store.loadStartedBetween(createdAt - 1, createdAt)
+
+        // Assert
+        assertEquals(listOf(threadId), included.map { it.id })
+        assertEquals(emptyList(), excludedAtEnd)
     }
 
     private fun store(): FilesystemConversationStateStore =
