@@ -9,6 +9,7 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationStat
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
+import com.github.uncomplexco.sidekick.application.stats.ConversationUsage
 import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import kotlinx.coroutines.sync.Mutex
@@ -67,10 +68,10 @@ class FilesystemConversationStateStore(
         )
     }
 
-    override fun loadStartedBetween(
+    override fun loadUsageStartedBetween(
         startInclusiveMs: Long,
         endExclusiveMs: Long,
-    ): List<ConversationState> {
+    ): List<ConversationUsage> {
         val channelsRoot = config.stateDirectoryPath().resolve("slack/channels")
         if (!Files.isDirectory(channelsRoot)) return emptyList()
 
@@ -92,7 +93,22 @@ class FilesystemConversationStateStore(
             }
         }
 
-        return conversationIds.map(::load)
+        return conversationIds.map { id ->
+            val folder = id.folder(config.stateDirectoryPath())
+            val messages = loadJsonl<SessionMessage>(folder.resolve("messages.jsonl"))
+            val stats =
+                loadJson(
+                    folder.resolve("stats.json"),
+                    ConversationStats.serializer(),
+                    ConversationStats(),
+                )
+            ConversationUsage(
+                channelId = id.channelId,
+                userIds = messages.mapNotNull { it.author?.username }.toSet(),
+                consumedInputTokens = stats.consumedInputTokens,
+                consumedOutputTokens = stats.consumedOutputTokens,
+            )
+        }
     }
 
     private fun Path.creationTimeMs(): Long =

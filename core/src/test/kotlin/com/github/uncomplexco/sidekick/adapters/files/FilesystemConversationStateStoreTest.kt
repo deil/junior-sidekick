@@ -8,6 +8,7 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationStats
+import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import org.junit.jupiter.api.Test
@@ -122,20 +123,26 @@ class FilesystemConversationStateStoreTest {
             SessionMessage(
                 id = "message",
                 role = SessionMessageRole.USER,
+                author = MessageAuthor(username = "U1", fullName = null),
                 text = "hello",
                 createdAtMs = 1,
             )
+        state.stats = ConversationStats(consumedInputTokens = 100, consumedOutputTokens = 20)
         store.save(threadId, state)
         Files.createDirectories(dir.resolve("state/slack/channels/C789/threads/empty"))
         val threadFolder = dir.resolve("state/slack/channels/C123/threads/1700000000.000")
+        Files.writeString(threadFolder.resolve("koog.jsonl"), "not valid Koog JSON")
         val createdAt = Files.readAttributes(threadFolder, BasicFileAttributes::class.java).creationTime().toMillis()
 
         // Act
-        val included = store.loadStartedBetween(createdAt, createdAt + 1)
-        val excludedAtEnd = store.loadStartedBetween(createdAt - 1, createdAt)
+        val included = store.loadUsageStartedBetween(createdAt, createdAt + 1)
+        val excludedAtEnd = store.loadUsageStartedBetween(createdAt - 1, createdAt)
 
         // Assert
-        assertEquals(listOf(threadId), included.map { it.id })
+        assertEquals(listOf("C123"), included.map { it.channelId })
+        assertEquals(setOf("U1"), included.single().userIds)
+        assertEquals(100, included.single().consumedInputTokens)
+        assertEquals(20, included.single().consumedOutputTokens)
         assertEquals(emptyList(), excludedAtEnd)
     }
 

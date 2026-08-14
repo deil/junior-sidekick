@@ -2,16 +2,17 @@ package com.github.uncomplexco.sidekick.ports.conversation
 
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationState
+import com.github.uncomplexco.sidekick.application.stats.ConversationUsage
 
 interface ConversationStateStore {
     fun exists(id: ConversationId): Boolean
 
     fun load(id: ConversationId): ConversationState
 
-    fun loadStartedBetween(
+    fun loadUsageStartedBetween(
         startInclusiveMs: Long,
         endExclusiveMs: Long,
-    ): List<ConversationState>
+    ): List<ConversationUsage>
 
     fun save(
         id: ConversationId,

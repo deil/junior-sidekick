@@ -12,6 +12,13 @@ data class WeeklyStats(
     val users: Int,
 )
 
+data class ConversationUsage(
+    val channelId: String,
+    val userIds: Set<String>,
+    val consumedInputTokens: Long,
+    val consumedOutputTokens: Long,
+)
+
 @Component
 class WeeklyStatsService(
     private val conversations: ConversationStateStore,
@@ -19,16 +26,16 @@ class WeeklyStatsService(
     fun gather(executedAt: Instant): WeeklyStats {
         val periodStartMs = executedAt.minus(REPORTING_PERIOD).toEpochMilli()
         val periodEndMs = executedAt.toEpochMilli()
-        val selected = conversations.loadStartedBetween(periodStartMs, periodEndMs)
+        val selected = conversations.loadUsageStartedBetween(periodStartMs, periodEndMs)
 
         return WeeklyStats(
-            projects = selected.map { it.id.channelId }.distinct().size,
+            projects = selected.map { it.channelId }.distinct().size,
             conversations = selected.size,
             tokensConsumed =
                 selected.sumOf {
-                    it.stats.consumedInputTokens + it.stats.consumedOutputTokens
+                    it.consumedInputTokens + it.consumedOutputTokens
                 },
-            users = selected.flatMap { it.messages }.mapNotNull { it.author?.username }.distinct().size,
+            users = selected.flatMap { it.userIds }.distinct().size,
         )
     }
 
