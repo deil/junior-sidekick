@@ -4,8 +4,9 @@ import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
-import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
+import com.github.uncomplexco.sidekick.application.chat.TurnResultHandler
 import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
@@ -69,31 +70,32 @@ class SystemToolsTest {
 private class RecordingChatPlatform : ChatPlatformAdapter {
     override val botUsername = "USIDEKICK"
     val continuedWith = mutableListOf<String?>()
-    override val activity =
-        object : TurnActivityIndicator {
-            override fun start(text: String?) = Unit
+    override val resultHandler =
+        object : TurnResultHandler {
+            override fun start() = Unit
 
             override fun `continue`(text: String?) {
                 continuedWith += text
             }
 
-            override fun toolCall(name: String) = Unit
-
-            override fun clear() = Unit
-
             override fun endTurn() = Unit
+
+            override suspend fun markProcessing(message: InboundMessage) = Unit
+
+            override suspend fun postReply(
+                reply: ChatReply,
+                stats: TurnStats?,
+            ): ReplyResult = ReplyResult("reply", 1)
+
+            override suspend fun markCompleted(message: InboundMessage) = Unit
+
+            override suspend fun markFailed(message: InboundMessage) = Unit
         }
 
     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
-
-    override suspend fun postReply(
-        reply: ChatReply,
-        stats: TurnStats?,
-    ): ReplyResult = ReplyResult("reply", 1)
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,
         files: List<IncomingChatFile>,
     ): List<IncomingChatFile> = files
-
 }

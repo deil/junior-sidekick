@@ -9,7 +9,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
-import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
+import com.github.uncomplexco.sidekick.application.chat.TurnResultHandler
 import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
@@ -121,7 +121,7 @@ class SidekickApiController(
     ): SendMessageResponse {
         val chat =
             HttpChatPlatformAdapter(
-                StreamingActivityIndicator { status -> emitter.sendEvent("status", StatusStreamEvent(status)) },
+                emitStatus = { status -> emitter.sendEvent("status", StatusStreamEvent(status)) },
             )
         handleIncomingChatMessage.handleNow(chatConversationId, message, chat)
         return SendMessageResponse(
@@ -190,13 +190,37 @@ private fun SessionMessage.apiStatus(): String =
     }
 
 class HttpChatPlatformAdapter(
-    override val activity: TurnActivityIndicator = NoopActivityIndicator,
+    emitStatus: ((String) -> Unit)? = null,
 ) : ChatPlatformAdapter {
-    val replies = mutableListOf<ApiReply>()
+    private val handler = HttpTurnResultHandler(emitStatus)
 
     override val botUsername: String = "sidekick-api"
+    override val resultHandler: TurnResultHandler = handler
+    val replies: List<ApiReply>
+        get() = handler.replies
 
     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+
+    override suspend fun ingestFiles(
+        conversationId: ConversationId,
+        files: List<IncomingChatFile>,
+    ): List<IncomingChatFile> = emptyList()
+}
+
+private class HttpTurnResultHandler(
+    private val emitStatus: ((String) -> Unit)? = null,
+) : TurnResultHandler {
+    val replies = mutableListOf<ApiReply>()
+
+    override fun start() = Unit
+
+    override fun `continue`(text: String?) {
+        emit(text)
+    }
+
+    override fun endTurn() = Unit
+
+    override suspend fun markProcessing(message: InboundMessage) = Unit
 
     override suspend fun postReply(
         reply: ChatReply,
@@ -207,28 +231,14 @@ class HttpChatPlatformAdapter(
         return ReplyResult(apiReply.id, apiReply.createdAtMs)
     }
 
-    override suspend fun ingestFiles(
-        conversationId: ConversationId,
-        files: List<IncomingChatFile>,
-    ): List<IncomingChatFile> = emptyList()
-}
+    override suspend fun markCompleted(message: InboundMessage) = Unit
 
-private class StreamingActivityIndicator(
-    private val emitStatus: (String) -> Unit,
-) : TurnActivityIndicator {
-    override fun start(text: String?) {
-        text?.takeIf { it.isNotBlank() }?.also { runCatching { emitStatus(it) } }
+    override suspend fun markFailed(message: InboundMessage) = Unit
+
+    private fun emit(text: String?) {
+        text?.takeIf { it.isNotBlank() }?.also { status -> runCatching { emitStatus?.invoke(status) } }
     }
 
-    override fun `continue`(text: String?) {
-        text?.takeIf { it.isNotBlank() }?.also { runCatching { emitStatus(it) } }
-    }
-
-    override fun toolCall(name: String) = Unit
-
-    override fun clear() = Unit
-
-    override fun endTurn() = Unit
 }
 
 data class StartSessionRequest(
@@ -293,19 +303,6 @@ data class ApiReply(
     @JsonProperty("created_at_ms")
     val createdAtMs: Long,
 )
-
-private object NoopActivityIndicator : TurnActivityIndicator {
-    override fun start(text: String?) = Unit
-
-    override fun `continue`(text: String?) = Unit
-
-    override fun toolCall(name: String) = Unit
-
-
-    override fun clear() = Unit
-
-    override fun endTurn() = Unit
-}
 
 private fun validateText(text: String): String =
     text.trim().ifBlank {

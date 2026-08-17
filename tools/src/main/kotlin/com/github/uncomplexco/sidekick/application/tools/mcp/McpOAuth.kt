@@ -101,7 +101,7 @@ class McpOAuthService(
                     "code_challenge_method" to "S256",
                     "state" to state,
                 )
-        chat.postReply(ChatReply("Connect ${server.id} MCP server: $authorizationUrl"))
+        chat.resultHandler.postReply(ChatReply("Connect ${server.id} MCP server: $authorizationUrl"))
 
         return ConnectMcpResult(serverId = server.id, auth = "oauth", started = true, message = "OAuth authorization link sent")
     }

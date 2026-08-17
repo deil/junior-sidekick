@@ -9,12 +9,13 @@ import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
-import com.github.uncomplexco.sidekick.application.chat.TurnActivityIndicator
+import com.github.uncomplexco.sidekick.application.chat.TurnResultHandler
 import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.slack.api.bolt.context.builtin.EventContext
+import com.slack.api.methods.MethodsClient
 import com.slack.api.model.Attachment
 import com.slack.api.model.block.Blocks.asBlocks
 import com.slack.api.model.block.Blocks.context
@@ -28,25 +29,53 @@ import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+import java.util.Locale
 import com.slack.api.model.File as SlackFile
 
 class SlackChatPlatformAdapter(
     private val ctx: EventContext,
-    private val threadId: ChatThreadId,
+    threadId: ChatThreadId,
     private val historyLoader: suspend (ConversationId) -> List<ChatMessage>,
     private val fileIngestor: SlackFileIngestor,
 ) : SlackBackedChatPlatformAdapter {
     override val botUsername: String = ctx.botUserId
-    override val activity: TurnActivityIndicator = SlackActivityIndicator(ctx, threadId.threadTs)
+    override val resultHandler: TurnResultHandler = SlackTurnResultHandler(ctx.client(), ctx.channelId, threadId)
 
     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = historyLoader(conversationId)
 
-    override fun markQueued(message: InboundMessage) {
-        // updateQueueReaction(message, queued = true)
+    override suspend fun ingestFiles(
+        conversationId: ConversationId,
+        files: List<IncomingChatFile>,
+    ): List<IncomingChatFile> = fileIngestor.ingest(conversationId, files)
+}
+
+internal class SlackTurnResultHandler(
+    private val client: MethodsClient,
+    private val channelId: String,
+    private val threadId: ChatThreadId?,
+) : TurnResultHandler {
+    private var turnActive = false
+
+    override fun start() {
+        turnActive = true
     }
 
-    override fun markProcessing(message: InboundMessage) {
-        // updateQueueReaction(message, queued = false)
+    override fun `continue`(text: String?) {
+        setStatus(
+            status = STATUS_THINKING,
+            emoji = ":face_in_clouds:",
+            loadingMessages = text?.let(::listOf) ?: LOADING_MESSAGES,
+        )
+    }
+
+    override fun endTurn() {
+        turnActive = false
+        setStatus("")
+    }
+
+    override suspend fun markProcessing(message: InboundMessage) {
+        updateReaction(message, PROCESSING_REACTION, add = true)
+        `continue`()
     }
 
     override suspend fun postReply(
@@ -57,7 +86,7 @@ class SlackChatPlatformAdapter(
             reply.attachments.mapNotNull { attachment ->
                 try {
                     val response =
-                        ctx.client().filesUploadV2 { req ->
+                        client.filesUploadV2 { req ->
                             req.file(attachment.path.toFile())
                             req.filename(attachment.name)
                             req.title(attachment.name)
@@ -79,11 +108,11 @@ class SlackChatPlatformAdapter(
         val text = (listOf(reply.text) + filePermalinks).joinToString("\n")
 
         val postResponse =
-            ctx.client().chatPostMessage { req ->
-                req.channel(ctx.channelId)
-                req.threadTs(threadId.threadTs)
+            client.chatPostMessage { req ->
+                req.channel(channelId)
+                threadId?.also { req.threadTs(it.threadTs) }
                 req.text(text)
-                req.blocks(replyBlocks(text, stats))
+                req.blocks(replyBlocks(text, reply.statusLine ?: stats?.statusLine()))
             }
 
         val response =
@@ -91,9 +120,9 @@ class SlackChatPlatformAdapter(
                 postResponse
             } else {
                 Loggers.SLACK.warn("Slack block post failed: {}; fallback to plain text", postResponse.error)
-                ctx.client().chatPostMessage { req ->
-                    req.channel(ctx.channelId)
-                    req.threadTs(threadId.threadTs)
+                client.chatPostMessage { req ->
+                    req.channel(channelId)
+                    threadId?.also { req.threadTs(it.threadTs) }
                     req.text(text)
                 }
             }
@@ -101,41 +130,121 @@ class SlackChatPlatformAdapter(
         return ReplyResult(response.ts, slackTsToMillis(response.ts))
     }
 
-    override suspend fun ingestFiles(
-        conversationId: ConversationId,
-        files: List<IncomingChatFile>,
-    ): List<IncomingChatFile> = fileIngestor.ingest(conversationId, files)
+    override suspend fun markCompleted(message: InboundMessage) {
+        updateReaction(message, PROCESSING_REACTION, add = false)
+        updateReaction(message, COMPLETED_REACTION, add = true)
+    }
 
-    private fun updateQueueReaction(
+    override suspend fun markFailed(message: InboundMessage) {
+        updateReaction(message, PROCESSING_REACTION, add = false)
+    }
+
+    private fun replyBlocks(
+        text: String,
+        statusLine: String?,
+    ): List<LayoutBlock> =
+        asBlocks(markdown { it.text(text) }) +
+            statusLine?.let { asBlocks(context { block -> block.elements(listOf(markdownText(it))) }) }.orEmpty()
+
+    private fun TurnStats.statusLine(): String =
+        listOfNotNull(
+            profileName,
+            formattedExecutionTime(),
+            "${formattedTokenCount(inputTokenCount)} → ${formattedTokenCount(outputTokenCount)}",
+            toolCallCount.takeIf { it > 0 }?.let { "$it tools" },
+        ).joinToString(" · ")
+
+    private fun TurnStats.formattedExecutionTime(): String =
+        if (executionTimeSeconds < 60) {
+            "${executionTimeSeconds}s"
+        } else {
+            "${executionTimeSeconds / 60}m ${executionTimeSeconds % 60}s"
+        }
+
+    private fun formattedTokenCount(tokenCount: Long): String =
+        if (tokenCount < 1_000) {
+            tokenCount.toString()
+        } else {
+            String.format(Locale.ROOT, "%.1fK", tokenCount / 1000.0)
+        }
+
+    private fun setStatus(
+        status: String,
+        emoji: String? = null,
+        loadingMessages: List<String>? = null,
+    ) {
+        val targetThread = threadId ?: return
+        runCatching {
+            val response =
+                client.assistantThreadsSetStatus { req ->
+                    req.channelId(channelId)
+                    req.threadTs(targetThread.threadTs)
+                    req.status(status)
+                    if (loadingMessages != null) {
+                        req.loadingMessages(loadingMessages)
+                    }
+
+                    emoji?.also { req.iconEmoji(it) }
+
+                    req
+                }
+            if (!response.isOk) {
+                Loggers.SLACK.warn("Slack assistant status update failed: {}", response.error)
+            }
+        }.onFailure {
+            Loggers.SLACK.warn("Slack assistant status update failed", it)
+        }
+    }
+
+    private fun updateReaction(
         message: InboundMessage,
-        queued: Boolean,
+        reaction: String,
+        add: Boolean,
     ) {
         runCatching {
             val response =
-                if (queued) {
-                    ctx.client().reactionsAdd { req ->
-                        req.channel(ctx.channelId)
+                if (add) {
+                    client.reactionsAdd { req ->
+                        req.channel(channelId)
                         req.timestamp(message.id)
-                        req.name(QUEUE_REACTION)
+                        req.name(reaction)
                     }
                 } else {
-                    ctx.client().reactionsRemove { req ->
-                        req.channel(ctx.channelId)
+                    client.reactionsRemove { req ->
+                        req.channel(channelId)
                         req.timestamp(message.id)
-                        req.name(QUEUE_REACTION)
+                        req.name(reaction)
                     }
                 }
 
             if (!response.isOk) {
-                Loggers.SLACK.warn("Slack queue reaction update failed: {}", response.error)
+                Loggers.SLACK.warn("Slack processing reaction update failed: {}", response.error)
             }
         }.onFailure {
-            Loggers.SLACK.warn("Slack queue reaction update failed", it)
+            Loggers.SLACK.warn("Slack processing reaction update failed", it)
         }
+    }
+
+    private companion object {
+        const val STATUS_THINKING = "thinking..."
+        val LOADING_MESSAGES =
+            listOf(
+                "prodding the web for clues...",
+                "negotiating with the documentation...",
+                "looking for the mildly sensible route...",
+                "acting like this was the plan...",
+                "asking the APIs to cooperate...",
+                "following the breadcrumbs optimistically...",
+                "checking what the docs meant to say...",
+                "rearranging tokens with confidence...",
+                "consulting several tabs at once...",
+                "making it look intentional...",
+            )
     }
 }
 
-private const val QUEUE_REACTION = "stopwatch"
+private const val PROCESSING_REACTION = "eyes"
+private const val COMPLETED_REACTION = "white_check_mark"
 
 fun slackChatPlatformAdapter(
     ctx: EventContext,
@@ -155,76 +264,6 @@ fun slackChatPlatformAdapter(
         },
         fileIngestor = fileIngestor,
     )
-
-private class SlackActivityIndicator(
-    ctx: EventContext,
-    threadTs: String,
-) : TurnActivityIndicator {
-    private val ctx = ctx
-    private val threadTs = threadTs
-    val STATUS_THINKING = "thinking..."
-    private var turnActive = false
-
-    override fun start(text: String?) {
-        turnActive = true
-    }
-
-    override fun `continue`(text: String?) {
-        setStatus(
-            status = STATUS_THINKING,
-            emoji = ":face_in_clouds:",
-            loadingMessages = listOf(text ?: STATUS_THINKING),
-        )
-    }
-
-    override fun toolCall(name: String) {
-        setStatus(
-            status = STATUS_THINKING,
-            emoji = ":satellite_antenna:",
-            loadingMessages = listOf("-> $name..."),
-        )
-    }
-
-    override fun clear() {
-        if (turnActive) {
-            `continue`()
-        } else {
-            setStatus("")
-        }
-    }
-
-    override fun endTurn() {
-        turnActive = false
-        setStatus("")
-    }
-
-    private fun setStatus(
-        status: String,
-        emoji: String? = null,
-        loadingMessages: List<String>? = null,
-    ) {
-        runCatching {
-            val response =
-                ctx.client().assistantThreadsSetStatus { req ->
-                    req.channelId(ctx.channelId)
-                    req.threadTs(threadTs)
-                    req.status(status)
-                    if (loadingMessages != null) {
-                        req.loadingMessages(loadingMessages)
-                    }
-
-                    emoji?.also { req.iconEmoji(it) }
-
-                    req
-                }
-            if (!response.isOk) {
-                Loggers.SLACK.warn("Slack assistant status update failed: {}", response.error)
-            }
-        }.onFailure {
-            Loggers.SLACK.warn("Slack assistant status update failed", it)
-        }
-    }
-}
 
 internal fun incomingChatFiles(
     files: List<SlackFile>?,
@@ -334,13 +373,6 @@ private fun sanitizeFileName(value: String): String =
         .ifBlank { "file" }
 
 internal fun slackTsToMillis(ts: String): Long = (ts.toDouble().times(1000)).toLong()
-
-private fun replyBlocks(
-    text: String,
-    stats: TurnStats?,
-): List<LayoutBlock> =
-    asBlocks(markdown { it.text(text) }) +
-        stats?.let { asBlocks(context { block -> block.elements(listOf(markdownText(it.statusLine()))) }) }.orEmpty()
 
 internal fun isBotsOwnMessage(
     senderBotId: String?,

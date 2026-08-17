@@ -18,6 +18,7 @@ import com.github.uncomplexco.sidekick.application.tools.integrations.InternalFi
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpAuthTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
+import com.github.uncomplexco.sidekick.application.tools.scheduling.ScheduledJobTools
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.slackTools
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentCatalogProvider
@@ -33,6 +34,7 @@ import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
 import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
+import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
 import org.springframework.stereotype.Component
 
@@ -49,6 +51,7 @@ class DefaultToolRegistryFactory(
     private val gitToolConfig: GitToolConfig,
     private val sandboxExecutorFactory: SandboxExecutorFactory,
     private val conversationStateStore: ConversationStateStore,
+    private val scheduledJobs: ScheduledJobService,
     private val subagentRunner: SubagentRunner,
     private val subagents: SubagentCatalogProvider,
     private val loopFactory: LoopFactory,
@@ -88,6 +91,12 @@ class DefaultToolRegistryFactory(
         if (chat is SlackBackedChatPlatformAdapter) {
             tools(ReplyAttachmentTools(replyAttachments))
             tools(slackTools(sharedContext.slackClient, ctx))
+            tools(
+                ScheduledJobTools(
+                    channelId = ctx.conversation.conversationId.channelId,
+                    jobs = scheduledJobs,
+                ),
+            )
         }
         tools(McpStatusTools(ctx, mcpToolsConfig.servers).asTools())
         tools(mcpAuthTools.asTools(chat))

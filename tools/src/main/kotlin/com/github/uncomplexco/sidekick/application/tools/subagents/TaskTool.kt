@@ -57,7 +57,7 @@ class TaskTool(
         validateTaskArgument(subagentType, "subagent_type", null)
         validate(subagentType in availableSubagentTypes) { "Unknown subagent_type: $subagentType" }
 
-        chat.activity.`continue`("$subagentType task - $description")
+        chat.resultHandler.`continue`("$subagentType task - $description")
 
         try {
             val result = runner.run(
@@ -72,7 +72,7 @@ class TaskTool(
         } catch (e: Exception) {
             fail(e.message ?: "Subagent failed")
         } finally {
-            chat.activity.`continue`()
+            chat.resultHandler.`continue`()
         }
     }
 

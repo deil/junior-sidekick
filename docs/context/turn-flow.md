@@ -85,7 +85,7 @@ Turn processing
         +-- success: Koog returns reply text
         |     |
         |     v
-      ChatPlatformAdapter.reply.postReply
+      TurnResultHandler.postReply
         |     |
         |     v
       SessionManager.recordAssistantReply
@@ -118,7 +118,7 @@ The adapter owns Slack-specific work:
 - Ignoring Sidekick's own messages.
 - Ignoring Slack `message.*` events whose mention is owned by `app_mention`.
 - Mapping Slack payloads to `InboundMessage`, `ChatConversationId`, and `ChatPlatformAdapter`.
-- Reply delivery through Slack.
+- Turn activity, reply delivery, reactions, and user-facing result formatting through `SlackTurnResultHandler`.
 
 Application code should not need raw Slack payloads after this stage.
 
@@ -171,7 +171,9 @@ Session intelligence level is per conversation and defaults to `normal`. The `en
 
 ### Reply delivery and completion
 
-When Sidekick replies, the chat adapter posts the reply and returns the chat message id/timestamp.
+When Sidekick replies, `TurnResultHandler` posts the reply and returns the chat message id/timestamp. Runtime-failure and unsubscribe notifications, status lines, and platform-specific message formatting are owned by its adapter implementation.
+
+After reply policy commits to a reply, the Slack adapter adds `:eyes:` to the triggering message. Successful final delivery and persistence replace it with `:white_check_mark:`. Agent or delivery failure removes `:eyes:` without adding a completion reaction. Ignored, skipped, and unsubscribe messages do not receive processing reactions.
 
 `SessionManager.recordAssistantReply` then marks the user message as replied, stores the assistant message, updates inflight state, saves the session, and completes the turn.
 

@@ -5,24 +5,12 @@ import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Locale
 
 interface ChatPlatformAdapter {
     val botUsername: String
-    val activity: TurnActivityIndicator
+    val resultHandler: TurnResultHandler
 
     suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage>
-
-    fun markQueued(message: InboundMessage) {
-    }
-
-    fun markProcessing(message: InboundMessage) {
-    }
-
-    suspend fun postReply(
-        reply: ChatReply,
-        stats: TurnStats? = null,
-    ): ReplyResult
 
     suspend fun ingestFiles(
         conversationId: ConversationId,
@@ -32,16 +20,42 @@ interface ChatPlatformAdapter {
 
 interface SlackBackedChatPlatformAdapter : ChatPlatformAdapter
 
-interface TurnActivityIndicator {
-    fun start(text: String? = null)
+interface TurnResultHandler {
+    fun start()
 
     fun `continue`(text: String? = null)
 
-    fun toolCall(name: String)
-
-    fun clear()
-
     fun endTurn()
+
+    suspend fun markProcessing(message: InboundMessage)
+
+    suspend fun postReply(
+        reply: ChatReply,
+        stats: TurnStats? = null,
+    ): ReplyResult
+
+    suspend fun postRuntimeFailure(error: Exception) {
+        postReply(
+            ChatReply(
+                text = error.message?.takeIf { it.isNotBlank() }?.let { ":warning: $it" } ?: TEMPORARY_FAILURE_REPLY,
+                statusLine = RUNTIME_FAILURE_STATUS,
+            ),
+        )
+    }
+
+    suspend fun postUnsubscribed() {
+        postReply(ChatReply(UNSUBSCRIBE_ACK))
+    }
+
+    suspend fun markCompleted(message: InboundMessage)
+
+    suspend fun markFailed(message: InboundMessage)
+
+    private companion object {
+        const val UNSUBSCRIBE_ACK = "Unsubscribed. Mention me to resume"
+        const val TEMPORARY_FAILURE_REPLY = ":warning: I hit a temporary model/provider error while processing this. Please retry"
+        const val RUNTIME_FAILURE_STATUS = "`[runtime failure]`"
+    }
 }
 
 data class ChatThreadId(
@@ -91,33 +105,12 @@ data class TurnStats(
     val toolCallCount: Int,
     val inputTokenCount: Long,
     val outputTokenCount: Long,
-) {
-    fun statusLine(): String =
-        listOfNotNull(
-            profileName,
-            formattedExecutionTime(),
-            "${formattedTokenCount(inputTokenCount)} → ${formattedTokenCount(outputTokenCount)}",
-            toolCallCount.takeIf { it > 0 }?.let { "$it tools" },
-        ).joinToString(" · ")
-
-    private fun formattedTokenCount(tokenCount: Long): String =
-        if (tokenCount < 1_000) {
-            tokenCount.toString()
-        } else {
-            String.format(Locale.ROOT, "%.1fK", tokenCount / 1000.0)
-        }
-
-    private fun formattedExecutionTime(): String =
-        if (executionTimeSeconds < 60) {
-            "${executionTimeSeconds}s"
-        } else {
-            "${executionTimeSeconds / 60}m ${executionTimeSeconds % 60}s"
-        }
-}
+)
 
 data class ChatReply(
     val text: String,
     val attachments: List<ReplyAttachment> = emptyList(),
+    val statusLine: String? = null,
 ) {
     fun deleteAttachments() {
         attachments.forEach { Files.deleteIfExists(it.path) }

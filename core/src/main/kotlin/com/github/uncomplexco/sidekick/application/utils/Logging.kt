@@ -10,5 +10,6 @@ object Loggers {
     val MCP = LoggerFactory.getLogger("sidekick.mcp")
     val SLACK = LoggerFactory.getLogger("sidekick.slack")
     val WEEKLY_STATS = LoggerFactory.getLogger("sidekick.weekly-stats")
+    val SCHEDULED_JOBS = LoggerFactory.getLogger("sidekick.scheduled-jobs")
     val EXTENSIONS = LoggerFactory.getLogger("sidekick.extensions")
 }

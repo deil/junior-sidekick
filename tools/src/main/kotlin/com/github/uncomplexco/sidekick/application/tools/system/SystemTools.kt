@@ -22,7 +22,7 @@ class SystemTools(
         @LLMDescription("Short user-facing activity message describing what is happening now.")
         message: String,
     ): ReportAssistantActivityResult {
-        chat?.activity?.`continue`(message)
+        chat?.resultHandler?.`continue`(message)
         return ReportAssistantActivityResult(ok = true)
     }
 

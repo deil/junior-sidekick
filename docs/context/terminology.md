@@ -11,3 +11,10 @@ Project-level glossary for `sidekick` terms that should be used consistently in 
 | **Session** | An ongoing interaction with Sidekick through a chat platform. A session contains messages and turns; in Slack, it may map to a DM, thread, or channel conversation depending on context. | Chat, thread, channel |
 | **Unsubscribed session** | A session where Sidekick has been explicitly told to stop following passive messages. Explicit mention resumes the session unless the mention is itself a control command such as unsubscribe. Persisted as `ConversationState.subscribed = false`. | Muted thread, ignored thread |
 | **Turn** | One user message and the Sidekick work performed in response to it. A turn is scoped within a session and ends when Sidekick replies, declines to reply, or completes another requested action. | Thread, session, request |
+
+## Scheduled work
+
+| Term | Definition | Aliases to avoid |
+|------|-----------|-----------------|
+| **Scheduled job** | A channel-owned schedule and prompt that periodically starts an isolated Sidekick run and posts its result to the channel. | Cron, routine |
+| **Scheduled run** | One firing of a scheduled job. Each run uses a fresh Session and does not inherit history from earlier runs. | Job, execution |
