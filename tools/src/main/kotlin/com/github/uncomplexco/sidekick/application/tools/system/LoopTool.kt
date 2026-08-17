@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.tools.system
 
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
+import ai.koog.agents.core.agent.singleRunStrategy
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
@@ -28,7 +29,6 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRo
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.turn.koog.sidekickStrategy
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
@@ -171,7 +171,7 @@ class Loop(
         val model = llModel(aiModelProfile)
         val agent =
             AIAgent(
-                strategy = sidekickStrategy(),
+                strategy = singleRunStrategy(),
                 promptExecutor = koogConfig.openRouterExecutor(),
                 agentConfig = agentConfig(ctx, chat, aiModelProfile, model),
                 toolRegistry = toolRegistry,

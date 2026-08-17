@@ -4,7 +4,6 @@ import ai.koog.agents.chatMemory.feature.ChatHistoryProvider
 import ai.koog.agents.chatMemory.feature.ChatMemory
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
-import ai.koog.agents.core.dsl.builder.node
 import ai.koog.agents.core.dsl.builder.strategy
 import ai.koog.agents.core.dsl.extension.nodeExecuteTools
 import ai.koog.agents.core.dsl.extension.nodeLLMRequest
@@ -25,8 +24,8 @@ import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
-import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
+import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.nio.file.Path
@@ -173,29 +172,19 @@ class SidekickAgent(
     }
 }
 
-fun sidekickStrategy() =
+internal fun sidekickStrategy() =
     strategy<String, String>("sidekick") {
-        val classify by node<String, ReplyRoute>("classify") { input ->
-            ReplyRoute(input, shouldReply = true)
-        }
-        val reply by nodeLLMRequest("reply")
-        val executeTools by nodeExecuteTools("executeTools")
-        val sendToolResults by nodeLLMSendToolResults("sendToolResults")
+        val requestModelResponse by nodeLLMRequest("requestModelResponse")
+        val executeToolCalls by nodeExecuteTools("executeToolCalls")
+        val requestModelResponseWithToolResults by nodeLLMSendToolResults("requestModelResponseWithToolResults")
 
-        edge(nodeStart forwardTo classify)
-        edge(classify forwardTo reply onCondition { it.shouldReply } transformed { it.input })
-        edge(classify forwardTo nodeFinish onCondition { !it.shouldReply } transformed { "" })
-        edge(reply forwardTo executeTools onToolCalls { true })
-        edge(reply forwardTo nodeFinish onTextMessage { true })
-        edge(executeTools forwardTo sendToolResults)
-        edge(sendToolResults forwardTo executeTools onToolCalls { true })
-        edge(sendToolResults forwardTo nodeFinish onTextMessage { true })
+        edge(nodeStart forwardTo requestModelResponse)
+        edge(requestModelResponse forwardTo executeToolCalls onToolCalls { true })
+        edge(requestModelResponse forwardTo nodeFinish onTextMessage { true })
+        edge(executeToolCalls forwardTo requestModelResponseWithToolResults)
+        edge(requestModelResponseWithToolResults forwardTo executeToolCalls onToolCalls { true })
+        edge(requestModelResponseWithToolResults forwardTo nodeFinish onTextMessage { true })
     }
-
-private data class ReplyRoute(
-    val input: String,
-    val shouldReply: Boolean,
-)
 
 fun interface AgentTurnRunner {
     suspend fun runTurn(
