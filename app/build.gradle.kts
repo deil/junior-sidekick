@@ -1,9 +1,7 @@
 plugins {
-    kotlin("jvm")
-    kotlin("plugin.spring")
-    kotlin("plugin.serialization")
-    id("org.springframework.boot")
-    id("io.spring.dependency-management")
+    `java-library`
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.spring)
 }
 
 java {
@@ -13,22 +11,25 @@ java {
 }
 
 dependencies {
-    implementation(project(":core"))
+    api(project(":core"))
     implementation(project(":tools"))
 
-    implementation("org.springframework.boot:spring-boot-starter-webmvc")
-    implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
-    implementation("tools.jackson.module:jackson-module-kotlin")
-    developmentOnly("org.springframework.boot:spring-boot-devtools")
-    developmentOnly("org.springframework.boot:spring-boot-docker-compose")
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
+    compileOnly(platform(libs.spring.boot.bom))
+    implementation(platform(libs.ktor.bom))
+    compileOnly(libs.spring.boot)
+    compileOnly(libs.spring.boot.autoconfigure)
+    compileOnly(libs.spring.boot.servlet)
+    compileOnly(libs.spring.boot.webmvc)
+    compileOnly(libs.jackson.annotations)
+    implementation(libs.kotlinx.coroutines.core)
+    compileOnly(libs.jakarta.servlet)
 
-    implementation("com.slack.api:bolt-jakarta-servlet:1.49.0")
+    implementation(libs.slack.bolt.servlet)
 
-    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(platform(libs.spring.boot.bom))
+    testImplementation(libs.spring.boot.starter.webmvc.test)
+    testImplementation(libs.kotlin.test.junit5)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 kotlin {
@@ -39,10 +40,4 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
-}
-
-dependencyManagement {
-    imports {
-        mavenBom("org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.11.0")
-    }
 }

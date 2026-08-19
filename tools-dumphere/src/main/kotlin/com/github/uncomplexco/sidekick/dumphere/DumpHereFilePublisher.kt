@@ -1,18 +1,14 @@
-package com.github.uncomplexco.sidekick.adapters.dumphere
+package com.github.uncomplexco.sidekick.dumphere
 
-import com.github.uncomplexco.sidekick.application.tools.integrations.FilePublisher
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.MediaType
-import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import java.nio.file.Files
 import java.nio.file.Path
 
-@Component
-class DumpHereFilePublisher(
-    @Value($$"${integrations.dumphere.base-url}") private val baseUrl: String,
-    @Value($$"${integrations.dumphere.username}") private val username: String,
-    @Value($$"${integrations.dumphere.password}") private val password: String,
+internal class DumpHereFilePublisher(
+    private val baseUrl: String,
+    private val username: String,
+    private val password: String,
 ) : FilePublisher {
     private val restClient = RestClient.create()
 

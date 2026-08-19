@@ -1,8 +1,8 @@
 plugins {
     `java-library`
-    kotlin("jvm")
-    kotlin("plugin.spring")
-    kotlin("plugin.serialization")
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.spring)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 java {
@@ -15,28 +15,33 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":sandbox-bwrap"))
 
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.0.7"))
-    api("com.slack.api:slack-api-client:1.49.0")
+    compileOnly(platform(libs.spring.boot.bom))
+    implementation(platform(libs.ktor.bom))
+    api(libs.slack.api.client)
 
-    implementation("org.springframework.boot:spring-boot")
-    implementation("org.springframework:spring-context")
-    implementation("org.springframework:spring-web")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
-    implementation("org.jsoup:jsoup:1.22.2")
-    implementation("com.vladsch.flexmark:flexmark-html2md-converter:0.64.8")
+    compileOnly(libs.spring.boot)
+    compileOnly(libs.spring.context)
+    compileOnly(libs.spring.web)
+    implementation(libs.kotlin.reflect)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.jsoup)
+    implementation(libs.flexmark.html2md)
 
-    implementation("ai.koog:koog-agents:1.1.1")
-    implementation("ai.koog:agents-mcp:1.1.1-beta")
-    implementation("io.modelcontextprotocol:kotlin-sdk-client:0.13.0")
-    implementation("io.modelcontextprotocol:kotlin-sdk-core:0.13.0")
-    implementation("org.eclipse.jgit:org.eclipse.jgit:7.7.0.202606012155-r")
-    implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.7.0.202606012155-r")
+    implementation(libs.koog.agents)
+    implementation(libs.koog.agents.mcp)
+    implementation(libs.mcp.client)
+    implementation(libs.mcp.core)
+    implementation(libs.jgit.core)
+    implementation(libs.jgit.ssh)
 
-    testImplementation("org.springframework:spring-test")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(platform(libs.spring.boot.bom))
+    testImplementation(libs.spring.boot)
+    testImplementation(libs.spring.context)
+    testImplementation(libs.spring.test)
+    testImplementation(libs.spring.web)
+    testImplementation(libs.kotlin.test.junit5)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 kotlin {

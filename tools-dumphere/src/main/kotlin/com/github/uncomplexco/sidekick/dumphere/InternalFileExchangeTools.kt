@@ -1,17 +1,15 @@
-package com.github.uncomplexco.sidekick.application.tools.integrations
+package com.github.uncomplexco.sidekick.dumphere
 
 import ai.koog.agents.core.tools.ToolException
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPath
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
 import kotlinx.serialization.Serializable
 import org.springframework.http.MediaType
+import java.nio.file.Path
 
-interface FilePublisher {
+internal interface FilePublisher {
     fun publishFile(
         path: String,
         title: String,
@@ -49,9 +47,9 @@ interface FilePublisher {
 }
 
 @LLMDescription("Internal file exchange tools")
-class InternalFileExchangeTools(
+internal class InternalFileExchangeTools(
     private val filePublisher: FilePublisher,
-    private val virtualPaths: VirtualPaths,
+    private val resolvePath: (String) -> Path,
 ) : ToolSet {
     @Tool
     @LLMDescription(
@@ -59,7 +57,7 @@ class InternalFileExchangeTools(
     )
     fun publishFileInternally(
         @LLMDescription("Absolute path to the file to publish")
-        path: VirtualPath,
+        path: String,
         @LLMDescription("Name of the file")
         title: String,
         @LLMDescription("File MIME type. Only text files are accepted")
@@ -71,8 +69,8 @@ class InternalFileExchangeTools(
         }
 
         try {
-            val realPath = parseVirtualPath(path, virtualPaths)
-            return when (val result = filePublisher.publishFile(realPath, title, mimeType)) {
+            val realPath = resolvePath(path)
+            return when (val result = filePublisher.publishFile(realPath.toString(), title, mimeType)) {
                 is FilePublisher.Result.Error -> {
                     throw ToolException.ValidationFailure(result.message)
                 }
@@ -178,7 +176,7 @@ class InternalFileExchangeTools(
 }
 
 @Serializable
-data class InternalFilePublishResult(
+internal data class InternalFilePublishResult(
     val ok: Boolean,
     val url: String? = null,
     val error: String? = null,

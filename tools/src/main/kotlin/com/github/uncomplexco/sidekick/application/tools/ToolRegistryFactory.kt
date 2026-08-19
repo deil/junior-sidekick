@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.tools
 import ai.koog.agents.core.tools.ToolRegistry
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
@@ -13,8 +14,6 @@ import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTool
 import com.github.uncomplexco.sidekick.application.tools.files.ReplyAttachmentTools
 import com.github.uncomplexco.sidekick.application.tools.git.GitToolConfig
 import com.github.uncomplexco.sidekick.application.tools.git.GitTools
-import com.github.uncomplexco.sidekick.application.tools.integrations.FilePublisher
-import com.github.uncomplexco.sidekick.application.tools.integrations.InternalFileExchangeTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpAuthTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
@@ -36,13 +35,15 @@ import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
 import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
+import com.github.uncomplexco.sidekick.tools.SidekickToolContext
+import com.github.uncomplexco.sidekick.tools.SidekickToolProvider
 import org.springframework.stereotype.Component
+import java.nio.file.Path
 
 @Component
 class DefaultToolRegistryFactory(
     private val sharedContext: SharedContext,
     private val agentConfig: AgentConfig,
-    private val filePublisher: FilePublisher,
     private val skills: SkillCatalogProvider,
     private val skillCatalogReloader: SkillCatalogReloader,
     private val mcpToolsConfig: McpToolsConfig,
@@ -55,6 +56,7 @@ class DefaultToolRegistryFactory(
     private val subagentRunner: SubagentRunner,
     private val subagents: SubagentCatalogProvider,
     private val loopFactory: LoopFactory,
+    private val sidekickToolProviders: List<SidekickToolProvider>,
 ) : ToolRegistryFactory {
     override suspend fun buildExecutionTools(
         ctx: TurnContext,
@@ -82,12 +84,6 @@ class DefaultToolRegistryFactory(
         tool(TaskTool(subagentRunner, ctx, chat, subagents.catalog().subagents, onSubagentCompleted))
 
         tools(GitTools(gitToolConfig, ctx.conversation.virtualPaths))
-        tools(
-            InternalFileExchangeTools(
-                filePublisher,
-                ctx.conversation.virtualPaths,
-            ),
-        )
         if (chat is SlackBackedChatPlatformAdapter) {
             tools(ReplyAttachmentTools(replyAttachments))
             tools(slackTools(sharedContext.slackClient, ctx))
@@ -100,6 +96,12 @@ class DefaultToolRegistryFactory(
         }
         tools(McpStatusTools(ctx, mcpToolsConfig.servers).asTools())
         tools(mcpAuthTools.asTools(chat))
+
+        val extensionContext =
+            SidekickToolContext { virtualPath ->
+                Path.of(parseVirtualPath(virtualPath, ctx.conversation.virtualPaths)).toAbsolutePath().normalize()
+            }
+        sidekickToolProviders.forEach { tools(it.toolSet(extensionContext)) }
     }
 
     override suspend fun buildOrchestrationTools(

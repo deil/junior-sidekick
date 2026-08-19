@@ -1,6 +1,7 @@
 plugins {
     `java-library`
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 java {
@@ -10,7 +11,15 @@ java {
 }
 
 dependencies {
+    implementation(project(":core"))
+
+    compileOnly(platform(libs.spring.boot.bom))
+    compileOnly(libs.spring.web)
+    implementation(libs.kotlinx.serialization.json)
+
     testImplementation(libs.kotlin.test.junit5)
+    testImplementation(platform(libs.spring.boot.bom))
+    testImplementation(libs.spring.web)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
