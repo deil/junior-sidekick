@@ -4,6 +4,7 @@ import com.github.uncomplexco.sidekick.application.scheduling.CreateScheduledJob
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobRun
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
+import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.ports.scheduling.ScheduledJobDispatcher
 import com.github.uncomplexco.sidekick.ports.scheduling.ScheduledJobStore
 import kotlinx.coroutines.CoroutineScope
@@ -31,7 +32,7 @@ class ScheduledJobsSchedulerTest {
             val dispatched = mutableListOf<ScheduledJobRun>()
             val dispatcher = ScheduledJobDispatcher(dispatched::add)
             val provider = StaticListableBeanFactory(mapOf("dispatcher" to dispatcher)).getBeanProvider(ScheduledJobDispatcher::class.java)
-            val scheduler = ScheduledJobsScheduler(jobs, provider, CoroutineScope(Dispatchers.Unconfined))
+            val scheduler = ScheduledJobsScheduler(jobs, provider, SidekickCoroutineScope(CoroutineScope(Dispatchers.Unconfined)))
 
             // Act
             scheduler.tick()

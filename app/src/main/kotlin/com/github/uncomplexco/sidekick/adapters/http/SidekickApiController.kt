@@ -15,10 +15,9 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
+import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
 import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -42,7 +41,7 @@ import kotlin.uuid.Uuid
 class SidekickApiController(
     private val handleIncomingChatMessage: HandleIncomingChatMessageUsecase,
     private val conversationStateStore: ConversationStateStore,
-    private val scope: CoroutineScope,
+    private val scope: SidekickCoroutineScope,
     @Value($$"${adapters.http.project-id}") private val projectId: String,
     @Value($$"${adapters.http.user-id}") private val userId: String,
 ) {

@@ -1,7 +1,6 @@
 package com.github.uncomplexco.sidekick
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
+import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
@@ -33,6 +32,6 @@ annotation class EnableSidekick
 @EnableScheduling
 @PropertySource("classpath:META-INF/sidekick-defaults.properties")
 internal class SidekickConfiguration {
-    @Bean
-    fun sidekickCoroutineScope(): CoroutineScope = CoroutineScope(SupervisorJob())
+    @Bean(destroyMethod = "close")
+    fun sidekickCoroutineScope() = SidekickCoroutineScope()
 }

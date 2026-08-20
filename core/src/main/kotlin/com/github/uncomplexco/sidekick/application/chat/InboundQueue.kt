@@ -1,19 +1,16 @@
 package com.github.uncomplexco.sidekick.application.chat
 
 import com.github.uncomplexco.sidekick.application.turn.TurnExecutor
-import kotlinx.coroutines.CoroutineScope
+import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.DisposableBean
 import org.springframework.stereotype.Component
 
 @Component
 class InboundMessagesQueue(
-    private val scope: CoroutineScope,
+    private val scope: SidekickCoroutineScope,
     private val turnExecutor: TurnExecutor,
-) : DisposableBean {
+) {
     private val queue = HashMap<BatchKey, MutableList<InboundMessage>>()
 
     suspend fun enqueue(
@@ -33,10 +30,6 @@ class InboundMessagesQueue(
                 startQueueConsumer(key, chat)
             }
         }
-    }
-
-    override fun destroy() {
-        scope.cancel()
     }
 
     private fun startQueueConsumer(
