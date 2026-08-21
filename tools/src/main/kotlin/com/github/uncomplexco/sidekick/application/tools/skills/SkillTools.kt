@@ -8,7 +8,7 @@ import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
 import kotlinx.serialization.Serializable
 import java.nio.file.Files
 import java.nio.file.Path

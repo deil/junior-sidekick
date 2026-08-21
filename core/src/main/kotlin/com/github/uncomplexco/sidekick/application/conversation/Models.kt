@@ -86,7 +86,6 @@ data class SessionCompaction(
 
 @Serializable
 data class ConversationStats(
-    val activeTurnId: String? = null,
     val lastCompletedAtMs: Long? = null,
     val totalTokens: Int? = null,
     val consumedInputTokens: Long = 0,

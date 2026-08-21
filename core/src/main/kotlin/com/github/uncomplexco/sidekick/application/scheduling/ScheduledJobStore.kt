@@ -1,6 +1,4 @@
-package com.github.uncomplexco.sidekick.ports.scheduling
-
-import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
+package com.github.uncomplexco.sidekick.application.scheduling
 
 interface ScheduledJobStore {
     fun channelIds(): List<String>

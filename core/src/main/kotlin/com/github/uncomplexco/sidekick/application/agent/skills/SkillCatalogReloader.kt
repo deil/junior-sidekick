@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.ports.skills
+package com.github.uncomplexco.sidekick.application.agent.skills
 
 data class SkillCatalogReloadResult(
     val totalSkills: Int,

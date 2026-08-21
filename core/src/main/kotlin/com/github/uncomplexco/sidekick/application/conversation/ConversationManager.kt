@@ -7,7 +7,6 @@ import com.github.uncomplexco.sidekick.application.context.SessionContextCompact
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
 import org.springframework.stereotype.Component
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -126,14 +125,8 @@ class ConversationManager(
             state.stats.copy(
                 consumedInputTokens = state.stats.consumedInputTokens + inputTokensConsumed,
                 consumedOutputTokens = state.stats.consumedOutputTokens + outputTokensConsumed,
+                lastCompletedAtMs = createdAtMs,
             )
-        if (state.stats.activeTurnId == turnId) {
-            state.stats =
-                state.stats.copy(
-                    activeTurnId = null,
-                    lastCompletedAtMs = createdAtMs,
-                )
-        }
 
         store.save(conversationId, state)
     }

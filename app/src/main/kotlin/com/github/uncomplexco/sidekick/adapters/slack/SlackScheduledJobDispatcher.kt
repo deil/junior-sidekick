@@ -2,7 +2,7 @@ package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobRun
-import com.github.uncomplexco.sidekick.ports.scheduling.ScheduledJobDispatcher
+import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobDispatcher
 import com.github.uncomplexco.sidekick.usecases.RunScheduledJobUsecase
 import com.slack.api.bolt.App
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression

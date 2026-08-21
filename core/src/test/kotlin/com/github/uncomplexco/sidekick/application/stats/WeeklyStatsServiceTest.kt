@@ -1,8 +1,9 @@
 package com.github.uncomplexco.sidekick.application.stats
 
+import com.github.uncomplexco.sidekick.application.conversation.ActiveTurn
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationState
-import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
+import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
 import org.junit.jupiter.api.Test
 import java.time.Duration
 import java.time.Instant
@@ -62,6 +63,13 @@ class WeeklyStatsServiceTest {
         override fun save(
             id: ConversationId,
             state: ConversationState,
+        ) = error("Not used")
+
+        override suspend fun loadActiveTurn(id: ConversationId): ActiveTurn? = error("Not used")
+
+        override suspend fun saveActiveTurn(
+            id: ConversationId,
+            activeTurn: ActiveTurn?,
         ) = error("Not used")
 
         override suspend fun <T> withSessionLock(

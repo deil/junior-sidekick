@@ -4,8 +4,8 @@ import ai.koog.agents.core.tools.ToolException
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
-import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
-import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloadResult
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloadResult
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir

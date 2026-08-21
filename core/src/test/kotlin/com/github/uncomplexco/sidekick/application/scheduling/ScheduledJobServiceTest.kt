@@ -1,6 +1,5 @@
 package com.github.uncomplexco.sidekick.application.scheduling
 
-import com.github.uncomplexco.sidekick.ports.scheduling.ScheduledJobStore
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

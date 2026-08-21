@@ -32,9 +32,9 @@ import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
 import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
-import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
+import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
-import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
 import com.github.uncomplexco.sidekick.tools.SidekickToolProvider
 import org.springframework.stereotype.Component

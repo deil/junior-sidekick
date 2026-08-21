@@ -1,6 +1,6 @@
 package com.github.uncomplexco.sidekick.application.stats
 
-import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
+import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
 import org.springframework.stereotype.Component
 import java.time.Duration
 import java.time.Instant

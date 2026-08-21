@@ -2,7 +2,7 @@ package com.github.uncomplexco.sidekick.application.tools.scheduling
 
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
-import com.github.uncomplexco.sidekick.ports.scheduling.ScheduledJobStore
+import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobStore
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.junit.jupiter.api.Test

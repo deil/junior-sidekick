@@ -1,6 +1,5 @@
 package com.github.uncomplexco.sidekick.application.scheduling
 
-import com.github.uncomplexco.sidekick.ports.scheduling.ScheduledJobStore
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.springframework.scheduling.support.CronExpression

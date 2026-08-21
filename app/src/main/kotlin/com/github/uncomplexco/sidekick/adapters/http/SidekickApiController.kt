@@ -17,7 +17,7 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
-import com.github.uncomplexco.sidekick.ports.conversation.ConversationStateStore
+import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
 import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty

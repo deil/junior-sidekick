@@ -3,7 +3,7 @@ package com.github.uncomplexco.sidekick.adapters.spring
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.application.utils.Loggers
-import com.github.uncomplexco.sidekick.ports.scheduling.ScheduledJobDispatcher
+import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobDispatcher
 import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.scheduling.annotation.Scheduled

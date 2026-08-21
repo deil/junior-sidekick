@@ -145,7 +145,7 @@ Slack channel metadata is turn-local prompt context, not persisted session state
 Session state is stored under the configured agent state directory, not the workspace. The important files are:
 
 - `messages.jsonl` for persisted session messages.
-- `stats.json` for current/last turn state plus Koog-derived usage counters (`totalTokens`, `messages`, `toolCalls`).
+- `runtime.json` for conversation usage statistics and the optional active turn with its latest Koog checkpoint. Reads fall back to legacy `stats.json` when `runtime.json` does not exist; writes always use `runtime.json`.
 
 Incoming user messages and assistant replies are both persisted. Assistant replies are normalized before storage: leading/trailing whitespace is trimmed, whitespace runs collapse to one space, and text is capped at 3200 characters.
 

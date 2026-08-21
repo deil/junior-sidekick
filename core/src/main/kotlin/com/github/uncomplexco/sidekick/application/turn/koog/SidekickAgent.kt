@@ -12,20 +12,22 @@ import ai.koog.agents.core.dsl.extension.onTextMessage
 import ai.koog.agents.core.dsl.extension.onToolCalls
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.features.eventHandler.feature.handleEvents
+import ai.koog.agents.snapshot.feature.Persistence
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
-import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.nio.file.Path
@@ -71,6 +73,7 @@ class SidekickAgent(
     private val toolRegistryFactory: ToolRegistryFactory,
     private val mcpServersRegistry: McpServersRegistry,
     private val chatHistoryProvider: ChatHistoryProvider,
+    private val checkpointPersistence: TurnCheckpointPersistence,
 ) : AgentTurnRunner {
     override suspend fun runTurn(
         ctx: TurnContext,
@@ -129,12 +132,25 @@ class SidekickAgent(
                         chatHistoryProvider = this@SidekickAgent.chatHistoryProvider
                     }
 
+                    install(Persistence) {
+                        enableAutomaticPersistence = true
+                        storage = checkpointPersistence.forTurn(ctx.turnId)
+                    }
+
                     handleEvents {
                         onLLMCallCompleted { llmCall ->
                             usage +=
                                 AgentUsageStats(
-                                    inputTokenCount = llmCall.response?.metaInfo?.inputTokensCount?.toLong() ?: 0,
-                                    outputTokenCount = llmCall.response?.metaInfo?.outputTokensCount?.toLong() ?: 0,
+                                    inputTokenCount =
+                                        llmCall.response
+                                            ?.metaInfo
+                                            ?.inputTokensCount
+                                            ?.toLong() ?: 0,
+                                    outputTokenCount =
+                                        llmCall.response
+                                            ?.metaInfo
+                                            ?.outputTokensCount
+                                            ?.toLong() ?: 0,
                                 )
                         }
 

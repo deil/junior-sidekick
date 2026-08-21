@@ -11,6 +11,7 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationStat
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
+import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -94,7 +95,7 @@ class FilesystemConversationStateStoreTest {
     }
 
     @Test
-    fun `stores conversation stats in stats json`() {
+    fun `stores conversation stats in runtime json`() {
         // Arrange
         val store = store()
         val conversationId = ConversationId("C123", "1700000000.000")
@@ -109,8 +110,30 @@ class FilesystemConversationStateStoreTest {
         assertEquals(123, loaded.stats.totalTokens)
         assertEquals(4, loaded.stats.messages)
         assertEquals(2, loaded.stats.toolCalls)
-        assertEquals(true, Files.exists(dir.resolve("state/slack/channels/C123/threads/1700000000.000/stats.json")))
+        assertEquals(true, Files.exists(dir.resolve("state/slack/channels/C123/threads/1700000000.000/runtime.json")))
+        assertEquals(false, Files.exists(dir.resolve("state/slack/channels/C123/threads/1700000000.000/stats.json")))
         assertEquals(false, Files.exists(dir.resolve("state/slack/channels/C123/threads/1700000000.000/inflight.json")))
+    }
+
+    @Test
+    fun `loads legacy stats json and migrates it on write`() {
+        // Arrange
+        val store = store()
+        val conversationId = ConversationId("C123", "1700000000.000")
+        val folder = dir.resolve("state/slack/channels/C123/threads/1700000000.000")
+        val legacyPath = folder.resolve("stats.json")
+        Files.createDirectories(folder)
+        Files.writeString(legacyPath, Json.encodeToString(ConversationStats(totalTokens = 321, messages = 7)))
+
+        // Act
+        val state = store.load(conversationId)
+        store.save(conversationId, state)
+
+        // Assert
+        assertEquals(321, state.stats.totalTokens)
+        assertEquals(7, state.stats.messages)
+        assertEquals(true, Files.exists(folder.resolve("runtime.json")))
+        assertEquals(false, Files.exists(legacyPath))
     }
 
     @Test

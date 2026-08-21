@@ -3,7 +3,7 @@ package com.github.uncomplexco.sidekick.adapters.files
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
-import com.github.uncomplexco.sidekick.ports.scheduling.ScheduledJobStore
+import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobStore
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json

@@ -199,4 +199,4 @@ The turn boundary starts after `InboundMessageFilter` returns `TurnTriggerDecisi
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/conversation/SessionManager.kt` - Session state operations used during turns.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/conversation/Models.kt` - `ConversationId`, `ConversationState`, `SessionMessage`, compactions, inflight state.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnContext.kt` - Turn-local context.
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/ports/ConversationState.kt` - Session persistence port.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/conversation/ConversationStateStore.kt` - Session persistence interface.

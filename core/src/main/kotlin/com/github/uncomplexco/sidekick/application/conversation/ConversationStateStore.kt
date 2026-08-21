@@ -1,7 +1,5 @@
-package com.github.uncomplexco.sidekick.ports.conversation
+package com.github.uncomplexco.sidekick.application.conversation
 
-import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.ConversationState
 import com.github.uncomplexco.sidekick.application.stats.ConversationUsage
 
 interface ConversationStateStore {
@@ -17,6 +15,13 @@ interface ConversationStateStore {
     fun save(
         id: ConversationId,
         state: ConversationState,
+    )
+
+    suspend fun loadActiveTurn(id: ConversationId): ActiveTurn?
+
+    suspend fun saveActiveTurn(
+        id: ConversationId,
+        activeTurn: ActiveTurn?,
     )
 
     suspend fun <T> withSessionLock(

@@ -1,8 +1,6 @@
 package com.github.uncomplexco.sidekick.application.agent.skills
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloader
-import com.github.uncomplexco.sidekick.ports.skills.SkillCatalogReloadResult
 import org.springframework.stereotype.Component
 
 @Component

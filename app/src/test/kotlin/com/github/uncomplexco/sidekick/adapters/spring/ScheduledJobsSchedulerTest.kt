@@ -5,8 +5,8 @@ import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobRun
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
-import com.github.uncomplexco.sidekick.ports.scheduling.ScheduledJobDispatcher
-import com.github.uncomplexco.sidekick.ports.scheduling.ScheduledJobStore
+import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobDispatcher
+import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
