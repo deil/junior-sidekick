@@ -14,7 +14,6 @@ java {
 dependencies {
     implementation(project(":app"))
     implementation(project(":tools-dumphere"))
-    implementation(platform(libs.kotlinx.coroutines.bom))
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.kotlin.reflect)
 
@@ -33,4 +32,10 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+dependencyManagement {
+    imports {
+        mavenBom("org.jetbrains.kotlinx:kotlinx-coroutines-bom:${libs.versions.kotlinx.coroutines.get()}")
+    }
 }
