@@ -20,6 +20,7 @@ import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
 import com.github.uncomplexco.sidekick.application.tools.scheduling.ScheduledJobTools
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
 import com.github.uncomplexco.sidekick.application.tools.slack.slackTools
+import com.github.uncomplexco.sidekick.application.tools.stats.StatsTools
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentCatalogProvider
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunner
 import com.github.uncomplexco.sidekick.application.tools.subagents.TaskTool
@@ -34,6 +35,7 @@ import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
 import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
+import com.github.uncomplexco.sidekick.application.stats.WeeklyStatsService
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
 import com.github.uncomplexco.sidekick.tools.SidekickToolProvider
@@ -53,6 +55,7 @@ class DefaultToolRegistryFactory(
     private val sandboxExecutorFactory: SandboxExecutorFactory,
     private val conversationStateStore: ConversationStateStore,
     private val scheduledJobs: ScheduledJobService,
+    private val weeklyStats: WeeklyStatsService,
     private val subagentRunner: SubagentRunner,
     private val subagents: SubagentCatalogProvider,
     private val loopFactory: LoopFactory,
@@ -65,6 +68,7 @@ class DefaultToolRegistryFactory(
         onSubagentCompleted: (AgentUsageStats) -> Unit,
     ) = ToolRegistry {
         tools(SystemTools(chat = chat))
+        tools(StatsTools(weeklyStats))
 
         tools(WorkspaceFileTools(ctx.conversation.virtualPaths))
         if (bashToolConfig.enabled) {

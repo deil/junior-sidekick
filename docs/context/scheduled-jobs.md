@@ -128,7 +128,7 @@ The scheduler reads persisted jobs and initiates due runs. Creating or changing 
 
 Job storage should sit behind a dedicated port. It is not part of conversation state: conversations and scheduled jobs have different identities and lifecycles even though both are stored beneath the configured state directory.
 
-The existing fixed weekly statistics reporter is separate legacy behavior. It does not define the execution model for user-configured scheduled jobs.
+Installation-wide weekly statistics are available to scheduled runs through the normal tool registry.
 
 Scheduled runs use the existing Turn execution limits. There is no job-specific timeout, run-history store, or audit subsystem. `last_run_at` and ordinary Session state are sufficient for the initial feature.
 
@@ -143,6 +143,8 @@ Scheduled runs use the existing Turn execution limits. There is no job-specific 
 - `ScheduledJobService` owns create/update/delete validation, name uniqueness, the five-active-job limit, cron and timezone validation, and due-run claiming.
 
 ### Agent tools
+
+One `StatsTools` tool set exposes the no-argument `stats__weekly` tool. It returns installation-wide channel, conversation, token, and user totals for the previous seven days.
 
 One `ScheduledJobTools` tool set exposes four tools. Every tool is scoped implicitly to the current channel.
 
@@ -198,5 +200,5 @@ scheduler tick -> ScheduledJobService.claim -> RunScheduledJobUsecase
 ### Module placement
 
 - `core`: scheduled-job model, service, store port, filesystem store, and scheduled Turn execution boundary.
-- `tools`: `ScheduledJobTools` and registration in the normal Slack-backed tool registry.
+- `tools`: `ScheduledJobTools`, `StatsTools`, and registration in the normal tool registry.
 - `app`: Spring Scheduling adapter, run use case, and Slack dispatcher/root-message delivery adapter.

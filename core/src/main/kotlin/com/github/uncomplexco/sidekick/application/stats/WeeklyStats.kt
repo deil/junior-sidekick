@@ -6,7 +6,7 @@ import java.time.Duration
 import java.time.Instant
 
 data class WeeklyStats(
-    val projects: Int,
+    val channels: Int,
     val conversations: Int,
     val tokensConsumed: Long,
     val users: Int,
@@ -29,7 +29,7 @@ class WeeklyStatsService(
         val selected = conversations.loadUsageStartedBetween(periodStartMs, periodEndMs)
 
         return WeeklyStats(
-            projects = selected.map { it.channelId }.distinct().size,
+            channels = selected.map { it.channelId }.distinct().size,
             conversations = selected.size,
             tokensConsumed =
                 selected.sumOf {

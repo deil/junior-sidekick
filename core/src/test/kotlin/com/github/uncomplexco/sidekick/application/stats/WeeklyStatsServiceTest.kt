@@ -25,7 +25,7 @@ class WeeklyStatsServiceTest {
         val stats = WeeklyStatsService(store).gather(executedAt)
 
         // Assert
-        assertEquals(1, stats.projects)
+        assertEquals(1, stats.channels)
         assertEquals(2, stats.conversations)
         assertEquals(350, stats.tokensConsumed)
         assertEquals(3, stats.users)
