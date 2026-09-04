@@ -243,6 +243,7 @@ class DefaultMcpServersRegistry(
             install(SSE)
             install(HttpTimeout) {
                 requestTimeoutMillis = server.timeoutSeconds.seconds.inWholeMilliseconds
+                socketTimeoutMillis = server.timeoutSeconds.seconds.inWholeMilliseconds
             }
             authHeaderValue?.let { headerValue ->
                 defaultRequest {
