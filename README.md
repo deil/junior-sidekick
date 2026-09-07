@@ -5,11 +5,11 @@ Sidekick, Junior Sidekick.
 [![Kotlin](https://img.shields.io/badge/kotlin-2.3-blue.svg?logo=kotlin)](http://kotlinlang.org)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 
-Sidekick is a Slack-based AI assistant for AI-pilled teams. It listens in Slack, runs an LLM-powered agent, and replies in DMs, channels, and threads.
+Sidekick is a multiplayer AI assistant for AI-pilled teams. It listens in Slack or Discord, runs an LLM-powered agent, and replies in DMs, channels, and threads.
 
 ## Overview
 
-Sidekick is built for teams that want an assistant where the work already happens: Slack.
+Sidekick is built for teams that want an assistant where the work already happens: Slack (or, for some, Discord).
 
 According to GPT-5.5 summary, it receives Slack events, resolves user identity, persists conversation history, runs a Koog agent through OpenRouter, and posts the response back to the right Slack conversation. Eventually, Anton will re-write it to not be a hallucination. This day hasn't come yet, because Sidekick is not fully alive yet.
 
@@ -24,49 +24,8 @@ According to GPT-5.5 summary, it receives Slack events, resolves user identity, 
 
 ## Configuration
 
-Configure the Slack Events API request URL to point at Sidekick's endpoint:
-
-```text
-/slack/events
-```
-
-Recommended bot event subscriptions:
-
-```text
-app_mention
-message.channels
-message.groups
-message.im
-message.mpim
-```
-
-Recommended bot token scopes for development:
-
-```text
-app_mentions:read
-chat:write
-channels:history
-channels:read
-groups:history
-groups:read
-im:history
-im:read
-im:write
-mpim:history
-mpim:read
-users:read
-```
-
-Additional bot token scopes required by optional Slack agent tools:
-
-| Scope | Tools that need it                       |
-| --- |------------------------------------------|
-| `canvases:read` | `slackCanvasCreate`                      |
-| `canvases:write` | `slackCanvasCreate`                      |
-| `files:read` | `slackCanvasCreate`, `slackFileDownload` |
-| `files:write` | `attachFile`                             |
-| `reactions:write` | `slackReactionAdd`                       |
-| `users:read:email` | `slackUserSearch`                        |
+- [Set up Slack](SETUP_SLACK.md)
+- [Set up Discord](SETUP_DISCORD.md)
 
 ## Integrations
 
@@ -78,6 +37,7 @@ Additional bot token scopes required by optional Slack agent tools:
 
 - Kotlin / Spring Boot
 - [Slack Bolt for JVM](https://github.com/slackapi/java-slack-sdk)
+- [JDA](https://github.com/discord-jda/JDA)
 - [Koog](https://github.com/JetBrains/koog)
 - [Bubblewrap](https://github.com/containers/bubblewrap)
 - [mise](https://mise.jdx.dev/)

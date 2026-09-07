@@ -25,6 +25,9 @@ dependencies {
     compileOnly(libs.jakarta.servlet)
 
     implementation(libs.slack.bolt.servlet)
+    implementation(libs.jda) {
+        exclude(group = "club.minnced")
+    }
 
     testImplementation(platform(libs.spring.boot.bom))
     testImplementation(libs.spring.boot.starter.webmvc.test)
