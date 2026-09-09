@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
@@ -44,7 +45,7 @@ class TurnExecutorTest {
             // Arrange
             val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
             config.botUsername = "USIDEKICK"
-            val store = FilesystemConversationStateStore(config)
+            val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
             val manager = conversationManager(config, store)
             val replies = mutableListOf<String>()
             val seenConversationIds = mutableListOf<ConversationId>()
@@ -87,7 +88,7 @@ class TurnExecutorTest {
             // Arrange
             val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
             config.botUsername = "USIDEKICK"
-            val store = FilesystemConversationStateStore(config)
+            val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
             val manager = conversationManager(config, store)
             val replies = mutableListOf<String>()
             val lifecycle = mutableListOf<String>()
@@ -132,7 +133,7 @@ class TurnExecutorTest {
             // Arrange
             val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
             config.botUsername = "USIDEKICK"
-            val store = FilesystemConversationStateStore(config)
+            val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
             val manager = conversationManager(config, store)
             val stagedFile = dir.resolve("staged/report.csv")
             Files.createDirectories(stagedFile.parent)
@@ -233,7 +234,7 @@ class TurnExecutorTest {
             // Arrange
             val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
             config.botUsername = "USIDEKICK"
-            val store = FilesystemConversationStateStore(config)
+            val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
             val manager = conversationManager(config, store)
             val lifecycle = mutableListOf<String>()
             val executor =
@@ -267,7 +268,7 @@ class TurnExecutorTest {
             // Arrange
             val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
             config.botUsername = "USIDEKICK"
-            val store = FilesystemConversationStateStore(config)
+            val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
             val manager = conversationManager(config, store)
             val replies = mutableListOf<String>()
             val lifecycle = mutableListOf<String>()
@@ -303,7 +304,7 @@ class TurnExecutorTest {
     ): ConversationManager =
         ConversationManager(
             store,
-            VirtualPathsFactory(config),
+            VirtualPathsFactory(config, ChatPlatform.SLACK),
             SessionContextCompactor(
                 summarizer = { _, _, messages -> "summary for ${messages.size} messages" },
             ),

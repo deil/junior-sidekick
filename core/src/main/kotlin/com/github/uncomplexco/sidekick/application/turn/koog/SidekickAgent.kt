@@ -116,7 +116,12 @@ class SidekickAgent(
                                             ctx.conversation.conversationId,
                                         ),
                                 ) {
-                                    system(systemPromptBuilder.buildSystemPrompt(config.botUsername!!, ctx.conversation.conversationId))
+                                    system(
+                                        systemPromptBuilder.buildSystemPrompt(
+                                            config.botUsername!!,
+                                            ctx.conversation.virtualPaths.projectRoot,
+                                        ),
+                                    )
                                 },
                             model =
                                 LLModel(

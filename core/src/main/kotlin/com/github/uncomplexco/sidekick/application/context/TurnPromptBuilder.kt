@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.CURRENT_INSTRUCTION_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.EXPLICIT_SKILL_INVOCATION_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.HANDOFF_SUMMARY
@@ -235,7 +236,9 @@ class TurnPromptBuilder(
             return emptyList()
         }
 
-        val lastAssistantIndex = ctx.conversation.history.messages.indexOfLast { it.role == SessionMessageRole.ASSISTANT }
+        val lastAssistantIndex =
+            ctx.conversation.history.messages
+                .indexOfLast { it.role == SessionMessageRole.ASSISTANT }
         return ctx.conversation.history.messages
             .drop(lastAssistantIndex + 1)
             .filter { it.role == SessionMessageRole.USER && it.replied == false }

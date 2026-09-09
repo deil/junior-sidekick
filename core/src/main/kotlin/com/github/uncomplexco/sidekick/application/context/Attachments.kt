@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.adapters.files.folder
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
@@ -18,7 +19,6 @@ internal fun renderFileAttachments(
     xmlTag(
         "attachments",
         files.joinToString("\n") {
-            val data = fileDataBase64(conversationId, it, basePath, maxChars)
             buildString {
                 appendLine("<attachment id=\"${escapeXml(it.id)}\">")
                 appendLine("filename: ${escapeXml(it.name)}")
@@ -27,9 +27,6 @@ internal fun renderFileAttachments(
                 it.summary?.takeIf { summary -> summary.isNotBlank() }?.let { summary ->
                     appendLine("summary: ${escapeXml(summary)}")
                 }
-                /*appendLine("encoding: base64")
-                appendLine("truncated: ${data.truncated}")
-                appendLine("<data_base64>${data.text}</data_base64>")*/
                 appendLine("local_path: ${escapeXml(it.localPath)}")
                 appendLine("</attachment>")
             }
@@ -41,8 +38,9 @@ private fun fileDataBase64(
     file: SessionFileRef,
     basePath: Path,
     maxChars: Int,
+    platform: ChatPlatform,
 ): FileDataBase64 {
-    val sessionFolder = conversationId.folder(basePath).normalize()
+    val sessionFolder = conversationId.folder(basePath, platform).normalize()
     val filePath = sessionFolder.resolve(file.localPath).normalize()
     if (!filePath.startsWith(sessionFolder) || !Files.exists(filePath)) {
         return FileDataBase64("", truncated = false)

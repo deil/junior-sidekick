@@ -6,9 +6,11 @@ import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobDispat
 import com.github.uncomplexco.sidekick.usecases.RunScheduledJobUsecase
 import com.slack.api.bolt.App
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 
 @Component
+@ConditionalOnProperty(prefix = "adapters.chat", name = ["platform"], havingValue = "slack", matchIfMissing = true)
 @ConditionalOnExpression(
     $$"'${adapters.slack.bot.token:}' != '' and '${adapters.slack.bot.signing-secret:}' != ''",
 )

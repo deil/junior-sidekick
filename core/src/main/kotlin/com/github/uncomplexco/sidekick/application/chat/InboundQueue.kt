@@ -75,7 +75,10 @@ internal fun batchKeyFor(
     chatConversationId: ChatConversationId,
     message: InboundMessage,
 ): BatchKey =
-    if (chatConversationId.isThread) {
+    if (
+        chatConversationId.isThread ||
+        (chatConversationId.platform == ChatPlatform.DISCORD && chatConversationId.isDM)
+    ) {
         BatchKey.Thread(chatConversationId)
     } else {
         BatchKey.Single(chatConversationId, message.id)
@@ -89,7 +92,7 @@ internal sealed interface BatchKey {
         override val conversationId: ChatConversationId,
     ) : BatchKey {
         override val threadId: String
-            get() = conversationId.threadId!!
+            get() = conversationId.threadId.orEmpty()
     }
 
     data class Single(

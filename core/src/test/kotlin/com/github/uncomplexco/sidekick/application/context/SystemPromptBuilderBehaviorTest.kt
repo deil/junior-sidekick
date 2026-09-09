@@ -1,7 +1,9 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -20,7 +22,7 @@ class SystemPromptBuilderBehaviorTest {
         Files.writeString(workingDir.resolve("config/SOUL.md"), "Soul line 1\nSoul line 2")
         Files.writeString(workingDir.resolve("config/WORLD.md"), "World line 1\nWorld line 2")
 
-        val prompt = builder(workingDir).buildSystemPrompt("sidekick", conversationId())
+        val prompt = prompt(workingDir)
 
         assertTrue(prompt.contains("# Personality"), prompt)
         assertTrue(prompt.contains("Soul line 1\nSoul line 2"), prompt)
@@ -35,7 +37,7 @@ class SystemPromptBuilderBehaviorTest {
 
     @Test
     fun `skips optional soul and world files when missing`() {
-        val prompt = builder(dir.resolve("workspace")).buildSystemPrompt("sidekick", conversationId())
+        val prompt = prompt(dir.resolve("workspace"))
 
         assertTrue(prompt.contains("<identity>"), prompt)
         assertFalse(prompt.contains("SOUL.md"), prompt)
@@ -50,7 +52,7 @@ class SystemPromptBuilderBehaviorTest {
         Files.createDirectories(workingDir.resolve("config"))
         Files.writeString(workingDir.resolve("config/RULES.md"), "Rules line 1\nRules line 2")
 
-        val prompt = builder(workingDir).buildSystemPrompt("sidekick", conversationId())
+        val prompt = prompt(workingDir)
 
         assertTrue(prompt.contains("# Project context"), prompt)
         assertTrue(prompt.contains("Project line 1\nProject line 2"), prompt)
@@ -65,7 +67,7 @@ class SystemPromptBuilderBehaviorTest {
         val contextDir = Files.createDirectories(workingDir.resolve("data/repositories/knowledge/context/C123"))
         Files.writeString(contextDir.resolve("AGENTS.md"), "Legacy project context")
 
-        val prompt = builder(workingDir).buildSystemPrompt("sidekick", conversationId())
+        val prompt = prompt(workingDir)
 
         assertFalse(prompt.contains("# Project context"), prompt)
         assertFalse(prompt.contains("Legacy project context"), prompt)
@@ -73,20 +75,47 @@ class SystemPromptBuilderBehaviorTest {
 
     @Test
     fun `skips channel project context when missing`() {
-        val prompt = builder(dir.resolve("workspace")).buildSystemPrompt("sidekick", conversationId())
+        val prompt = prompt(dir.resolve("workspace"))
 
         assertFalse(prompt.contains("# Project context"), prompt)
         assertFalse(prompt.contains("AGENTS.md"), prompt)
     }
 
-    private fun builder(workingDir: Path): SystemPromptBuilder =
-        SystemPromptBuilder(
+    @Test
+    fun `uses discord identity for discord conversations`() {
+        val prompt =
+            prompt(
+                workingDir = dir.resolve("workspace"),
+                username = "123456789012345678",
+                platform = ChatPlatform.DISCORD,
+                conversationId = ConversationId("234567890123456789", ""),
+            )
+
+        assertTrue(prompt.contains("a Discord-based helper assistant"), prompt)
+        assertTrue(prompt.contains("Your username is 123456789012345678"), prompt)
+        assertFalse(prompt.contains("Slack"), prompt)
+    }
+
+    private fun prompt(
+        workingDir: Path,
+        username: String = "sidekick",
+        platform: ChatPlatform = ChatPlatform.SLACK,
+        conversationId: ConversationId = conversationId(),
+    ): String {
+        val config =
             AgentConfig(
                 name = "Sidekick",
                 stateDir = dir.resolve("state").toString(),
                 workingDir = workingDir.toString(),
-            ),
+            )
+        return SystemPromptBuilder(config, platform).buildSystemPrompt(
+            username,
+            config
+                .workspaceLayout()
+                .projectWorkspacesDirectoryPath()
+                .resolve(sanitizePathSegment(conversationId.channelId)),
         )
+    }
 
     private fun conversationId(): ConversationId = ConversationId("C123", "1700000000.000")
 }

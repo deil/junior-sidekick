@@ -23,11 +23,13 @@ import com.slack.api.model.event.MessageFileShareEvent
 import com.slack.api.model.view.View
 import kotlinx.coroutines.runBlocking
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.nio.file.Files
 
 @Configuration
+@ConditionalOnProperty(prefix = "adapters.chat", name = ["platform"], havingValue = "slack", matchIfMissing = true)
 @ConditionalOnExpression(
     $$"'${adapters.slack.bot.token:}' != '' and '${adapters.slack.bot.signing-secret:}' != ''",
 )

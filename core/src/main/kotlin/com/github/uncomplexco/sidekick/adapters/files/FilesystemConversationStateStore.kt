@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.adapters.files
 
 import ai.koog.prompt.message.Message
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ActiveTurn
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationRuntime
@@ -29,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap
 @Component
 class FilesystemConversationStateStore(
     private val config: AgentConfig,
+    private val platform: ChatPlatform,
 ) : ConversationStateStore {
     private val locks = ConcurrentHashMap<String, Mutex>()
     private val json =
@@ -44,7 +46,7 @@ class FilesystemConversationStateStore(
     override fun exists(id: ConversationId): Boolean = load(id).messages.isNotEmpty()
 
     override fun load(id: ConversationId): ConversationState {
-        val folder = id.folder(config.stateDirectoryPath())
+        val folder = id.folder(config.stateDirectoryPath(), platform)
         val files = loadJsonl<SessionFileRef>(folder.resolve("files.jsonl"))
         val compactions = loadJsonl<SessionCompaction>(folder.resolve("compactions.jsonl"))
         val messages = loadJsonl<SessionMessage>(folder.resolve("messages.jsonl"))
@@ -73,7 +75,7 @@ class FilesystemConversationStateStore(
         startInclusiveMs: Long,
         endExclusiveMs: Long,
     ): List<ConversationUsage> {
-        val channelsRoot = config.stateDirectoryPath().resolve("slack/channels")
+        val channelsRoot = config.stateDirectoryPath().resolve(platform.name.lowercase()).resolve("channels")
         if (!Files.isDirectory(channelsRoot)) return emptyList()
 
         val conversationIds = mutableListOf<ConversationId>()
@@ -95,7 +97,7 @@ class FilesystemConversationStateStore(
         }
 
         return conversationIds.map { id ->
-            val folder = id.folder(config.stateDirectoryPath())
+            val folder = id.folder(config.stateDirectoryPath(), platform)
             val messages = loadJsonl<SessionMessage>(folder.resolve("messages.jsonl"))
             val stats = loadRuntime(folder).stats
             ConversationUsage(
@@ -114,7 +116,7 @@ class FilesystemConversationStateStore(
         id: ConversationId,
         state: ConversationState,
     ) {
-        val folder = id.folder(config.stateDirectoryPath())
+        val folder = id.folder(config.stateDirectoryPath(), platform)
         Files.createDirectories(folder)
         writeJsonl(folder.resolve("files.jsonl"), state.files)
         writeJsonl(folder.resolve("compactions.jsonl"), state.compactions)
@@ -144,14 +146,14 @@ class FilesystemConversationStateStore(
         id: ConversationId,
         activeTurn: ActiveTurn?,
     ) = withSessionLock(id) {
-        val folder = id.folder(config.stateDirectoryPath())
+        val folder = id.folder(config.stateDirectoryPath(), platform)
         val runtime = loadRuntime(folder)
         writeRuntime(folder, runtime.copy(activeTurn = activeTurn))
     }
 
     override suspend fun loadActiveTurn(id: ConversationId): ActiveTurn? =
         withSessionLock(id) {
-            loadRuntime(id.folder(config.stateDirectoryPath())).activeTurn
+            loadRuntime(id.folder(config.stateDirectoryPath(), platform)).activeTurn
         }
 
     private inline fun <reified T> loadJsonl(path: Path): List<T> {
@@ -239,13 +241,17 @@ class FilesystemConversationStateStore(
     }
 }
 
-fun ConversationId.folder(stateRoot: Path): Path {
+fun ConversationId.folder(
+    stateRoot: Path,
+    platform: ChatPlatform,
+): Path {
     val conversationFolder = sanitizePathSegment(channelId)
+    val platformRoot = stateRoot.resolve(platform.name.lowercase())
     return if (threadId.isNullOrBlank()) {
-        stateRoot.resolve("slack/channels").resolve(conversationFolder).resolve("session")
+        platformRoot.resolve("channels").resolve(conversationFolder).resolve("session")
     } else {
-        stateRoot
-            .resolve("slack/channels")
+        platformRoot
+            .resolve("channels")
             .resolve(conversationFolder)
             .resolve("threads")
             .resolve(sanitizePathSegment(threadId))

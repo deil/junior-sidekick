@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.conversation
 
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
@@ -86,14 +87,14 @@ class ConversationManagerSkillInvocationTest {
 
         return ConversationManager(
             store,
-            VirtualPathsFactory(config),
+            VirtualPathsFactory(config, ChatPlatform.SLACK),
             SessionContextCompactor(
                 summarizer = { _, _, messages -> "summary for ${messages.size} messages" },
             ),
         )
     }
 
-    private fun store(): FilesystemConversationStateStore = FilesystemConversationStateStore(config())
+    private fun store(): FilesystemConversationStateStore = FilesystemConversationStateStore(config(), ChatPlatform.SLACK)
 
     private fun config(): AgentConfig = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
 

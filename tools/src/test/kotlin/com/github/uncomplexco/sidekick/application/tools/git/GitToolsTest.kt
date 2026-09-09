@@ -105,6 +105,37 @@ class GitToolsTest {
     }
 
     @Test
+    fun `clones gitlab nested namespace using fallback key`() {
+        // Arrange
+        val git = FakeGitRepository()
+        val tools = tools(git)
+
+        // Act
+        tools.clone("https://gitlab.com/acme/platform/repo.git", "/data/project/repo")
+
+        // Assert
+        assertEquals("git@gitlab.com:acme/platform/repo.git", git.clonedUrl)
+        assertEquals("/keys/other", git.clonedSshKeyFile)
+    }
+
+    @Test
+    fun `rejects existing fallback checkout from a different host`() {
+        // Arrange
+        val checkout = Files.createDirectories(dir.resolve("project/repo"))
+        val git =
+            FakeGitRepository(
+                gitRepositories = setOf(checkout),
+                origins = mapOf(checkout to "git@example.com:acme/repo.git"),
+            )
+        val tools = tools(git)
+
+        // Act / Assert
+        assertThrows<ToolException.ValidationFailure> {
+            tools.clone("git@gitlab.com:acme/repo.git", "/data/project/repo")
+        }
+    }
+
+    @Test
     fun `fails at call time when provider key is missing`() {
         // Arrange
         val config = GitToolConfig()
@@ -115,6 +146,24 @@ class GitToolsTest {
         assertThrows<ToolException.ValidationFailure> {
             tools.clone("git@github.com:acme/repo.git", "/data/project/repo")
         }
+    }
+
+    @Test
+    fun `fails at call time when fallback key is missing`() {
+        // Arrange
+        val tools = GitTools(GitToolConfig(), virtualPaths(), FakeGitRepository())
+
+        // Act
+        val error =
+            assertThrows<ToolException.ValidationFailure> {
+                tools.clone("git@gitlab.com:acme/repo.git", "/data/project/repo")
+            }
+
+        // Assert
+        assertEquals(
+            "Git provider SSH key is not configured: agent.tools.git.ssh-key-file",
+            error.message,
+        )
     }
 
     @Test
@@ -234,7 +283,7 @@ class GitToolsTest {
     }
 
     @Test
-    fun `push rejects unsupported upstream remote provider`() {
+    fun `pushes other upstream provider using fallback key`() {
         // Arrange
         val checkout = Files.createDirectories(dir.resolve("project/repo"))
         val git =
@@ -256,10 +305,11 @@ class GitToolsTest {
             )
         val tools = tools(git)
 
-        // Act / Assert
-        assertThrows<ToolException.ValidationFailure> {
-            tools.push("/data/project/repo")
-        }
+        // Act
+        tools.push("/data/project/repo")
+
+        // Assert
+        assertEquals("/keys/other", git.pushedSshKeyFile)
     }
 
     @Test
@@ -301,6 +351,7 @@ class GitToolsTest {
         val config = GitToolConfig()
         config.github.sshKeyFile = "/keys/github"
         config.bitbucket.sshKeyFile = "/keys/bitbucket"
+        config.sshKeyFile = "/keys/other"
         return GitTools(config, virtualPaths(), git)
     }
 
