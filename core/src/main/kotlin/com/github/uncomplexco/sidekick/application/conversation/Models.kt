@@ -8,15 +8,10 @@ data class ConversationId(
     val channelId: String,
     val threadId: String,
 ) {
-    fun lockKey(): String =
-        buildString {
-            append(channelId)
-            append(':')
-            append(threadId)
-        }
+    fun lockKey(): String = "$channelId:$threadId"
 
     companion object {
-        fun fromLockKey(key: String) = ConversationId(key.substringBefore(':'), key.substringAfter(':'))
+        fun fromLockKey(key: String): ConversationId = ConversationId(key.substringBefore(':'), key.substringAfter(':'))
     }
 }
 

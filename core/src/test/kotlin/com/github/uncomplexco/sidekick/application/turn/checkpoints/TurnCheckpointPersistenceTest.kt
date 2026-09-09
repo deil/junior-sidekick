@@ -6,6 +6,7 @@ import ai.koog.agents.snapshot.feature.tombstoneCheckpoint
 import ai.koog.serialization.JSONPrimitive
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationStats
 import kotlinx.coroutines.runBlocking
@@ -69,7 +70,7 @@ class TurnCheckpointPersistenceTest {
 
     private fun provider(turnId: String) = TurnCheckpointPersistence(stateStore()).forTurn(turnId)
 
-    private fun stateStore() = FilesystemConversationStateStore(config())
+    private fun stateStore() = FilesystemConversationStateStore(config(), ChatPlatform.SLACK)
 
     private fun config() = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
 

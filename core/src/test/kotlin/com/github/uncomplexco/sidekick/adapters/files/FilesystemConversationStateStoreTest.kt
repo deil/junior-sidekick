@@ -5,6 +5,7 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationStats
@@ -172,5 +173,6 @@ class FilesystemConversationStateStoreTest {
     private fun store(): FilesystemConversationStateStore =
         FilesystemConversationStateStore(
             AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString()),
+            ChatPlatform.SLACK,
         )
 }

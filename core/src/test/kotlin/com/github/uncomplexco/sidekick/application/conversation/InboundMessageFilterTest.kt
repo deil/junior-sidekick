@@ -5,6 +5,8 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
+import com.github.uncomplexco.sidekick.application.chat.ChatConversationKind
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
@@ -213,6 +215,38 @@ class InboundMessageFilterTest {
     }
 
     @Test
+    fun `unthreaded slack assistant message keeps history seeding semantics`() {
+        val policy = policy()
+        val message = message(ChatMessageType.ASSISTANT_MESSAGE)
+        val conversationId = ChatConversationId(channelId = "D123")
+
+        val decision = trigger(policy, conversationId, message)
+
+        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+        assertEquals(ConversationId("D123", ""), handle.conversationId)
+        assertEquals(true, handle.seedHistory)
+    }
+
+    @Test
+    fun `discord direct message uses real channel as session and requests history seeding`() {
+        val policy = policy()
+        val message = message(ChatMessageType.ASSISTANT_MESSAGE)
+        val conversationId =
+            ChatConversationId(
+                channelId = "123456789012345678",
+                platform = ChatPlatform.DISCORD,
+                kind = ChatConversationKind.DIRECT_MESSAGE,
+            )
+
+        val decision = trigger(policy, conversationId, message)
+
+        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+        assertEquals(ConversationId("123456789012345678", ""), handle.conversationId)
+        assertEquals(true, handle.seedHistory)
+        assertEquals(false, handle.explicitMention)
+    }
+
+    @Test
     fun `empty batch is ignored`() {
         // Arrange
         val policy = policy()
@@ -365,8 +399,8 @@ class InboundMessageFilterTest {
     private fun agentSessions(): ConversationManager {
         val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
         return ConversationManager(
-            FilesystemConversationStateStore(config),
-            VirtualPathsFactory(config),
+            FilesystemConversationStateStore(config, ChatPlatform.SLACK),
+            VirtualPathsFactory(config, ChatPlatform.SLACK),
             SessionContextCompactor(
                 summarizer = { _, _, messages -> "summary for ${messages.size} messages" },
             ),

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import java.nio.file.Files
 import java.nio.file.Path
@@ -21,7 +22,9 @@ class VirtualPathTest {
         val workingRoot = dir.resolve("workspace")
         val conversationId = ConversationId("C123", "1700000000.000")
 
-        val virtualPaths = VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString())).forConversation(conversationId)
+        val virtualPaths =
+            VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()), ChatPlatform.SLACK)
+                .forConversation(conversationId)
 
         assertEquals(workingRoot.resolve("data/workspaces/threads/C123_1700000000.000"), virtualPaths.workRoot)
         assertEquals(stateRoot.resolve("slack/channels/C123/threads/1700000000.000/attachments"), virtualPaths.sessionRoot)
@@ -39,10 +42,27 @@ class VirtualPathTest {
         Files.writeString(workingRoot.resolve("templates/project/docs/readme.md"), "project\n")
         val conversationId = ConversationId("C123", "1700000000.000")
 
-        val virtualPaths = VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString())).forConversation(conversationId)
+        val virtualPaths =
+            VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()), ChatPlatform.SLACK)
+                .forConversation(conversationId)
 
         assertEquals("work\n", Files.readString(virtualPaths.workRoot.resolve("bin/tool.sh")))
         assertEquals("project\n", Files.readString(virtualPaths.projectRoot.resolve("docs/readme.md")))
+    }
+
+    @Test
+    fun `factory uses discord state folder without workspace namespaces`() {
+        val stateRoot = dir.resolve("state")
+        val workingRoot = dir.resolve("workspace")
+        val conversationId = ConversationId("123456789012345678", "")
+
+        val virtualPaths =
+            VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()), ChatPlatform.DISCORD)
+                .forConversation(conversationId)
+
+        assertEquals(workingRoot.resolve("data/workspaces/threads/123456789012345678_"), virtualPaths.workRoot)
+        assertEquals(stateRoot.resolve("discord/channels/123456789012345678/session/attachments"), virtualPaths.sessionRoot)
+        assertEquals(workingRoot.resolve("data/workspaces/projects/123456789012345678"), virtualPaths.projectRoot)
     }
 
     @Test
@@ -55,7 +75,9 @@ class VirtualPathTest {
         Files.writeString(workingRoot.resolve("data/workspaces/projects/C123/config.txt"), "existing\n")
         val conversationId = ConversationId("C123", "1700000000.000")
 
-        val virtualPaths = VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString())).forConversation(conversationId)
+        val virtualPaths =
+            VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()), ChatPlatform.SLACK)
+                .forConversation(conversationId)
 
         assertEquals("existing\n", Files.readString(virtualPaths.projectRoot.resolve("config.txt")))
     }

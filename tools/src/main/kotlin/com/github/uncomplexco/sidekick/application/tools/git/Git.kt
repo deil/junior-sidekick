@@ -18,11 +18,12 @@ import java.nio.file.Path
 import kotlin.io.path.pathString
 
 private val PREFERRED_BRANCHES = listOf("develop", "master", "main")
-private val SCP_LIKE_URL_RE = Regex("^git@(github\\.com|bitbucket\\.org):([^/]+)/(.+)$")
+private val SCP_LIKE_URL_RE = Regex("^git@([^/:\\s]+):(.+)$")
 
 @Component
 @ConfigurationProperties(prefix = "agent.tools.git")
 class GitToolConfig {
+    var sshKeyFile: String? = null
     var github: GitProviderConfig = GitProviderConfig()
     var bitbucket: GitProviderConfig = GitProviderConfig()
 }
@@ -37,9 +38,9 @@ class GitTools(
     private val git: GitRepository = JGitRepository(),
 ) : ToolSet {
     @Tool("git__clone")
-    @LLMDescription("Clone or fetch and fast-forward a private GitHub or Bitbucket repository into the project workspace")
+    @LLMDescription("Clone or fetch and fast-forward a private Git repository into the project workspace")
     fun clone(
-        @LLMDescription("GitHub or Bitbucket repository URL. Both SSH and HTTPS clone URLs are supported")
+        @LLMDescription("Git repository URL. Both SSH and HTTPS clone URLs are supported")
         url: String,
         @LLMDescription("Destination folder path. Must be under /data/project")
         path: String,
@@ -262,14 +263,15 @@ class GitTools(
     }
 
     private fun sshKeyFile(provider: GitProvider): String {
-        val value =
+        val (value, property) =
             when (provider) {
-                GitProvider.GITHUB -> config.github.sshKeyFile
-                GitProvider.BITBUCKET -> config.bitbucket.sshKeyFile
+                GitProvider.GITHUB -> config.github.sshKeyFile to "agent.tools.git.github.ssh-key-file"
+                GitProvider.BITBUCKET -> config.bitbucket.sshKeyFile to "agent.tools.git.bitbucket.ssh-key-file"
+                GitProvider.OTHER -> config.sshKeyFile to "agent.tools.git.ssh-key-file"
             }
         return value?.takeIf { it.isNotBlank() }
             ?: throw ToolException.ValidationFailure(
-                "${provider.displayName} SSH key is not configured: agent.tools.git.${provider.configKey}.ssh-key-file",
+                "${provider.displayName} SSH key is not configured: $property",
             )
     }
 }
@@ -474,9 +476,8 @@ private fun isEmptyDirectory(path: Path): Boolean = Files.list(path).use { entri
 private fun parseRepositoryUrl(url: String): GitRepositoryUrl {
     SCP_LIKE_URL_RE.matchEntire(url)?.let { match ->
         val host = match.groupValues[1]
-        val owner = match.groupValues[2]
-        val repository = match.groupValues[3].removeSuffix(".git")
-        return repositoryUrl(host, owner, repository)
+        val repositoryPath = match.groupValues[2]
+        return repositoryUrl(host, repositoryPath)
     }
 
     val uri =
@@ -490,53 +491,56 @@ private fun parseRepositoryUrl(url: String): GitRepositoryUrl {
         throw ToolException.ValidationFailure("Git repository URL must use SSH or HTTPS")
     }
 
-    val parts =
-        uri.path
-            .trim('/')
-            .split('/')
-            .filter { it.isNotBlank() }
-    if (parts.size != 2) {
-        throw ToolException.ValidationFailure("Git repository URL must identify owner and repository")
-    }
-    return repositoryUrl(host, parts[0], parts[1].removeSuffix(".git"))
+    return repositoryUrl(host, uri.path)
 }
 
 private fun repositoryUrl(
     host: String,
-    owner: String,
-    repository: String,
+    path: String,
 ): GitRepositoryUrl {
-    val provider =
-        when (host.lowercase()) {
-            "github.com" -> GitProvider.GITHUB
-            "bitbucket.org" -> GitProvider.BITBUCKET
-            else -> throw ToolException.ValidationFailure("Only github.com and bitbucket.org repositories are supported")
-        }
-    if (owner.isBlank() || repository.isBlank()) {
+    val normalizedHost = host.lowercase()
+    val parts =
+        path
+            .trim('/')
+            .split('/')
+            .filter { it.isNotBlank() }
+    if (parts.size < 2) {
         throw ToolException.ValidationFailure("Git repository URL must identify owner and repository")
     }
+    val repository = parts.last().removeSuffix(".git")
+    if (repository.isBlank()) {
+        throw ToolException.ValidationFailure("Git repository URL must identify owner and repository")
+    }
+    val repositoryPath = (parts.dropLast(1) + repository).joinToString("/")
+
+    val provider =
+        when (normalizedHost) {
+            "github.com" -> GitProvider.GITHUB
+            "bitbucket.org" -> GitProvider.BITBUCKET
+            else -> GitProvider.OTHER
+        }
 
     return GitRepositoryUrl(
         provider = provider,
-        owner = owner,
-        repository = repository,
-        sshUrl = "git@$host:$owner/$repository.git",
+        host = normalizedHost,
+        repositoryPath = repositoryPath,
+        sshUrl = "git@$normalizedHost:$repositoryPath.git",
     )
 }
 
 private data class GitRepositoryUrl(
     val provider: GitProvider,
-    val owner: String,
-    val repository: String,
+    val host: String,
+    val repositoryPath: String,
     val sshUrl: String,
 ) {
-    val canonical = "${provider.configKey}/${owner.lowercase()}/${repository.lowercase()}"
+    val canonical = "$host/${repositoryPath.lowercase()}"
 }
 
 private enum class GitProvider(
-    val configKey: String,
     val displayName: String,
 ) {
-    GITHUB("github", "GitHub"),
-    BITBUCKET("bitbucket", "Bitbucket"),
+    GITHUB("GitHub"),
+    BITBUCKET("Bitbucket"),
+    OTHER("Git provider"),
 }

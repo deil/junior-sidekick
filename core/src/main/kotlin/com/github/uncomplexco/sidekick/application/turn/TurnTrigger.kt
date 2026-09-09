@@ -91,7 +91,11 @@ class InboundMessageFilter(
             }
         }
 
-    private fun convert(id: ChatConversationId) = ConversationId(id.channelId, id.threadId!!)
+    private fun convert(id: ChatConversationId): ConversationId =
+        ConversationId(
+            channelId = id.channelId,
+            threadId = id.threadId ?: if (id.isDM) "" else error("A channel continuation requires a thread id"),
+        )
 
     private fun threadOrParent(
         id: ChatConversationId,

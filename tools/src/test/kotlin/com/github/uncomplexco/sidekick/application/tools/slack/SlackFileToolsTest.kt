@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools.slack
 
 import com.github.uncomplexco.sidekick.adapters.files.folder
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
@@ -33,7 +34,7 @@ class SlackFileToolsTest {
     fun `read returns virtual session path for attached file`() {
         val conversationId = ConversationId("C123", "1700000000.000")
         val file = file(id = "F123", name = "note.md", mimetype = "text/markdown", localPath = "/data/session/F123-note.md")
-        val sessionRoot = conversationId.folder(dir)
+        val sessionRoot = conversationId.folder(dir, ChatPlatform.SLACK)
         val virtualPaths =
             VirtualPaths(
                 sessionRoot = sessionRoot.resolve("attachments"),

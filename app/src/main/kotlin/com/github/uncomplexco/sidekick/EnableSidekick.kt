@@ -19,6 +19,8 @@ annotation class EnableSidekick
         "com.github.uncomplexco.sidekick.application",
         "com.github.uncomplexco.sidekick.usecases",
         "com.github.uncomplexco.sidekick.adapters.files",
+        "com.github.uncomplexco.sidekick.adapters.chat",
+        "com.github.uncomplexco.sidekick.adapters.discord",
         "com.github.uncomplexco.sidekick.adapters.git",
         "com.github.uncomplexco.sidekick.adapters.http",
         "com.github.uncomplexco.sidekick.adapters.jgit",

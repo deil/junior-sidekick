@@ -66,6 +66,22 @@ class InboundQueueTest {
     }
 
     @Test
+    fun `discord direct messages use one session batch key`() {
+        val conversationId =
+            ChatConversationId(
+                channelId = "123456789012345678",
+                platform = ChatPlatform.DISCORD,
+                kind = ChatConversationKind.DIRECT_MESSAGE,
+            )
+
+        val first = batchKeyFor(conversationId, message(id = "1"))
+        val second = batchKeyFor(conversationId, message(id = "2"))
+
+        assertEquals(first, second)
+        assertEquals("", first.threadId)
+    }
+
+    @Test
     fun `batch keys can be used as map keys`() {
         // Arrange
         val threadConversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")

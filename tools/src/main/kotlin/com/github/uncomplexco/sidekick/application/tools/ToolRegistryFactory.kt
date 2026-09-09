@@ -6,12 +6,14 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.DiscordBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
 import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
-import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
+import com.github.uncomplexco.sidekick.application.tools.discord.discordTools
 import com.github.uncomplexco.sidekick.application.tools.files.ReplyAttachmentTools
+import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
 import com.github.uncomplexco.sidekick.application.tools.git.GitToolConfig
 import com.github.uncomplexco.sidekick.application.tools.git.GitTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpAuthTools
@@ -88,6 +90,9 @@ class DefaultToolRegistryFactory(
         tool(TaskTool(subagentRunner, ctx, chat, subagents.catalog().subagents, onSubagentCompleted))
 
         tools(GitTools(gitToolConfig, ctx.conversation.virtualPaths))
+        if (chat is DiscordBackedChatPlatformAdapter) {
+            tools(discordTools(chat))
+        }
         if (chat is SlackBackedChatPlatformAdapter) {
             tools(ReplyAttachmentTools(replyAttachments))
             tools(slackTools(sharedContext.slackClient, ctx))

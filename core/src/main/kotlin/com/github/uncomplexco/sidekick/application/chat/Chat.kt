@@ -20,6 +20,42 @@ interface ChatPlatformAdapter {
 
 interface SlackBackedChatPlatformAdapter : ChatPlatformAdapter
 
+interface DiscordBackedChatPlatformAdapter : ChatPlatformAdapter {
+    suspend fun loadChannelHistory(
+        limit: Int,
+        cursor: String?,
+    ): DiscordChannelHistoryPage
+
+    suspend fun loadThreadHistory(
+        threadId: String,
+        limit: Int,
+        cursor: String?,
+    ): DiscordThreadHistoryPage
+}
+
+data class DiscordChannelHistoryPage(
+    val channelId: String,
+    val messages: List<DiscordChannelHistoryMessage>,
+    val nextCursor: String?,
+)
+
+data class DiscordThreadHistoryPage(
+    val channelId: String,
+    val threadId: String,
+    val messages: List<DiscordChannelHistoryMessage>,
+    val nextCursor: String?,
+)
+
+data class DiscordChannelHistoryMessage(
+    val id: String,
+    val sentAt: String,
+    val userId: String,
+    val username: String,
+    val isBot: Boolean,
+    val text: String,
+    val threadId: String?,
+)
+
 interface TurnResultHandler {
     fun start()
 
@@ -66,8 +102,11 @@ data class ChatThreadId(
 data class ChatConversationId(
     val channelId: String,
     val threadId: String? = null,
+    val platform: ChatPlatform = ChatPlatform.SLACK,
+    val kind: ChatConversationKind =
+        if (channelId.startsWith("D")) ChatConversationKind.DIRECT_MESSAGE else ChatConversationKind.CHANNEL,
 ) {
-    val isDM: Boolean = channelId.startsWith("D")
+    val isDM: Boolean = kind == ChatConversationKind.DIRECT_MESSAGE
     val isThread: Boolean = threadId != null
 
     fun logLabel(): String =
@@ -77,6 +116,16 @@ data class ChatConversationId(
             isThread -> "[#$channelId/$threadId]"
             else -> "[#$channelId]"
         }
+}
+
+enum class ChatPlatform {
+    SLACK,
+    DISCORD,
+}
+
+enum class ChatConversationKind {
+    CHANNEL,
+    DIRECT_MESSAGE,
 }
 
 data class ChatMessage(

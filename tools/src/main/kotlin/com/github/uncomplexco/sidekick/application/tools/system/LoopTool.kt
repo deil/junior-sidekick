@@ -235,7 +235,12 @@ class Loop(
                             ctx.conversation.conversationId,
                         ),
                 ) {
-                    system(systemPromptBuilder.buildSystemPrompt(chat.botUsername, ctx.conversation.conversationId))
+                    system(
+                        systemPromptBuilder.buildSystemPrompt(
+                            chat.botUsername,
+                            ctx.conversation.virtualPaths.projectRoot,
+                        ),
+                    )
                 },
             model = model,
             maxAgentIterations = koogConfig.maxAgentIterations,

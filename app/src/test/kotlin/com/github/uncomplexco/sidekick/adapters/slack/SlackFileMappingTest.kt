@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.adapters.files.folder
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
@@ -71,7 +72,10 @@ class SlackFileMappingTest {
                     SlackFileIngestor(
                         slackBotToken = "token",
                         virtualPathsFactory =
-                            VirtualPathsFactory(AgentConfig("Sidekick", dir.toString(), dir.resolve("workspace").toString())),
+                            VirtualPathsFactory(
+                                AgentConfig("Sidekick", dir.toString(), dir.resolve("workspace").toString()),
+                                ChatPlatform.SLACK,
+                            ),
                         imageSummarizer = FailingImageSummarizer,
                     )
                 val file =
@@ -83,7 +87,7 @@ class SlackFileMappingTest {
                 val ingested = ingestor.ingest(conversationId, listOf(file)).single()
 
                 assertEquals("/data/session/F1-F1.md", ingested.localPath)
-                assertTrue(Files.exists(conversationId.folder(dir).resolve("attachments/F1-F1.md")))
+                assertTrue(Files.exists(conversationId.folder(dir, ChatPlatform.SLACK).resolve("attachments/F1-F1.md")))
             } finally {
                 server.stop(0)
             }
@@ -107,7 +111,10 @@ class SlackFileMappingTest {
                     SlackFileIngestor(
                         slackBotToken = "token",
                         virtualPathsFactory =
-                            VirtualPathsFactory(AgentConfig("Sidekick", dir.toString(), dir.resolve("workspace").toString())),
+                            VirtualPathsFactory(
+                                AgentConfig("Sidekick", dir.toString(), dir.resolve("workspace").toString()),
+                                ChatPlatform.SLACK,
+                            ),
                         imageSummarizer =
                             object : ImageSummarizer {
                                 override suspend fun summarize(imagePath: Path): ImageSummarizer.Result {
@@ -129,7 +136,7 @@ class SlackFileMappingTest {
                 val ingested = ingestor.ingest(conversationId, listOf(incoming)).single()
 
                 assertEquals("Visible title: Dashboard", ingested.summary)
-                assertEquals(conversationId.folder(dir).resolve("attachments/F1-screen.png"), summarizedPath)
+                assertEquals(conversationId.folder(dir, ChatPlatform.SLACK).resolve("attachments/F1-screen.png"), summarizedPath)
             } finally {
                 server.stop(0)
             }
