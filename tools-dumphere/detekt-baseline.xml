@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MaxLineLength:InternalFileExchangeTools.kt:InternalFileExchangeTools$"Publish a file to the internal file exchange and returns a secure share URL. Use this for files that exist in the workspace, or attached files that are already downloaded"</ID>
+    <ID>MaxLineLength:InternalFileExchangeTools.kt:InternalFileExchangeTools$"Publish new inline Markdown/HTML/text content to the internal file exchange and return a secure share URL. Do not use this for files that exist in the workspace unless you intentionally transformed or extracted content"</ID>
+    <ID>ReturnCount:DumpHereFilePublisher.kt:DumpHereFilePublisher$override fun publishContent: FilePublisher.Result</ID>
+    <ID>TooGenericExceptionCaught:InternalFileExchangeTools.kt:InternalFileExchangeTools$ex: Throwable</ID>
+  </CurrentIssues>
+</SmellBaseline>

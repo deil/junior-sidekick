@@ -1,0 +1,164 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ConstructorParameterNaming:BashTools.kt:BashResult$val exit_code: Int?</ID>
+    <ID>ConstructorParameterNaming:BashTools.kt:BashResult$val output_truncated: Boolean</ID>
+    <ID>ConstructorParameterNaming:BashTools.kt:BashResult$val timed_out: Boolean</ID>
+    <ID>ConstructorParameterNaming:DiscordHistoryTools.kt:DiscordChannelHistoryResult$val channel_id: String</ID>
+    <ID>ConstructorParameterNaming:DiscordHistoryTools.kt:DiscordChannelHistoryResult$val next_cursor: String?</ID>
+    <ID>ConstructorParameterNaming:DiscordHistoryTools.kt:DiscordHistoryMessage$@LLMDescription("Discord message sent time in ISO UTC") val sent_at: String</ID>
+    <ID>ConstructorParameterNaming:DiscordHistoryTools.kt:DiscordHistoryMessage$val is_bot: Boolean</ID>
+    <ID>ConstructorParameterNaming:DiscordHistoryTools.kt:DiscordHistoryMessage$val thread_id: String?</ID>
+    <ID>ConstructorParameterNaming:DiscordHistoryTools.kt:DiscordHistoryMessage$val user_id: String</ID>
+    <ID>ConstructorParameterNaming:DiscordHistoryTools.kt:DiscordThreadHistoryResult$val channel_id: String</ID>
+    <ID>ConstructorParameterNaming:DiscordHistoryTools.kt:DiscordThreadHistoryResult$val next_cursor: String?</ID>
+    <ID>ConstructorParameterNaming:DiscordHistoryTools.kt:DiscordThreadHistoryResult$val thread_id: String</ID>
+    <ID>ConstructorParameterNaming:Git.kt:GitCloneResult$val commit_hash: String</ID>
+    <ID>ConstructorParameterNaming:Git.kt:GitPullResult$val commit_hash: String</ID>
+    <ID>ConstructorParameterNaming:Git.kt:GitPushResult$val commit_hash: String</ID>
+    <ID>ConstructorParameterNaming:ReplyAttachmentTools.kt:AttachFileResult$val mime_type: String</ID>
+    <ID>ConstructorParameterNaming:ScheduledJobTools.kt:ScheduledJobListResult$val active_count: Int</ID>
+    <ID>ConstructorParameterNaming:ScheduledJobTools.kt:ScheduledJobListResult$val active_limit: Int</ID>
+    <ID>ConstructorParameterNaming:ScheduledJobTools.kt:ScheduledJobView$val last_run_at: Long?</ID>
+    <ID>ConstructorParameterNaming:SkillTools.kt:ReloadSkillsResult$val model_invocable_skills: Int</ID>
+    <ID>ConstructorParameterNaming:SkillTools.kt:ReloadSkillsResult$val skill_names: List&lt;String&gt;</ID>
+    <ID>ConstructorParameterNaming:SkillTools.kt:ReloadSkillsResult$val total_skills: Int</ID>
+    <ID>ConstructorParameterNaming:SkillTools.kt:ReloadSkillsResult$val user_invocable_skills: Int</ID>
+    <ID>ConstructorParameterNaming:SlackHistoryTools.kt:SlackChannelHistoryResult$val channel_id: String</ID>
+    <ID>ConstructorParameterNaming:SlackHistoryTools.kt:SlackChannelHistoryResult$val next_cursor: String?</ID>
+    <ID>ConstructorParameterNaming:SlackHistoryTools.kt:SlackMessage$@LLMDescription("Slack message sent time in ISO UTC") val sent_at: String</ID>
+    <ID>ConstructorParameterNaming:SlackHistoryTools.kt:SlackMessage$val bot_id: String?</ID>
+    <ID>ConstructorParameterNaming:SlackHistoryTools.kt:SlackMessage$val is_thread: Boolean</ID>
+    <ID>ConstructorParameterNaming:SlackHistoryTools.kt:SlackMessage$val parent_user_id: String?</ID>
+    <ID>ConstructorParameterNaming:SlackHistoryTools.kt:SlackMessage$val reply_count: Int</ID>
+    <ID>ConstructorParameterNaming:SlackHistoryTools.kt:SlackMessage$val thread_ts: String?</ID>
+    <ID>ConstructorParameterNaming:SlackHistoryTools.kt:SlackThreadHistoryResult$val channel_id: String</ID>
+    <ID>ConstructorParameterNaming:SlackHistoryTools.kt:SlackThreadHistoryResult$val next_cursor: String?</ID>
+    <ID>ConstructorParameterNaming:SlackHistoryTools.kt:SlackThreadHistoryResult$val thread_ts: String</ID>
+    <ID>ConstructorParameterNaming:StatsTools.kt:WeeklyStatsResult$val tokens_consumed: Long</ID>
+    <ID>ConstructorParameterNaming:SystemTools.kt:SystemTimeResult$val iso_utc: String</ID>
+    <ID>ConstructorParameterNaming:SystemTools.kt:SystemTimeResult$val unix_ms: Long</ID>
+    <ID>ConstructorParameterNaming:SystemTools.kt:TimestampToIsoUtcResult$val interpreted_as: String</ID>
+    <ID>ConstructorParameterNaming:SystemTools.kt:TimestampToIsoUtcResult$val iso_utc: String</ID>
+    <ID>ConstructorParameterNaming:TaskTool.kt:TaskTool.Args$@property:LLMDescription( "The type of specialized agent to use for this task. Defaults to 'general'" ) val subagent_type: String = "general"</ID>
+    <ID>CyclomaticComplexMethod:Read.kt:WorkspaceRead$fun readFile: String</ID>
+    <ID>CyclomaticComplexMethod:WorkspaceFiles.kt:private fun parseApplyPatch: List&lt;PatchOperation&gt;</ID>
+    <ID>FunctionParameterNaming:DiscordHistoryTools.kt:DiscordHistoryTools$@LLMDescription("Discord thread ID") thread_id: String</ID>
+    <ID>FunctionParameterNaming:ScheduledJobTools.kt:ScheduledJobTools$@LLMDescription("ID of the job to delete") job_id: Int</ID>
+    <ID>FunctionParameterNaming:ScheduledJobTools.kt:ScheduledJobTools$@LLMDescription("ID of the job to update") job_id: Int</ID>
+    <ID>FunctionParameterNaming:SlackHistoryTools.kt:SlackHistoryTools$@LLMDescription( "Maximum Slack API pages to scan. Defaults to $DEFAULT_SLACK_HISTORY_SCAN_DEPTH and is capped at $MAX_SLACK_HISTORY_SCAN_DEPTH" ) scan_depth: Int?</ID>
+    <ID>FunctionParameterNaming:SlackHistoryTools.kt:SlackHistoryTools$@LLMDescription( "Maximum Slack API pages to scan. Defaults to $DEFAULT_SLACK_HISTORY_SCAN_DEPTH and is capped at $MAX_SLACK_HISTORY_SCAN_DEPTH" ) scan_depth: Int? = null</ID>
+    <ID>FunctionParameterNaming:SlackHistoryTools.kt:SlackHistoryTools$@LLMDescription("Should oldest/latest range bounds be inclusive") bounds_inclusive: Boolean?</ID>
+    <ID>FunctionParameterNaming:SlackHistoryTools.kt:SlackHistoryTools$@LLMDescription("Should oldest/latest range bounds be inclusive") bounds_inclusive: Boolean? = null</ID>
+    <ID>FunctionParameterNaming:SlackHistoryTools.kt:SlackHistoryTools$@LLMDescription("Slack thread_ts (timestamp of the thread parent message)") thread_ts: String</ID>
+    <ID>FunctionParameterNaming:SlackUserTools.kt:SlackUserTools$@LLMDescription( "Maximum Slack API pages to scan when searching by name. Defaults to 2 and is capped at 5." ) scan_depth: Int? = null</ID>
+    <ID>LongMethod:BashToolsTest.kt:BashToolsTest$@Test fun `bash delegates command to sandbox executor with conversation work mount`</ID>
+    <ID>LongMethod:Read.kt:WorkspaceRead$fun read: String</ID>
+    <ID>LongMethod:Read.kt:WorkspaceRead$fun readFile: String</ID>
+    <ID>LongMethod:Utils.kt:internal fun Git.pushPlan: GitPushPlan</ID>
+    <ID>LongMethod:WorkspaceFileTools.kt:WorkspaceFileTools$@Tool(TOOL_GREP) @LLMDescription("Search text files by regex") fun workspaceFileGrep: String</ID>
+    <ID>LongMethod:WorkspaceFiles.kt:private fun parseApplyPatch: List&lt;PatchOperation&gt;</ID>
+    <ID>LoopWithTooManyJumpStatements:Read.kt:WorkspaceRead$for</ID>
+    <ID>MagicNumber:HttpSandboxExecutor.kt:8</ID>
+    <ID>MagicNumber:HttpSandboxExecutor.kt:HttpSandboxExecutor$200</ID>
+    <ID>MagicNumber:HttpSandboxExecutor.kt:HttpSandboxExecutor$299</ID>
+    <ID>MagicNumber:HttpSandboxExecutor.kt:HttpSandboxExecutor$5</ID>
+    <ID>MagicNumber:Mcp.kt:DefaultMcpServersRegistry$200</ID>
+    <ID>MagicNumber:Mcp.kt:DefaultMcpServersRegistry$299</ID>
+    <ID>MagicNumber:McpOAuth.kt:McpOAuthService$200</ID>
+    <ID>MagicNumber:McpOAuth.kt:McpOAuthService$299</ID>
+    <ID>MagicNumber:Read.kt:WorkspaceRead$0.3</ID>
+    <ID>MagicNumber:Read.kt:WorkspaceRead$13</ID>
+    <ID>MagicNumber:Read.kt:WorkspaceRead$32</ID>
+    <ID>MagicNumber:Read.kt:WorkspaceRead$9</ID>
+    <ID>MagicNumber:SlackChannelTools.kt:429</ID>
+    <ID>MagicNumber:Utils.kt:1000</ID>
+    <ID>MagicNumber:WebFetchTools.kt:WebFetchTools$200</ID>
+    <ID>MagicNumber:WebFetchTools.kt:WebFetchTools$299</ID>
+    <ID>MagicNumber:WorkspaceFiles.kt:WorkspaceFiles$0.3</ID>
+    <ID>MagicNumber:WorkspaceFiles.kt:WorkspaceFiles$13</ID>
+    <ID>MagicNumber:WorkspaceFiles.kt:WorkspaceFiles$32</ID>
+    <ID>MagicNumber:WorkspaceFiles.kt:WorkspaceFiles$9</ID>
+    <ID>MatchingDeclarationName:Read.kt:WorkspaceRead</ID>
+    <ID>MatchingDeclarationName:ToolRegistryFactory.kt:DefaultToolRegistryFactory : ToolRegistryFactory</ID>
+    <ID>MaxLineLength:BashTools.kt:BashTools$"Run a shell command. Only home directory /work is writable. Do not use to read or search for files, use ${WorkspaceFileTools.TOOL_GLOB}, ${WorkspaceFileTools.TOOL_GREP} or ${WorkspaceFileTools.TOOL_READ} instead. Before proceeding, always notify the user via `$TOOL_REPORT_ASSISTANT_ACTIVITY` tool"</ID>
+    <ID>MaxLineLength:ConversationIntelligenceLevelTools.kt:ConversationIntelligenceLevelTools$"Controls assistant's intelligence level for current conversation. Persists across turns. Use only the the user explicitly requests to enable 'ultrathink' mode. Disable immediately when user requests so."</ID>
+    <ID>MaxLineLength:DiscordHistoryTools.kt:DiscordHistoryTools$"Maximum number of messages to return. Defaults to $DEFAULT_DISCORD_HISTORY_LIMIT and is capped at $MAX_DISCORD_HISTORY_LIMIT"</ID>
+    <ID>MaxLineLength:Git.kt:GitTools$"All refs under refs/tags are pushed, in addition to refspecs explicitly listed in &lt;refspec&gt;. Equivalent to 'git push --tags'"</ID>
+    <ID>MaxLineLength:Git.kt:GitTools$"Fetch from and integrate with another repository or a local branch. Use instead of direct 'git pull' invocation for private repositories"</ID>
+    <ID>MaxLineLength:Git.kt:GitTools$"Path exists but is not an empty directory or Git repository: ${virtualPaths.virtualPath(checkout.pathString)}"</ID>
+    <ID>MaxLineLength:Git.kt:GitTools$"Push all branches (i.e. refs under refs/heads/); cannot be used with other &lt;refspec&gt;. Equivalent to 'git push --all"</ID>
+    <ID>MaxLineLength:Git.kt:GitTools$"Update remote refs along with associated objects. Use instead of direct 'git push' invocation for private repositories"</ID>
+    <ID>MaxLineLength:Git.kt:GitTools$"What destination ref to update with what source object. Equivalent to 'git push origin &lt;branch&gt;'. Defaults to the current branch upstream"</ID>
+    <ID>MaxLineLength:HttpSandboxExecutor.kt:HttpSandboxExecutor$"${it.mode.name.lowercase()}:${it.source.toAbsolutePath().normalize()}-&gt;${it.target} ${fileAttributes(it.source)}"</ID>
+    <ID>MaxLineLength:Read.kt:WorkspaceRead$"(Output capped at $MAX_BYTES_LABEL. Showing lines ${file.offset}-$last. Use offset=$next to continue.)"</ID>
+    <ID>MaxLineLength:ReplyAttachmentTools.kt:ReplyAttachmentTools$"Attach a file to the Slack reply. Use this for files that exist in the workspace. Logs, screenshots, or other files, including created during the session."</ID>
+    <ID>MaxLineLength:ScheduledJobTools.kt:ScheduledJobTools$"Create a recurring scheduled job. Convert the user's requested schedule to five-field cron. Jobs run at minute precision and no more than hourly."</ID>
+    <ID>MaxLineLength:ScheduledJobTools.kt:ScheduledJobTools$"Update a given scheduled job. Supply only changed fields. Set enabled=false to pause or enabled=true to resume. Use an empty description to clear it."</ID>
+    <ID>MaxLineLength:SkillTools.kt:SkillTools$"Reload skills by re-reading extensions.json, refreshing configured extension repositories, and rebuilding the available skills catalog."</ID>
+    <ID>MaxLineLength:SlackCanvasTools.kt:SlackCanvasTools$"Create a standalone Slack canvas for long-form output and grant the active conversation access to it. Use when the answer is better as a reusable document than a thread reply: long-form research, timelines, bios/profiles, structured notes, plans, comparisons, or anything likely to exceed one compact Slack reply. After creating it, reply with one or two short sentences plus the canvas link; do not recap the canvas contents. Do not use for short answers that fit cleanly in one normal thread reply."</ID>
+    <ID>MaxLineLength:SlackChannelTools.kt:SlackChannelTools$"List or search visible Slack channels. Scans Slack pages internally until enough matching channels are found or Slack has no more pages."</ID>
+    <ID>MaxLineLength:SlackChannelTools.kt:SlackChannelTools$"Maximum matching channels to return. Defaults to $DEFAULT_SLACK_CHANNEL_LIMIT and is capped at $MAX_SLACK_CHANNEL_LIMIT."</ID>
+    <ID>MaxLineLength:SlackChannelToolsTest.kt:SlackChannelToolsTest$"Search is page-based and may be incomplete. Call slackChannelsList with query=platform and cursor=abc to continue searching."</ID>
+    <ID>MaxLineLength:SlackHistoryTools.kt:SlackHistoryTools$"List messages (Slack history) from current conversation's parent Slack channel. Use when the user asks for recent or historical channel context outside of this thread. Do not use when current context already answers the question"</ID>
+    <ID>MaxLineLength:SlackHistoryTools.kt:SlackHistoryTools$"List messages (Slack thread history) from a given thread in current conversation's parent Slack channel. Use when the user explicitly asks for thread context outside of this thread. Do not use to monitor or read history of this thread"</ID>
+    <ID>MaxLineLength:SlackHistoryTools.kt:SlackHistoryTools$"Maximum Slack API pages to scan. Defaults to $DEFAULT_SLACK_HISTORY_SCAN_DEPTH and is capped at $MAX_SLACK_HISTORY_SCAN_DEPTH"</ID>
+    <ID>MaxLineLength:SlackHistoryTools.kt:SlackHistoryTools$"Maximum total number of messages to return. Defaults to $DEFAULT_SLACK_HISTORY_LIMIT and is capped at $MAX_SLACK_HISTORY_LIMIT"</ID>
+    <ID>MaxLineLength:SlackReactionTools.kt:SlackReactionTools$"Add an emoji reaction to the current inbound Slack message. Use sparingly for lightweight acknowledgements. Provide a Slack emoji alias name (for example `thumbsup`, `white_check_mark`, or `thumbsup::skin-tone-6`), not a unicode emoji glyph. The target message is injected by runtime context; do not use this for arbitrary historical messages."</ID>
+    <ID>MaxLineLength:SlackUserTools.kt:SlackUserTools$"Search Slack users. Supply exactly one of userId, email, or name. userId and email are direct lookups. name searches username, display name, and real name by scanning Slack user-list pages."</ID>
+    <ID>MaxLineLength:SystemTools.kt:SystemTools$"Convert a Unix timestamp to ISO UTC. Supports seconds and milliseconds; 11+ digit values are treated as milliseconds."</ID>
+    <ID>MaxLineLength:SystemTools.kt:SystemTools$"Report current activity to the user as a short status message. Use at the start of each work phase or a tool call. Use again when the current task, phase, or investigation direction changes. Use for status updates during multi-step work such as researching, diagnosing, searching files, running bash commands, running tests, building, deploying, etc. Messages should be short sentence-case fragments that describe what is happening now and start with a present-participle verb, for example: 'investigating the failure', 'searching files', or 'running tests', and so on."</ID>
+    <ID>MaxLineLength:SystemTools.kt:SystemTools$"Return current system time in UTC. Use when the user asks for current time/date context. Do not use as a substitute for historical or timezone-conversion research."</ID>
+    <ID>MaxLineLength:WebFetchTools.kt:WebFetchTools$"Fetch content from an HTTP or HTTPS URL and return it as text, markdown, or HTML. Markdown is the default. Use a more targeted tool when one is available. This tool is read-only."</ID>
+    <ID>MaxLineLength:WorkspaceFileTools.kt:WorkspaceFileTools$"${root.virtual}/${root.real.relativize(Path.of(it.path)).toString().replace('\\', '/')}"</ID>
+    <ID>ReturnCount:JGitRepository.kt:JGitRepository$private fun fastForwardCurrentBranch: GitRepositoryStatus</ID>
+    <ID>ReturnCount:McpOAuth.kt:McpOAuthService$fun accessToken: String?</ID>
+    <ID>ReturnCount:McpToolWorkarounds.kt:internal fun prepareMcpToolArguments: JsonObject</ID>
+    <ID>ReturnCount:McpToolWorkarounds.kt:private fun stringifyAtlassianJsonObjectField: ToolParameterDescriptor</ID>
+    <ID>ReturnCount:Read.kt:WorkspaceRead$fun read: String</ID>
+    <ID>ReturnCount:SkillTools.kt:SkillTools$private fun stripFrontmatter: String</ID>
+    <ID>ReturnCount:Subagents.kt:Subagents$private fun loadExtensionSubagents: List&lt;Subagent&gt;</ID>
+    <ID>ReturnCount:Utils.kt:internal fun Git.pushPlan: GitPushPlan</ID>
+    <ID>ReturnCount:Utils.kt:internal fun Repository.currentBranch: String</ID>
+    <ID>ReturnCount:WorkspaceFileTools.kt:WorkspaceFileTools$@Tool(TOOL_GLOB) @LLMDescription("Find files by glob pattern") fun workspaceFileGlob: String</ID>
+    <ID>ReturnCount:WorkspaceFileTools.kt:WorkspaceFileTools$@Tool(TOOL_GREP) @LLMDescription("Search text files by regex") fun workspaceFileGrep: String</ID>
+    <ID>ReturnCount:WorkspaceFiles.kt:WorkspaceFiles$private fun candidateFiles: List&lt;WalkedFile&gt;</ID>
+    <ID>ReturnCount:WorkspaceFiles.kt:WorkspaceFiles$private fun isBinaryFile: Boolean</ID>
+    <ID>SwallowedException:BashTools.kt:BashTools$error: IllegalArgumentException</ID>
+    <ID>SwallowedException:Git.kt:GitTools$error: Exception</ID>
+    <ID>SwallowedException:Git.kt:GitTools$error: IllegalArgumentException</ID>
+    <ID>SwallowedException:HttpSandboxExecutor.kt:error: UnsupportedOperationException</ID>
+    <ID>SwallowedException:ScheduledJobTools.kt:ScheduledJobTools$error: IllegalArgumentException</ID>
+    <ID>SwallowedException:SlackChannelTools.kt:error: SlackApiException</ID>
+    <ID>SwallowedException:WorkspaceFileTools.kt:WorkspaceFileTools$e: IllegalArgumentException</ID>
+    <ID>ThrowsCount:Git.kt:GitTools$@Tool("git__pull") @LLMDescription( "Fetch from and integrate with another repository or a local branch. Use instead of direct 'git pull' invocation for private repositories" ) fun pull: GitPullResult</ID>
+    <ID>ThrowsCount:Git.kt:GitTools$@Tool("git__push") @LLMDescription( "Update remote refs along with associated objects. Use instead of direct 'git push' invocation for private repositories" ) fun push: GitPushResult</ID>
+    <ID>ThrowsCount:Git.kt:GitTools$private fun cloneOrFetchExisting: GitRepositoryState</ID>
+    <ID>ThrowsCount:Git.kt:GitTools$private fun resolveWritablePath: Path</ID>
+    <ID>ThrowsCount:Git.kt:private fun parseRepositoryUrl: GitRepositoryUrl</ID>
+    <ID>ThrowsCount:Read.kt:WorkspaceRead$fun read: String</ID>
+    <ID>ThrowsCount:Read.kt:WorkspaceRead$fun readFile: String</ID>
+    <ID>ThrowsCount:SlackChannelTools.kt:private fun MethodsClient.fetchSlackChannelPage: SlackChannelPage</ID>
+    <ID>ThrowsCount:WebFetchTools.kt:WebFetchTools$@Tool @LLMDescription( "Fetch content from an HTTP or HTTPS URL and return it as text, markdown, or HTML. Markdown is the default. Use a more targeted tool when one is available. This tool is read-only." ) fun webFetch: WebFetchResult</ID>
+    <ID>ThrowsCount:WorkspaceFiles.kt:WorkspaceFiles$fun applyPatch: String</ID>
+    <ID>ThrowsCount:WorkspaceFiles.kt:WorkspaceFiles$fun edit: String</ID>
+    <ID>ThrowsCount:WorkspaceFiles.kt:WorkspaceFiles$internal fun grepMatches: WorkspaceGrepMatches</ID>
+    <ID>ThrowsCount:WorkspaceFiles.kt:private fun parseApplyPatch: List&lt;PatchOperation&gt;</ID>
+    <ID>TooGenericExceptionCaught:Git.kt:GitTools$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:Mcp.kt:DefaultMcpServersRegistry$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:TaskTool.kt:TaskTool$e: Exception</ID>
+    <ID>TooManyFunctions:Git.kt:GitTools : ToolSet</ID>
+    <ID>TooManyFunctions:JGitRepository.kt:JGitRepository : GitRepository</ID>
+    <ID>TooManyFunctions:McpOAuth.kt:McpOAuthService</ID>
+    <ID>TooManyFunctions:SlackChannelTools.kt:com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelTools.kt</ID>
+    <ID>TooManyFunctions:WorkspaceFiles.kt:WorkspaceFiles</ID>
+    <ID>UnusedParameter:Utils.kt:retries: Int = 3</ID>
+    <ID>WildcardImport:Mcp.kt:import io.ktor.client.*</ID>
+    <ID>WildcardImport:Mcp.kt:import io.ktor.client.plugins.*</ID>
+    <ID>WildcardImport:Mcp.kt:import io.ktor.client.plugins.sse.*</ID>
+    <ID>WildcardImport:Mcp.kt:import io.ktor.client.request.*</ID>
+    <ID>WildcardImport:Mcp.kt:import io.modelcontextprotocol.kotlin.sdk.client.*</ID>
+    <ID>WildcardImport:WorkspaceFiles.kt:import java.nio.file.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

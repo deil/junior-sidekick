@@ -1,0 +1,44 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>EmptyKotlinFile:AgentMessages.kt:com.github.uncomplexco.sidekick.application.conversation.AgentMessages.kt</ID>
+    <ID>FunctionNaming:Chat.kt:TurnResultHandler$fun `continue`</ID>
+    <ID>InvalidPackageDeclaration:TurnContextTest.kt:package com.github.uncomplexco.sidekick.application.conversation</ID>
+    <ID>LongMethod:ReplyTrigger.kt:LlmReplyDecisionClassifier$suspend fun classify: ReplyDecision</ID>
+    <ID>LongMethod:SidekickAgent.kt:SidekickAgent$override suspend fun runTurn: AgentTurnResult</ID>
+    <ID>LongMethod:SkillsTest.kt:SkillsTest$@Test fun `scans valid skills and skips bad skill folders from configured repository path`</ID>
+    <ID>LongMethod:TurnExecutor.kt:TurnExecutor$private suspend fun handle</ID>
+    <ID>LongMethod:TurnExecutorTest.kt:TurnExecutorTest$@Test fun `delivers reply attachments and removes staged files`</ID>
+    <ID>LongMethod:TurnPromptBuilder.kt:TurnPromptBuilder$fun buildSessionTurnPrompt: String</ID>
+    <ID>MagicNumber:Compaction.kt:SessionContextCompactor$8</ID>
+    <ID>MagicNumber:ConversationManager.kt:ConversationManager$8</ID>
+    <ID>MagicNumber:GitRepositories.kt:12</ID>
+    <ID>MagicNumber:ScheduledJobs.kt:5</ID>
+    <ID>MatchingDeclarationName:Compaction.kt:SessionContextCompactor</ID>
+    <ID>MatchingDeclarationName:Logging.kt:Loggers</ID>
+    <ID>MatchingDeclarationName:Markdown.kt:MarkdownDocument</ID>
+    <ID>MatchingDeclarationName:Misc.kt:Redacted&lt;T&gt;</ID>
+    <ID>MatchingDeclarationName:ReplyAttachments.kt:ReplyAttachmentCollector</ID>
+    <ID>MatchingDeclarationName:SkillCatalogReloading.kt:ConfiguredSkillCatalogReloader : SkillCatalogReloader</ID>
+    <ID>MatchingDeclarationName:SystemPromptBuilderTest.kt:TurnPromptBuilderTest</ID>
+    <ID>MaxLineLength:ReplyTrigger.kt:SimpleReplyDecisionClassifier.Companion$"\\b(?:unsubscribe|stop (?:replying|responding|participating|watching)|(?:mute|leave) this thread|don't (?:reply|participate|watch))\\b"</ID>
+    <ID>MaxLineLength:ReplyTrigger.kt:SimpleReplyDecisionClassifier.Companion$"^(?:thanks(?: you)?|thank you|thx|ty|got it|sounds good|ok(?:ay)?|cool|nice|perfect|awesome|great|makes sense|understood|roger|yep|yup|kk|on it|will do)(?:[.!]+)?$"</ID>
+    <ID>NestedBlockDepth:FilesystemConversationStateStore.kt:FilesystemConversationStateStore$override fun loadUsageStartedBetween: List&lt;ConversationUsage&gt;</ID>
+    <ID>ReturnCount:ReplyTrigger.kt:SimpleReplyDecisionClassifier$fun classify: ReplyDecision?</ID>
+    <ID>ReturnCount:ReplyTrigger.kt:SimpleReplyDecisionClassifier$private fun leadingSlackUserMention: String?</ID>
+    <ID>ReturnCount:ScheduledJobs.kt:internal fun ScheduledJob.isDue: Boolean</ID>
+    <ID>TooGenericExceptionCaught:Hooks.kt:error: Exception</ID>
+    <ID>TooGenericExceptionCaught:InboundQueue.kt:InboundMessagesQueue$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:ReplyAttachments.kt:ReplyAttachmentCollector$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:SidekickAgent.kt:SidekickAgent$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:TurnExecutor.kt:TurnExecutor$error: Exception</ID>
+    <ID>TooManyFunctions:ConversationManager.kt:ConversationManager</ID>
+    <ID>TooManyFunctions:FilesystemConversationStateStore.kt:FilesystemConversationStateStore : ConversationStateStore</ID>
+    <ID>UnusedParameter:Attachments.kt:basePath: Path</ID>
+    <ID>UnusedParameter:Attachments.kt:conversationId: ConversationId</ID>
+    <ID>UnusedParameter:Attachments.kt:maxChars: Int</ID>
+    <ID>UnusedParameter:ConversationManager.kt:ConversationManager$turnId: String</ID>
+    <ID>UnusedParameter:TurnPromptBuilder.kt:TurnPromptBuilder$idx: Int</ID>
+  </CurrentIssues>
+</SmellBaseline>

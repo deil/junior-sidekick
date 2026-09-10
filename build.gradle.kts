@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.spring) apply false
     alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.detekt) apply false
     alias(libs.plugins.spotless)
 }
 
@@ -30,4 +31,8 @@ allprojects {
     repositories {
         mavenCentral()
     }
+}
+
+subprojects {
+    apply(plugin = "dev.detekt")
 }

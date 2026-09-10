@@ -1,0 +1,33 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:SlackAppFactory.kt:SlackAppFactory$!event.text.isNullOrBlank() &amp;&amp; !isBotsOwnMessage(event.botId, ctx) &amp;&amp; !containsMention( event.text, ctx.botUserId, ) &amp;&amp; eventDeduper.put(event.channel, event.ts)</ID>
+    <ID>CyclomaticComplexMethod:DiscordGateway.kt:DiscordIngress$suspend fun receive</ID>
+    <ID>CyclomaticComplexMethod:SlackAppFactory.kt:SlackAppFactory$@Bean fun slackApp: App</ID>
+    <ID>LongMethod:DiscordAdapterTest.kt:DiscordAdapterTest$@Test fun `normalized discord ingress runs existing turn flow and sends observable reply`</ID>
+    <ID>LongMethod:DiscordAdapterTest.kt:DiscordAdapterTest$@Test fun `normalized guild mention runs existing turn flow in isolated root conversation`</ID>
+    <ID>LongMethod:DiscordGateway.kt:DiscordConfiguration.&lt;no name provided&gt;$override fun onMessageReceived</ID>
+    <ID>LongMethod:SlackAppFactory.kt:SlackAppFactory$@Bean fun slackApp: App</ID>
+    <ID>MagicNumber:DiscordInterop.kt:DiscordTurnResultHandler$1000.0</ID>
+    <ID>MagicNumber:DiscordInterop.kt:DiscordTurnResultHandler$1_000</ID>
+    <ID>MagicNumber:DiscordInterop.kt:DiscordTurnResultHandler$60</ID>
+    <ID>MagicNumber:SidekickApiController.kt:16</ID>
+    <ID>MagicNumber:SlackInterop.kt:1000</ID>
+    <ID>MagicNumber:SlackInterop.kt:SlackFileIngestor$10</ID>
+    <ID>MagicNumber:SlackInterop.kt:SlackFileIngestor$200</ID>
+    <ID>MagicNumber:SlackInterop.kt:SlackFileIngestor$299</ID>
+    <ID>MagicNumber:SlackInterop.kt:SlackTurnResultHandler$1000.0</ID>
+    <ID>MagicNumber:SlackInterop.kt:SlackTurnResultHandler$1_000</ID>
+    <ID>MagicNumber:SlackInterop.kt:SlackTurnResultHandler$60</ID>
+    <ID>MatchingDeclarationName:Dedup.kt:HandledEventsDeduper</ID>
+    <ID>MaxLineLength:SlackAppFactory.kt:"Slack App Home publish failed: error={} needed={} provided={} response_messages={} response_warnings={} request_id={} user={} block_count={} max_block_text_length={}"</ID>
+    <ID>ReturnCount:DiscordGateway.kt:DiscordIngress$suspend fun receive</ID>
+    <ID>ReturnCount:McpOAuthController.kt:McpOAuthController$@GetMapping("/mcp/oauth/callback", produces = [MediaType.TEXT_HTML_VALUE]) fun callback: String</ID>
+    <ID>TooGenericExceptionCaught:DiscordInterop.kt:error: Exception</ID>
+    <ID>TooGenericExceptionCaught:ScheduledJobsScheduler.kt:ScheduledJobsScheduler$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:SidekickApiController.kt:SidekickApiController$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:SlackInterop.kt:SlackTurnResultHandler$error: Exception</ID>
+    <ID>TooManyFunctions:SlackInterop.kt:SlackTurnResultHandler : TurnResultHandler</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -1,11 +1,12 @@
 [versions]
+detekt = "2.0.0-alpha.3"
 flexmark = "0.64.8"
 jgit = "7.7.0.202606012155-r"
 jda = "6.6.0"
 jsoup = "1.22.2"
 koog = "1.1.1"
 koog-mcp = "1.1.1-beta"
-kotlin = "2.3.20"
+kotlin = "2.3.21"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.9.0"
 ktor = "3.4.3"
@@ -59,6 +60,7 @@ spring-test = { module = "org.springframework:spring-test" }
 spring-web = { module = "org.springframework:spring-web" }
 
 [plugins]
+detekt = { id = "dev.detekt", version.ref = "detekt" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }

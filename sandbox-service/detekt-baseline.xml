@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MagicNumber:ExecuteRoute.kt:8</ID>
+    <ID>MagicNumber:SandboxServiceConfig.kt:SandboxServiceConfig$1024</ID>
+    <ID>MagicNumber:SandboxServiceConfig.kt:SandboxServiceConfig$50</ID>
+    <ID>SwallowedException:ExecuteRoute.kt:error: UnsupportedOperationException</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>LongMethod:BwrapSandbox.kt:BwrapSandbox$internal fun bwrapArgs: List&lt;String&gt;</ID>
+    <ID>MagicNumber:BwrapSandbox.kt:BwrapSandbox$1_000</ID>
+  </CurrentIssues>
+</SmellBaseline>
