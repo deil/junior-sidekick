@@ -11,9 +11,9 @@ import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.ConnectedMcpServer
+import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
-import kotlin.test.assertEquals
 
 class McpStatusToolsTest {
     @Test
@@ -26,18 +26,18 @@ class McpStatusToolsTest {
                             conversationId = ConversationId("C123", "1700000000.000"),
                             virtualPaths =
                                 VirtualPaths(
-                                    java.nio.file.Path
-                                        .of("/tmp/session"),
-                                    java.nio.file.Path
-                                        .of("/tmp/skills"),
-                                    java.nio.file.Path
-                                        .of("/tmp/global"),
-                                    java.nio.file.Path
-                                        .of("/tmp/work"),
-                                    java.nio.file.Path
-                                        .of("/tmp/project"),
+                                    java.nio.file.Path.of("/tmp/session"),
+                                    java.nio.file.Path.of("/tmp/skills"),
+                                    java.nio.file.Path.of("/tmp/global"),
+                                    java.nio.file.Path.of("/tmp/work"),
+                                    java.nio.file.Path.of("/tmp/project"),
                                 ),
-                            history = ConversationHistory(emptyList(), emptyList(), hasKoogMessages = false),
+                            history =
+                                ConversationHistory(
+                                    emptyList(),
+                                    emptyList(),
+                                    hasKoogMessages = false,
+                                ),
                             mcpServers = listOf(TestConnectedMcpServer("grafana")),
                         ),
                     turnId = "turn",
@@ -48,20 +48,24 @@ class McpStatusToolsTest {
                 )
             val tools =
                 McpStatusTools(
-                    ctx,
-                    listOf(
-                        McpServerConfig(id = "grafana"),
-                        McpServerConfig(id = "linear"),
-                    ),
-                ).asTools()
+                        ctx,
+                        listOf(
+                            McpServerConfig(id = "grafana"),
+                            McpServerConfig(id = "linear"),
+                        ),
+                    )
+                    .asTools()
 
-            assertEquals(listOf("get_mcp_status_grafana", "get_mcp_status_linear"), tools.map { it.name })
+            assertEquals(
+                listOf("get_mcp_status_grafana", "get_mcp_status_linear"),
+                tools.map { it.name },
+            )
             assertEquals(
                 JSONObject(
                     mapOf(
                         "server_id" to JSONPrimitive("grafana"),
                         "connected" to JSONPrimitive(true),
-                    ),
+                    )
                 ),
                 status(tools.single { it.name == "get_mcp_status_grafana" }),
             )
@@ -70,7 +74,7 @@ class McpStatusToolsTest {
                     mapOf(
                         "server_id" to JSONPrimitive("linear"),
                         "connected" to JSONPrimitive(false),
-                    ),
+                    )
                 ),
                 status(tools.single { it.name == "get_mcp_status_linear" }),
             )
@@ -81,9 +85,7 @@ class McpStatusToolsTest {
         (tool as Tool<JSONObject, JSONObject>).execute(JSONObject(emptyMap()))
 }
 
-private class TestConnectedMcpServer(
-    override val id: String,
-) : ConnectedMcpServer {
+private class TestConnectedMcpServer(override val id: String) : ConnectedMcpServer {
     override val toolRegistry: ToolRegistry = ToolRegistry.EMPTY
 
     override suspend fun close() = Unit

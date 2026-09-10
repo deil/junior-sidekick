@@ -3,17 +3,16 @@ package com.github.uncomplexco.sidekick.application.agent.workspace.global
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.GlobalWorkspace
 import com.github.uncomplexco.sidekick.application.agent.workspace.GlobalWorkspaceRepository
-import org.eclipse.jgit.api.Git
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.eclipse.jgit.api.Git
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class GlobalWorkspaceTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     private val globalWorkspace = GlobalWorkspace()
 
@@ -23,13 +22,20 @@ class GlobalWorkspaceTest {
             config().workspaceLayout().knowledgeConfigPath(),
             """
             {"knowledge": [{"url": "git@github.com:deil/global.git", "path": "docs", "sshKeyPath": "/home/sidekick/.ssh/global"}]}
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
 
         val config = globalWorkspace.loadConfig(config())
 
         assertEquals(
-            listOf(GlobalWorkspaceRepository("git@github.com:deil/global.git", "docs", "/home/sidekick/.ssh/global")),
+            listOf(
+                GlobalWorkspaceRepository(
+                    "git@github.com:deil/global.git",
+                    "docs",
+                    "/home/sidekick/.ssh/global",
+                )
+            ),
             config.knowledge,
         )
     }
@@ -90,7 +96,8 @@ class GlobalWorkspaceTest {
             config().workspaceLayout().knowledgeConfigPath(),
             """
             {"knowledge": [{"url": "${source.toUri()}"}]}
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
 
         val checkouts = globalWorkspace.sync(config())
@@ -111,7 +118,8 @@ class GlobalWorkspaceTest {
             config().workspaceLayout().knowledgeConfigPath(),
             """
             {"knowledge": [{"url": "${source.toUri()}"}]}
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         val checkout = globalWorkspace.sync(config()).single()
 
@@ -126,5 +134,10 @@ class GlobalWorkspaceTest {
         assertEquals("Version 2\n", Files.readString(checkout.resolve("handbook.md")))
     }
 
-    private fun config(): AgentConfig = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
+    private fun config(): AgentConfig =
+        AgentConfig(
+            "Sidekick",
+            dir.resolve("state").toString(),
+            dir.resolve("workspace").toString(),
+        )
 }

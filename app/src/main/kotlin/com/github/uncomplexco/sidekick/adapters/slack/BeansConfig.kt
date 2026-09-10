@@ -14,14 +14,9 @@ class BeansConfig {
         @Value("\${adapters.slack.bot.token:}") botToken: String,
         @Value("\${adapters.slack.bot.signing-secret:}") signingSecret: String,
     ): AppConfig =
-        AppConfig
-            .builder()
-            .signingSecret(signingSecret)
-            .singleTeamBotToken(botToken)
-            .build()
+        AppConfig.builder().signingSecret(signingSecret).singleTeamBotToken(botToken).build()
 
-    @Bean
-    fun handledEventsDeduper(): HandledEventsDeduper = HandledEventsDeduper()
+    @Bean fun handledEventsDeduper(): HandledEventsDeduper = HandledEventsDeduper()
 
     @Bean
     fun slackFileIngestor(

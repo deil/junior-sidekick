@@ -10,9 +10,7 @@ import com.github.uncomplexco.sidekick.sandbox.bwrap.BwrapMountMode
 import com.github.uncomplexco.sidekick.sandbox.bwrap.BwrapSandbox
 import com.github.uncomplexco.sidekick.sandbox.bwrap.BwrapSandboxRequest
 
-class BwrapSandboxExecutor(
-    private val bwrap: BwrapSandbox,
-) : SandboxExecutor {
+class BwrapSandboxExecutor(private val bwrap: BwrapSandbox) : SandboxExecutor {
     override fun execute(command: Command): ExecutionResult {
         val result =
             bwrap.execute(
@@ -22,7 +20,7 @@ class BwrapSandboxExecutor(
                     timeoutSeconds = command.timeoutSeconds,
                     networkEnabled = command.networkEnabled,
                     mounts = command.mounts.map { it.toBwrapMount() },
-                ),
+                )
             )
         return ExecutionResult(
             ok = result.ok,

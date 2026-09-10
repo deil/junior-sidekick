@@ -15,9 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter
 
 @Configuration
 @ConditionalOnProperty(name = ["adapters.http.enabled"], havingValue = "true")
-class HttpBearerTokenAuthConfig(
-    @Value($$"${adapters.http.token}") private val token: String,
-) {
+class HttpBearerTokenAuthConfig(@Value($$"${adapters.http.token}") private val token: String) {
     @Bean
     fun httpBearerTokenAuthFilter(): FilterRegistrationBean<HttpBearerTokenAuthFilter> =
         FilterRegistrationBean(HttpBearerTokenAuthFilter(token)).also { registration ->
@@ -26,13 +24,13 @@ class HttpBearerTokenAuthConfig(
         }
 }
 
-class HttpBearerTokenAuthFilter(
-    token: String,
-) : OncePerRequestFilter() {
+class HttpBearerTokenAuthFilter(token: String) : OncePerRequestFilter() {
     private val expectedAuthorization = "Bearer ${token.trim()}"
 
     init {
-        require(token.isNotBlank()) { "adapters.http.token is required when adapters.http.enabled=true" }
+        require(token.isNotBlank()) {
+            "adapters.http.token is required when adapters.http.enabled=true"
+        }
     }
 
     override fun doFilterInternal(

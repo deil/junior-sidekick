@@ -4,11 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.spring)
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
-}
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 
 dependencies {
     api(project(":core"))
@@ -25,9 +21,7 @@ dependencies {
     compileOnly(libs.jakarta.servlet)
 
     implementation(libs.slack.bolt.servlet)
-    implementation(libs.jda) {
-        exclude(group = "club.minnced")
-    }
+    implementation(libs.jda) { exclude(group = "club.minnced") }
 
     testImplementation(platform(libs.spring.boot.bom))
     testImplementation(libs.spring.boot.starter.webmvc.test)
@@ -41,6 +35,4 @@ kotlin {
     }
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
-}
+tasks.withType<Test> { useJUnitPlatform() }

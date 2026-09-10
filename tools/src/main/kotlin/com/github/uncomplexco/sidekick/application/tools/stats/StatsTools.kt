@@ -4,8 +4,8 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import com.github.uncomplexco.sidekick.application.stats.WeeklyStatsService
-import kotlinx.serialization.Serializable
 import java.time.Clock
+import kotlinx.serialization.Serializable
 
 class StatsTools(
     private val stats: WeeklyStatsService,

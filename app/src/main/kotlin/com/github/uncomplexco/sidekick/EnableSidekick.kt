@@ -15,25 +15,25 @@ annotation class EnableSidekick
 
 @Configuration
 @ComponentScan(
-    basePackages = [
-        "com.github.uncomplexco.sidekick.application",
-        "com.github.uncomplexco.sidekick.usecases",
-        "com.github.uncomplexco.sidekick.adapters.files",
-        "com.github.uncomplexco.sidekick.adapters.chat",
-        "com.github.uncomplexco.sidekick.adapters.discord",
-        "com.github.uncomplexco.sidekick.adapters.git",
-        "com.github.uncomplexco.sidekick.adapters.http",
-        "com.github.uncomplexco.sidekick.adapters.jgit",
-        "com.github.uncomplexco.sidekick.adapters.koog",
-        "com.github.uncomplexco.sidekick.adapters.mcp",
-        "com.github.uncomplexco.sidekick.adapters.sandbox",
-        "com.github.uncomplexco.sidekick.adapters.slack",
-        "com.github.uncomplexco.sidekick.adapters.spring",
-    ],
+    basePackages =
+        [
+            "com.github.uncomplexco.sidekick.application",
+            "com.github.uncomplexco.sidekick.usecases",
+            "com.github.uncomplexco.sidekick.adapters.files",
+            "com.github.uncomplexco.sidekick.adapters.chat",
+            "com.github.uncomplexco.sidekick.adapters.discord",
+            "com.github.uncomplexco.sidekick.adapters.git",
+            "com.github.uncomplexco.sidekick.adapters.http",
+            "com.github.uncomplexco.sidekick.adapters.jgit",
+            "com.github.uncomplexco.sidekick.adapters.koog",
+            "com.github.uncomplexco.sidekick.adapters.mcp",
+            "com.github.uncomplexco.sidekick.adapters.sandbox",
+            "com.github.uncomplexco.sidekick.adapters.slack",
+            "com.github.uncomplexco.sidekick.adapters.spring",
+        ]
 )
 @EnableScheduling
 @PropertySource("classpath:META-INF/sidekick-defaults.properties")
 internal class SidekickConfiguration {
-    @Bean(destroyMethod = "close")
-    fun sidekickCoroutineScope() = SidekickCoroutineScope()
+    @Bean(destroyMethod = "close") fun sidekickCoroutineScope() = SidekickCoroutineScope()
 }

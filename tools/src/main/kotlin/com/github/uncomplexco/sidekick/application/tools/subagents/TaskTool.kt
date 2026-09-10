@@ -30,7 +30,8 @@ class TaskTool(
     private val chat: ChatPlatformAdapter,
     availableSubagents: List<Subagent>,
     private val onSubagentCompleted: (AgentUsageStats) -> Unit,
-) : Tool<TaskTool.Args, String>(
+) :
+    Tool<TaskTool.Args, String>(
         argsType = typeToken<Args>(),
         resultType = typeToken<String>(),
         name = TOOL_TASK,
@@ -40,11 +41,11 @@ class TaskTool(
 
     @Serializable
     data class Args(
-        @property:LLMDescription("Short 3-5 word label for the task")
-        val description: String,
-        @property:LLMDescription("The task for the subagent to perform")
-        val prompt: String,
-        @property:LLMDescription("The type of specialized agent to use for this task. Defaults to 'general'")
+        @property:LLMDescription("Short 3-5 word label for the task") val description: String,
+        @property:LLMDescription("The task for the subagent to perform") val prompt: String,
+        @property:LLMDescription(
+            "The type of specialized agent to use for this task. Defaults to 'general'"
+        )
         val subagent_type: String = "general",
     )
 
@@ -60,11 +61,12 @@ class TaskTool(
         chat.resultHandler.`continue`("$subagentType task - $description")
 
         try {
-            val result = runner.run(
-                ctx = ctx,
-                subagentType = subagentType,
-                prompt = args.prompt,
-            )
+            val result =
+                runner.run(
+                    ctx = ctx,
+                    subagentType = subagentType,
+                    prompt = args.prompt,
+                )
             onSubagentCompleted(result.stats)
             return result.output
         } catch (e: CancellationException) {
@@ -82,7 +84,9 @@ class TaskTool(
         maxChars: Int?,
     ) {
         validate(value.isNotBlank()) { "Task $name must not be blank" }
-        validate(maxChars == null || value.length <= maxChars) { "Task $name must be at most $maxChars characters" }
+        validate(maxChars == null || value.length <= maxChars) {
+            "Task $name must be at most $maxChars characters"
+        }
     }
 
     companion object {
@@ -92,12 +96,13 @@ class TaskTool(
     }
 }
 
-fun taskDescription(availableSubagents: List<Subagent>): String =
-    buildString {
-        appendLine("Launch a subagent to perform a delegated task in a fresh context, and return its final answer.")
-        appendLine()
-        appendLine("Available agent types and the tools they have access to:")
-        availableSubagents.forEach { subagent ->
-            appendLine("  - ${subagent.name}: ${subagent.description}")
-        }
+fun taskDescription(availableSubagents: List<Subagent>): String = buildString {
+    appendLine(
+        "Launch a subagent to perform a delegated task in a fresh context, and return its final answer."
+    )
+    appendLine()
+    appendLine("Available agent types and the tools they have access to:")
+    availableSubagents.forEach { subagent ->
+        appendLine("  - ${subagent.name}: ${subagent.description}")
     }
+}

@@ -21,17 +21,22 @@ import com.slack.api.model.event.MessageChangedEvent
 import com.slack.api.model.event.MessageEvent
 import com.slack.api.model.event.MessageFileShareEvent
 import com.slack.api.model.view.View
+import java.nio.file.Files
 import kotlinx.coroutines.runBlocking
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import java.nio.file.Files
 
 @Configuration
-@ConditionalOnProperty(prefix = "adapters.chat", name = ["platform"], havingValue = "slack", matchIfMissing = true)
+@ConditionalOnProperty(
+    prefix = "adapters.chat",
+    name = ["platform"],
+    havingValue = "slack",
+    matchIfMissing = true,
+)
 @ConditionalOnExpression(
-    $$"'${adapters.slack.bot.token:}' != '' and '${adapters.slack.bot.signing-secret:}' != ''",
+    $$"'${adapters.slack.bot.token:}' != '' and '${adapters.slack.bot.signing-secret:}' != ''"
 )
 class SlackAppFactory {
     @Bean
@@ -46,11 +51,11 @@ class SlackAppFactory {
         val app = App(slackAdapterConfig)
         sharedContext.slackClient = app.client()
 
-        app.assistant(buildSlackAssistant(app, eventDeduper, handleIncomingChatMessage, slackFileIngestor))
+        app.assistant(
+            buildSlackAssistant(app, eventDeduper, handleIncomingChatMessage, slackFileIngestor)
+        )
 
-        app.event(MessageChangedEvent::class.java) { payload, ctx ->
-            ctx.ack()
-        }
+        app.event(MessageChangedEvent::class.java) { payload, ctx -> ctx.ack() }
 
         app.event(AppHomeOpenedEvent::class.java) { payload, ctx ->
             val ack = ctx.ack()
@@ -105,12 +110,14 @@ class SlackAppFactory {
 
         app.event(MessageEvent::class.java) { payload, ctx ->
             val event = payload.event
-            if (!event.text.isNullOrBlank() && !isBotsOwnMessage(event.botId, ctx) &&
-                !containsMention(
-                    event.text,
-                    ctx.botUserId,
-                ) &&
-                eventDeduper.put(event.channel, event.ts)
+            if (
+                !event.text.isNullOrBlank() &&
+                    !isBotsOwnMessage(event.botId, ctx) &&
+                    !containsMention(
+                        event.text,
+                        ctx.botUserId,
+                    ) &&
+                    eventDeduper.put(event.channel, event.ts)
             ) {
                 if (event.channelType != "im") {
                     async(app) {
@@ -155,7 +162,8 @@ class SlackAppFactory {
                                 sender = toMessageAuthor(event.user, ctx),
                                 text = event.text.orEmpty().trim(),
                                 type =
-                                    if (containsMention(
+                                    if (
+                                        containsMention(
                                             event.text,
                                             ctx.botUserId,
                                         )
@@ -185,11 +193,7 @@ class SlackAppFactory {
 }
 
 internal fun appHomeView(agentConfig: AgentConfig): View =
-    View
-        .builder()
-        .type("home")
-        .blocks(descriptionMarkdownBlocks(agentConfig))
-        .build()
+    View.builder().type("home").blocks(descriptionMarkdownBlocks(agentConfig)).build()
 
 internal fun descriptionMarkdownBlocks(agentConfig: AgentConfig): List<LayoutBlock> {
     val path = agentConfig.workspaceLayout().configDirectoryPath().resolve("DESCRIPTION.md")
@@ -252,7 +256,8 @@ internal fun buildSlackAssistant(
         val text = req.event.text
         if (text.isNullOrBlank() || !deduper.put(ctx.channelId, req.event.ts)) return@userMessage
 
-        val conversationId = ChatConversationId(channelId = ctx.channelId, threadId = req.event.threadTs)
+        val conversationId =
+            ChatConversationId(channelId = ctx.channelId, threadId = req.event.threadTs)
         val responseThreadTs = req.event.threadTs ?: req.event.ts
         runBlocking {
             handleIncomingChatMessage.handle(
@@ -279,7 +284,8 @@ internal fun buildSlackAssistant(
         val text = req.event.text
         if (!deduper.put(ctx.channelId, req.event.ts)) return@userMessageWithFiles
 
-        val conversationId = ChatConversationId(channelId = ctx.channelId, threadId = req.event.threadTs)
+        val conversationId =
+            ChatConversationId(channelId = ctx.channelId, threadId = req.event.threadTs)
         val responseThreadTs = req.event.threadTs ?: req.event.ts
         runBlocking {
             handleIncomingChatMessage.handle(
@@ -312,8 +318,11 @@ internal fun async(
     app.executorService().submit { runBlocking { block() } }
 }
 
-internal fun AppMentionEvent.toConversationId(): ChatConversationId = ChatConversationId(channel, threadTs)
+internal fun AppMentionEvent.toConversationId(): ChatConversationId =
+    ChatConversationId(channel, threadTs)
 
-internal fun MessageEvent.toConversationId(): ChatConversationId = ChatConversationId(channel, threadTs)
+internal fun MessageEvent.toConversationId(): ChatConversationId =
+    ChatConversationId(channel, threadTs)
 
-internal fun MessageFileShareEvent.toConversationId(): ChatConversationId = ChatConversationId(channel, threadTs)
+internal fun MessageFileShareEvent.toConversationId(): ChatConversationId =
+    ChatConversationId(channel, threadTs)

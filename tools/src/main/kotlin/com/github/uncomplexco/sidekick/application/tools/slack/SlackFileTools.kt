@@ -20,17 +20,23 @@ class SlackFileTools(
 
     @Tool
     @LLMDescription(
-        "Read a file attached to the current thread. If the file does not exist, a error is returned.",
+        "Read a file attached to the current thread. If the file does not exist, a error is returned."
     )
     fun slackFileRead(
         @LLMDescription("ID or permalink of the file") fileId: String,
         @LLMDescription("The line number to start reading from (1-indexed)") offset: Int? = null,
-        @LLMDescription("The maximum number of lines to read (defaults to 2000)") limit: Int? = null,
+        @LLMDescription("The maximum number of lines to read (defaults to 2000)")
+        limit: Int? = null,
     ): String {
         val file = ctx.sessionFiles.find { it.id == fileId || it.displayName == fileId }!!
         validate(isSupportedSlackTextFile(file)) { "Only text Slack files are supported." }
 
-        return files.read(path = file.localPath, offset = offset, limit = limit, displayPath = file.localPath)
+        return files.read(
+            path = file.localPath,
+            offset = offset,
+            limit = limit,
+            displayPath = file.localPath,
+        )
     }
 }
 
@@ -46,4 +52,5 @@ private val SUPPORTED_SLACK_TEXT_MIMETYPES =
         MimeTypeUtils.TEXT_XML,
     )
 
-private val SUPPORTED_SLACK_TEXT_FILETYPES = setOf("markdown", "md", "html", "text", "txt", "plain_text")
+private val SUPPORTED_SLACK_TEXT_FILETYPES =
+    setOf("markdown", "md", "html", "text", "txt", "plain_text")

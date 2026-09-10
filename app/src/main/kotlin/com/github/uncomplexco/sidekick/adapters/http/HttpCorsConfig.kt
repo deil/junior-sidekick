@@ -19,35 +19,48 @@ class HttpCorsConfig {
     @Bean
     fun httpCorsFilter(): FilterRegistrationBean<OncePerRequestFilter> =
         FilterRegistrationBean<OncePerRequestFilter>(
-            object : OncePerRequestFilter() {
-                override fun doFilterInternal(
-                    request: HttpServletRequest,
-                    response: HttpServletResponse,
-                    filterChain: FilterChain,
-                ) {
-                    val origin = request.getHeader(HttpHeaders.ORIGIN)
-                    if (!origin.isNullOrBlank()) {
-                        response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin)
-                        response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET,POST,OPTIONS")
-                        response.setHeader(
-                            HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
-                            request.getHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS) ?: "*",
-                        )
-                        response.addHeader(HttpHeaders.VARY, HttpHeaders.ORIGIN)
-                        response.addHeader(HttpHeaders.VARY, HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD)
-                        response.addHeader(HttpHeaders.VARY, HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS)
-                    }
+                object : OncePerRequestFilter() {
+                    override fun doFilterInternal(
+                        request: HttpServletRequest,
+                        response: HttpServletResponse,
+                        filterChain: FilterChain,
+                    ) {
+                        val origin = request.getHeader(HttpHeaders.ORIGIN)
+                        if (!origin.isNullOrBlank()) {
+                            response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin)
+                            response.setHeader(
+                                HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS,
+                                "GET,POST,OPTIONS",
+                            )
+                            response.setHeader(
+                                HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
+                                request.getHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS)
+                                    ?: "*",
+                            )
+                            response.addHeader(HttpHeaders.VARY, HttpHeaders.ORIGIN)
+                            response.addHeader(
+                                HttpHeaders.VARY,
+                                HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD,
+                            )
+                            response.addHeader(
+                                HttpHeaders.VARY,
+                                HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS,
+                            )
+                        }
 
-                    if (!origin.isNullOrBlank() && request.method == HttpMethod.OPTIONS.name()) {
-                        response.status = HttpStatus.NO_CONTENT.value()
-                        return
-                    }
+                        if (
+                            !origin.isNullOrBlank() && request.method == HttpMethod.OPTIONS.name()
+                        ) {
+                            response.status = HttpStatus.NO_CONTENT.value()
+                            return
+                        }
 
-                    filterChain.doFilter(request, response)
+                        filterChain.doFilter(request, response)
+                    }
                 }
-            },
-        ).also { registration ->
-            registration.addUrlPatterns("/api/*")
-            registration.order = Ordered.HIGHEST_PRECEDENCE
-        }
+            )
+            .also { registration ->
+                registration.addUrlPatterns("/api/*")
+                registration.order = Ordered.HIGHEST_PRECEDENCE
+            }
 }

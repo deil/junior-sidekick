@@ -73,9 +73,11 @@ interface TurnResultHandler {
     suspend fun postRuntimeFailure(error: Exception) {
         postReply(
             ChatReply(
-                text = error.message?.takeIf { it.isNotBlank() }?.let { ":warning: $it" } ?: TEMPORARY_FAILURE_REPLY,
+                text =
+                    error.message?.takeIf { it.isNotBlank() }?.let { ":warning: $it" }
+                        ?: TEMPORARY_FAILURE_REPLY,
                 statusLine = RUNTIME_FAILURE_STATUS,
-            ),
+            )
         )
     }
 
@@ -89,7 +91,8 @@ interface TurnResultHandler {
 
     private companion object {
         const val UNSUBSCRIBE_ACK = "Unsubscribed. Mention me to resume"
-        const val TEMPORARY_FAILURE_REPLY = ":warning: I hit a temporary model/provider error while processing this. Please retry"
+        const val TEMPORARY_FAILURE_REPLY =
+            ":warning: I hit a temporary model/provider error while processing this. Please retry"
         const val RUNTIME_FAILURE_STATUS = "`[runtime failure]`"
     }
 }
@@ -104,7 +107,8 @@ data class ChatConversationId(
     val threadId: String? = null,
     val platform: ChatPlatform = ChatPlatform.SLACK,
     val kind: ChatConversationKind =
-        if (channelId.startsWith("D")) ChatConversationKind.DIRECT_MESSAGE else ChatConversationKind.CHANNEL,
+        if (channelId.startsWith("D")) ChatConversationKind.DIRECT_MESSAGE
+        else ChatConversationKind.CHANNEL,
 ) {
     val isDM: Boolean = kind == ChatConversationKind.DIRECT_MESSAGE
     val isThread: Boolean = threadId != null

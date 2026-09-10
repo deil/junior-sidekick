@@ -5,11 +5,11 @@ import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.ExecutionResult
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMountMode
-import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Test
 
 class BashToolsTest {
     @Test
@@ -30,7 +30,10 @@ class BashToolsTest {
             }
         lateinit var captured: Command
         val tools =
-            BashTools(config, VirtualPaths(sessionRoot, skillsRoot, globalRoot, workRoot, projectRoot)) { command ->
+            BashTools(
+                config,
+                VirtualPaths(sessionRoot, skillsRoot, globalRoot, workRoot, projectRoot),
+            ) { command ->
                 captured = command
                 ExecutionResult(
                     ok = true,
@@ -43,7 +46,13 @@ class BashToolsTest {
             }
 
         // Act
-        val result = tools.bash(command = "pwd", description = "prints working directory", workdir = "tmp", timeout = 20)
+        val result =
+            tools.bash(
+                command = "pwd",
+                description = "prints working directory",
+                workdir = "tmp",
+                timeout = 20,
+            )
 
         // Assert
         assertEquals(true, result.ok)
@@ -108,7 +117,16 @@ class BashToolsTest {
                 scratchGid = gid
             }
         val tools =
-            BashTools(config, VirtualPaths(scratch.resolve("session"), scratch.resolve("skills"), scratch.resolve("global"), workRoot, projectRoot)) { command ->
+            BashTools(
+                config,
+                VirtualPaths(
+                    scratch.resolve("session"),
+                    scratch.resolve("skills"),
+                    scratch.resolve("global"),
+                    workRoot,
+                    projectRoot,
+                ),
+            ) { command ->
                 ExecutionResult(
                     ok = true,
                     exitCode = 0,

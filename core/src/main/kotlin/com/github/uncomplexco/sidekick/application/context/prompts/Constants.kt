@@ -25,8 +25,10 @@ object Prompts {
           - Clear next steps and unresolved blockers
 
         Do not invent details. Do not include raw secrets or credentials.
-        """.trimIndent()
+        """
+            .trimIndent()
 
     const val TURN_HANDOFF_HEADER = "Thread handoff summary for future assistant turns:"
-    const val IMAGE_SUMMARIZATION_PROMPT = "plz extract factual context from this image - visible text, titles, names, UI, state, diagrams, errors, etc. no guessing, facts only. return only text"
+    const val IMAGE_SUMMARIZATION_PROMPT =
+        "plz extract factual context from this image - visible text, titles, names, UI, state, diagrams, errors, etc. no guessing, facts only. return only text"
 }

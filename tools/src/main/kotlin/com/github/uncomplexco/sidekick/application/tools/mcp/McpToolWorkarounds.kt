@@ -13,7 +13,8 @@ internal fun prepareMcpToolDescriptor(
     originalToolName: String,
     descriptor: ToolDescriptor,
 ): ToolDescriptor {
-    val jsonObjectStringField = atlassianJsonObjectStringField(originalToolName) ?: return descriptor
+    val jsonObjectStringField =
+        atlassianJsonObjectStringField(originalToolName) ?: return descriptor
 
     return descriptor.copy(
         requiredParameters =
@@ -44,7 +45,9 @@ internal fun prepareMcpToolArguments(
     if (fieldValue !is JsonPrimitive || !fieldValue.isString) return arguments
 
     val parsed =
-        runCatching { json.parseToJsonElement(fieldValue.content) }
+        runCatching {
+                json.parseToJsonElement(fieldValue.content)
+            }
             .getOrElse {
                 throw IllegalArgumentException(
                     "$originalToolName $jsonObjectStringField must be a valid JSON object string",
@@ -53,7 +56,9 @@ internal fun prepareMcpToolArguments(
             }
     val parsedObject =
         parsed as? JsonObject
-            ?: throw IllegalArgumentException("$originalToolName $jsonObjectStringField must be a JSON object string")
+            ?: throw IllegalArgumentException(
+                "$originalToolName $jsonObjectStringField must be a JSON object string"
+            )
 
     return JsonObject(arguments + (jsonObjectStringField to parsedObject))
 }
@@ -93,4 +98,5 @@ private const val ATLASSIAN_EDIT_JIRA_ISSUE_TOOL = "editJiraIssue"
 private const val ATLASSIAN_ADDITIONAL_FIELDS = "additional_fields"
 private const val ATLASSIAN_FIELDS = "fields"
 private const val JENKINS_SERVER_ID_PREFIX = "jenkins"
-private val JENKINS_EXCLUDED_TOOLS = setOf("triggerBuild", "updateBuild", "rebuildBuild", "replayBuild")
+private val JENKINS_EXCLUDED_TOOLS =
+    setOf("triggerBuild", "updateBuild", "rebuildBuild", "replayBuild")

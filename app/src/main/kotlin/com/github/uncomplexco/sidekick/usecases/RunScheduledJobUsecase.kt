@@ -22,7 +22,8 @@ class RunScheduledJobUsecase(
 
         val job = scheduledRun.job
         val startedAtMs = requireNotNull(job.lastRunAt)
-        val conversationId = ConversationId(scheduledRun.channelId, "scheduled_${job.id}_$startedAtMs")
+        val conversationId =
+            ConversationId(scheduledRun.channelId, "scheduled_${job.id}_$startedAtMs")
         turnExecutor.runScheduled(conversationId, job, chat, startedAtMs)
     }
 }

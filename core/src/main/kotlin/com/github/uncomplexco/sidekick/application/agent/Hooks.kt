@@ -1,9 +1,9 @@
 package com.github.uncomplexco.sidekick.application.agent
 
-import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger("sidekick.hooks")
 

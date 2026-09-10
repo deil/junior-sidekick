@@ -4,9 +4,9 @@ import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationKind
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
-import org.junit.jupiter.api.Test
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import org.junit.jupiter.api.Test
 
 class ConversationIdentityTest {
     @Test

@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.application.conversation
 
-import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import org.junit.jupiter.api.Test
 
 class TurnContextTest {
     @Test
@@ -10,7 +10,8 @@ class TurnContextTest {
         val duplicate = message("duplicate")
         val current = message("current")
 
-        val result = filterOutRecentMessages(listOf(old, duplicate, current), listOf(duplicate, current))
+        val result =
+            filterOutRecentMessages(listOf(old, duplicate, current), listOf(duplicate, current))
 
         assertEquals(listOf(old), result)
     }

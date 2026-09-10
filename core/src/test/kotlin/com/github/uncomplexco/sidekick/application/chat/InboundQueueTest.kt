@@ -1,9 +1,9 @@
 package com.github.uncomplexco.sidekick.application.chat
 
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
-import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import org.junit.jupiter.api.Test
 
 class InboundQueueTest {
     @Test
@@ -28,8 +28,16 @@ class InboundQueueTest {
         val message = message()
 
         // Act
-        val first = batchKeyFor(ChatConversationId(channelId = "C123", threadId = "1700000000.000"), message)
-        val second = batchKeyFor(ChatConversationId(channelId = "C123", threadId = "1700000001.000"), message)
+        val first =
+            batchKeyFor(
+                ChatConversationId(channelId = "C123", threadId = "1700000000.000"),
+                message,
+            )
+        val second =
+            batchKeyFor(
+                ChatConversationId(channelId = "C123", threadId = "1700000001.000"),
+                message,
+            )
 
         // Assert
         assertNotEquals(first, second)
@@ -84,15 +92,20 @@ class InboundQueueTest {
     @Test
     fun `batch keys can be used as map keys`() {
         // Arrange
-        val threadConversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
+        val threadConversationId =
+            ChatConversationId(channelId = "C123", threadId = "1700000000.000")
         val rootConversationId = ChatConversationId(channelId = "C123")
         val batches = mutableMapOf<BatchKey, List<String>>()
 
         // Act
-        batches[batchKeyFor(threadConversationId, message(id = "1700000001.000"))] = listOf("first thread message")
-        batches[batchKeyFor(threadConversationId, message(id = "1700000002.000"))] = listOf("second thread message")
-        batches[batchKeyFor(rootConversationId, message(id = "1700000001.000"))] = listOf("first root message")
-        batches[batchKeyFor(rootConversationId, message(id = "1700000002.000"))] = listOf("second root message")
+        batches[batchKeyFor(threadConversationId, message(id = "1700000001.000"))] =
+            listOf("first thread message")
+        batches[batchKeyFor(threadConversationId, message(id = "1700000002.000"))] =
+            listOf("second thread message")
+        batches[batchKeyFor(rootConversationId, message(id = "1700000001.000"))] =
+            listOf("first root message")
+        batches[batchKeyFor(rootConversationId, message(id = "1700000002.000"))] =
+            listOf("second root message")
 
         // Assert
         assertEquals(3, batches.size)

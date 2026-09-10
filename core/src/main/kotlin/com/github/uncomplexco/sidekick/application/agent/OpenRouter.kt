@@ -14,14 +14,15 @@ fun KoogConfig.openRouterExecutor(): PromptExecutor =
     MultiLLMPromptExecutor(
         LLMProvider.OpenRouter to
             OpenRouterLLMClient(
-                apiKey = openRouterApiKey,
-                httpClientFactory =
-                    OpenRouterHttpClientFactory(
-                        HttpClientFactoryResolver.resolve(),
-                        openRouterAppTitle,
-                        openRouterAppUrl,
-                    ),
-            ).toRetryingClient(RetryConfig.PRODUCTION),
+                    apiKey = openRouterApiKey,
+                    httpClientFactory =
+                        OpenRouterHttpClientFactory(
+                            HttpClientFactoryResolver.resolve(),
+                            openRouterAppTitle,
+                            openRouterAppUrl,
+                        ),
+                )
+                .toRetryingClient(RetryConfig.PRODUCTION)
     )
 
 internal class OpenRouterHttpClientFactory(
@@ -38,7 +39,8 @@ internal class OpenRouterHttpClientFactory(
                     "HTTP-Referer" to it,
                     "X-OpenRouter-Title" to appTitle,
                 )
-            }.orEmpty()
+            }
+            .orEmpty()
 
     override fun create(
         clientName: String,

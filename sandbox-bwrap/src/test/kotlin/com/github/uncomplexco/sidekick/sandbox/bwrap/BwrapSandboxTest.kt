@@ -1,10 +1,10 @@
 package com.github.uncomplexco.sidekick.sandbox.bwrap
 
-import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import kotlin.io.path.pathString
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Test
 
 class BwrapSandboxTest {
     @Test
@@ -22,7 +22,7 @@ class BwrapSandboxTest {
                     maxOutputBytes = 10_000,
                     uid = 123,
                     gid = 456,
-                ),
+                )
             )
 
         // Act
@@ -34,7 +34,7 @@ class BwrapSandboxTest {
                     timeoutSeconds = 5,
                     networkEnabled = false,
                     mounts = listOf(BwrapMount(scratch, "/work", BwrapMountMode.RW)),
-                ),
+                )
             )
 
         // Assert
@@ -62,7 +62,7 @@ class BwrapSandboxTest {
                     maxOutputBytes = 3,
                     uid = 123,
                     gid = 456,
-                ),
+                )
             )
 
         // Act
@@ -74,7 +74,7 @@ class BwrapSandboxTest {
                     timeoutSeconds = 5,
                     networkEnabled = true,
                     mounts = emptyList(),
-                ),
+                )
             )
 
         // Assert
@@ -96,7 +96,7 @@ class BwrapSandboxTest {
                     maxOutputBytes = 10_000,
                     uid = 123,
                     gid = 456,
-                ),
+                )
             )
 
         // Act
@@ -108,7 +108,7 @@ class BwrapSandboxTest {
                     timeoutSeconds = 5,
                     networkEnabled = true,
                     mounts = emptyList(),
-                ),
+                )
             )
 
         // Assert
@@ -125,7 +125,8 @@ class BwrapSandboxTest {
             """
             #!/usr/bin/env bash
             $body
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         script.toFile().setExecutable(true)
         return script

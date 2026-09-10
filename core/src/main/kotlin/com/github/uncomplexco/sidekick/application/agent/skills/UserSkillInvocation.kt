@@ -1,8 +1,6 @@
 package com.github.uncomplexco.sidekick.application.agent.skills
 
-data class UserSkillInvocation(
-    val skill: Skill,
-)
+data class UserSkillInvocation(val skill: Skill)
 
 fun detectUserSkillInvocation(
     text: String,
@@ -11,14 +9,20 @@ fun detectUserSkillInvocation(
     val userInvocableSkills = catalog.skills.filter { it.userInvocable }
 
     slashMatches(text, userInvocableSkills)
-        .minWithOrNull(compareBy<UserSkillInvocationMatch> { it.range.first }.thenBy { it.skill.name })
-        ?.let { return UserSkillInvocation(it.skill) }
+        .minWithOrNull(
+            compareBy<UserSkillInvocationMatch> { it.range.first }.thenBy { it.skill.name }
+        )
+        ?.let {
+            return UserSkillInvocation(it.skill)
+        }
 
     return userInvocableSkills
         .asSequence()
         .flatMap { skill -> naturalLanguageMatchesForSkill(text, skill).asSequence() }
         .filterNot { match -> isNegativeInstruction(text, match.range) }
-        .minWithOrNull(compareBy<UserSkillInvocationMatch> { it.range.first }.thenBy { it.skill.name })
+        .minWithOrNull(
+            compareBy<UserSkillInvocationMatch> { it.range.first }.thenBy { it.skill.name }
+        )
         ?.let { UserSkillInvocation(it.skill) }
 }
 
@@ -33,14 +37,12 @@ private fun slashMatches(
 ): Sequence<UserSkillInvocationMatch> {
     val skillsByName = skills.associateBy { it.name.lowercase() }
 
-    return SLASH_WORD_RE
-        .findAll(text)
-        .mapNotNull { match ->
-            val skillName = match.groupValues[1].lowercase()
-            val skill = skillsByName[skillName] ?: return@mapNotNull null
+    return SLASH_WORD_RE.findAll(text).mapNotNull { match ->
+        val skillName = match.groupValues[1].lowercase()
+        val skill = skillsByName[skillName] ?: return@mapNotNull null
 
-            UserSkillInvocationMatch(skill, match.range)
-        }
+        UserSkillInvocationMatch(skill, match.range)
+    }
 }
 
 private fun naturalLanguageMatchesForSkill(
@@ -50,7 +52,10 @@ private fun naturalLanguageMatchesForSkill(
     val name = Regex.escape(skill.name)
     val pattern = naturalLanguagePattern(name)
 
-    return pattern.findAll(text).map { match -> UserSkillInvocationMatch(skill, match.range) }.toList()
+    return pattern
+        .findAll(text)
+        .map { match -> UserSkillInvocationMatch(skill, match.range) }
+        .toList()
 }
 
 private fun isNegativeInstruction(
@@ -64,8 +69,12 @@ private fun isNegativeInstruction(
 }
 
 private fun naturalLanguagePattern(name: String): Regex =
-    Regex("\\b(?:activate|use|invoke|run|call)\\s+(?:skill\\s+)?(?:the\\s+)?$name(?:\\s+skill)?\\b", RegexOption.IGNORE_CASE)
+    Regex(
+        "\\b(?:activate|use|invoke|run|call)\\s+(?:skill\\s+)?(?:the\\s+)?$name(?:\\s+skill)?\\b",
+        RegexOption.IGNORE_CASE,
+    )
 
-private val NEGATIVE_INSTRUCTION_PREFIX_RE = Regex("(?:\\bdo\\s+not\\s+|\\bdon't\\s+|\\bdont\\s+|\\bnever\\s+)$", RegexOption.IGNORE_CASE)
+private val NEGATIVE_INSTRUCTION_PREFIX_RE =
+    Regex("(?:\\bdo\\s+not\\s+|\\bdon't\\s+|\\bdont\\s+|\\bnever\\s+)$", RegexOption.IGNORE_CASE)
 
 private val SLASH_WORD_RE = Regex("(?<!\\S)/([A-Za-z0-9][A-Za-z0-9_-]*)")

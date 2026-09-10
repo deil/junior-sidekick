@@ -9,14 +9,12 @@ import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.context.prompts.Prompts
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
-import org.springframework.stereotype.Component
 import java.nio.file.Path
 import kotlinx.io.files.Path as KotlinPath
+import org.springframework.stereotype.Component
 
 @Component
-class KoogImageSummarizer(
-    private val config: KoogConfig,
-) : ImageSummarizer {
+class KoogImageSummarizer(private val config: KoogConfig) : ImageSummarizer {
     private val model =
         LLModel(
             provider = LLMProvider.OpenRouter,
@@ -42,12 +40,13 @@ class KoogImageSummarizer(
             }
 
         return runCatching {
-            config.openRouterExecutor().use { executor ->
-                executor.execute(prompt, model).textContent()
+                config.openRouterExecutor().use { executor ->
+                    executor.execute(prompt, model).textContent()
+                }
             }
-        }.fold(
-            onSuccess = ImageSummarizer.Result::Success,
-            onFailure = ImageSummarizer.Result::Failure,
-        )
+            .fold(
+                onSuccess = ImageSummarizer.Result::Success,
+                onFailure = ImageSummarizer.Result::Failure,
+            )
     }
 }

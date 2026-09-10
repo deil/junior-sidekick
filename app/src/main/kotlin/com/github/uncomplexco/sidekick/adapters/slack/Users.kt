@@ -23,9 +23,7 @@ internal fun toMessageAuthor(
         return@computeIfAbsent MessageAuthor(
             username = userId,
             fullName =
-                if (userinfo.user.profile.displayNameNormalized
-                        .isNullOrBlank()
-                ) {
+                if (userinfo.user.profile.displayNameNormalized.isNullOrBlank()) {
                     userinfo.user.realName
                 } else {
                     userinfo.user.profile.displayNameNormalized

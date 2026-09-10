@@ -2,6 +2,10 @@ package com.github.uncomplexco.sidekick.adapters.jgit
 
 import com.github.uncomplexco.sidekick.application.tools.git.GitPushPlan
 import com.github.uncomplexco.sidekick.application.tools.git.GitPushStatus
+import java.net.InetSocketAddress
+import java.nio.file.Files
+import java.nio.file.Path
+import java.security.PublicKey
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.TransportCommand
 import org.eclipse.jgit.api.TransportConfigCallback
@@ -14,10 +18,6 @@ import org.eclipse.jgit.transport.Transport
 import org.eclipse.jgit.transport.sshd.ServerKeyDatabase
 import org.eclipse.jgit.transport.sshd.SshdSessionFactory
 import org.eclipse.jgit.transport.sshd.SshdSessionFactoryBuilder
-import java.net.InetSocketAddress
-import java.nio.file.Files
-import java.nio.file.Path
-import java.security.PublicKey
 
 internal fun Git.pushPlan(
     checkout: Path,
@@ -30,7 +30,8 @@ internal fun Git.pushPlan(
         throw IllegalArgumentException("Local branch does not exist: $selectedBranch")
     }
 
-    val commitHash = branchRef?.objectId?.name ?: repository.resolve(JGitRepository.HEAD)?.name ?: ""
+    val commitHash =
+        branchRef?.objectId?.name ?: repository.resolve(JGitRepository.HEAD)?.name ?: ""
     val dirty = !status().call().isClean
     val fullBranch = repository.fullBranch
     if (branch == null && (fullBranch == null || !fullBranch.startsWith(Constants.R_HEADS))) {
@@ -137,8 +138,7 @@ private val GitPushStatus.priority: Int
             GitPushStatus.FAILED,
             GitPushStatus.DETACHED_HEAD,
             GitPushStatus.NO_UPSTREAM,
-            GitPushStatus.NO_REMOTE,
-            -> 2
+            GitPushStatus.NO_REMOTE -> 2
         }
 
 internal fun Collection<RemoteRefUpdate>.toPushMessage(): String {
@@ -154,18 +154,18 @@ internal fun Collection<RemoteRefUpdate>.toPushMessage(): String {
 internal fun <C, T> C.applySsh(
     sshKeyPath: String,
     workingDirectory: Path,
-) where C : TransportCommand<C, T> =
-    apply {
-        setTransportConfigCallback(sshKeyCallback(sshKeyPath, workingDirectory))
-    }
+) where C : TransportCommand<C, T> = apply {
+    setTransportConfigCallback(sshKeyCallback(sshKeyPath, workingDirectory))
+}
 
 private fun sshKeyCallback(
     sshKeyPath: String,
     workingDirectory: Path,
-) = SshKeyTransportConfigCallback(
-    sshKeyPath = Path.of(sshKeyPath).toAbsolutePath().normalize(),
-    sshHomeDirectory = workingDirectory.resolve("tmp").toAbsolutePath().normalize(),
-)
+) =
+    SshKeyTransportConfigCallback(
+        sshKeyPath = Path.of(sshKeyPath).toAbsolutePath().normalize(),
+        sshHomeDirectory = workingDirectory.resolve("tmp").toAbsolutePath().normalize(),
+    )
 
 private class SshKeyTransportConfigCallback(
     private val sshKeyPath: Path,

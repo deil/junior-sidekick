@@ -1,9 +1,9 @@
 package com.github.uncomplexco.sidekick.application.tools.slack
 
 import ai.koog.agents.core.tools.ToolException
+import kotlin.test.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import kotlin.test.assertEquals
 
 class SlackUserToolsTest {
     @Test
@@ -27,11 +27,7 @@ class SlackUserToolsTest {
 
     @Test
     fun `rejects non-positive limit and scan depth`() {
-        assertThrows<ToolException.ValidationFailure> {
-            0.normalizedSlackUserLimit()
-        }
-        assertThrows<ToolException.ValidationFailure> {
-            0.normalizedSlackUserScanDepth()
-        }
+        assertThrows<ToolException.ValidationFailure> { 0.normalizedSlackUserLimit() }
+        assertThrows<ToolException.ValidationFailure> { 0.normalizedSlackUserScanDepth() }
     }
 }

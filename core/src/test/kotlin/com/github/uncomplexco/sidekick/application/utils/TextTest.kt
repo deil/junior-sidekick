@@ -1,9 +1,9 @@
 package com.github.uncomplexco.sidekick.application.utils
 
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
 import kotlin.test.assertEquals
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 
 class TextTest {
     @ParameterizedTest

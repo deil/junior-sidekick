@@ -13,18 +13,18 @@ import io.ktor.client.request.*
 import io.modelcontextprotocol.kotlin.sdk.client.*
 import io.modelcontextprotocol.kotlin.sdk.shared.Transport
 import io.modelcontextprotocol.kotlin.sdk.types.Implementation
-import kotlinx.io.asSink
-import kotlinx.io.asSource
-import kotlinx.io.buffered
-import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.stereotype.Component
 import java.net.URI
+import java.net.http.HttpClient as JavaHttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.file.Path
 import java.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import java.net.http.HttpClient as JavaHttpClient
+import kotlinx.io.asSink
+import kotlinx.io.asSource
+import kotlinx.io.buffered
+import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.stereotype.Component
 
 @Component
 @ConfigurationProperties(prefix = "agent.mcp")
@@ -33,9 +33,7 @@ class McpToolsConfig {
     var oauth: McpOauthConfig = McpOauthConfig()
 }
 
-data class McpOauthConfig(
-    var publicBaseUrl: String = "",
-)
+data class McpOauthConfig(var publicBaseUrl: String = "")
 
 data class McpServerConfig(
     var id: String = "",
@@ -49,9 +47,7 @@ data class McpServerConfig(
     var authHeader: McpAuthHeaderConfig = McpAuthHeaderConfig(),
 )
 
-data class McpAuthHeaderConfig(
-    var value: String = "",
-)
+data class McpAuthHeaderConfig(var value: String = "")
 
 @Component
 class DefaultMcpServersRegistry(
@@ -75,13 +71,15 @@ class DefaultMcpServersRegistry(
     ): ConnectedMcpServer =
         when (server.auth) {
             "oauth" -> {
-                val accessToken = oauth.accessToken(server) ?: error("MCP server ${server.id} requires OAuth")
+                val accessToken =
+                    oauth.accessToken(server) ?: error("MCP server ${server.id} requires OAuth")
                 connect(server, workRoot, authHeaderValue = "Bearer $accessToken")
             }
 
             "header" -> {
-                val authHeaderValue = server.authHeader.value.takeIf { it.isNotBlank() }
-                    ?: error("MCP server ${server.id} requires auth-header.value")
+                val authHeaderValue =
+                    server.authHeader.value.takeIf { it.isNotBlank() }
+                        ?: error("MCP server ${server.id} requires auth-header.value")
                 connect(server, workRoot, authHeaderValue)
             }
 
@@ -101,7 +99,9 @@ class DefaultMcpServersRegistry(
             }
 
             "sse" -> {
-                httpServer(server, workRoot, authHeaderValue) { client -> SseClientTransport(client, server.url) }
+                httpServer(server, workRoot, authHeaderValue) { client ->
+                    SseClientTransport(client, server.url)
+                }
             }
 
             "streamable-http" -> {
@@ -109,7 +109,9 @@ class DefaultMcpServersRegistry(
                     server,
                     workRoot,
                     authHeaderValue,
-                ) { client -> client.mcpStreamableHttpTransport(server.url) }
+                ) { client ->
+                    client.mcpStreamableHttpTransport(server.url)
+                }
             }
 
             else -> {
@@ -157,28 +159,34 @@ class DefaultMcpServersRegistry(
         authHeaderValue: String?,
     ) {
         runCatching {
-            val requestBuilder =
-                HttpRequest
-                    .newBuilder(URI.create(server.url))
-                    .timeout(Duration.ofSeconds(5))
-                    .header("Accept", "text/event-stream")
-                    .GET()
-            authHeaderValue?.let { requestBuilder.header("Authorization", it) }
+                val requestBuilder =
+                    HttpRequest.newBuilder(URI.create(server.url))
+                        .timeout(Duration.ofSeconds(5))
+                        .header("Accept", "text/event-stream")
+                        .GET()
+                authHeaderValue?.let { requestBuilder.header("Authorization", it) }
 
-            val response =
-                JavaHttpClient.newHttpClient().send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString())
-            if (response.statusCode() !in 200..299) {
+                val response =
+                    JavaHttpClient.newHttpClient()
+                        .send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString())
+                if (response.statusCode() !in 200..299) {
+                    log.warn(
+                        "MCP SSE error response server={} url={} status={} body={}",
+                        server.id,
+                        server.url,
+                        response.statusCode(),
+                        response.body().take(MAX_ERROR_RESPONSE_LOG_LENGTH),
+                    )
+                }
+            }
+            .onFailure {
                 log.warn(
-                    "MCP SSE error response server={} url={} status={} body={}",
+                    "Failed to read MCP SSE error response server={} url={}",
                     server.id,
                     server.url,
-                    response.statusCode(),
-                    response.body().take(MAX_ERROR_RESPONSE_LOG_LENGTH),
+                    it,
                 )
             }
-        }.onFailure {
-            log.warn("Failed to read MCP SSE error response server={} url={}", server.id, server.url, it)
-        }
     }
 
     private suspend fun connectedServer(
@@ -189,13 +197,14 @@ class DefaultMcpServersRegistry(
     ): ConnectedMcpServer {
         val client =
             Client(
-                clientInfo =
-                    Implementation(
-                        name = "sidekick",
-                        version = "1.0.0",
-                    ),
-                options = ClientOptions().apply { timeout = server.timeoutSeconds.seconds },
-            ).apply { connect(transport) }
+                    clientInfo =
+                        Implementation(
+                            name = "sidekick",
+                            version = "1.0.0",
+                        ),
+                    options = ClientOptions().apply { timeout = server.timeoutSeconds.seconds },
+                )
+                .apply { connect(transport) }
         val registry = toolRegistry(server, client, workRoot)
         return DefaultConnectedMcpServer(
             id = server.id,
@@ -219,18 +228,29 @@ class DefaultMcpServersRegistry(
                 }
 
                 runCatching {
-                    val descriptor = prepareMcpToolDescriptor(tool.name, DefaultMcpToolDescriptorParser.parse(tool))
-                    tool(
-                        McpServerTool(
-                            client = client,
-                            originalToolName = tool.name,
-                            descriptor = descriptor.copy(name = "mcp__${server.id}__${descriptor.name}"),
-                            workRoot = workRoot,
-                        ),
-                    )
-                }.onFailure {
-                    log.warn("Ignoring invalid MCP tool {} from server {}", tool.name, server.id, it)
-                }
+                        val descriptor =
+                            prepareMcpToolDescriptor(
+                                tool.name,
+                                DefaultMcpToolDescriptorParser.parse(tool),
+                            )
+                        tool(
+                            McpServerTool(
+                                client = client,
+                                originalToolName = tool.name,
+                                descriptor =
+                                    descriptor.copy(name = "mcp__${server.id}__${descriptor.name}"),
+                                workRoot = workRoot,
+                            )
+                        )
+                    }
+                    .onFailure {
+                        log.warn(
+                            "Ignoring invalid MCP tool {} from server {}",
+                            tool.name,
+                            server.id,
+                            it,
+                        )
+                    }
             }
         }
     }
@@ -238,19 +258,16 @@ class DefaultMcpServersRegistry(
     private fun mcpHttpClient(
         server: McpServerConfig,
         authHeaderValue: String?,
-    ): HttpClient =
-        HttpClient {
-            install(SSE)
-            install(HttpTimeout) {
-                requestTimeoutMillis = server.timeoutSeconds.seconds.inWholeMilliseconds
-                socketTimeoutMillis = server.timeoutSeconds.seconds.inWholeMilliseconds
-            }
-            authHeaderValue?.let { headerValue ->
-                defaultRequest {
-                    header("Authorization", headerValue)
-                }
-            }
+    ): HttpClient = HttpClient {
+        install(SSE)
+        install(HttpTimeout) {
+            requestTimeoutMillis = server.timeoutSeconds.seconds.inWholeMilliseconds
+            socketTimeoutMillis = server.timeoutSeconds.seconds.inWholeMilliseconds
         }
+        authHeaderValue?.let { headerValue ->
+            defaultRequest { header("Authorization", headerValue) }
+        }
+    }
 
     companion object {
         private const val MAX_ERROR_RESPONSE_LOG_LENGTH = 4000

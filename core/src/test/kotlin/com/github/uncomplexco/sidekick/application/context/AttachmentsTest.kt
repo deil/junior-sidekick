@@ -2,15 +2,14 @@ package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class AttachmentsTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `renders only non-blank file summaries`() {
@@ -29,13 +28,14 @@ class AttachmentsTest {
     private fun file(
         id: String,
         summary: String,
-    ) = SessionFileRef(
-        id = id,
-        name = "$id.png",
-        mimetype = "image/png",
-        filetype = "png",
-        urlPrivateDownload = "https://example.com/$id",
-        localPath = "/data/session/$id.png",
-        summary = summary,
-    )
+    ) =
+        SessionFileRef(
+            id = id,
+            name = "$id.png",
+            mimetype = "image/png",
+            filetype = "png",
+            urlPrivateDownload = "https://example.com/$id",
+            localPath = "/data/session/$id.png",
+            summary = summary,
+        )
 }

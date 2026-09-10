@@ -1,24 +1,28 @@
 package com.github.uncomplexco.sidekick.adapters.jgit
 
-import com.github.uncomplexco.sidekick.application.tools.git.GitRepositoryStatus
 import com.github.uncomplexco.sidekick.application.tools.git.GitPullStatus
 import com.github.uncomplexco.sidekick.application.tools.git.GitPushStatus
-import org.eclipse.jgit.api.Git
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
+import com.github.uncomplexco.sidekick.application.tools.git.GitRepositoryStatus
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import org.eclipse.jgit.api.Git
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class JGitRepositoryTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `updates remote url`() {
         val checkout = createRepository("checkout")
         Git.open(checkout.toFile()).use { git ->
-            git.repository.config.setString("remote", "origin", "url", "https://example.com/acme/repo")
+            git.repository.config.setString(
+                "remote",
+                "origin",
+                "url",
+                "https://example.com/acme/repo",
+            )
             git.repository.config.save()
         }
 
@@ -33,7 +37,11 @@ class JGitRepositoryTest {
         val remote = createRepository("remote")
         commit(remote, "one")
         val checkout = dir.resolve("checkout")
-        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        Git.cloneRepository()
+            .setURI(remote.toUri().toString())
+            .setDirectory(checkout.toFile())
+            .call()
+            .close()
         commit(remote, "two")
         val expectedHead = head(remote)
 
@@ -52,7 +60,11 @@ class JGitRepositoryTest {
         val remote = createRepository("remote")
         commit(remote, "one")
         val checkout = dir.resolve("checkout")
-        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        Git.cloneRepository()
+            .setURI(remote.toUri().toString())
+            .setDirectory(checkout.toFile())
+            .call()
+            .close()
         val originalHead = head(checkout)
         commit(remote, "remote-two")
         commit(checkout, "local-two")
@@ -72,13 +84,19 @@ class JGitRepositoryTest {
         val remote = createRepository("remote")
         commit(remote, "one")
         val checkout = dir.resolve("checkout")
-        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        Git.cloneRepository()
+            .setURI(remote.toUri().toString())
+            .setDirectory(checkout.toFile())
+            .call()
+            .close()
         val branch = currentBranch(checkout)
         commit(remote, "two")
         val expectedHead = head(remote)
 
         // Act
-        val result = JGitRepository().pull(checkout, sshKeyFile = "ignored", remote = "origin", refspec = branch)
+        val result =
+            JGitRepository()
+                .pull(checkout, sshKeyFile = "ignored", remote = "origin", refspec = branch)
 
         // Assert
         assertEquals(GitPullStatus.FAST_FORWARDED, result.status)
@@ -92,13 +110,19 @@ class JGitRepositoryTest {
         // Arrange
         val remote = createBareRemote()
         val checkout = dir.resolve("checkout")
-        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        Git.cloneRepository()
+            .setURI(remote.toUri().toString())
+            .setDirectory(checkout.toFile())
+            .call()
+            .close()
         commit(checkout, "two")
         tag(checkout, "v1")
         val expectedHead = head(checkout)
 
         // Act
-        val result = JGitRepository().push(checkout, sshKeyFile = "ignored", branch = null, all = false, tags = false)
+        val result =
+            JGitRepository()
+                .push(checkout, sshKeyFile = "ignored", branch = null, all = false, tags = false)
 
         // Assert
         assertEquals(GitPushStatus.PUSHED, result.status)
@@ -112,11 +136,17 @@ class JGitRepositoryTest {
         // Arrange
         val remote = createBareRemote()
         val checkout = dir.resolve("checkout")
-        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        Git.cloneRepository()
+            .setURI(remote.toUri().toString())
+            .setDirectory(checkout.toFile())
+            .call()
+            .close()
         tag(checkout, "v1")
 
         // Act
-        val result = JGitRepository().push(checkout, sshKeyFile = "ignored", branch = null, all = false, tags = true)
+        val result =
+            JGitRepository()
+                .push(checkout, sshKeyFile = "ignored", branch = null, all = false, tags = true)
 
         // Assert
         assertEquals(GitPushStatus.PUSHED, result.status)
@@ -128,10 +158,16 @@ class JGitRepositoryTest {
         // Arrange
         val remote = createBareRemote()
         val checkout = dir.resolve("checkout")
-        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        Git.cloneRepository()
+            .setURI(remote.toUri().toString())
+            .setDirectory(checkout.toFile())
+            .call()
+            .close()
 
         // Act
-        val result = JGitRepository().push(checkout, sshKeyFile = "ignored", branch = null, all = false, tags = false)
+        val result =
+            JGitRepository()
+                .push(checkout, sshKeyFile = "ignored", branch = null, all = false, tags = false)
 
         // Assert
         assertEquals(GitPushStatus.UP_TO_DATE, result.status)
@@ -142,15 +178,26 @@ class JGitRepositoryTest {
         // Arrange
         val remote = createBareRemote()
         val checkout = dir.resolve("checkout")
-        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        Git.cloneRepository()
+            .setURI(remote.toUri().toString())
+            .setDirectory(checkout.toFile())
+            .call()
+            .close()
         val other = dir.resolve("other")
-        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(other.toFile()).call().close()
+        Git.cloneRepository()
+            .setURI(remote.toUri().toString())
+            .setDirectory(other.toFile())
+            .call()
+            .close()
         commit(other, "remote-two")
-        JGitRepository().push(other, sshKeyFile = "ignored", branch = null, all = false, tags = false)
+        JGitRepository()
+            .push(other, sshKeyFile = "ignored", branch = null, all = false, tags = false)
         commit(checkout, "local-two")
 
         // Act
-        val result = JGitRepository().push(checkout, sshKeyFile = "ignored", branch = null, all = false, tags = false)
+        val result =
+            JGitRepository()
+                .push(checkout, sshKeyFile = "ignored", branch = null, all = false, tags = false)
 
         // Assert
         assertEquals(GitPushStatus.REJECTED_NON_FAST_FORWARD, result.status)
@@ -162,11 +209,17 @@ class JGitRepositoryTest {
         // Arrange
         val remote = createBareRemote()
         val checkout = dir.resolve("checkout")
-        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        Git.cloneRepository()
+            .setURI(remote.toUri().toString())
+            .setDirectory(checkout.toFile())
+            .call()
+            .close()
         Files.writeString(checkout.resolve("dirty.txt"), "dirty\n")
 
         // Act
-        val result = JGitRepository().push(checkout, sshKeyFile = "ignored", branch = null, all = false, tags = false)
+        val result =
+            JGitRepository()
+                .push(checkout, sshKeyFile = "ignored", branch = null, all = false, tags = false)
 
         // Assert
         assertEquals(GitPushStatus.UP_TO_DATE, result.status)
@@ -178,19 +231,29 @@ class JGitRepositoryTest {
         // Arrange
         val remote = createBareRemote()
         val checkout = dir.resolve("checkout")
-        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        Git.cloneRepository()
+            .setURI(remote.toUri().toString())
+            .setDirectory(checkout.toFile())
+            .call()
+            .close()
         val originalBranch = currentBranch(checkout)
         Git.open(checkout.toFile()).use { git ->
             git.checkout().setCreateBranch(true).setName("release").call()
         }
         commit(checkout, "release")
         val expectedHead = head(checkout)
-        Git.open(checkout.toFile()).use { git ->
-            git.checkout().setName(originalBranch).call()
-        }
+        Git.open(checkout.toFile()).use { git -> git.checkout().setName(originalBranch).call() }
 
         // Act
-        val result = JGitRepository().push(checkout, sshKeyFile = "ignored", branch = "release", all = false, tags = false)
+        val result =
+            JGitRepository()
+                .push(
+                    checkout,
+                    sshKeyFile = "ignored",
+                    branch = "release",
+                    all = false,
+                    tags = false,
+                )
 
         // Assert
         assertEquals(GitPushStatus.PUSHED, result.status)
@@ -204,19 +267,23 @@ class JGitRepositoryTest {
         // Arrange
         val remote = createBareRemote()
         val checkout = dir.resolve("checkout")
-        Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(checkout.toFile()).call().close()
+        Git.cloneRepository()
+            .setURI(remote.toUri().toString())
+            .setDirectory(checkout.toFile())
+            .call()
+            .close()
         val originalBranch = currentBranch(checkout)
         Git.open(checkout.toFile()).use { git ->
             git.checkout().setCreateBranch(true).setName("release").call()
         }
         commit(checkout, "release")
         val expectedReleaseHead = head(checkout)
-        Git.open(checkout.toFile()).use { git ->
-            git.checkout().setName(originalBranch).call()
-        }
+        Git.open(checkout.toFile()).use { git -> git.checkout().setName(originalBranch).call() }
 
         // Act
-        val result = JGitRepository().push(checkout, sshKeyFile = "ignored", branch = null, all = true, tags = false)
+        val result =
+            JGitRepository()
+                .push(checkout, sshKeyFile = "ignored", branch = null, all = true, tags = false)
 
         // Assert
         assertEquals(GitPushStatus.PUSHED, result.status)
@@ -233,7 +300,12 @@ class JGitRepositoryTest {
         val seed = createRepository("seed-${System.nanoTime()}")
         commit(seed, "one")
         val remote = dir.resolve("remote-${System.nanoTime()}.git")
-        Git.cloneRepository().setURI(seed.toUri().toString()).setDirectory(remote.toFile()).setBare(true).call().close()
+        Git.cloneRepository()
+            .setURI(seed.toUri().toString())
+            .setDirectory(remote.toFile())
+            .setBare(true)
+            .call()
+            .close()
         return remote
     }
 
@@ -252,9 +324,7 @@ class JGitRepositoryTest {
         repository: Path,
         name: String,
     ) {
-        Git.open(repository.toFile()).use { git ->
-            git.tag().setName(name).call()
-        }
+        Git.open(repository.toFile()).use { git -> git.tag().setName(name).call() }
     }
 
     private fun hasTag(
@@ -266,20 +336,13 @@ class JGitRepositoryTest {
         }
 
     private fun head(repository: Path): String =
-        Git.open(repository.toFile()).use { git ->
-            git.repository.resolve("HEAD").name
-        }
+        Git.open(repository.toFile()).use { git -> git.repository.resolve("HEAD").name }
 
     private fun refHead(
         repository: Path,
         ref: String,
-    ): String =
-        Git.open(repository.toFile()).use { git ->
-            git.repository.resolve(ref).name
-        }
+    ): String = Git.open(repository.toFile()).use { git -> git.repository.resolve(ref).name }
 
     private fun currentBranch(repository: Path): String =
-        Git.open(repository.toFile()).use { git ->
-            git.repository.currentBranch()
-        }
+        Git.open(repository.toFile()).use { git -> git.repository.currentBranch() }
 }

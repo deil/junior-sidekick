@@ -22,29 +22,27 @@ internal suspend fun loadThreadHistory(
         return emptyList()
     }
 
-    return response.messages
-        .orEmpty()
-        .mapNotNull {
-            val text = it.text.trim()
-            if (currentTs != null && it.ts == currentTs) return@mapNotNull null
+    return response.messages.orEmpty().mapNotNull {
+        val text = it.text.trim()
+        if (currentTs != null && it.ts == currentTs) return@mapNotNull null
 
-            val files =
-                fileIngestor.ingest(
-                    conversationId,
-                    incomingChatFiles(it.files, it.attachments),
-                    summarizeImages = false,
-                )
-            if (text.isBlank() && files.isEmpty()) return@mapNotNull null
-
-            val botMessage = it.botId != null && it.botId == ctx.botUserId
-
-            return@mapNotNull ChatMessage(
-                id = it.ts,
-                role = if (botMessage) SessionMessageRole.ASSISTANT else SessionMessageRole.USER,
-                author = if (!botMessage) toMessageAuthor(it.user, ctx) else null,
-                text = text,
-                timestamp = slackTsToMillis(it.ts),
-                files = files,
+        val files =
+            fileIngestor.ingest(
+                conversationId,
+                incomingChatFiles(it.files, it.attachments),
+                summarizeImages = false,
             )
-        }
+        if (text.isBlank() && files.isEmpty()) return@mapNotNull null
+
+        val botMessage = it.botId != null && it.botId == ctx.botUserId
+
+        return@mapNotNull ChatMessage(
+            id = it.ts,
+            role = if (botMessage) SessionMessageRole.ASSISTANT else SessionMessageRole.USER,
+            author = if (!botMessage) toMessageAuthor(it.user, ctx) else null,
+            text = text,
+            timestamp = slackTsToMillis(it.ts),
+            files = files,
+        )
+    }
 }

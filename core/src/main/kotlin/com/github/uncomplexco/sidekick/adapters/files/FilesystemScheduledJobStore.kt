@@ -2,25 +2,26 @@ package com.github.uncomplexco.sidekick.adapters.files
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
-import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobStore
+import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
+import java.nio.charset.StandardCharsets
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import org.springframework.stereotype.Component
-import java.nio.charset.StandardCharsets
-import java.nio.file.AtomicMoveNotSupportedException
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
-import java.nio.file.Path
-import java.util.concurrent.ConcurrentHashMap
 
 @Component
-class FilesystemScheduledJobStore(
-    private val config: AgentConfig,
-) : ScheduledJobStore {
+class FilesystemScheduledJobStore(private val config: AgentConfig) : ScheduledJobStore {
     private val locks = ConcurrentHashMap<String, Mutex>()
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     override fun channelIds(): List<String> {
         val channelsRoot = config.stateDirectoryPath().resolve("slack/channels")
@@ -36,7 +37,10 @@ class FilesystemScheduledJobStore(
 
     override fun allocateId(channelId: String): Int {
         val path = channelPath(channelId).resolve(SEQUENCE_FILE)
-        val lastId = if (Files.isRegularFile(path)) Files.readString(path, StandardCharsets.UTF_8).trim().toInt() else 0
+        val lastId =
+            if (Files.isRegularFile(path))
+                Files.readString(path, StandardCharsets.UTF_8).trim().toInt()
+            else 0
         val nextId = lastId + 1
         writeAtomically(path, "$nextId\n")
         return nextId
@@ -46,8 +50,7 @@ class FilesystemScheduledJobStore(
         val path = jobsPath(channelId)
         if (!Files.isRegularFile(path)) return emptyList()
 
-        return Files
-            .readAllLines(path, StandardCharsets.UTF_8)
+        return Files.readAllLines(path, StandardCharsets.UTF_8)
             .asSequence()
             .map(String::trim)
             .filter(String::isNotEmpty)
@@ -78,7 +81,12 @@ class FilesystemScheduledJobStore(
         try {
             Files.writeString(temporary, content, StandardCharsets.UTF_8)
             try {
-                Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                Files.move(
+                    temporary,
+                    path,
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
             } catch (_: AtomicMoveNotSupportedException) {
                 Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING)
             }

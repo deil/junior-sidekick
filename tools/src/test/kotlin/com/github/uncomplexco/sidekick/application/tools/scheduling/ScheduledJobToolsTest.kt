@@ -3,11 +3,11 @@ package com.github.uncomplexco.sidekick.application.tools.scheduling
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobStore
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.junit.jupiter.api.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 
 class ScheduledJobToolsTest {
     @Test
@@ -32,7 +32,8 @@ class ScheduledJobToolsTest {
         val tools = tools(store)
 
         // Act
-        val result = tools.createScheduledJob("Daily", null, "0 9 * * *", "Europe/London", "Report", true)
+        val result =
+            tools.createScheduledJob("Daily", null, "0 9 * * *", "Europe/London", "Report", true)
 
         // Assert
         assertEquals(1, result.job.id)
@@ -44,7 +45,8 @@ class ScheduledJobToolsTest {
     fun `lists updates and deletes by integer id`() {
         // Arrange
         val tools = tools(ToolTestScheduledJobStore())
-        val created = tools.createScheduledJob("Daily", "old", "0 9 * * *", "UTC", "Report", true).job
+        val created =
+            tools.createScheduledJob("Daily", "old", "0 9 * * *", "UTC", "Report", true).job
 
         // Act
         val paused = tools.updateScheduledJob(created.id, description = "", enabled = false).job
@@ -59,7 +61,8 @@ class ScheduledJobToolsTest {
         assertEquals(emptyList(), tools.listScheduledJobs().jobs)
     }
 
-    private fun tools(store: ScheduledJobStore) = ScheduledJobTools("C123", ScheduledJobService(store))
+    private fun tools(store: ScheduledJobStore) =
+        ScheduledJobTools("C123", ScheduledJobService(store))
 }
 
 private class ToolTestScheduledJobStore : ScheduledJobStore {
@@ -69,7 +72,8 @@ private class ToolTestScheduledJobStore : ScheduledJobStore {
 
     override fun channelIds(): List<String> = jobs.keys.toList()
 
-    override fun allocateId(channelId: String): Int = sequences.getOrDefault(channelId, 0).plus(1).also { sequences[channelId] = it }
+    override fun allocateId(channelId: String): Int =
+        sequences.getOrDefault(channelId, 0).plus(1).also { sequences[channelId] = it }
 
     override fun load(channelId: String): List<ScheduledJob> = jobs[channelId].orEmpty()
 

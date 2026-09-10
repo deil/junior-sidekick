@@ -30,12 +30,12 @@ import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.utils.Loggers
-import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.Serializable
-import org.springframework.stereotype.Component
 import kotlin.reflect.KClass
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.Serializable
+import org.springframework.stereotype.Component
 
 class LoopTools(
     private val factory: LoopFactory,
@@ -44,14 +44,10 @@ class LoopTools(
     private val ctx: TurnContext,
 ) : ToolSet {
     @Tool("Loop")
-    @LLMDescription(
-        "Spawns a subagent to execute a loop in fresh context.",
-    )
+    @LLMDescription("Spawns a subagent to execute a loop in fresh context.")
     fun loop(
-        @LLMDescription("Instructions how to validate the loop has completed.")
-        validation: String,
-        @LLMDescription("Instructions what the agent should do each iteration.")
-        iteration: String,
+        @LLMDescription("Instructions how to validate the loop has completed.") validation: String,
+        @LLMDescription("Instructions what the agent should do each iteration.") iteration: String,
     ): Loop.ValidationResult {
         val loop = factory.create(chat = chat)
 
@@ -72,7 +68,8 @@ class LoopFactory(
     private val systemPromptBuilder: SystemPromptBuilder,
     private val turnPromptBuilder: TurnPromptBuilder,
 ) {
-    fun create(chat: ChatPlatformAdapter): Loop = Loop(koogConfig, systemPromptBuilder, turnPromptBuilder, chat = chat)
+    fun create(chat: ChatPlatformAdapter): Loop =
+        Loop(koogConfig, systemPromptBuilder, turnPromptBuilder, chat = chat)
 }
 
 class Loop(
@@ -88,61 +85,63 @@ class Loop(
         iterationPrompt: String,
         virtualPaths: VirtualPaths,
         toolRegistry: ToolRegistry,
-    ): ValidationResult =
-        runBlocking {
-            Loggers.TOOLS_LOOP.info(
-                """
+    ): ValidationResult = runBlocking {
+        Loggers.TOOLS_LOOP.info(
+            """
                 Loop:
                 - Validation prompt: $validationPrompt
                 - Iteration prompt: $iterationPrompt
-                """.trimIndent(),
-            )
+                """
+                .trimIndent()
+        )
 
-            val maxIterations = 15
-            var iterationsLeft = maxIterations
-            while (iterationsLeft-- > 0) {
-                val validation =
-                    runAgent(
-                        message = wrapPrompt(validationPrompt, userId),
-                        conversationId = conversationId,
-                        chat = chat,
-                        toolRegistry = toolRegistry,
-                        virtualPaths = virtualPaths,
-                        ValidationResult::class,
-                    )
-
-                if (validation.isCompleted) {
-                    Loggers.TOOLS_LOOP.info("Loop finished. Remaining iterations: $iterationsLeft")
-                    return@runBlocking validation
-                }
-
-                Loggers.TOOLS_LOOP.info(
-                    """
-                    Iteration ${maxIterations - iterationsLeft} start.
-                    Validation response: ${validation.reason}
-                    """.trimIndent(),
+        val maxIterations = 15
+        var iterationsLeft = maxIterations
+        while (iterationsLeft-- > 0) {
+            val validation =
+                runAgent(
+                    message = wrapPrompt(validationPrompt, userId),
+                    conversationId = conversationId,
+                    chat = chat,
+                    toolRegistry = toolRegistry,
+                    virtualPaths = virtualPaths,
+                    ValidationResult::class,
                 )
 
-                val result =
-                    runAgent(
-                        message = wrapPrompt(iterationPrompt, "anonymous"),
-                        conversationId = conversationId,
-                        chat = chat,
-                        toolRegistry = toolRegistry,
-                        virtualPaths = virtualPaths,
-                    )
-
-                Loggers.TOOLS_LOOP.info(
-                    """
-                    Iteration ${maxIterations - iterationsLeft} finished.
-                    Agent response: $result
-                    """.trimIndent(),
-                )
+            if (validation.isCompleted) {
+                Loggers.TOOLS_LOOP.info("Loop finished. Remaining iterations: $iterationsLeft")
+                return@runBlocking validation
             }
 
-            Loggers.TOOLS_LOOP.error("Loop ran out of iterations.")
-            return@runBlocking ValidationResult(isCompleted = false, reason = "Ran out of iterations.")
+            Loggers.TOOLS_LOOP.info(
+                """
+                    Iteration ${maxIterations - iterationsLeft} start.
+                    Validation response: ${validation.reason}
+                    """
+                    .trimIndent()
+            )
+
+            val result =
+                runAgent(
+                    message = wrapPrompt(iterationPrompt, "anonymous"),
+                    conversationId = conversationId,
+                    chat = chat,
+                    toolRegistry = toolRegistry,
+                    virtualPaths = virtualPaths,
+                )
+
+            Loggers.TOOLS_LOOP.info(
+                """
+                    Iteration ${maxIterations - iterationsLeft} finished.
+                    Agent response: $result
+                    """
+                    .trimIndent()
+            )
         }
+
+        Loggers.TOOLS_LOOP.error("Loop ran out of iterations.")
+        return@runBlocking ValidationResult(isCompleted = false, reason = "Ran out of iterations.")
+    }
 
     @OptIn(ExperimentalUuidApi::class)
     private fun wrapPrompt(
@@ -195,12 +194,16 @@ class Loop(
 
         require(outputClass == T::class) { "Output class must match reified output type." }
         val structure = JsonStructure.create<T>()
-        val structuredOutputConfig = StructuredRequestConfig(default = StructuredRequest.Manual(structure))
+        val structuredOutputConfig =
+            StructuredRequestConfig(default = StructuredRequest.Manual(structure))
         val aiModelProfile = koogConfig.profile(AiModelProfile.NORMAL)
         val model = llModel(aiModelProfile)
         val agent =
             AIAgent(
-                strategy = structuredOutputWithToolsStrategy<String, T>(structuredOutputConfig) { input -> input },
+                strategy =
+                    structuredOutputWithToolsStrategy<String, T>(structuredOutputConfig) { input ->
+                        input
+                    },
                 promptExecutor = koogConfig.openRouterExecutor(),
                 agentConfig = agentConfig(ctx, chat, aiModelProfile, model),
                 toolRegistry = toolRegistry,
@@ -239,7 +242,7 @@ class Loop(
                         systemPromptBuilder.buildSystemPrompt(
                             chat.botUsername,
                             ctx.conversation.virtualPaths.projectRoot,
-                        ),
+                        )
                     )
                 },
             model = model,

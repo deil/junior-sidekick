@@ -24,11 +24,9 @@ data class SandboxServiceConfig(
                 uid = config.optionalInt("sandbox.uid") ?: 65534,
                 gid = config.optionalInt("sandbox.gid") ?: 65534,
                 allowedSourcePrefixes =
-                    config
-                        .propertyOrNull("sandbox.allowed-source-prefixes")
-                        ?.getList()
-                        ?.map { Path.of(it) }
-                        ?: emptyList(),
+                    config.propertyOrNull("sandbox.allowed-source-prefixes")?.getList()?.map {
+                        Path.of(it)
+                    } ?: emptyList(),
             )
     }
 }

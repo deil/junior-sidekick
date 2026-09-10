@@ -1,23 +1,22 @@
 package com.github.uncomplexco.sidekick.application.tools.skills
 
 import ai.koog.agents.core.tools.ToolException
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloadResult
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-import org.junit.jupiter.api.io.TempDir
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
 
 class SkillToolsTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `activates skill with structured wrapping`() {
@@ -32,17 +31,17 @@ class SkillToolsTest {
             description: Work with PDFs.
             ---
             # PDF Processing
-            
+
             Use this skill for PDF work.
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         Files.writeString(skillFolder.resolve("scripts/extract.py"), "print('extract')\n")
 
         // Act
         val result =
             SkillTools(
-                skills =
-                    {
+                    skills = {
                         SkillCatalog(
                             listOf(
                                 Skill(
@@ -51,13 +50,14 @@ class SkillToolsTest {
                                     folder = skillFolder,
                                     disableModelInvocation = false,
                                     userInvocable = true,
-                                ),
-                            ),
+                                )
+                            )
                         )
                     },
-                virtualPaths = virtualPaths(),
-                skillCatalogReloader = emptyReloader(),
-            ).activateSkill("pdf-processing")
+                    virtualPaths = virtualPaths(),
+                    skillCatalogReloader = emptyReloader(),
+                )
+                .activateSkill("pdf-processing")
 
         // Assert
         assertContains(result, "<skill_content name=\"pdf-processing\">")
@@ -73,12 +73,15 @@ class SkillToolsTest {
     @Test
     fun `rejects unknown skill`() {
         // Arrange
-        val tools = SkillTools(skills = { SkillCatalog(emptyList()) }, virtualPaths = virtualPaths(), skillCatalogReloader = emptyReloader())
+        val tools =
+            SkillTools(
+                skills = { SkillCatalog(emptyList()) },
+                virtualPaths = virtualPaths(),
+                skillCatalogReloader = emptyReloader(),
+            )
 
         // Act / Assert
-        assertThrows<ToolException.ValidationFailure> {
-            tools.activateSkill("missing")
-        }
+        assertThrows<ToolException.ValidationFailure> { tools.activateSkill("missing") }
     }
 
     @Test
@@ -88,15 +91,14 @@ class SkillToolsTest {
             SkillTools(
                 skills = { SkillCatalog(emptyList()) },
                 virtualPaths = virtualPaths(),
-                skillCatalogReloader =
-                    {
-                        SkillCatalogReloadResult(
-                            totalSkills = 3,
-                            modelInvocableSkills = 2,
-                            userInvocableSkills = 1,
-                            skillNames = listOf("alpha", "beta", "gamma"),
-                        )
-                    },
+                skillCatalogReloader = {
+                    SkillCatalogReloadResult(
+                        totalSkills = 3,
+                        modelInvocableSkills = 2,
+                        userInvocableSkills = 1,
+                        skillNames = listOf("alpha", "beta", "gamma"),
+                    )
+                },
             )
 
         // Act
@@ -112,15 +114,14 @@ class SkillToolsTest {
         assertEquals(1, result.user_invocable_skills)
     }
 
-    private fun emptyReloader(): SkillCatalogReloader =
-        SkillCatalogReloader {
-            SkillCatalogReloadResult(
-                totalSkills = 0,
-                modelInvocableSkills = 0,
-                userInvocableSkills = 0,
-                skillNames = emptyList(),
-            )
-        }
+    private fun emptyReloader(): SkillCatalogReloader = SkillCatalogReloader {
+        SkillCatalogReloadResult(
+            totalSkills = 0,
+            modelInvocableSkills = 0,
+            userInvocableSkills = 0,
+            skillNames = emptyList(),
+        )
+    }
 
     private fun virtualPaths(): VirtualPaths =
         VirtualPaths(

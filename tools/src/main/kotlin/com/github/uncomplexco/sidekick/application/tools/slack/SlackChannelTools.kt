@@ -14,18 +14,18 @@ private const val DEFAULT_SLACK_CHANNEL_LIMIT = 100
 private const val MAX_SLACK_CHANNEL_LIMIT = 1000
 
 @LLMDescription("Slack tools for finding visible channels")
-class SlackChannelTools(
-    private val slackClient: MethodsClient,
-) : ToolSet {
+class SlackChannelTools(private val slackClient: MethodsClient) : ToolSet {
     @Tool
     @LLMDescription(
-        "List or search visible Slack channels. Scans Slack pages internally until enough matching channels are found or Slack has no more pages.",
+        "List or search visible Slack channels. Scans Slack pages internally until enough matching channels are found or Slack has no more pages."
     )
     fun slackChannelsList(
-        @LLMDescription("Optional channel name search text. Matches channel names case-insensitively; leading # is ignored.")
+        @LLMDescription(
+            "Optional channel name search text. Matches channel names case-insensitively; leading # is ignored."
+        )
         query: String? = null,
         @LLMDescription(
-            "Maximum matching channels to return. Defaults to $DEFAULT_SLACK_CHANNEL_LIMIT and is capped at $MAX_SLACK_CHANNEL_LIMIT.",
+            "Maximum matching channels to return. Defaults to $DEFAULT_SLACK_CHANNEL_LIMIT and is capped at $MAX_SLACK_CHANNEL_LIMIT."
         )
         limit: Int? = null,
         @LLMDescription("Slack pagination cursor from a previous slackChannelsList result.")
@@ -70,9 +70,8 @@ data class SlackChannelScanResult(
     val retryAfterSeconds: Long? = null,
 )
 
-class SlackChannelRateLimited(
-    val retryAfterSeconds: Long?,
-) : RuntimeException("Slack channel lookup was rate limited.")
+class SlackChannelRateLimited(val retryAfterSeconds: Long?) :
+    RuntimeException("Slack channel lookup was rate limited.")
 
 fun collectSlackChannels(
     query: String?,
@@ -101,7 +100,10 @@ fun collectSlackChannels(
             }
         pagesScanned += 1
         channelsScanned += page.channels.size
-        channels += page.channels.filter { channel -> query == null || channel.matchesName(query) }.take(limit - channels.size)
+        channels +=
+            page.channels
+                .filter { channel -> query == null || channel.matchesName(query) }
+                .take(limit - channels.size)
         nextCursor = page.nextCursor
     } while (channels.size < limit && nextCursor != null)
 
@@ -116,7 +118,9 @@ fun collectSlackChannels(
 fun normalizeSlackChannelLimit(limit: Int?): Int {
     val value = limit ?: DEFAULT_SLACK_CHANNEL_LIMIT
     if (value < 1) {
-        throw ToolException.ValidationFailure("Slack channel limit must be greater than or equal to 1.")
+        throw ToolException.ValidationFailure(
+            "Slack channel limit must be greater than or equal to 1."
+        )
     }
     return minOf(value, MAX_SLACK_CHANNEL_LIMIT)
 }
@@ -124,28 +128,25 @@ fun normalizeSlackChannelLimit(limit: Int?): Int {
 private fun slackChannelPageLimit(
     query: String?,
     remaining: Int,
-): Int = if (query == null) remaining.coerceIn(1, MAX_SLACK_CHANNEL_LIMIT) else MAX_SLACK_CHANNEL_LIMIT
+): Int =
+    if (query == null) remaining.coerceIn(1, MAX_SLACK_CHANNEL_LIMIT) else MAX_SLACK_CHANNEL_LIMIT
 
 fun normalizeSlackChannelQuery(query: String?): String? =
-    query
-        ?.trim()
-        ?.trimStart('#')
-        ?.lowercase()
-        ?.takeIf { it.isNotBlank() }
+    query?.trim()?.trimStart('#')?.lowercase()?.takeIf { it.isNotBlank() }
 
-private fun Conversation.matchesName(query: String): Boolean = listOfNotNull(nameNormalized, name).any { it.lowercase().contains(query) }
+private fun Conversation.matchesName(query: String): Boolean =
+    listOfNotNull(nameNormalized, name).any { it.lowercase().contains(query) }
 
 fun slackChannelContinuationHint(
     query: String?,
     nextCursor: String?,
-): String? =
-    nextCursor?.let { cursor ->
-        if (query == null) {
-            "More channels are available. Call slackChannelsList with cursor=$cursor to continue."
-        } else {
-            "Search is page-based and may be incomplete. Call slackChannelsList with query=$query and cursor=$cursor to continue searching."
-        }
+): String? = nextCursor?.let { cursor ->
+    if (query == null) {
+        "More channels are available. Call slackChannelsList with cursor=$cursor to continue."
+    } else {
+        "Search is page-based and may be incomplete. Call slackChannelsList with query=$query and cursor=$cursor to continue searching."
     }
+}
 
 fun formatSlackChannels(
     channels: List<Conversation>,
@@ -165,9 +166,7 @@ fun formatSlackChannels(
     if (channels.isEmpty()) {
         output += "No matching channels found after scanning $pagesScanned Slack page(s)."
     } else {
-        channels.forEach { channel ->
-            output += channel.toSlackChannelTag()
-        }
+        channels.forEach { channel -> output += channel.toSlackChannelTag() }
     }
     output += "</channels>"
     output += ""
@@ -198,27 +197,24 @@ fun slackChannelRateLimitHint(
 
 private fun Conversation.toSlackChannelTag(): String =
     listOfNotNull(
-        "<channel id=\"${xmlEscape(id)}\">",
-        "name: ${nameNormalized ?: name.orEmpty()}",
-        "created: ${slackTsToUtc(created)}",
-        "private: $isPrivate",
-        "archived: $isArchived",
-        "member: $isMember",
-        "shared: $isShared",
-        "members: $numOfMembers",
-        topic?.value?.takeIf { it.isNotBlank() }?.let { "topic: ${it.singleLine()}" },
-        purpose?.value?.takeIf { it.isNotBlank() }?.let { "purpose: ${it.singleLine()}" },
-        "</channel>",
-    ).joinToString("\n")
+            "<channel id=\"${xmlEscape(id)}\">",
+            "name: ${nameNormalized ?: name.orEmpty()}",
+            "created: ${slackTsToUtc(created)}",
+            "private: $isPrivate",
+            "archived: $isArchived",
+            "member: $isMember",
+            "shared: $isShared",
+            "members: $numOfMembers",
+            topic?.value?.takeIf { it.isNotBlank() }?.let { "topic: ${it.singleLine()}" },
+            purpose?.value?.takeIf { it.isNotBlank() }?.let { "purpose: ${it.singleLine()}" },
+            "</channel>",
+        )
+        .joinToString("\n")
 
 private fun String.singleLine(): String = replace(Regex("\\s+"), " ").trim()
 
 private fun xmlEscape(value: String): String =
-    value
-        .replace("&", "&amp;")
-        .replace("\"", "&quot;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
+    value.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;")
 
 private fun MethodsClient.fetchSlackChannelPage(
     cursor: String?,
@@ -226,19 +222,20 @@ private fun MethodsClient.fetchSlackChannelPage(
     includeArchived: Boolean,
 ): SlackChannelPage {
     try {
-        val response: ConversationsListResponse =
-            conversationsList { req ->
-                req.types(listOf(ConversationType.PUBLIC_CHANNEL, ConversationType.PRIVATE_CHANNEL))
-                req.excludeArchived(!includeArchived)
-                req.limit(limit)
-                cursor?.let(req::cursor)
-                req
-            }
+        val response: ConversationsListResponse = conversationsList { req ->
+            req.types(listOf(ConversationType.PUBLIC_CHANNEL, ConversationType.PRIVATE_CHANNEL))
+            req.excludeArchived(!includeArchived)
+            req.limit(limit)
+            cursor?.let(req::cursor)
+            req
+        }
         if (!response.isOk) {
             if (response.error == "ratelimited") {
                 throw SlackChannelRateLimited(response.retryAfterSeconds())
             }
-            throw ToolException.ValidationFailure(response.error ?: "Failed to list Slack channels.")
+            throw ToolException.ValidationFailure(
+                response.error ?: "Failed to list Slack channels."
+            )
         }
         return SlackChannelPage(
             channels = response.channels.orEmpty(),
@@ -252,4 +249,5 @@ private fun MethodsClient.fetchSlackChannelPage(
     }
 }
 
-private fun ConversationsListResponse.retryAfterSeconds(): Long? = httpResponseHeaders?.get("retry-after")?.firstOrNull()?.toLongOrNull()
+private fun ConversationsListResponse.retryAfterSeconds(): Long? =
+    httpResponseHeaders?.get("retry-after")?.firstOrNull()?.toLongOrNull()

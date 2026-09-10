@@ -19,14 +19,16 @@ class DiscordHistoryTools(
 ) : ToolSet {
     @Tool
     @LLMDescription(
-        "List messages from the current Discord channel, or its parent when the conversation is a thread, newest first",
+        "List messages from the current Discord channel, or its parent when the conversation is a thread, newest first"
     )
     suspend fun discordChannelHistory(
         @LLMDescription(
-            "Maximum number of messages to return. Defaults to $DEFAULT_DISCORD_HISTORY_LIMIT and is capped at $MAX_DISCORD_HISTORY_LIMIT",
+            "Maximum number of messages to return. Defaults to $DEFAULT_DISCORD_HISTORY_LIMIT and is capped at $MAX_DISCORD_HISTORY_LIMIT"
         )
         limit: Int? = null,
-        @LLMDescription("Pagination cursor from next_cursor in a prior discordChannelHistory call for the same channel")
+        @LLMDescription(
+            "Pagination cursor from next_cursor in a prior discordChannelHistory call for the same channel"
+        )
         cursor: String? = null,
     ): DiscordChannelHistoryResult {
         val requestedLimit = normalizeDiscordHistoryLimit(limit)
@@ -34,22 +36,24 @@ class DiscordHistoryTools(
         return DiscordChannelHistoryResult(
             channel_id = page.channelId,
             count = page.messages.size,
-            messages =
-                page.messages.map { it.toDiscordHistoryMessage() },
+            messages = page.messages.map { it.toDiscordHistoryMessage() },
             next_cursor = page.nextCursor,
         )
     }
 
     @Tool
-    @LLMDescription("List messages from a thread in the current Discord channel, or its parent, newest first")
+    @LLMDescription(
+        "List messages from a thread in the current Discord channel, or its parent, newest first"
+    )
     suspend fun discordThreadHistory(
-        @LLMDescription("Discord thread ID")
-        thread_id: String,
+        @LLMDescription("Discord thread ID") thread_id: String,
         @LLMDescription(
-            "Maximum number of messages to return. Defaults to $DEFAULT_DISCORD_HISTORY_LIMIT and is capped at $MAX_DISCORD_HISTORY_LIMIT",
+            "Maximum number of messages to return. Defaults to $DEFAULT_DISCORD_HISTORY_LIMIT and is capped at $MAX_DISCORD_HISTORY_LIMIT"
         )
         limit: Int? = null,
-        @LLMDescription("Pagination cursor from next_cursor in a prior discordThreadHistory call for the same thread")
+        @LLMDescription(
+            "Pagination cursor from next_cursor in a prior discordThreadHistory call for the same thread"
+        )
         cursor: String? = null,
     ): DiscordThreadHistoryResult {
         val threadId = thread_id.trim()
@@ -96,8 +100,7 @@ data class DiscordThreadHistoryResult(
 @Serializable
 data class DiscordHistoryMessage(
     val id: String,
-    @LLMDescription("Discord message sent time in ISO UTC")
-    val sent_at: String,
+    @LLMDescription("Discord message sent time in ISO UTC") val sent_at: String,
     val user_id: String,
     val username: String,
     val is_bot: Boolean,

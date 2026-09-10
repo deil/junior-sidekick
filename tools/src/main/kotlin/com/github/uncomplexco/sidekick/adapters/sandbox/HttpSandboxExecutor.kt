@@ -5,17 +5,17 @@ import com.github.uncomplexco.sidekick.ports.sandbox.ExecutionResult
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutor
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMount
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMountMode
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import org.slf4j.LoggerFactory
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
-import java.time.Duration
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Duration
 import kotlin.io.path.pathString
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 
 class HttpSandboxExecutor(
     private val baseUrl: String,
@@ -31,11 +31,16 @@ class HttpSandboxExecutor(
             command.workdir,
             command.timeoutSeconds,
             command.networkEnabled,
-            command.mounts.map { "${it.mode.name.lowercase()}:${it.source.toAbsolutePath().normalize()}->${it.target} ${fileAttributes(it.source)}" },
+            command.mounts.map {
+                "${it.mode.name.lowercase()}:${it.source.toAbsolutePath().normalize()}->${it.target} ${fileAttributes(it.source)}"
+            },
         )
-        val response = httpClient.send(command.toHttpRequest(), HttpResponse.BodyHandlers.ofString())
+        val response =
+            httpClient.send(command.toHttpRequest(), HttpResponse.BodyHandlers.ofString())
         if (response.statusCode() !in 200..299) {
-            throw IllegalStateException("Bash sandbox service returned HTTP ${response.statusCode()}: ${response.body()}")
+            throw IllegalStateException(
+                "Bash sandbox service returned HTTP ${response.statusCode()}: ${response.body()}"
+            )
         }
 
         val result = json.decodeFromString<ExecuteResponse>(response.body())
@@ -58,8 +63,7 @@ class HttpSandboxExecutor(
                 networkEnabled = networkEnabled,
                 mounts = mounts.map { it.toRequest() },
             )
-        return HttpRequest
-            .newBuilder(executeUri())
+        return HttpRequest.newBuilder(executeUri())
             .timeout(Duration.ofSeconds(timeoutSeconds + 5))
             .header("Authorization", "Bearer $token")
             .header("Content-Type", "application/json")

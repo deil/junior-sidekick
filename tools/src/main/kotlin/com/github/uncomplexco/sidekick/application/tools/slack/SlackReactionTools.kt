@@ -14,19 +14,17 @@ class SlackReactionTools(
 ) : ToolSet {
     @Tool
     @LLMDescription(
-        "Add an emoji reaction to the current inbound Slack message. Use sparingly for lightweight acknowledgements. Provide a Slack emoji alias name (for example `thumbsup`, `white_check_mark`, or `thumbsup::skin-tone-6`), not a unicode emoji glyph. The target message is injected by runtime context; do not use this for arbitrary historical messages.",
+        "Add an emoji reaction to the current inbound Slack message. Use sparingly for lightweight acknowledgements. Provide a Slack emoji alias name (for example `thumbsup`, `white_check_mark`, or `thumbsup::skin-tone-6`), not a unicode emoji glyph. The target message is injected by runtime context; do not use this for arbitrary historical messages."
     )
     fun slackReactionAdd(
-        @LLMDescription("Slack emoji alias name. Surrounding colons are optional.")
-        emoji: String,
+        @LLMDescription("Slack emoji alias name. Surrounding colons are optional.") emoji: String
     ): SlackReactionAddedResult {
         val normalizedEmoji = normalizeSlackReactionEmoji(emoji)
-        val response =
-            slackClient.reactionsAdd { req ->
-                req.channel(ctx.conversation.conversationId.channelId)
-                req.timestamp(ctx.currentMessageId)
-                req.name(normalizedEmoji)
-            }
+        val response = slackClient.reactionsAdd { req ->
+            req.channel(ctx.conversation.conversationId.channelId)
+            req.timestamp(ctx.currentMessageId)
+            req.name(normalizedEmoji)
+        }
         if (!response.isOk) {
             throw IllegalStateException(response.error ?: "Failed to add Slack reaction")
         }

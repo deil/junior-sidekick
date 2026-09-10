@@ -1,17 +1,16 @@
 package com.github.uncomplexco.sidekick.application.agent.skills
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import org.eclipse.jgit.api.Git
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.eclipse.jgit.api.Git
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class SkillsTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     private val skills = Skills()
 
@@ -21,12 +20,22 @@ class SkillsTest {
             config().workspaceLayout().extensionsConfigPath(),
             """
             {"extensions": [{"url": "git@github.com:deil/skills.git", "path": "skills", "sshKeyPath": "/home/sidekick/.ssh/skills"}]}
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
 
         val config = skills.loadConfig(config())
 
-        assertEquals(listOf(ExtensionRepository("git@github.com:deil/skills.git", "skills", "/home/sidekick/.ssh/skills")), config.extensions)
+        assertEquals(
+            listOf(
+                ExtensionRepository(
+                    "git@github.com:deil/skills.git",
+                    "skills",
+                    "/home/sidekick/.ssh/skills",
+                )
+            ),
+            config.extensions,
+        )
     }
 
     @Test
@@ -35,12 +44,16 @@ class SkillsTest {
             config().workspaceLayout().extensionsConfigPath(),
             """
             {"extensions": [{"url": "git@github.com:deil/skills.git"}]}
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
 
         val config = skills.loadConfig(config())
 
-        assertEquals(listOf(ExtensionRepository(url = "git@github.com:deil/skills.git")), config.extensions)
+        assertEquals(
+            listOf(ExtensionRepository(url = "git@github.com:deil/skills.git")),
+            config.extensions,
+        )
     }
 
     @Test
@@ -60,7 +73,10 @@ class SkillsTest {
 
     @Test
     fun `does nothing when extensions config is empty`() {
-        Files.writeString(config().workspaceLayout().extensionsConfigPath(), """{"extensions": []}""")
+        Files.writeString(
+            config().workspaceLayout().extensionsConfigPath(),
+            """{"extensions": []}""",
+        )
 
         val catalog = skills.syncAndScan(config())
 
@@ -70,7 +86,10 @@ class SkillsTest {
 
     @Test
     fun `configured reloader syncs and summarizes catalog`() {
-        Files.writeString(config().workspaceLayout().extensionsConfigPath(), """{"extensions": []}""")
+        Files.writeString(
+            config().workspaceLayout().extensionsConfigPath(),
+            """{"extensions": []}""",
+        )
         val reloader = ConfiguredSkillCatalogReloader(config(), skills)
 
         val result = reloader.reloadSkills()
@@ -87,7 +106,11 @@ class SkillsTest {
 
         val first = skills.checkoutPath(config(), repo)
         val second = skills.checkoutPath(config(), repo)
-        val other = skills.checkoutPath(config(), ExtensionRepository("git@github.com:deil/other-skills.git", "skills"))
+        val other =
+            skills.checkoutPath(
+                config(),
+                ExtensionRepository("git@github.com:deil/other-skills.git", "skills"),
+            )
 
         assertEquals(first, second)
         assertTrue(first.startsWith(dir.resolve("workspace/data/repositories/extensions")))
@@ -108,7 +131,8 @@ class SkillsTest {
             config().workspaceLayout().extensionsConfigPath(),
             """
             {"extensions": [{"url": "${source.toUri()}", "path": "skills"}]}
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
 
         val catalog = skills.syncAndScan(config())
@@ -132,7 +156,8 @@ class SkillsTest {
             user-invocable: false
             ---
             # Instructions
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         Files.createDirectories(skillsRoot.resolve("default-flag"))
         Files.writeString(
@@ -143,7 +168,8 @@ class SkillsTest {
             description: Defaults optional flags.
             ---
             # Instructions
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         Files.createDirectories(skillsRoot.resolve("max-description"))
         Files.writeString(
@@ -154,7 +180,8 @@ class SkillsTest {
             description: ${"x".repeat(1536)}
             ---
             # Instructions
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         Files.createDirectories(skillsRoot.resolve("too-long-description"))
         Files.writeString(
@@ -165,7 +192,8 @@ class SkillsTest {
             description: ${"x".repeat(1537)}
             ---
             # Instructions
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         Files.createDirectories(skillsRoot.resolve("missing-file"))
         Files.createDirectories(skillsRoot.resolve("missing-description"))
@@ -176,7 +204,8 @@ class SkillsTest {
             name: missing-description
             ---
             # Instructions
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
         Files.createDirectories(skillsRoot.resolve("wrong-name"))
         Files.writeString(
@@ -187,18 +216,31 @@ class SkillsTest {
             description: Name does not match folder.
             ---
             # Instructions
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
 
         val catalog = skills.scanRepository(repo, checkout)
 
-        assertEquals(listOf("default-flag", "max-description", "too-long-description", "valid"), catalog.skills.map { it.name })
-        assertEquals(skillsRoot.resolve("valid"), catalog.skills.single { it.name == "valid" }.folder)
+        assertEquals(
+            listOf("default-flag", "max-description", "too-long-description", "valid"),
+            catalog.skills.map { it.name },
+        )
+        assertEquals(
+            skillsRoot.resolve("valid"),
+            catalog.skills.single { it.name == "valid" }.folder,
+        )
         assertEquals(true, catalog.skills.single { it.name == "valid" }.disableModelInvocation)
         assertEquals(false, catalog.skills.single { it.name == "valid" }.userInvocable)
-        assertEquals(false, catalog.skills.single { it.name == "default-flag" }.disableModelInvocation)
+        assertEquals(
+            false,
+            catalog.skills.single { it.name == "default-flag" }.disableModelInvocation,
+        )
         assertEquals(false, catalog.skills.single { it.name == "default-flag" }.userInvocable)
-        assertEquals(1536, catalog.skills.single { it.name == "too-long-description" }.description.length)
+        assertEquals(
+            1536,
+            catalog.skills.single { it.name == "too-long-description" }.description.length,
+        )
     }
 
     @Test
@@ -226,9 +268,15 @@ class SkillsTest {
             description: $description
             ---
             # Instructions
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
     }
 
-    private fun config(): AgentConfig = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
+    private fun config(): AgentConfig =
+        AgentConfig(
+            "Sidekick",
+            dir.resolve("state").toString(),
+            dir.resolve("workspace").toString(),
+        )
 }

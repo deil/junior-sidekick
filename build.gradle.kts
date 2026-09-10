@@ -3,6 +3,24 @@ plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.spring) apply false
     alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.spotless)
+}
+
+spotless {
+    kotlin {
+        target(files(subprojects.map { it.fileTree("src") { include("**/*.kt") } }))
+        ktfmt(libs.versions.ktfmt.get()).kotlinlangStyle()
+    }
+
+    kotlinGradle {
+        target(
+            files(
+                listOf(file("build.gradle.kts"), file("settings.gradle.kts")) +
+                    subprojects.map { it.file("build.gradle.kts") }
+            )
+        )
+        ktfmt(libs.versions.ktfmt.get()).kotlinlangStyle()
+    }
 }
 
 allprojects {

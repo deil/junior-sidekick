@@ -2,16 +2,15 @@ package com.github.uncomplexco.sidekick.application.tools.files
 
 import ai.koog.agents.core.tools.ToolException
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertContains
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
 
 class WorkspaceFileToolsTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `reads files through virtual paths`() {
@@ -192,9 +191,7 @@ class WorkspaceFileToolsTest {
     fun `unsupported virtual paths are reported as not found`() {
         for (path in unsupportedPaths()) {
             val error =
-                assertThrows<ToolException.ValidationFailure> {
-                    tools().workspaceFileRead(path)
-                }
+                assertThrows<ToolException.ValidationFailure> { tools().workspaceFileRead(path) }
 
             assertContains(error.message.orEmpty(), "Path not found: $path")
         }
@@ -208,7 +205,7 @@ class WorkspaceFileToolsTest {
                 globalRoot = dir.resolve("global"),
                 workRoot = dir.resolve("work"),
                 projectRoot = dir.resolve("project"),
-            ),
+            )
         )
 
     private fun readCases(): List<Pair<String, Path>> =

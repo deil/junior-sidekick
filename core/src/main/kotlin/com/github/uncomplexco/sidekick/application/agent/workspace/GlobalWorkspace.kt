@@ -3,19 +3,17 @@ package com.github.uncomplexco.sidekick.application.agent.workspace
 import com.github.uncomplexco.sidekick.adapters.git.gitRepositoryCheckoutPath
 import com.github.uncomplexco.sidekick.adapters.git.syncGitRepository
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
-import java.nio.file.Files
-import java.nio.file.Path
 
 @Serializable
-data class GlobalWorkspaceConfig(
-    val knowledge: List<GlobalWorkspaceRepository> = emptyList(),
-)
+data class GlobalWorkspaceConfig(val knowledge: List<GlobalWorkspaceRepository> = emptyList())
 
 @Serializable
 data class GlobalWorkspaceRepository(
@@ -69,13 +67,24 @@ class GlobalWorkspace {
     fun checkoutPath(
         config: AgentConfig,
         repository: GlobalWorkspaceRepository,
-    ): Path = gitRepositoryCheckoutPath(config.workspaceLayout().knowledgeRepositoryDirectoryPath(), repository.url)
+    ): Path =
+        gitRepositoryCheckoutPath(
+            config.workspaceLayout().knowledgeRepositoryDirectoryPath(),
+            repository.url,
+        )
 
     private fun syncRepository(
         repository: GlobalWorkspaceRepository,
         checkout: Path,
         workingDirectory: Path,
-    ) = syncGitRepository(repository.url, repository.sshKeyPath, checkout, workingDirectory, "Knowledge repository")
+    ) =
+        syncGitRepository(
+            repository.url,
+            repository.sshKeyPath,
+            checkout,
+            workingDirectory,
+            "Knowledge repository",
+        )
 
     private companion object {
         private val log = LoggerFactory.getLogger(GlobalWorkspace::class.java)

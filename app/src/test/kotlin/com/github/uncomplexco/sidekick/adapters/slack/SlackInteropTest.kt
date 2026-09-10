@@ -1,9 +1,8 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
-import org.junit.jupiter.api.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlin.test.assertTrue
+import org.junit.jupiter.api.Test
 
 class SlackInteropTest {
     @Test
@@ -50,7 +49,8 @@ class SlackInteropTest {
     fun `does not treat partial user id as a mention`() {
         val username = "U123BOT"
 
-        val longerUserIdResult = containsMention("hey <@U123BOTEXTRA> summarize this thread", username)
+        val longerUserIdResult =
+            containsMention("hey <@U123BOTEXTRA> summarize this thread", username)
         val shorterUserIdResult = containsMention("hey <@U123> summarize this thread", username)
 
         assertFalse(longerUserIdResult)
@@ -62,8 +62,10 @@ class SlackInteropTest {
         val username = "U123BOT"
 
         val missingBracketsResult = containsMention("hey @U123BOT summarize this thread", username)
-        val missingClosingBracketResult = containsMention("hey <@U123BOT summarize this thread", username)
-        val missingOpeningBracketResult = containsMention("hey @U123BOT> summarize this thread", username)
+        val missingClosingBracketResult =
+            containsMention("hey <@U123BOT summarize this thread", username)
+        val missingOpeningBracketResult =
+            containsMention("hey @U123BOT> summarize this thread", username)
 
         assertFalse(missingBracketsResult)
         assertFalse(missingClosingBracketResult)
@@ -79,5 +81,4 @@ class SlackInteropTest {
 
         assertFalse(result)
     }
-
 }

@@ -5,19 +5,16 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
-import org.springframework.stereotype.Component
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import org.springframework.stereotype.Component
 
 @Component
-class ConversationStateChatHistoryProvider(
-    private val store: ConversationStateStore,
-) : ChatHistoryProvider {
+class ConversationStateChatHistoryProvider(private val store: ConversationStateStore) :
+    ChatHistoryProvider {
     override suspend fun load(conversationId: String): List<Message> {
         val id = ConversationId.fromLockKey(conversationId)
-        return store.withSessionLock(id) {
-            store.load(id).koogMessages
-        }
+        return store.withSessionLock(id) { store.load(id).koogMessages }
     }
 
     override suspend fun store(
@@ -32,18 +29,19 @@ class ConversationStateChatHistoryProvider(
             state.stats =
                 state.stats.copy(
                     totalTokens = messagesWithIds.latestTotalTokens(),
-                    messages = messagesWithIds.count { it is Message.User || it is Message.Assistant },
-                    toolCalls = messagesWithIds.sumOf { message -> message.parts.count { it is MessagePart.Tool.Call } },
+                    messages =
+                        messagesWithIds.count { it is Message.User || it is Message.Assistant },
+                    toolCalls =
+                        messagesWithIds.sumOf { message ->
+                            message.parts.count { it is MessagePart.Tool.Call }
+                        },
                 )
             store.save(id, state)
         }
     }
 
     private fun List<Message>.latestTotalTokens(): Int? =
-        filterIsInstance<Message.Assistant>()
-            .lastOrNull()
-            ?.metaInfo
-            ?.totalTokensCount
+        filterIsInstance<Message.Assistant>().lastOrNull()?.metaInfo?.totalTokensCount
 
     private fun Message.withIdIfMissing(): Message =
         when (this) {

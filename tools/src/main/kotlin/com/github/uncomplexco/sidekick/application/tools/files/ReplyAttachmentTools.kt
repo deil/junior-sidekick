@@ -8,20 +8,15 @@ import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPath
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import kotlinx.serialization.Serializable
 
-class ReplyAttachmentTools(
-    private val collector: ReplyAttachmentCollector,
-) : ToolSet {
+class ReplyAttachmentTools(private val collector: ReplyAttachmentCollector) : ToolSet {
     @Tool("attachFile")
     @LLMDescription(
-        "Attach a file to the Slack reply. Use this for files that exist in the workspace. Logs, screenshots, or other files, including created during the session.",
+        "Attach a file to the Slack reply. Use this for files that exist in the workspace. Logs, screenshots, or other files, including created during the session."
     )
     fun attachFile(
-        @LLMDescription("Absolute path to the file to attach")
-        path: VirtualPath,
-        @LLMDescription("Optional file name override to display in Slack")
-        name: String? = null,
-        @LLMDescription("Optional MIME type override, e.g. text/markdown")
-        mimeType: String? = null,
+        @LLMDescription("Absolute path to the file to attach") path: VirtualPath,
+        @LLMDescription("Optional file name override to display in Slack") name: String? = null,
+        @LLMDescription("Optional MIME type override, e.g. text/markdown") mimeType: String? = null,
     ): AttachFileResult {
         validate(path.isNotBlank()) { "'path' must not be blank." }
 

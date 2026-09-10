@@ -5,13 +5,13 @@ import ai.koog.agents.core.tools.ToolParameterDescriptor
 import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.serialization.JSONObject
 import ai.koog.serialization.JSONPrimitive
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 class McpToolWorkaroundsTest {
     @Test
@@ -22,7 +22,10 @@ class McpToolWorkaroundsTest {
                 description = "Create Jira issue",
                 requiredParameters =
                     listOf(
-                        unconstrainedObjectParameter("additional_fields", "REQUIRED for custom fields."),
+                        unconstrainedObjectParameter(
+                            "additional_fields",
+                            "REQUIRED for custom fields.",
+                        )
                     ),
             )
 
@@ -43,9 +46,7 @@ class McpToolWorkaroundsTest {
                 name = "editJiraIssue",
                 description = "Edit Jira issue",
                 requiredParameters =
-                    listOf(
-                        unconstrainedObjectParameter("fields", "Fields to update."),
-                    ),
+                    listOf(unconstrainedObjectParameter("fields", "Fields to update.")),
             )
 
         val prepared = prepareMcpToolDescriptor("editJiraIssue", descriptor)
@@ -64,8 +65,9 @@ class McpToolWorkaroundsTest {
             JSONObject(
                 mapOf(
                     "summary" to JSONPrimitive("Fix bug"),
-                    "additional_fields" to JSONPrimitive("{\"customfield_123\":\"321\",\"labels\":[\"bug\"]}"),
-                ),
+                    "additional_fields" to
+                        JSONPrimitive("{\"customfield_123\":\"321\",\"labels\":[\"bug\"]}"),
+                )
             )
 
         val prepared = prepareMcpToolArguments("createJiraIssue", args)
@@ -81,7 +83,7 @@ class McpToolWorkaroundsTest {
                 mapOf(
                     "issue_key" to JSONPrimitive("ABC-123"),
                     "fields" to JSONPrimitive("{\"customfield_123\":\"321\",\"labels\":[\"bug\"]}"),
-                ),
+                )
             )
 
         val prepared = prepareMcpToolArguments("editJiraIssue", args)
@@ -120,15 +122,16 @@ class McpToolWorkaroundsTest {
     private fun unconstrainedObjectParameter(
         name: String,
         description: String,
-    ) = ToolParameterDescriptor(
-        name = name,
-        description = description,
-        type =
-            ToolParameterType.Object(
-                properties = emptyList(),
-                requiredProperties = emptyList(),
-                additionalProperties = true,
-                additionalPropertiesType = null,
-            ),
-    )
+    ) =
+        ToolParameterDescriptor(
+            name = name,
+            description = description,
+            type =
+                ToolParameterType.Object(
+                    properties = emptyList(),
+                    requiredProperties = emptyList(),
+                    additionalProperties = true,
+                    additionalPropertiesType = null,
+                ),
+        )
 }

@@ -1,9 +1,9 @@
 package com.github.uncomplexco.sidekick.dumphere
 
-import org.springframework.http.MediaType
-import org.springframework.web.client.RestClient
 import java.nio.file.Files
 import java.nio.file.Path
+import org.springframework.http.MediaType
+import org.springframework.web.client.RestClient
 
 internal class DumpHereFilePublisher(
     private val baseUrl: String,
@@ -20,18 +20,20 @@ internal class DumpHereFilePublisher(
         val request = PublishFileRequest(title, content, mimeType)
         val published =
             runCatching {
-                restClient
-                    .post()
-                    .uri("${baseUrl.trimEnd('/')}/api/pages")
-                    .headers { it.setBasicAuth(username, password) }
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .body(request)
-                    .retrieve()
-                    .body(PublishFileResponse::class.java)
-            }.getOrElse {
-                return FilePublisher.Result.Error("DumpHere publish failed: ${it.message}")
-            } ?: return FilePublisher.Result.Error("DumpHere publish returned an empty response")
+                    restClient
+                        .post()
+                        .uri("${baseUrl.trimEnd('/')}/api/pages")
+                        .headers { it.setBasicAuth(username, password) }
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .body(request)
+                        .retrieve()
+                        .body(PublishFileResponse::class.java)
+                }
+                .getOrElse {
+                    return FilePublisher.Result.Error("DumpHere publish failed: ${it.message}")
+                }
+                ?: return FilePublisher.Result.Error("DumpHere publish returned an empty response")
 
         return FilePublisher.Result.Ok(published.url)
     }
@@ -42,8 +44,12 @@ internal class DumpHereFilePublisher(
         mimeType: String,
     ): FilePublisher.Result {
         val content =
-            runCatching { Files.readString(Path.of(path)) }
-                .getOrElse { return FilePublisher.Result.Error("Cannot read file: ${it.message}") }
+            runCatching {
+                    Files.readString(Path.of(path))
+                }
+                .getOrElse {
+                    return FilePublisher.Result.Error("Cannot read file: ${it.message}")
+                }
 
         return publishContent(content, title, mimeType)
     }
@@ -62,8 +68,7 @@ internal class DumpHereFilePublisher(
             .uri(url)
             .headers { it.setBasicAuth(username, password) }
             .retrieve()
-            .body(String::class.java)
-            ?: error("DumpHere read returned an empty response")
+            .body(String::class.java) ?: error("DumpHere read returned an empty response")
     }
 
     override fun editFileContents(
@@ -79,8 +84,7 @@ internal class DumpHereFilePublisher(
             .contentType(MediaType.APPLICATION_JSON)
             .body(EditFileContentsRequest(oldString, newString, replaceAll))
             .retrieve()
-            .body(String::class.java)
-            ?: error("DumpHere edit returned an empty response")
+            .body(String::class.java) ?: error("DumpHere edit returned an empty response")
 }
 
 private data class PublishFileRequest(

@@ -7,18 +7,17 @@ import io.modelcontextprotocol.kotlin.sdk.client.Client
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.Implementation
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.name
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class McpToolOutputTest {
-    @TempDir
-    lateinit var tempDir: Path
+    @TempDir lateinit var tempDir: Path
 
     private val serializer = KotlinxSerializer()
 
@@ -29,7 +28,10 @@ class McpToolOutputTest {
         val emptyOutput = encoded(tool, emptyResult)
         val result =
             CallToolResult(
-                content = listOf(TextContent("x".repeat(MAX_MCP_TOOL_OUTPUT_CHARACTERS - emptyOutput.length))),
+                content =
+                    listOf(
+                        TextContent("x".repeat(MAX_MCP_TOOL_OUTPUT_CHARACTERS - emptyOutput.length))
+                    )
             )
         val output = encoded(tool, result)
 
@@ -45,7 +47,12 @@ class McpToolOutputTest {
         val tool = tool()
         val result =
             CallToolResult(
-                content = listOf(TextContent("original output\n" + "x".repeat(MAX_MCP_TOOL_OUTPUT_CHARACTERS))),
+                content =
+                    listOf(
+                        TextContent(
+                            "original output\n" + "x".repeat(MAX_MCP_TOOL_OUTPUT_CHARACTERS)
+                        )
+                    )
             )
         val output = encoded(tool, result)
 

@@ -6,14 +6,14 @@ import com.github.uncomplexco.sidekick.application.agent.skills.ExtensionReposit
 import com.github.uncomplexco.sidekick.application.agent.skills.ExtensionsConfig
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.github.uncomplexco.sidekick.application.utils.parseMarkdownFrontmatter
-import kotlinx.serialization.json.Json
-import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
+import kotlinx.serialization.json.Json
+import org.springframework.stereotype.Component
 
 @Component
 class Subagents(
@@ -24,22 +24,26 @@ class Subagents(
 
     override fun catalog(): SubagentCatalog = SubagentCatalog(subagentsByName().values.toList())
 
-    private fun subagentsByName(): Map<String, Subagent> =
-        buildMap {
-            BUILT_IN_SUBAGENTS.forEach { subagent -> put(subagent, loadBuiltIn(subagent)) }
-            loadExtensionSubagents().forEach { subagent ->
-                if (containsKey(subagent.name)) {
-                    Loggers.EXTENSIONS.warn("Skipping extension subagent {}: a subagent with that name already exists", subagent.name)
-                } else {
-                    put(subagent.name, subagent)
-                }
+    private fun subagentsByName(): Map<String, Subagent> = buildMap {
+        BUILT_IN_SUBAGENTS.forEach { subagent -> put(subagent, loadBuiltIn(subagent)) }
+        loadExtensionSubagents().forEach { subagent ->
+            if (containsKey(subagent.name)) {
+                Loggers.EXTENSIONS.warn(
+                    "Skipping extension subagent {}: a subagent with that name already exists",
+                    subagent.name,
+                )
+            } else {
+                put(subagent.name, subagent)
             }
         }
+    }
 
     private fun loadBuiltIn(name: String): Subagent {
         require(AGENT_NAME_RE.matches(name)) { "Unknown subagent type: $name" }
 
-        val resource = classLoader.getResource("agents/$name.md") ?: throw IllegalArgumentException("Unknown subagent type: $name")
+        val resource =
+            classLoader.getResource("agents/$name.md")
+                ?: throw IllegalArgumentException("Unknown subagent type: $name")
         return parseSubagent(name, resource.readText())
     }
 
@@ -60,8 +64,13 @@ class Subagents(
         config: AgentConfig,
         repository: ExtensionRepository,
     ): List<Subagent> {
-        val checkout = gitRepositoryCheckoutPath(config.workspaceLayout().extensionsRepositoryDirectoryPath(), repository.url)
-        val subagentsPath = checkout.resolve(repository.path.ifBlank { "." }).normalize().resolve("agents")
+        val checkout =
+            gitRepositoryCheckoutPath(
+                config.workspaceLayout().extensionsRepositoryDirectoryPath(),
+                repository.url,
+            )
+        val subagentsPath =
+            checkout.resolve(repository.path.ifBlank { "." }).normalize().resolve("agents")
         if (!Files.isDirectory(subagentsPath)) {
             return emptyList()
         }
@@ -87,7 +96,8 @@ class Subagents(
     }
 
     private fun parseSubagentFile(subagentFile: Path): Subagent {
-        val subagent = parseSubagent(subagentFile.nameWithoutExtension, Files.readString(subagentFile))
+        val subagent =
+            parseSubagent(subagentFile.nameWithoutExtension, Files.readString(subagentFile))
         require(subagent.name == subagentFile.nameWithoutExtension) {
             "frontmatter field 'name' must match file name"
         }
@@ -124,9 +134,7 @@ data class Subagent(
     val systemPrompt: String,
 )
 
-data class SubagentCatalog(
-    val subagents: List<Subagent>,
-)
+data class SubagentCatalog(val subagents: List<Subagent>)
 
 fun interface SubagentCatalogProvider {
     fun catalog(): SubagentCatalog

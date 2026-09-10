@@ -8,42 +8,51 @@ import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.C
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.EXPLICIT_SKILL_INVOCATION_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.RUNTIME_CONTEXT_TAG
 import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class TurnPromptBuilderSkillsTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `renders model invocable skills catalog`() {
         // Arrange
         val prompt =
             builder(
-                SkillCatalog(
-                    listOf(
-                        skill(
-                            "model-skill",
-                            "Use when model should load this skill.",
-                            disableModelInvocation = false,
-                            userInvocable = true,
-                        ),
-                    ),
-                ),
-            ).buildSessionTurnPrompt(message(), context())
+                    SkillCatalog(
+                        listOf(
+                            skill(
+                                "model-skill",
+                                "Use when model should load this skill.",
+                                disableModelInvocation = false,
+                                userInvocable = true,
+                            )
+                        )
+                    )
+                )
+                .buildSessionTurnPrompt(message(), context())
 
         // Assert
         assertTrue(prompt.contains("<skills>"), prompt)
         assertTrue(prompt.contains("<available_skills>"), prompt)
         assertTrue(prompt.contains("<user_invocable_skills>"), prompt)
         assertTrue(prompt.contains("<name>model-skill</name>"), prompt)
-        assertTrue(prompt.contains("<description>Use when model should load this skill.</description>"), prompt)
-        assertTrue(prompt.contains("<location>/data/skills/repo/model-skill/SKILL.md</location>"), prompt)
+        assertTrue(
+            prompt.contains("<description>Use when model should load this skill.</description>"),
+            prompt,
+        )
+        assertTrue(
+            prompt.contains("<location>/data/skills/repo/model-skill/SKILL.md</location>"),
+            prompt,
+        )
         assertTrue(prompt.indexOf("<skills>") > prompt.indexOf("<$RUNTIME_CONTEXT_TAG>"), prompt)
-        assertTrue(prompt.indexOf("<skills>") < prompt.lastIndexOf("<$CURRENT_INSTRUCTION_TAG>"), prompt)
+        assertTrue(
+            prompt.indexOf("<skills>") < prompt.lastIndexOf("<$CURRENT_INSTRUCTION_TAG>"),
+            prompt,
+        )
         assertTrue(prompt.contains("<$CURRENT_INSTRUCTION_TAG>"), prompt)
     }
 
@@ -52,12 +61,17 @@ class TurnPromptBuilderSkillsTest {
         // Arrange
         val prompt =
             builder(
-                SkillCatalog(
-                    listOf(
-                        skill("model-skill", "Use when model should load this skill.", disableModelInvocation = false),
-                    ),
-                ),
-            ).buildSessionTurnPrompt(message(), context(hasKoogMessages = true))
+                    SkillCatalog(
+                        listOf(
+                            skill(
+                                "model-skill",
+                                "Use when model should load this skill.",
+                                disableModelInvocation = false,
+                            )
+                        )
+                    )
+                )
+                .buildSessionTurnPrompt(message(), context(hasKoogMessages = true))
 
         // Assert
         assertFalse(prompt.contains("<skills>"), prompt)
@@ -69,17 +83,18 @@ class TurnPromptBuilderSkillsTest {
         // Arrange
         val prompt =
             builder(
-                SkillCatalog(
-                    listOf(
-                        skill(
-                            "disabled-skill",
-                            "User-only skill.",
-                            disableModelInvocation = true,
-                            userInvocable = true,
-                        ),
-                    ),
-                ),
-            ).buildSessionTurnPrompt(message(), context())
+                    SkillCatalog(
+                        listOf(
+                            skill(
+                                "disabled-skill",
+                                "User-only skill.",
+                                disableModelInvocation = true,
+                                userInvocable = true,
+                            )
+                        )
+                    )
+                )
+                .buildSessionTurnPrompt(message(), context())
 
         // Assert
         assertFalse(prompt.contains("<available_skills>"), prompt)
@@ -92,17 +107,18 @@ class TurnPromptBuilderSkillsTest {
         // Arrange
         val prompt =
             builder(
-                SkillCatalog(
-                    listOf(
-                        skill(
-                            "model-only-skill",
-                            "Model-only skill.",
-                            disableModelInvocation = false,
-                            userInvocable = false,
-                        ),
-                    ),
-                ),
-            ).buildSessionTurnPrompt(message(), context())
+                    SkillCatalog(
+                        listOf(
+                            skill(
+                                "model-only-skill",
+                                "Model-only skill.",
+                                disableModelInvocation = false,
+                                userInvocable = false,
+                            )
+                        )
+                    )
+                )
+                .buildSessionTurnPrompt(message(), context())
 
         // Assert
         assertTrue(prompt.contains("<available_skills>"), prompt)
@@ -115,17 +131,18 @@ class TurnPromptBuilderSkillsTest {
         // Arrange
         val prompt =
             builder(
-                SkillCatalog(
-                    listOf(
-                        skill(
-                            "hidden-skill",
-                            "Hidden skill.",
-                            disableModelInvocation = true,
-                            userInvocable = false,
-                        ),
-                    ),
-                ),
-            ).buildSessionTurnPrompt(message(), context())
+                    SkillCatalog(
+                        listOf(
+                            skill(
+                                "hidden-skill",
+                                "Hidden skill.",
+                                disableModelInvocation = true,
+                                userInvocable = false,
+                            )
+                        )
+                    )
+                )
+                .buildSessionTurnPrompt(message(), context())
 
         // Assert
         assertFalse(prompt.contains("<skills>"), prompt)
@@ -145,26 +162,40 @@ class TurnPromptBuilderSkillsTest {
     @Test
     fun `renders explicit skill invocation before current instruction`() {
         // Arrange
-        val message = message(text = "please /code-review this", explicitSkillInvocation = ExplicitSkillInvocation("code-review"))
+        val message =
+            message(
+                text = "please /code-review this",
+                explicitSkillInvocation = ExplicitSkillInvocation("code-review"),
+            )
         val prompt =
             builder(
-                SkillCatalog(
-                    listOf(
-                        skill(
-                            "code-review",
-                            "Review code.",
-                            disableModelInvocation = false,
-                            userInvocable = true,
-                        ),
-                    ),
-                ),
-            ).buildSessionTurnPrompt(message, context())
+                    SkillCatalog(
+                        listOf(
+                            skill(
+                                "code-review",
+                                "Review code.",
+                                disableModelInvocation = false,
+                                userInvocable = true,
+                            )
+                        )
+                    )
+                )
+                .buildSessionTurnPrompt(message, context())
 
         // Assert
         assertTrue(prompt.contains("<$EXPLICIT_SKILL_INVOCATION_TAG>"), prompt)
         assertTrue(prompt.contains("/code-review"), prompt)
-        assertTrue(prompt.indexOf("<$EXPLICIT_SKILL_INVOCATION_TAG>") < prompt.lastIndexOf("<$CURRENT_INSTRUCTION_TAG>"), prompt)
-        assertTrue(prompt.contains("<$CURRENT_INSTRUCTION_TAG>\n[alice] please /code-review this\n</$CURRENT_INSTRUCTION_TAG>"), prompt)
+        assertTrue(
+            prompt.indexOf("<$EXPLICIT_SKILL_INVOCATION_TAG>") <
+                prompt.lastIndexOf("<$CURRENT_INSTRUCTION_TAG>"),
+            prompt,
+        )
+        assertTrue(
+            prompt.contains(
+                "<$CURRENT_INSTRUCTION_TAG>\n[alice] please /code-review this\n</$CURRENT_INSTRUCTION_TAG>"
+            ),
+            prompt,
+        )
     }
 
     @Test
@@ -173,17 +204,18 @@ class TurnPromptBuilderSkillsTest {
         val message = message(text = "please review this")
         val prompt =
             builder(
-                SkillCatalog(
-                    listOf(
-                        skill(
-                            "code-review",
-                            "Review code.",
-                            disableModelInvocation = false,
-                            userInvocable = true,
-                        ),
-                    ),
-                ),
-            ).buildSessionTurnPrompt(message, context())
+                    SkillCatalog(
+                        listOf(
+                            skill(
+                                "code-review",
+                                "Review code.",
+                                disableModelInvocation = false,
+                                userInvocable = true,
+                            )
+                        )
+                    )
+                )
+                .buildSessionTurnPrompt(message, context())
 
         // Assert
         assertFalse(prompt.contains("<$EXPLICIT_SKILL_INVOCATION_TAG>"), prompt)
@@ -200,13 +232,17 @@ class TurnPromptBuilderSkillsTest {
             skills = { catalog },
         )
 
-    private fun context(hasKoogMessages: Boolean = false): com.github.uncomplexco.sidekick.application.turn.TurnContext =
+    private fun context(
+        hasKoogMessages: Boolean = false
+    ): com.github.uncomplexco.sidekick.application.turn.TurnContext =
         com.github.uncomplexco.sidekick.application.turn.TurnContext(
             conversation =
                 com.github.uncomplexco.sidekick.application.turn.ConversationContext(
                     conversationId =
-                        com.github.uncomplexco.sidekick.application.conversation
-                            .ConversationId("C123", "1700000000.000"),
+                        com.github.uncomplexco.sidekick.application.conversation.ConversationId(
+                            "C123",
+                            "1700000000.000",
+                        ),
                     virtualPaths = virtualPaths(),
                     history =
                         com.github.uncomplexco.sidekick.application.turn.ConversationHistory(
@@ -220,7 +256,8 @@ class TurnPromptBuilderSkillsTest {
             currentMessageIds = listOf("m1"),
             currentFiles = emptyList(),
             sessionFiles = emptyList(),
-            aiModelProfile = com.github.uncomplexco.sidekick.application.conversation.AiModelProfile.NORMAL,
+            aiModelProfile =
+                com.github.uncomplexco.sidekick.application.conversation.AiModelProfile.NORMAL,
         )
 
     private fun virtualPaths(): VirtualPaths =
@@ -240,8 +277,10 @@ class TurnPromptBuilderSkillsTest {
             id = "m1",
             role = com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole.USER,
             author =
-                com.github.uncomplexco.sidekick.application.conversation
-                    .MessageAuthor(username = "alice", fullName = "Alice"),
+                com.github.uncomplexco.sidekick.application.conversation.MessageAuthor(
+                    username = "alice",
+                    fullName = "Alice",
+                ),
             text = text,
             createdAtMs = 1,
             explicitSkillInvocation = explicitSkillInvocation,

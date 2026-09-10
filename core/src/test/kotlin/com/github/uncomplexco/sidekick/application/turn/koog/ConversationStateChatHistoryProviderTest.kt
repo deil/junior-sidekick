@@ -8,84 +8,91 @@ import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStat
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.time.Instant
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class ConversationStateChatHistoryProviderTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
-    fun `generates ids for new koog messages when storing`() =
-        runBlocking {
-            // Arrange
-            val store = store()
-            val provider = ConversationStateChatHistoryProvider(store)
-            val requestMetaInfo = RequestMetaInfo(Instant.parse("2026-01-01T00:00:00Z"))
-            val responseMetaInfo = ResponseMetaInfo(Instant.parse("2026-01-01T00:00:01Z"))
-            val messages =
-                listOf(
-                    Message.User("existing", requestMetaInfo, id = "existing-id"),
-                    Message.Assistant("new", responseMetaInfo),
-                )
+    fun `generates ids for new koog messages when storing`() = runBlocking {
+        // Arrange
+        val store = store()
+        val provider = ConversationStateChatHistoryProvider(store)
+        val requestMetaInfo = RequestMetaInfo(Instant.parse("2026-01-01T00:00:00Z"))
+        val responseMetaInfo = ResponseMetaInfo(Instant.parse("2026-01-01T00:00:01Z"))
+        val messages =
+            listOf(
+                Message.User("existing", requestMetaInfo, id = "existing-id"),
+                Message.Assistant("new", responseMetaInfo),
+            )
 
-            // Act
-            provider.store("C123:1700000000.000", messages)
-            val saved = store.load(ConversationId("C123", "1700000000.000")).koogMessages
+        // Act
+        provider.store("C123:1700000000.000", messages)
+        val saved = store.load(ConversationId("C123", "1700000000.000")).koogMessages
 
-            // Assert
-            assertEquals("existing-id", saved[0].id)
-            assertNotNull(saved[1].id)
-        }
+        // Assert
+        assertEquals("existing-id", saved[0].id)
+        assertNotNull(saved[1].id)
+    }
 
     @Test
-    fun `updates stats from stored koog messages`() =
-        runBlocking {
-            // Arrange
-            val store = store()
-            val provider = ConversationStateChatHistoryProvider(store)
-            val requestMetaInfo = RequestMetaInfo(Instant.parse("2026-01-01T00:00:00Z"))
-            val firstResponseMetaInfo =
-                ResponseMetaInfo(
-                    timestamp = Instant.parse("2026-01-01T00:00:01Z"),
-                    totalTokensCount = 100,
-                    inputTokensCount = 90,
-                    outputTokensCount = 10,
-                )
-            val latestResponseMetaInfo =
-                ResponseMetaInfo(
-                    timestamp = Instant.parse("2026-01-01T00:00:02Z"),
-                    totalTokensCount = 250,
-                    inputTokensCount = 230,
-                    outputTokensCount = 20,
-                )
-            val messages =
-                listOf(
-                    Message.System("system", requestMetaInfo),
-                    Message.User("hello", requestMetaInfo),
-                    Message.Assistant(MessagePart.Tool.Call("call-1", "lookup", "{}"), firstResponseMetaInfo),
-                    Message.User(MessagePart.Tool.Result("call-1", "lookup", "result"), requestMetaInfo),
-                    Message.Assistant("done", latestResponseMetaInfo),
-                )
+    fun `updates stats from stored koog messages`() = runBlocking {
+        // Arrange
+        val store = store()
+        val provider = ConversationStateChatHistoryProvider(store)
+        val requestMetaInfo = RequestMetaInfo(Instant.parse("2026-01-01T00:00:00Z"))
+        val firstResponseMetaInfo =
+            ResponseMetaInfo(
+                timestamp = Instant.parse("2026-01-01T00:00:01Z"),
+                totalTokensCount = 100,
+                inputTokensCount = 90,
+                outputTokensCount = 10,
+            )
+        val latestResponseMetaInfo =
+            ResponseMetaInfo(
+                timestamp = Instant.parse("2026-01-01T00:00:02Z"),
+                totalTokensCount = 250,
+                inputTokensCount = 230,
+                outputTokensCount = 20,
+            )
+        val messages =
+            listOf(
+                Message.System("system", requestMetaInfo),
+                Message.User("hello", requestMetaInfo),
+                Message.Assistant(
+                    MessagePart.Tool.Call("call-1", "lookup", "{}"),
+                    firstResponseMetaInfo,
+                ),
+                Message.User(
+                    MessagePart.Tool.Result("call-1", "lookup", "result"),
+                    requestMetaInfo,
+                ),
+                Message.Assistant("done", latestResponseMetaInfo),
+            )
 
-            // Act
-            provider.store("C123:1700000000.000", messages)
-            val stats = store.load(ConversationId("C123", "1700000000.000")).stats
+        // Act
+        provider.store("C123:1700000000.000", messages)
+        val stats = store.load(ConversationId("C123", "1700000000.000")).stats
 
-            // Assert
-            assertEquals(250, stats.totalTokens)
-            assertEquals(4, stats.messages)
-            assertEquals(1, stats.toolCalls)
-        }
+        // Assert
+        assertEquals(250, stats.totalTokens)
+        assertEquals(4, stats.messages)
+        assertEquals(1, stats.toolCalls)
+    }
 
     private fun store(): FilesystemConversationStateStore =
         FilesystemConversationStateStore(
-            AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString()),
+            AgentConfig(
+                "Sidekick",
+                dir.resolve("state").toString(),
+                dir.resolve("workspace").toString(),
+            ),
             ChatPlatform.SLACK,
         )
 }

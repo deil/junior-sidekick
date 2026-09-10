@@ -5,7 +5,8 @@ data class MarkdownDocument(
     val body: String,
 )
 
-fun hasMarkdownFrontmatter(markdown: String): Boolean = markdown.lines().firstOrNull()?.trim() == FRONT_MATTER_DELIMITER
+fun hasMarkdownFrontmatter(markdown: String): Boolean =
+    markdown.lines().firstOrNull()?.trim() == FRONT_MATTER_DELIMITER
 
 fun parseMarkdownFrontmatter(markdown: String): MarkdownDocument {
     val lines = markdown.lines()
@@ -24,9 +25,11 @@ fun parseMarkdownFrontmatter(markdown: String): MarkdownDocument {
                 if (separatorIndex <= 0) {
                     null
                 } else {
-                    line.substring(0, separatorIndex).trim() to cleanYamlScalar(line.substring(separatorIndex + 1))
+                    line.substring(0, separatorIndex).trim() to
+                        cleanYamlScalar(line.substring(separatorIndex + 1))
                 }
-            }.toMap()
+            }
+            .toMap()
 
     return MarkdownDocument(
         frontmatter = frontmatter,
@@ -34,6 +37,7 @@ fun parseMarkdownFrontmatter(markdown: String): MarkdownDocument {
     )
 }
 
-private fun cleanYamlScalar(value: String): String = value.trim().removeSurrounding("\"").removeSurrounding("'")
+private fun cleanYamlScalar(value: String): String =
+    value.trim().removeSurrounding("\"").removeSurrounding("'")
 
 private const val FRONT_MATTER_DELIMITER = "---"

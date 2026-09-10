@@ -4,16 +4,15 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class SystemPromptBuilderBehaviorTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `embeds optional soul and world files after identity`() {
@@ -47,7 +46,8 @@ class SystemPromptBuilderBehaviorTest {
     @Test
     fun `embeds channel project context before operating rules`() {
         val workingDir = Files.createDirectories(dir.resolve("workspace"))
-        val projectDir = Files.createDirectories(workingDir.resolve("data/workspaces/projects/C123"))
+        val projectDir =
+            Files.createDirectories(workingDir.resolve("data/workspaces/projects/C123"))
         Files.writeString(projectDir.resolve("AGENTS.md"), "Project line 1\nProject line 2")
         Files.createDirectories(workingDir.resolve("config"))
         Files.writeString(workingDir.resolve("config/RULES.md"), "Rules line 1\nRules line 2")
@@ -58,13 +58,17 @@ class SystemPromptBuilderBehaviorTest {
         assertTrue(prompt.contains("Project line 1\nProject line 2"), prompt)
         assertTrue(prompt.contains("# Operating rules"), prompt)
         assertTrue(prompt.contains("Rules line 1\nRules line 2"), prompt)
-        assertTrue(prompt.indexOf("# Project context") < prompt.indexOf("# Operating rules"), prompt)
+        assertTrue(
+            prompt.indexOf("# Project context") < prompt.indexOf("# Operating rules"),
+            prompt,
+        )
     }
 
     @Test
     fun `ignores legacy global project context`() {
         val workingDir = Files.createDirectories(dir.resolve("workspace"))
-        val contextDir = Files.createDirectories(workingDir.resolve("data/repositories/knowledge/context/C123"))
+        val contextDir =
+            Files.createDirectories(workingDir.resolve("data/repositories/knowledge/context/C123"))
         Files.writeString(contextDir.resolve("AGENTS.md"), "Legacy project context")
 
         val prompt = prompt(workingDir)
@@ -108,13 +112,14 @@ class SystemPromptBuilderBehaviorTest {
                 stateDir = dir.resolve("state").toString(),
                 workingDir = workingDir.toString(),
             )
-        return SystemPromptBuilder(config, platform).buildSystemPrompt(
-            username,
-            config
-                .workspaceLayout()
-                .projectWorkspacesDirectoryPath()
-                .resolve(sanitizePathSegment(conversationId.channelId)),
-        )
+        return SystemPromptBuilder(config, platform)
+            .buildSystemPrompt(
+                username,
+                config
+                    .workspaceLayout()
+                    .projectWorkspacesDirectoryPath()
+                    .resolve(sanitizePathSegment(conversationId.channelId)),
+            )
     }
 
     private fun conversationId(): ConversationId = ConversationId("C123", "1700000000.000")

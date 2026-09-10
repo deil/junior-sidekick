@@ -1,16 +1,17 @@
 package com.github.uncomplexco.sidekick.dumphere
 
 import ai.koog.agents.core.tools.ToolException
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class InternalFileExchangeToolsTest {
     @Test
     fun `publishes markdown file with fake internal URL`() {
-        val result = tools().publishFileInternally("/data/session/file.md", "file.md", "text/markdown")
+        val result =
+            tools().publishFileInternally("/data/session/file.md", "file.md", "text/markdown")
 
         assertTrue(result.ok)
         assertTrue(result.url!!.startsWith("https://files.internal/"))
@@ -18,7 +19,8 @@ class InternalFileExchangeToolsTest {
 
     @Test
     fun `accepts plain text files`() {
-        val result = tools().publishFileInternally("/data/session/file.txt", "file.txt", "text/plain")
+        val result =
+            tools().publishFileInternally("/data/session/file.txt", "file.txt", "text/plain")
 
         assertTrue(result.ok)
         assertTrue(result.url!!.startsWith("https://files.internal/"))
@@ -28,9 +30,13 @@ class InternalFileExchangeToolsTest {
     fun `resolves virtual paths before publishing files`() {
         var publishedPath: String? = null
         val publisher = fakePublisher { path -> publishedPath = path }
-        val tools = InternalFileExchangeTools(publisher) { Path.of("/resolved").resolve(it.removePrefix("/")) }
+        val tools =
+            InternalFileExchangeTools(publisher) {
+                Path.of("/resolved").resolve(it.removePrefix("/"))
+            }
 
-        val result = tools.publishFileInternally("/data/session/file.md", "file.md", "text/markdown")
+        val result =
+            tools.publishFileInternally("/data/session/file.md", "file.md", "text/markdown")
 
         assertTrue(result.ok)
         assertEquals("/resolved/data/session/file.md", publishedPath)

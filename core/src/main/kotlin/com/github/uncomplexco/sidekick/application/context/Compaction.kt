@@ -3,15 +3,13 @@ package com.github.uncomplexco.sidekick.application.context
 import com.github.uncomplexco.sidekick.application.conversation.ConversationState
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
-import org.springframework.stereotype.Component
 import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import org.springframework.stereotype.Component
 
 @Component
-class SessionContextCompactor(
-    private val summarizer: SessionContextSummarizer,
-) {
+class SessionContextCompactor(private val summarizer: SessionContextSummarizer) {
     suspend fun compactIfNeeded(
         state: ConversationState,
         hooks: (hook: CompactionHook) -> Unit,
@@ -37,7 +35,8 @@ class SessionContextCompactor(
             )
         state.messages = state.messages.drop(batchSize).toMutableList()
         state.koogMessages.clear()
-        state.stats = state.stats.copy(totalTokens = 0, messages = state.messages.size, toolCalls = 0)
+        state.stats =
+            state.stats.copy(totalTokens = 0, messages = state.messages.size, toolCalls = 0)
 
         hooks(CompactionHook.PostCompaction)
         return true

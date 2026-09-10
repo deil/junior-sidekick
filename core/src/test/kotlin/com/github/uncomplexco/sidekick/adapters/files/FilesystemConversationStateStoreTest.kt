@@ -12,19 +12,18 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationStat
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
-import kotlinx.serialization.json.Json
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.time.Instant
+import kotlinx.serialization.json.Json
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class FilesystemConversationStateStoreTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `stores koog messages as json lines`() {
@@ -36,8 +35,14 @@ class FilesystemConversationStateStoreTest {
         val messages =
             listOf(
                 Message.User("hello", requestMetaInfo),
-                Message.Assistant(MessagePart.Tool.Call("call-1", "lookup", """{"query":"sidekick"}"""), responseMetaInfo),
-                Message.User(MessagePart.Tool.Result("call-1", "lookup", """{"result":"found"}"""), requestMetaInfo),
+                Message.Assistant(
+                    MessagePart.Tool.Call("call-1", "lookup", """{"query":"sidekick"}"""),
+                    responseMetaInfo,
+                ),
+                Message.User(
+                    MessagePart.Tool.Result("call-1", "lookup", """{"result":"found"}"""),
+                    requestMetaInfo,
+                ),
                 Message.Assistant("done", responseMetaInfo),
             )
 
@@ -111,9 +116,24 @@ class FilesystemConversationStateStoreTest {
         assertEquals(123, loaded.stats.totalTokens)
         assertEquals(4, loaded.stats.messages)
         assertEquals(2, loaded.stats.toolCalls)
-        assertEquals(true, Files.exists(dir.resolve("state/slack/channels/C123/threads/1700000000.000/runtime.json")))
-        assertEquals(false, Files.exists(dir.resolve("state/slack/channels/C123/threads/1700000000.000/stats.json")))
-        assertEquals(false, Files.exists(dir.resolve("state/slack/channels/C123/threads/1700000000.000/inflight.json")))
+        assertEquals(
+            true,
+            Files.exists(
+                dir.resolve("state/slack/channels/C123/threads/1700000000.000/runtime.json")
+            ),
+        )
+        assertEquals(
+            false,
+            Files.exists(
+                dir.resolve("state/slack/channels/C123/threads/1700000000.000/stats.json")
+            ),
+        )
+        assertEquals(
+            false,
+            Files.exists(
+                dir.resolve("state/slack/channels/C123/threads/1700000000.000/inflight.json")
+            ),
+        )
     }
 
     @Test
@@ -124,7 +144,10 @@ class FilesystemConversationStateStoreTest {
         val folder = dir.resolve("state/slack/channels/C123/threads/1700000000.000")
         val legacyPath = folder.resolve("stats.json")
         Files.createDirectories(folder)
-        Files.writeString(legacyPath, Json.encodeToString(ConversationStats(totalTokens = 321, messages = 7)))
+        Files.writeString(
+            legacyPath,
+            Json.encodeToString(ConversationStats(totalTokens = 321, messages = 7)),
+        )
 
         // Act
         val state = store.load(conversationId)
@@ -156,7 +179,10 @@ class FilesystemConversationStateStoreTest {
         Files.createDirectories(dir.resolve("state/slack/channels/C789/threads/empty"))
         val threadFolder = dir.resolve("state/slack/channels/C123/threads/1700000000.000")
         Files.writeString(threadFolder.resolve("koog.jsonl"), "not valid Koog JSON")
-        val createdAt = Files.readAttributes(threadFolder, BasicFileAttributes::class.java).creationTime().toMillis()
+        val createdAt =
+            Files.readAttributes(threadFolder, BasicFileAttributes::class.java)
+                .creationTime()
+                .toMillis()
 
         // Act
         val included = store.loadUsageStartedBetween(createdAt, createdAt + 1)
@@ -172,7 +198,11 @@ class FilesystemConversationStateStoreTest {
 
     private fun store(): FilesystemConversationStateStore =
         FilesystemConversationStateStore(
-            AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString()),
+            AgentConfig(
+                "Sidekick",
+                dir.resolve("state").toString(),
+                dir.resolve("workspace").toString(),
+            ),
             ChatPlatform.SLACK,
         )
 }

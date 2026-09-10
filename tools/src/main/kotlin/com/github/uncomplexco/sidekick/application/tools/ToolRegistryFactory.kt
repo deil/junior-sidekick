@@ -3,12 +3,16 @@ package com.github.uncomplexco.sidekick.application.tools
 import ai.koog.agents.core.tools.ToolRegistry
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
+import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.DiscordBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
+import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
+import com.github.uncomplexco.sidekick.application.stats.WeeklyStatsService
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
 import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
 import com.github.uncomplexco.sidekick.application.tools.discord.discordTools
@@ -31,18 +35,14 @@ import com.github.uncomplexco.sidekick.application.tools.system.LoopFactory
 import com.github.uncomplexco.sidekick.application.tools.system.LoopTools
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
-import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
-import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
+import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
-import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
-import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
-import com.github.uncomplexco.sidekick.application.stats.WeeklyStatsService
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
+import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
 import com.github.uncomplexco.sidekick.tools.SidekickToolProvider
-import org.springframework.stereotype.Component
 import java.nio.file.Path
+import org.springframework.stereotype.Component
 
 @Component
 class DefaultToolRegistryFactory(
@@ -79,7 +79,7 @@ class DefaultToolRegistryFactory(
                     bashToolConfig,
                     ctx.conversation.virtualPaths,
                     sandboxExecutorFactory.create(),
-                ),
+                )
             )
         }
 
@@ -87,7 +87,9 @@ class DefaultToolRegistryFactory(
 
         tools(SkillTools(skills, ctx.conversation.virtualPaths, skillCatalogReloader))
 
-        tool(TaskTool(subagentRunner, ctx, chat, subagents.catalog().subagents, onSubagentCompleted))
+        tool(
+            TaskTool(subagentRunner, ctx, chat, subagents.catalog().subagents, onSubagentCompleted)
+        )
 
         tools(GitTools(gitToolConfig, ctx.conversation.virtualPaths))
         if (chat is DiscordBackedChatPlatformAdapter) {
@@ -100,16 +102,17 @@ class DefaultToolRegistryFactory(
                 ScheduledJobTools(
                     channelId = ctx.conversation.conversationId.channelId,
                     jobs = scheduledJobs,
-                ),
+                )
             )
         }
         tools(McpStatusTools(ctx, mcpToolsConfig.servers).asTools())
         tools(mcpAuthTools.asTools(chat))
 
-        val extensionContext =
-            SidekickToolContext { virtualPath ->
-                Path.of(parseVirtualPath(virtualPath, ctx.conversation.virtualPaths)).toAbsolutePath().normalize()
-            }
+        val extensionContext = SidekickToolContext { virtualPath ->
+            Path.of(parseVirtualPath(virtualPath, ctx.conversation.virtualPaths))
+                .toAbsolutePath()
+                .normalize()
+        }
         sidekickToolProviders.forEach { tools(it.toolSet(extensionContext)) }
     }
 
@@ -119,7 +122,13 @@ class DefaultToolRegistryFactory(
         ctx: TurnContext,
     ) = ToolRegistry {
         if (chat is SlackBackedChatPlatformAdapter) {
-            tools(ConversationIntelligenceLevelTools(sharedContext.slackClient, ctx, conversationStateStore))
+            tools(
+                ConversationIntelligenceLevelTools(
+                    sharedContext.slackClient,
+                    ctx,
+                    conversationStateStore,
+                )
+            )
         }
 
         tools(
@@ -128,7 +137,7 @@ class DefaultToolRegistryFactory(
                 chat = chat,
                 toolRegistry = toolRegistry,
                 ctx = ctx,
-            ),
+            )
         )
     }
 }

@@ -1,19 +1,19 @@
 package com.github.uncomplexco.sidekick.adapters.jgit
 
+import com.github.uncomplexco.sidekick.application.tools.git.GitPullState
+import com.github.uncomplexco.sidekick.application.tools.git.GitPullStatus
 import com.github.uncomplexco.sidekick.application.tools.git.GitPushPlan
 import com.github.uncomplexco.sidekick.application.tools.git.GitPushState
 import com.github.uncomplexco.sidekick.application.tools.git.GitPushStatus
-import com.github.uncomplexco.sidekick.application.tools.git.GitPullState
-import com.github.uncomplexco.sidekick.application.tools.git.GitPullStatus
 import com.github.uncomplexco.sidekick.application.tools.git.GitRepository
 import com.github.uncomplexco.sidekick.application.tools.git.GitRepositoryState
 import com.github.uncomplexco.sidekick.application.tools.git.GitRepositoryStatus
+import java.nio.file.Path
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.MergeCommand
 import org.eclipse.jgit.api.MergeResult
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.transport.RefSpec
-import java.nio.file.Path
 
 class JGitRepository : GitRepository {
     override fun clone(
@@ -23,8 +23,7 @@ class JGitRepository : GitRepository {
         workingDirectory: Path,
         preferredBranches: List<String>,
     ): GitRepositoryState {
-        Git
-            .cloneRepository()
+        Git.cloneRepository()
             .setURI(url)
             .setDirectory(checkout.toFile())
             .applySsh(sshKeyFile, workingDirectory)
@@ -38,8 +37,7 @@ class JGitRepository : GitRepository {
         sshKeyFile: String,
     ): GitRepositoryState {
         Git.open(checkout.toFile()).use { git ->
-            git
-                .fetch()
+            git.fetch()
                 .setRemote(REMOTE_ORIGIN)
                 .setRemoveDeletedRefs(true)
                 .applySsh(sshKeyFile, checkout)
@@ -50,9 +48,10 @@ class JGitRepository : GitRepository {
 
     override fun isGitRepository(checkout: Path): Boolean =
         runCatching {
-            Git.open(checkout.toFile()).close()
-            true
-        }.getOrDefault(false)
+                Git.open(checkout.toFile()).close()
+                true
+            }
+            .getOrDefault(false)
 
     override fun originUrl(checkout: Path): String? =
         Git.open(checkout.toFile()).use { git ->
@@ -81,10 +80,7 @@ class JGitRepository : GitRepository {
     override fun pushPlan(
         checkout: Path,
         branch: String?,
-    ): GitPushPlan =
-        Git.open(checkout.toFile()).use { git ->
-            git.pushPlan(checkout, branch)
-        }
+    ): GitPushPlan = Git.open(checkout.toFile()).use { git -> git.pushPlan(checkout, branch) }
 
     override fun push(
         checkout: Path,
@@ -95,32 +91,36 @@ class JGitRepository : GitRepository {
     ): GitPushState {
         Git.open(checkout.toFile()).use { git ->
             val plan = git.pushPlan(checkout, branch)
-            plan.status?.let { return plan.toState(it, plan.message) }
+            plan.status?.let {
+                return plan.toState(it, plan.message)
+            }
 
             return runCatching {
-                val resultStatuses =
-                    git
-                        .push()
-                        .setRemote(plan.remote!!)
-                        .apply {
-                            if (all) {
-                                setPushAll()
-                                if (tags) {
-                                    setPushTags()
+                    val resultStatuses =
+                        git.push()
+                            .setRemote(plan.remote!!)
+                            .apply {
+                                if (all) {
+                                    setPushAll()
+                                    if (tags) {
+                                        setPushTags()
+                                    }
+                                } else {
+                                    setRefSpecs(pushRefSpecs(plan, tags))
                                 }
-                            } else {
-                                setRefSpecs(pushRefSpecs(plan, tags))
                             }
-                        }
-                        .applySsh(sshKeyFile, checkout)
-                        .call()
-                        .flatMap { result -> result.remoteUpdates }
-                val status = resultStatuses.map { it.status.toPushStatus() }.worstOrNull() ?: GitPushStatus.UP_TO_DATE
-                val message = resultStatuses.toPushMessage()
-                plan.toState(status, message)
-            }.getOrElse { error ->
-                plan.toState(GitPushStatus.FAILED, error.message ?: "Git push failed")
-            }
+                            .applySsh(sshKeyFile, checkout)
+                            .call()
+                            .flatMap { result -> result.remoteUpdates }
+                    val status =
+                        resultStatuses.map { it.status.toPushStatus() }.worstOrNull()
+                            ?: GitPushStatus.UP_TO_DATE
+                    val message = resultStatuses.toPushMessage()
+                    plan.toState(status, message)
+                }
+                .getOrElse { error ->
+                    plan.toState(GitPushStatus.FAILED, error.message ?: "Git push failed")
+                }
         }
     }
 
@@ -132,36 +132,41 @@ class JGitRepository : GitRepository {
     ): GitPullState {
         Git.open(checkout.toFile()).use { git ->
             return runCatching {
-                val oldHead = git.repository.resolve(HEAD)?.name
-                val result =
-                    git
-                        .pull()
-                        .setRemote(remote)
-                        .setRemoteBranchName(refspec)
-                        .applySsh(sshKeyFile, checkout)
-                        .call()
-                val newHead = git.repository.resolve(HEAD).name
-                val status = result.mergeResult?.mergeStatus.toPullStatus(result.isSuccessful, oldHead != newHead)
-                GitPullState(
-                    path = checkout,
-                    branch = git.repository.currentBranch(),
-                    commitHash = newHead,
-                    remote = remote,
-                    upstream = refspec,
-                    status = status,
-                    message = result.mergeResult?.mergeStatus?.name ?: if (result.isSuccessful) "up to date" else "Git pull failed",
-                )
-            }.getOrElse { error ->
-                GitPullState(
-                    path = checkout,
-                    branch = git.repository.currentBranch(),
-                    commitHash = git.repository.resolve(HEAD)?.name ?: "",
-                    remote = remote,
-                    upstream = refspec,
-                    status = GitPullStatus.FAILED,
-                    message = error.message ?: "Git pull failed",
-                )
-            }
+                    val oldHead = git.repository.resolve(HEAD)?.name
+                    val result =
+                        git.pull()
+                            .setRemote(remote)
+                            .setRemoteBranchName(refspec)
+                            .applySsh(sshKeyFile, checkout)
+                            .call()
+                    val newHead = git.repository.resolve(HEAD).name
+                    val status =
+                        result.mergeResult
+                            ?.mergeStatus
+                            .toPullStatus(result.isSuccessful, oldHead != newHead)
+                    GitPullState(
+                        path = checkout,
+                        branch = git.repository.currentBranch(),
+                        commitHash = newHead,
+                        remote = remote,
+                        upstream = refspec,
+                        status = status,
+                        message =
+                            result.mergeResult?.mergeStatus?.name
+                                ?: if (result.isSuccessful) "up to date" else "Git pull failed",
+                    )
+                }
+                .getOrElse { error ->
+                    GitPullState(
+                        path = checkout,
+                        branch = git.repository.currentBranch(),
+                        commitHash = git.repository.resolve(HEAD)?.name ?: "",
+                        remote = remote,
+                        upstream = refspec,
+                        status = GitPullStatus.FAILED,
+                        message = error.message ?: "Git pull failed",
+                    )
+                }
         }
     }
 
@@ -170,15 +175,15 @@ class JGitRepository : GitRepository {
         preferredBranches: List<String>,
     ) {
         val selectedBranch =
-            preferredBranches.firstOrNull { branch -> git.repository.findRef("refs/remotes/$REMOTE_ORIGIN/$branch") != null }
-                ?: return
+            preferredBranches.firstOrNull { branch ->
+                git.repository.findRef("refs/remotes/$REMOTE_ORIGIN/$branch") != null
+            } ?: return
 
         if (git.repository.branch == selectedBranch) {
             return
         }
 
-        git
-            .checkout()
+        git.checkout()
             .setCreateBranch(true)
             .setName(selectedBranch)
             .setStartPoint("$REMOTE_ORIGIN/$selectedBranch")
@@ -187,9 +192,11 @@ class JGitRepository : GitRepository {
 
     private fun fastForwardCurrentBranch(git: Git): GitRepositoryStatus {
         val branch = git.repository.branch ?: return GitRepositoryStatus.FETCHED_DETACHED_HEAD
-        val head = git.repository.resolve(HEAD) ?: return GitRepositoryStatus.FETCHED_FAST_FORWARD_FAILED
+        val head =
+            git.repository.resolve(HEAD) ?: return GitRepositoryStatus.FETCHED_FAST_FORWARD_FAILED
         val remote =
-            git.repository.findRef("refs/remotes/$REMOTE_ORIGIN/$branch")?.objectId ?: return GitRepositoryStatus.FETCHED_NO_REMOTE_BRANCH
+            git.repository.findRef("refs/remotes/$REMOTE_ORIGIN/$branch")?.objectId
+                ?: return GitRepositoryStatus.FETCHED_NO_REMOTE_BRANCH
         if (head == remote) {
             return GitRepositoryStatus.FETCHED_UP_TO_DATE
         }
@@ -203,18 +210,20 @@ class JGitRepository : GitRepository {
         }
 
         return runCatching {
-            val result =
-                git
-                    .merge()
-                    .include(remote)
-                    .setFastForward(MergeCommand.FastForwardMode.FF_ONLY)
-                    .call()
-            when (result.mergeStatus) {
-                MergeResult.MergeStatus.FAST_FORWARD -> GitRepositoryStatus.FETCHED_FAST_FORWARDED
-                MergeResult.MergeStatus.ALREADY_UP_TO_DATE -> GitRepositoryStatus.FETCHED_UP_TO_DATE
-                else -> GitRepositoryStatus.FETCHED_FAST_FORWARD_FAILED
+                val result =
+                    git.merge()
+                        .include(remote)
+                        .setFastForward(MergeCommand.FastForwardMode.FF_ONLY)
+                        .call()
+                when (result.mergeStatus) {
+                    MergeResult.MergeStatus.FAST_FORWARD ->
+                        GitRepositoryStatus.FETCHED_FAST_FORWARDED
+                    MergeResult.MergeStatus.ALREADY_UP_TO_DATE ->
+                        GitRepositoryStatus.FETCHED_UP_TO_DATE
+                    else -> GitRepositoryStatus.FETCHED_FAST_FORWARD_FAILED
+                }
             }
-        }.getOrDefault(GitRepositoryStatus.FETCHED_FAST_FORWARD_FAILED)
+            .getOrDefault(GitRepositoryStatus.FETCHED_FAST_FORWARD_FAILED)
     }
 
     private fun state(
@@ -233,13 +242,12 @@ class JGitRepository : GitRepository {
     private fun pushRefSpecs(
         plan: GitPushPlan,
         tags: Boolean,
-    ): List<RefSpec> =
-        buildList {
-            add(RefSpec("refs/heads/${plan.branch}:${plan.upstream!!}"))
-            if (tags) {
-                add(RefSpec("refs/tags/*:refs/tags/*"))
-            }
+    ): List<RefSpec> = buildList {
+        add(RefSpec("refs/heads/${plan.branch}:${plan.upstream!!}"))
+        if (tags) {
+            add(RefSpec("refs/tags/*:refs/tags/*"))
         }
+    }
 
     private fun MergeResult.MergeStatus?.toPullStatus(
         successful: Boolean,
@@ -251,8 +259,7 @@ class JGitRepository : GitRepository {
             MergeResult.MergeStatus.MERGED,
             MergeResult.MergeStatus.MERGED_NOT_COMMITTED,
             MergeResult.MergeStatus.MERGED_SQUASHED,
-            MergeResult.MergeStatus.MERGED_SQUASHED_NOT_COMMITTED,
-            -> GitPullStatus.MERGED
+            MergeResult.MergeStatus.MERGED_SQUASHED_NOT_COMMITTED -> GitPullStatus.MERGED
 
             MergeResult.MergeStatus.CONFLICTING -> GitPullStatus.CONFLICTING
             MergeResult.MergeStatus.CHECKOUT_CONFLICT -> GitPullStatus.CHECKOUT_CONFLICT

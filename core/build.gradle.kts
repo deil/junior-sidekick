@@ -5,11 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
-}
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 
 dependencies {
     compileOnly(platform(libs.spring.boot.bom))
@@ -46,6 +42,4 @@ kotlin {
     }
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
-}
+tasks.withType<Test> { useJUnitPlatform() }

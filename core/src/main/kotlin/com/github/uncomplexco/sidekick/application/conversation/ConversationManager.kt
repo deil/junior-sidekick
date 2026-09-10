@@ -7,9 +7,9 @@ import com.github.uncomplexco.sidekick.application.context.SessionContextCompact
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import org.springframework.stereotype.Component
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import org.springframework.stereotype.Component
 
 @Component
 class ConversationManager(
@@ -19,16 +19,18 @@ class ConversationManager(
 ) {
     fun exists(conversationId: ConversationId): Boolean = store.exists(conversationId)
 
-    fun isSubscribed(conversationId: ConversationId): Boolean = store.load(conversationId).subscribed
+    fun isSubscribed(conversationId: ConversationId): Boolean =
+        store.load(conversationId).subscribed
 
     suspend fun setSubscribed(
         conversationId: ConversationId,
         subscribed: Boolean,
-    ) = store.withSessionLock(conversationId) {
-        val state = store.load(conversationId)
-        state.subscribed = subscribed
-        store.save(conversationId, state)
-    }
+    ) =
+        store.withSessionLock(conversationId) {
+            val state = store.load(conversationId)
+            state.subscribed = subscribed
+            store.save(conversationId, state)
+        }
 
     suspend fun compactIfNeeded(
         conversationId: ConversationId,
@@ -86,14 +88,17 @@ class ConversationManager(
         conversationId: ConversationId,
         messageId: String,
         reason: String,
-    ) = store.withSessionLock(conversationId) {
-        val state = store.load(conversationId)
-        state.messages.find { it.id == messageId }?.let {
-            it.replied = false
-            it.skippedReason = reason
+    ) =
+        store.withSessionLock(conversationId) {
+            val state = store.load(conversationId)
+            state.messages
+                .find { it.id == messageId }
+                ?.let {
+                    it.replied = false
+                    it.skippedReason = reason
+                }
+            store.save(conversationId, state)
         }
-        store.save(conversationId, state)
-    }
 
     suspend fun recordAssistantReply(
         conversationId: ConversationId,
@@ -104,32 +109,33 @@ class ConversationManager(
         originalMessageId: String,
         inputTokensConsumed: Long,
         outputTokensConsumed: Long,
-    ) = store.withSessionLock(conversationId) {
-        val state = store.load(conversationId)
+    ) =
+        store.withSessionLock(conversationId) {
+            val state = store.load(conversationId)
 
-        state.messages.find { it.id == originalMessageId }?.replied = true
+            state.messages.find { it.id == originalMessageId }?.replied = true
 
-        upsertMessage(
-            state.messages,
-            SessionMessage(
-                id = replyId,
-                role = SessionMessageRole.ASSISTANT,
-                text = normalizeMessageText(text),
-                fileIds = emptyList(),
-                createdAtMs = createdAtMs,
-                replied = true,
-            ),
-        )
-
-        state.stats =
-            state.stats.copy(
-                consumedInputTokens = state.stats.consumedInputTokens + inputTokensConsumed,
-                consumedOutputTokens = state.stats.consumedOutputTokens + outputTokensConsumed,
-                lastCompletedAtMs = createdAtMs,
+            upsertMessage(
+                state.messages,
+                SessionMessage(
+                    id = replyId,
+                    role = SessionMessageRole.ASSISTANT,
+                    text = normalizeMessageText(text),
+                    fileIds = emptyList(),
+                    createdAtMs = createdAtMs,
+                    replied = true,
+                ),
             )
 
-        store.save(conversationId, state)
-    }
+            state.stats =
+                state.stats.copy(
+                    consumedInputTokens = state.stats.consumedInputTokens + inputTokensConsumed,
+                    consumedOutputTokens = state.stats.consumedOutputTokens + outputTokensConsumed,
+                    lastCompletedAtMs = createdAtMs,
+                )
+
+            store.save(conversationId, state)
+        }
 
     private fun upsertMessage(
         messages: MutableList<SessionMessage>,
@@ -174,7 +180,8 @@ class ConversationManager(
                         fileIds = it.files.map { file -> file.id },
                         createdAtMs = it.timestamp,
                     )
-                }.forEach { state.messages.add(it) }
+                }
+                .forEach { state.messages.add(it) }
         }
 
         return state
@@ -184,7 +191,8 @@ class ConversationManager(
     private fun generateTurnId(prefix: String = "turn") =
         "${prefix}_${System.currentTimeMillis()}_${Uuid.generateV7().toString().replace("-", "").take(8)}"
 
-    private fun normalizeMessageText(text: String): String = text.trim().replace(Regex("\\s+"), " ").take(CONTEXT_MAX_MESSAGE_CHARS)
+    private fun normalizeMessageText(text: String): String =
+        text.trim().replace(Regex("\\s+"), " ").take(CONTEXT_MAX_MESSAGE_CHARS)
 
     private fun IncomingChatFile.toSessionFileRef(): SessionFileRef =
         SessionFileRef(

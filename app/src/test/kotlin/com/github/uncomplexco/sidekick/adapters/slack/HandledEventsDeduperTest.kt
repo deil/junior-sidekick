@@ -1,12 +1,12 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
-import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
+import org.junit.jupiter.api.Test
 
 class HandledEventsDeduperTest {
     private val clock = MutableClock()

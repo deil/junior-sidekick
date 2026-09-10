@@ -28,9 +28,9 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
+import java.nio.file.Path
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.nio.file.Path
 
 private val log = LoggerFactory.getLogger(SidekickAgent::class.java)
 
@@ -92,13 +92,20 @@ class SidekickAgent(
         val replyAttachments = ReplyAttachmentCollector(ctx.conversation.virtualPaths)
 
         try {
-            val mcpToolRegistry = mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
+            val mcpToolRegistry =
+                mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
             val baseTools =
-                toolRegistryFactory.buildExecutionTools(ctxWithMcp, chat, replyAttachments) { subagentUsage ->
+                toolRegistryFactory.buildExecutionTools(ctxWithMcp, chat, replyAttachments) {
+                    subagentUsage ->
                     usage += subagentUsage
                 } + mcpToolRegistry
             val toolRegistry =
-                baseTools + toolRegistryFactory.buildOrchestrationTools(toolRegistry = baseTools, chat = chat, ctx = ctxWithMcp)
+                baseTools +
+                    toolRegistryFactory.buildOrchestrationTools(
+                        toolRegistry = baseTools,
+                        chat = chat,
+                        ctx = ctxWithMcp,
+                    )
             val aiModelProfile = koogConfig.profile(ctx.aiModelProfile)
 
             val agent =
@@ -120,7 +127,7 @@ class SidekickAgent(
                                         systemPromptBuilder.buildSystemPrompt(
                                             config.botUsername!!,
                                             ctx.conversation.virtualPaths.projectRoot,
-                                        ),
+                                        )
                                     )
                                 },
                             model =
@@ -147,15 +154,10 @@ class SidekickAgent(
                             usage +=
                                 AgentUsageStats(
                                     inputTokenCount =
-                                        llmCall.response
-                                            ?.metaInfo
-                                            ?.inputTokensCount
-                                            ?.toLong() ?: 0,
+                                        llmCall.response?.metaInfo?.inputTokensCount?.toLong() ?: 0,
                                     outputTokenCount =
-                                        llmCall.response
-                                            ?.metaInfo
-                                            ?.outputTokensCount
-                                            ?.toLong() ?: 0,
+                                        llmCall.response?.metaInfo?.outputTokensCount?.toLong()
+                                            ?: 0,
                                 )
                         }
 
@@ -165,17 +167,29 @@ class SidekickAgent(
                         }
 
                         onToolCallFailed { toolCall ->
-                            log.debug("onToolCallFailed: {} -> {}", toolCall.toolName, toolCall.message)
+                            log.debug(
+                                "onToolCallFailed: {} -> {}",
+                                toolCall.toolName,
+                                toolCall.message,
+                            )
                         }
 
                         onToolCallCompleted { toolCall ->
-                            log.debug("onToolCallCompleted: {} -> {}", toolCall.toolName, toolCall.toolResult)
+                            log.debug(
+                                "onToolCallCompleted: {} -> {}",
+                                toolCall.toolName,
+                                toolCall.toolResult,
+                            )
                         }
                     }
                 }
 
             val input = turnPromptBuilder.buildSessionTurnPrompt(message, ctxWithMcp)
-            val reply = ChatReply(agent.run(input, ctx.conversation.conversationId.lockKey()), replyAttachments.collected())
+            val reply =
+                ChatReply(
+                    agent.run(input, ctx.conversation.conversationId.lockKey()),
+                    replyAttachments.collected(),
+                )
             return AgentTurnResult(
                 reply = reply,
                 stats =
@@ -197,7 +211,8 @@ internal fun sidekickStrategy() =
     strategy<String, String>("sidekick") {
         val requestModelResponse by nodeLLMRequest("requestModelResponse")
         val executeToolCalls by nodeExecuteTools("executeToolCalls")
-        val requestModelResponseWithToolResults by nodeLLMSendToolResults("requestModelResponseWithToolResults")
+        val requestModelResponseWithToolResults by
+            nodeLLMSendToolResults("requestModelResponseWithToolResults")
 
         edge(nodeStart forwardTo requestModelResponse)
         edge(requestModelResponse forwardTo executeToolCalls onToolCalls { true })

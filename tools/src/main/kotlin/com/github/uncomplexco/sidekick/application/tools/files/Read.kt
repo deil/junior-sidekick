@@ -11,9 +11,7 @@ import kotlin.io.path.pathString
 import kotlin.io.useLines
 import kotlin.use
 
-class WorkspaceRead(
-    private val virtualPaths: VirtualPaths,
-) {
+class WorkspaceRead(private val virtualPaths: VirtualPaths) {
     fun read(
         path: String,
         offset: Int?,
@@ -54,11 +52,12 @@ class WorkspaceRead(
             }
         val root =
             virtualPaths.roots
-                .firstOrNull { normalizedPath == it.virtual || normalizedPath.startsWith("${it.virtual}/") }
+                .firstOrNull {
+                    normalizedPath == it.virtual || normalizedPath.startsWith("${it.virtual}/")
+                }
                 ?.real
                 ?.toAbsolutePath()
-                ?.normalize()
-                ?: throw IllegalArgumentException("Path not found: $normalizedPath")
+                ?.normalize() ?: throw IllegalArgumentException("Path not found: $normalizedPath")
         val target = root.resolve(root.relativize(realPath)).normalize()
         require(target.startsWith(root)) { "Path escapes working directory: $normalizedPath" }
 
@@ -66,13 +65,17 @@ class WorkspaceRead(
         for (segment in root.relativize(target)) {
             current = current.resolve(segment)
             if (Files.isSymbolicLink(current)) {
-                throw IllegalArgumentException("Symbolic links are not allowed in workspace paths: $current")
+                throw IllegalArgumentException(
+                    "Symbolic links are not allowed in workspace paths: $current"
+                )
             }
         }
 
         if (Files.exists(target)) {
             val realTarget = target.toRealPath(LinkOption.NOFOLLOW_LINKS)
-            require(realTarget.startsWith(root.toRealPath(LinkOption.NOFOLLOW_LINKS))) { "Path escapes working directory: $target" }
+            require(realTarget.startsWith(root.toRealPath(LinkOption.NOFOLLOW_LINKS))) {
+                "Path escapes working directory: $target"
+            }
         }
         require(Files.exists(target)) { "File not found: ${target.pathString}" }
 
@@ -89,7 +92,13 @@ class WorkspaceRead(
         offset: Int?,
         limit: Int?,
     ): String {
-        val entries = Files.list(target).use { stream -> stream.toList().map { if (Files.isDirectory(it)) it.fileName.toString() + "/" else it.fileName.toString() } }
+        val entries =
+            Files.list(target).use { stream ->
+                stream.toList().map {
+                    if (Files.isDirectory(it)) it.fileName.toString() + "/"
+                    else it.fileName.toString()
+                }
+            }
         return renderLs(displayTarget, entries, offset, limit)
     }
 
@@ -107,17 +116,18 @@ class WorkspaceRead(
         val truncated = start + sliced.size < items.size
 
         return listOf(
-            "<path>$displayTarget</path>",
-            "<type>directory</type>",
-            "<entries>",
-            sliced.joinToString("\n"),
-            if (truncated) {
-                "\n(Showing ${sliced.size} of ${items.size} entries. Use 'offset' parameter to read beyond entry ${currentOffset + sliced.size})"
-            } else {
-                "\n(${items.size} entries)"
-            },
-            "</entries>",
-        ).joinToString("\n")
+                "<path>$displayTarget</path>",
+                "<type>directory</type>",
+                "<entries>",
+                sliced.joinToString("\n"),
+                if (truncated) {
+                    "\n(Showing ${sliced.size} of ${items.size} entries. Use 'offset' parameter to read beyond entry ${currentOffset + sliced.size})"
+                } else {
+                    "\n(${items.size} entries)"
+                },
+                "</entries>",
+            )
+            .joinToString("\n")
     }
 
     fun readFile(
@@ -126,18 +136,15 @@ class WorkspaceRead(
         offset: Int?,
         limit: Int?,
     ): String {
-        val ext =
-            target.fileName
-                .toString()
-                .substringAfterLast('.', "")
-                .lowercase()
+        val ext = target.fileName.toString().substringAfterLast('.', "").lowercase()
         if (ext in BINARY_FILE_EXTENSIONS) {
             throw IllegalArgumentException("Cannot read binary file: ${target.pathString}")
         }
 
         val size = Files.size(target)
         if (size > 0L) {
-            val sample = Files.newInputStream(target).use { it.readNBytes(minOf(4096, size.toInt())) }
+            val sample =
+                Files.newInputStream(target).use { it.readNBytes(minOf(4096, size.toInt())) }
             var nonPrintable = 0
             for (byte in sample) {
                 val value = byte.toInt() and 0xFF
@@ -174,8 +181,12 @@ class WorkspaceRead(
                     continue
                 }
 
-                val line = if (text.length > MAX_LINE_LENGTH) text.substring(0, MAX_LINE_LENGTH) + MAX_LINE_SUFFIX else text
-                val lineSize = line.toByteArray(StandardCharsets.UTF_8).size + if (raw.isNotEmpty()) 1 else 0
+                val line =
+                    if (text.length > MAX_LINE_LENGTH)
+                        text.substring(0, MAX_LINE_LENGTH) + MAX_LINE_SUFFIX
+                    else text
+                val lineSize =
+                    line.toByteArray(StandardCharsets.UTF_8).size + if (raw.isNotEmpty()) 1 else 0
                 if (bytes + lineSize > MAX_BYTES) {
                     cut = true
                     more = true
@@ -189,7 +200,9 @@ class WorkspaceRead(
 
         val file = ReadResult(raw, count, cut, more, startOffset)
         if (file.count < file.offset && !(file.count == 0 && file.offset == 1)) {
-            throw IllegalArgumentException("Offset ${file.offset} is out of range for this file (${file.count} lines)")
+            throw IllegalArgumentException(
+                "Offset ${file.offset} is out of range for this file (${file.count} lines)"
+            )
         }
 
         return buildString {
@@ -198,7 +211,8 @@ class WorkspaceRead(
                 <path>$displayTarget</path>
                 <type>file</type>
                 <content>
-                """.trimIndent(),
+                """
+                    .trimIndent()
             )
 
             file.raw.mapIndexed { index, line -> appendLine("${index + file.offset}: $line") }
@@ -210,9 +224,13 @@ class WorkspaceRead(
             val next = last + 1
 
             if (file.cut) {
-                appendLine("(Output capped at $MAX_BYTES_LABEL. Showing lines ${file.offset}-$last. Use offset=$next to continue.)")
+                appendLine(
+                    "(Output capped at $MAX_BYTES_LABEL. Showing lines ${file.offset}-$last. Use offset=$next to continue.)"
+                )
             } else if (file.more) {
-                appendLine("(Showing lines ${file.offset}-$last of ${file.count}. Use offset=$next to continue.)")
+                appendLine(
+                    "(Showing lines ${file.offset}-$last of ${file.count}. Use offset=$next to continue.)"
+                )
             } else {
                 appendLine("(End of file - total ${file.count} lines)")
             }

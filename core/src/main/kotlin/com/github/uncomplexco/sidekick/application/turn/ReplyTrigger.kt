@@ -5,7 +5,6 @@ import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.model.executeStructured
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
-import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
@@ -53,7 +52,8 @@ class ReplyDecisionService(
     private val simpleClassifier: SimpleReplyDecisionClassifier,
     private val llmClassifier: LlmReplyDecisionClassifier,
 ) {
-    suspend fun shouldReply(input: ReplyDecisionInput): ReplyDecision = simpleClassifier.classify(input) ?: llmClassifier.classify(input)
+    suspend fun shouldReply(input: ReplyDecisionInput): ReplyDecision =
+        simpleClassifier.classify(input) ?: llmClassifier.classify(input)
 }
 
 @Component
@@ -88,7 +88,11 @@ class SimpleReplyDecisionClassifier {
         if (input.isPrivateMessage) {
             return ReplyDecision(true, ReplyDecisionReason.PRIVATE_MESSAGE)
         } else if (!input.hasAssistantHistory) {
-            return ReplyDecision(false, ReplyDecisionReason.SIDE_CONVERSATION, "not_subscribed_to_thread")
+            return ReplyDecision(
+                false,
+                ReplyDecisionReason.SIDE_CONVERSATION,
+                "not_subscribed_to_thread",
+            )
         }
 
         return null
@@ -96,7 +100,8 @@ class SimpleReplyDecisionClassifier {
 
     private fun isAcknowledgmentOnly(text: String): Boolean = ACKNOWLEDGMENT_ONLY_RE.matches(text)
 
-    private fun isUnsubscribeCommand(text: String): Boolean = UNSUBSCRIBE_COMMAND_RE.containsMatchIn(text)
+    private fun isUnsubscribeCommand(text: String): Boolean =
+        UNSUBSCRIBE_COMMAND_RE.containsMatchIn(text)
 
     private fun explicitMention(
         text: String,
@@ -105,11 +110,7 @@ class SimpleReplyDecisionClassifier {
 
     private fun leadingSlackUserMention(text: String): String? {
         val match = LEADING_SLACK_USER_MENTION_RE.find(text) ?: return null
-        val userId =
-            match.groupValues
-                .getOrNull(1)
-                ?.trim()
-                .orEmpty()
+        val userId = match.groupValues.getOrNull(1)?.trim().orEmpty()
         if (userId.isBlank()) {
             return null
         }
@@ -135,78 +136,87 @@ class SimpleReplyDecisionClassifier {
 @Component
 class LlmReplyDecisionClassifier(
     private val config: KoogConfig,
-    private val executeClassifier: suspend (Prompt, LLModel) -> ReplyClassifierResult = { prompt, model ->
-        config.openRouterExecutor().use { executor ->
-            executor.executeStructured<ReplyClassifierResult>(prompt, model).getOrThrow().data
-        }
-    },
+    private val executeClassifier: suspend (Prompt, LLModel) -> ReplyClassifierResult =
+        { prompt, model ->
+            config.openRouterExecutor().use { executor ->
+                executor.executeStructured<ReplyClassifierResult>(prompt, model).getOrThrow().data
+            }
+        },
 ) {
     suspend fun classify(input: ReplyDecisionInput): ReplyDecision {
         return runCatching {
-            val aiModelProfile = config.fastProfile
-            val model =
-                LLModel(
-                    provider = LLMProvider.OpenRouter,
-                    id = aiModelProfile.model,
-                    capabilities = config.modelCapabilities(),
-                    contextLength = 128_000,
-                )
+                val aiModelProfile = config.fastProfile
+                val model =
+                    LLModel(
+                        provider = LLMProvider.OpenRouter,
+                        id = aiModelProfile.model,
+                        capabilities = config.modelCapabilities(),
+                        contextLength = 128_000,
+                    )
 
-            val historyText =
-                if (input.messageHistory.isEmpty()) {
-                    "[none]"
-                } else {
-                    input.messageHistory
-                        .take(5)
-                        .map {
-                            val author = if (it.role == SessionMessageRole.ASSISTANT) input.botUser else it.author!!
-                            return@map escapeXml("[${it.role.name}] ${author.fullName}: ${it.text}")
-                        }.joinToString("\n")
-                }
+                val historyText =
+                    if (input.messageHistory.isEmpty()) {
+                        "[none]"
+                    } else {
+                        input.messageHistory
+                            .take(5)
+                            .map {
+                                val author =
+                                    if (it.role == SessionMessageRole.ASSISTANT) input.botUser
+                                    else it.author!!
+                                return@map escapeXml(
+                                    "[${it.role.name}] ${author.fullName}: ${it.text}"
+                                )
+                            }
+                            .joinToString("\n")
+                    }
 
-            val prompt =
-                prompt(
-                    id = "sidekick-reply-decision",
-                    params = config.openRouterParams(aiModelProfile, input.conversationId),
-                ) {
-                    system(buildRouterSystemPrompt(input.botUser.fullName!!, input.botUser.username))
-                    user(
-                        buildRouterPrompt(
-                            input.text,
-                            historyText,
-                            input.messageHistory.lastOrNull {
-                                it.role ==
-                                    SessionMessageRole.ASSISTANT
+                val prompt =
+                    prompt(
+                        id = "sidekick-reply-decision",
+                        params = config.openRouterParams(aiModelProfile, input.conversationId),
+                    ) {
+                        system(
+                            buildRouterSystemPrompt(
+                                input.botUser.fullName!!,
+                                input.botUser.username,
+                            )
+                        )
+                        user(
+                            buildRouterPrompt(
+                                input.text,
+                                historyText,
+                                input.messageHistory.lastOrNull {
+                                    it.role == SessionMessageRole.ASSISTANT
+                                },
+                            )
+                        )
+                    }
+
+                val result = executeClassifier(prompt, model)
+                if (!result.shouldReply) {
+                    return ReplyDecision(
+                        shouldReply = false,
+                        reason =
+                            if (result.confidence < ROUTER_CONFIDENCE_THRESHOLD) {
+                                ReplyDecisionReason.LOW_CONFIDENCE
+                            } else {
+                                ReplyDecisionReason.SIDE_CONVERSATION
                             },
-                        ),
+                        detail = result.reason,
                     )
                 }
 
-            val result = executeClassifier(prompt, model)
-            if (!result.shouldReply) {
-                return ReplyDecision(
-                    shouldReply = false,
-                    reason =
-                        if (result.confidence <
-                            ROUTER_CONFIDENCE_THRESHOLD
-                        ) {
-                            ReplyDecisionReason.LOW_CONFIDENCE
-                        } else {
-                            ReplyDecisionReason.SIDE_CONVERSATION
-                        },
-                    detail = result.reason,
-                )
+                if (result.confidence < ROUTER_CONFIDENCE_THRESHOLD) {
+                    ReplyDecision(false, ReplyDecisionReason.LOW_CONFIDENCE, result.reason)
+                } else {
+                    ReplyDecision(true, ReplyDecisionReason.CLASSIFIER, result.reason)
+                }
             }
-
-            if (result.confidence < ROUTER_CONFIDENCE_THRESHOLD) {
-                ReplyDecision(false, ReplyDecisionReason.LOW_CONFIDENCE, result.reason)
-            } else {
-                ReplyDecision(true, ReplyDecisionReason.CLASSIFIER, result.reason)
+            .getOrElse { error ->
+                log.warn("Reply classifier failed", error)
+                ReplyDecision(false, ReplyDecisionReason.CLASSIFIER_ERROR, error.message)
             }
-        }.getOrElse { error ->
-            log.warn("Reply classifier failed", error)
-            ReplyDecision(false, ReplyDecisionReason.CLASSIFIER_ERROR, error.message)
-        }
     }
 
     private fun buildRouterSystemPrompt(
@@ -227,7 +237,8 @@ class LlmReplyDecisionClassifier(
         Acknowledgments, status chatter, and human-to-human coordination should be shouldReply=false.
         When uncertain, prefer shouldReply=false with low confidence.
         Keep the decision reason short.
-        """.trimIndent()
+        """
+            .trimIndent()
 
     private fun buildRouterPrompt(
         rawText: String,
@@ -235,15 +246,16 @@ class LlmReplyDecisionClassifier(
         lastBotMessage: SessionMessage?,
     ): String =
         listOf(
-            "<latest-message>${rawText.trim()}</latest-message>",
-            "<context>${xmlTag(
+                "<latest-message>${rawText.trim()}</latest-message>",
+                "<context>${xmlTag(
                 "last-assistant-message",
                 lastBotMessage?.let { "[${it.role.name}]: " + escapeXml(it.text) } ?: "[none]",
             )}</context>",
-            "<recent-thread>",
-            historyText,
-            "</recent-thread>",
-        ).joinToString("\n")
+                "<recent-thread>",
+                historyText,
+                "</recent-thread>",
+            )
+            .joinToString("\n")
 
     @Serializable
     data class ReplyClassifierResult(

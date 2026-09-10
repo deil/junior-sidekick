@@ -1,18 +1,17 @@
 package com.github.uncomplexco.sidekick.application.turn
 
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
 
 class ReplyAttachmentCollectorTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `stages a workspace file before its source is deleted`() {

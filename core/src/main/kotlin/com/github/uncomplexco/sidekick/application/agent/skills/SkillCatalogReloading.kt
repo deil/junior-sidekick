@@ -8,7 +8,8 @@ class ConfiguredSkillCatalogReloader(
     private val config: AgentConfig,
     private val skills: Skills,
 ) : SkillCatalogReloader {
-    override fun reloadSkills(): SkillCatalogReloadResult = skills.syncAndScan(config).toReloadResult()
+    override fun reloadSkills(): SkillCatalogReloadResult =
+        skills.syncAndScan(config).toReloadResult()
 }
 
 private fun SkillCatalog.toReloadResult(): SkillCatalogReloadResult =

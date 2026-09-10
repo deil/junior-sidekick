@@ -13,12 +13,12 @@ import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutor
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMount
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMountMode
+import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermission
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
-import java.nio.file.Files
-import java.nio.file.attribute.PosixFilePermission
 
 @Component
 @ConfigurationProperties(prefix = "agent.tools.bash")
@@ -38,16 +38,16 @@ class BashTools(
 
     @Tool
     @LLMDescription(
-        "Run a shell command. Only home directory /work is writable. Do not use to read or search for files, use ${WorkspaceFileTools.TOOL_GLOB}, ${WorkspaceFileTools.TOOL_GREP} or ${WorkspaceFileTools.TOOL_READ} instead. Before proceeding, always notify the user via `$TOOL_REPORT_ASSISTANT_ACTIVITY` tool",
+        "Run a shell command. Only home directory /work is writable. Do not use to read or search for files, use ${WorkspaceFileTools.TOOL_GLOB}, ${WorkspaceFileTools.TOOL_GREP} or ${WorkspaceFileTools.TOOL_READ} instead. Before proceeding, always notify the user via `$TOOL_REPORT_ASSISTANT_ACTIVITY` tool"
     )
     fun bash(
-        @LLMDescription("Shell command string to execute")
-        command: String,
-        @LLMDescription("Concise description of the command's purpose")
-        description: String,
+        @LLMDescription("Shell command string to execute") command: String,
+        @LLMDescription("Concise description of the command's purpose") description: String,
         @LLMDescription("Working directory inside the sandbox. Defaults to /")
         workdir: String = "/",
-        @LLMDescription("Timeout in seconds. Defaults to the configured timeout and may not exceed it")
+        @LLMDescription(
+            "Timeout in seconds. Defaults to the configured timeout and may not exceed it"
+        )
         timeout: Long? = null,
     ): BashResult {
         if (!config.enabled) {
@@ -64,7 +64,8 @@ class BashTools(
             Working directory: $workdir
             Timeout: $resolvedTimeout s
             Description: $description
-            """.trimIndent(),
+            """
+                .trimIndent()
         )
 
         prepareVirtualRoots()
@@ -82,13 +83,17 @@ class BashTools(
                                 SandboxMount(
                                     source = root.real,
                                     target = root.virtual,
-                                    mode = if (root.writable) SandboxMountMode.RW else SandboxMountMode.RO,
+                                    mode =
+                                        if (root.writable) SandboxMountMode.RW
+                                        else SandboxMountMode.RO,
                                 )
                             },
-                    ),
+                    )
                 )
             } catch (error: IllegalArgumentException) {
-                throw ToolException.ValidationFailure(error.message ?: "Invalid bash sandbox request")
+                throw ToolException.ValidationFailure(
+                    error.message ?: "Invalid bash sandbox request"
+                )
             }
 
         return BashResult(
@@ -104,16 +109,16 @@ class BashTools(
     private fun prepareVirtualRoots() {
         virtualPaths.roots.filter { !it.writable }.forEach { Files.createDirectories(it.real) }
 
-        virtualPaths.roots.filter { it.writable }.forEach { root ->
-            Files.createDirectories(root.real)
+        virtualPaths.roots
+            .filter { it.writable }
+            .forEach { root ->
+                Files.createDirectories(root.real)
 
-            config.scratchGid?.also { gid ->
-                Files.setAttribute(root.real, "unix:gid", gid)
+                config.scratchGid?.also { gid -> Files.setAttribute(root.real, "unix:gid", gid) }
+
+                Files.setPosixFilePermissions(root.real, writableRootPermissions)
+                Files.setAttribute(root.real, "unix:mode", WRITABLE_ROOT_MODE)
             }
-
-            Files.setPosixFilePermissions(root.real, writableRootPermissions)
-            Files.setAttribute(root.real, "unix:mode", WRITABLE_ROOT_MODE)
-        }
     }
 
     private companion object {

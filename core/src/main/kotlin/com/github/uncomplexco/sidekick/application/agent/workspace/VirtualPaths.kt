@@ -7,11 +7,12 @@ import com.github.uncomplexco.sidekick.application.agent.onWorkCreated
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
-import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
+import org.springframework.stereotype.Component
 
 typealias AbsolutePath = String
+
 typealias VirtualPath = String
 
 data class VirtualRoot(
@@ -19,7 +20,8 @@ data class VirtualRoot(
     val real: Path,
     val writable: Boolean,
 ) {
-    fun contains(path: Path): Boolean = path == normalizedReal() || path.startsWith(normalizedReal())
+    fun contains(path: Path): Boolean =
+        path == normalizedReal() || path.startsWith(normalizedReal())
 
     fun virtualPath(path: Path): VirtualPath {
         val relative = normalizedReal().relativize(path)
@@ -67,7 +69,10 @@ class VirtualPathsFactory(
     private val platform: ChatPlatform,
 ) {
     fun forConversation(conversationId: ConversationId): VirtualPaths {
-        val attachmentsRoot = Files.createDirectories(conversationId.folder(config.stateDirectoryPath(), platform).resolve("attachments"))
+        val attachmentsRoot =
+            Files.createDirectories(
+                conversationId.folder(config.stateDirectoryPath(), platform).resolve("attachments")
+            )
 
         val workRoot =
             config
@@ -81,7 +86,7 @@ class VirtualPathsFactory(
                 config
                     .workspaceLayout()
                     .projectWorkspacesDirectoryPath()
-                    .resolve(sanitizePathSegment(conversationId.channelId)),
+                    .resolve(sanitizePathSegment(conversationId.channelId))
             )
         onProjectCreated(config, projectRoot)
 
@@ -99,9 +104,11 @@ fun parseVirtualPath(
     path: VirtualPath,
     virtualPaths: VirtualPaths,
 ): String {
-    virtualPaths.roots.firstOrNull { path == it.virtual || path.startsWith("${it.virtual}/") }?.let {
-        return it.real.resolve(path.removePrefix(it.virtual).trimStart('/')).toString()
-    }
+    virtualPaths.roots
+        .firstOrNull { path == it.virtual || path.startsWith("${it.virtual}/") }
+        ?.let {
+            return it.real.resolve(path.removePrefix(it.virtual).trimStart('/')).toString()
+        }
 
     error("Unknown virtual path: $path")
 }

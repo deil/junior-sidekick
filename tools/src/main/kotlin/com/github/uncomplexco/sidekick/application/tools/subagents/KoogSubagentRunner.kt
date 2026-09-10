@@ -14,8 +14,8 @@ import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTool
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
-import org.springframework.stereotype.Component
 import java.util.UUID
+import org.springframework.stereotype.Component
 
 @Component
 class KoogSubagentRunner(
@@ -33,11 +33,7 @@ class KoogSubagentRunner(
         var inputTokenCount = 0L
         var outputTokenCount = 0L
         val systemPrompt =
-            subagents
-                .catalog()
-                .subagents
-                .firstOrNull { it.name == subagentType }
-                ?.systemPrompt
+            subagents.catalog().subagents.firstOrNull { it.name == subagentType }?.systemPrompt
                 ?: throw IllegalArgumentException("Unknown subagent type: $subagentType")
         val agent =
             AIAgent(
@@ -74,9 +70,7 @@ class KoogSubagentRunner(
                         inputTokenCount += llmCall.response?.metaInfo?.inputTokensCount ?: 0
                         outputTokenCount += llmCall.response?.metaInfo?.outputTokensCount ?: 0
                     }
-                    onToolCallStarting {
-                        toolCallCount++
-                    }
+                    onToolCallStarting { toolCallCount++ }
                 }
             }
 

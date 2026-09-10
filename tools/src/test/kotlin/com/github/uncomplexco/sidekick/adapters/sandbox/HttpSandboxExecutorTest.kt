@@ -5,17 +5,17 @@ import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMount
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMountMode
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
+import java.net.InetSocketAddress
+import java.nio.file.Files
+import kotlin.io.path.pathString
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
-import java.net.InetSocketAddress
-import java.nio.file.Files
-import kotlin.io.path.pathString
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 class HttpSandboxExecutorTest {
     @Test
@@ -23,23 +23,23 @@ class HttpSandboxExecutorTest {
         // Arrange
         val scratch = Files.createTempDirectory("http-sandbox-executor-test")
         lateinit var captured: CapturedRequest
-        val server =
-            testServer { exchange ->
-                captured = exchange.capture()
-                exchange.respond(
-                    200,
-                    """
-                    {
-                      "ok": true,
-                      "exitCode": 0,
-                      "timedOut": false,
-                      "outputTruncated": false,
-                      "output": "ok",
-                      "workdir": "/tmp"
-                    }
-                    """.trimIndent(),
-                )
-            }
+        val server = testServer { exchange ->
+            captured = exchange.capture()
+            exchange.respond(
+                200,
+                """
+                {
+                  "ok": true,
+                  "exitCode": 0,
+                  "timedOut": false,
+                  "outputTruncated": false,
+                  "output": "ok",
+                  "workdir": "/tmp"
+                }
+                """
+                    .trimIndent(),
+            )
+        }
         server.use {
             val executor = HttpSandboxExecutor(baseUrl = server.baseUrl(), token = "secret")
 
@@ -52,7 +52,7 @@ class HttpSandboxExecutorTest {
                         timeoutSeconds = 7,
                         networkEnabled = true,
                         mounts = listOf(SandboxMount(scratch, "/work", SandboxMountMode.RW)),
-                    ),
+                    )
                 )
 
             // Assert
@@ -69,7 +69,10 @@ class HttpSandboxExecutorTest {
             assertEquals("7", body["timeoutSeconds"]?.jsonPrimitive?.content)
             assertEquals(true, body["networkEnabled"]?.jsonPrimitive?.boolean)
             val mount = body["mounts"]!!.jsonArray.single().jsonObject
-            assertEquals(scratch.toAbsolutePath().normalize().pathString, mount["source"]?.jsonPrimitive?.content)
+            assertEquals(
+                scratch.toAbsolutePath().normalize().pathString,
+                mount["source"]?.jsonPrimitive?.content,
+            )
             assertEquals("/work", mount["target"]?.jsonPrimitive?.content)
             assertEquals("rw", mount["mode"]?.jsonPrimitive?.content)
         }
@@ -78,7 +81,9 @@ class HttpSandboxExecutorTest {
     @Test
     fun `execute fails when service returns non success status`() {
         // Arrange
-        val server = testServer { exchange -> exchange.respond(401, "{\"error\":\"Unauthorized\"}") }
+        val server = testServer { exchange ->
+            exchange.respond(401, "{\"error\":\"Unauthorized\"}")
+        }
         server.use {
             val executor = HttpSandboxExecutor(baseUrl = server.baseUrl(), token = "secret")
 
@@ -92,10 +97,13 @@ class HttpSandboxExecutorTest {
                             timeoutSeconds = 7,
                             networkEnabled = false,
                             mounts = emptyList(),
-                        ),
+                        )
                     )
                 }
-            assertEquals("Bash sandbox service returned HTTP 401: {\"error\":\"Unauthorized\"}", error.message)
+            assertEquals(
+                "Bash sandbox service returned HTTP 401: {\"error\":\"Unauthorized\"}",
+                error.message,
+            )
         }
     }
 

@@ -12,9 +12,9 @@ import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import kotlinx.serialization.Serializable
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlinx.serialization.Serializable
 
 fun interface SandboxCommandExecutor {
     fun execute(request: BwrapSandboxRequest): BwrapSandboxResult
@@ -38,7 +38,10 @@ fun Application.executeRoute(
                 try {
                     request.toSandboxRequest(mountSourcePolicy)
                 } catch (error: IllegalArgumentException) {
-                    call.respond(HttpStatusCode.BadRequest, ErrorResponse(error.message ?: "Invalid execute request"))
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        ErrorResponse(error.message ?: "Invalid execute request"),
+                    )
                     return@post
                 }
 
@@ -48,18 +51,25 @@ fun Application.executeRoute(
                 sandboxRequest.workdir,
                 sandboxRequest.timeoutSeconds,
                 sandboxRequest.networkEnabled,
-                sandboxRequest.mounts.map { "${it.mode.name.lowercase()}:${it.source}->${it.target}" },
+                sandboxRequest.mounts.map {
+                    "${it.mode.name.lowercase()}:${it.source}->${it.target}"
+                },
             )
             logger.info(
                 "Sandbox service resolved mounts: {}",
-                sandboxRequest.mounts.map { "${it.mode.name.lowercase()}:${it.source}->${it.target} ${fileAttributes(it.source)}" },
+                sandboxRequest.mounts.map {
+                    "${it.mode.name.lowercase()}:${it.source}->${it.target} ${fileAttributes(it.source)}"
+                },
             )
 
             val result =
                 try {
                     executor.execute(sandboxRequest)
                 } catch (error: IllegalArgumentException) {
-                    call.respond(HttpStatusCode.BadRequest, ErrorResponse(error.message ?: "Invalid execute request"))
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        ErrorResponse(error.message ?: "Invalid execute request"),
+                    )
                     return@post
                 }
 
@@ -94,12 +104,11 @@ data class ExecuteResponse(
     val workdir: String,
 )
 
-@Serializable
-data class ErrorResponse(
-    val error: String,
-)
+@Serializable data class ErrorResponse(val error: String)
 
-private fun ExecuteRequest.toSandboxRequest(mountSourcePolicy: MountSourcePolicy): BwrapSandboxRequest =
+private fun ExecuteRequest.toSandboxRequest(
+    mountSourcePolicy: MountSourcePolicy
+): BwrapSandboxRequest =
     BwrapSandboxRequest(
         command = command,
         workdir = workdir,

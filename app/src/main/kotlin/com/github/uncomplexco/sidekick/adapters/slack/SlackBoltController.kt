@@ -10,9 +10,7 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @ConditionalOnBean(App::class)
-class SlackBoltController(
-    slackApp: App,
-) {
+class SlackBoltController(slackApp: App) {
     private val servlet = SlackAppServlet(slackApp)
 
     @PostMapping("/slack/events")

@@ -12,6 +12,7 @@ import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
+import java.util.LinkedHashSet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -30,7 +31,6 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import java.util.LinkedHashSet
 
 internal data class DiscordIncomingMessage(
     val id: String,
@@ -61,13 +61,14 @@ internal fun discordMessageKind(
 ): DiscordMessageKind =
     when {
         !isFromGuild -> DiscordMessageKind.DIRECT_MESSAGE
-        contentRaw.contains("<@$botId>") || contentRaw.contains("<@!$botId>") -> DiscordMessageKind.GUILD_MENTION
+        contentRaw.contains("<@$botId>") || contentRaw.contains("<@!$botId>") ->
+            DiscordMessageKind.GUILD_MENTION
         isThread -> DiscordMessageKind.GUILD_THREAD_MESSAGE
         else -> DiscordMessageKind.IGNORED_GUILD_MESSAGE
     }
 
 internal class DiscordIngress(
-    private val handle: suspend (ChatConversationId, InboundMessage, ChatPlatformAdapter) -> Unit,
+    private val handle: suspend (ChatConversationId, InboundMessage, ChatPlatformAdapter) -> Unit
 ) {
     private val handledMessageIds = LinkedHashSet<String>()
 
@@ -75,15 +76,20 @@ internal class DiscordIngress(
         message: DiscordIncomingMessage,
         botUsername: String,
         send: suspend (String) -> DiscordSentMessage,
-    ) = receive(
-        message = message,
-        botUsername = botUsername,
-        send = send,
-        updateReaction = { _, _ -> },
-        startTyping = { AutoCloseable {} },
-        loadChannelHistory = { _, _ -> DiscordChannelHistoryPage(message.channelId, emptyList(), null) },
-        loadThreadHistory = { threadId, _, _ -> DiscordThreadHistoryPage(message.channelId, threadId, emptyList(), null) },
-    )
+    ) =
+        receive(
+            message = message,
+            botUsername = botUsername,
+            send = send,
+            updateReaction = { _, _ -> },
+            startTyping = { AutoCloseable {} },
+            loadChannelHistory = { _, _ ->
+                DiscordChannelHistoryPage(message.channelId, emptyList(), null)
+            },
+            loadThreadHistory = { threadId, _, _ ->
+                DiscordThreadHistoryPage(message.channelId, threadId, emptyList(), null)
+            },
+        )
 
     suspend fun receive(
         message: DiscordIncomingMessage,
@@ -113,7 +119,8 @@ internal class DiscordIngress(
                         DiscordMessageKind.DIRECT_MESSAGE -> ChatConversationKind.DIRECT_MESSAGE
                         DiscordMessageKind.GUILD_MENTION -> ChatConversationKind.CHANNEL
                         DiscordMessageKind.GUILD_THREAD_MESSAGE -> ChatConversationKind.CHANNEL
-                        DiscordMessageKind.IGNORED_GUILD_MESSAGE -> error("Ignored guild messages must not reach mapping")
+                        DiscordMessageKind.IGNORED_GUILD_MESSAGE ->
+                            error("Ignored guild messages must not reach mapping")
                     },
             ),
             InboundMessage(
@@ -126,10 +133,18 @@ internal class DiscordIngress(
                         DiscordMessageKind.DIRECT_MESSAGE -> ChatMessageType.ASSISTANT_MESSAGE
                         DiscordMessageKind.GUILD_MENTION -> ChatMessageType.EXPLICIT_MENTION
                         DiscordMessageKind.GUILD_THREAD_MESSAGE -> ChatMessageType.PASSIVE_MESSAGE
-                        DiscordMessageKind.IGNORED_GUILD_MESSAGE -> error("Ignored guild messages must not reach mapping")
+                        DiscordMessageKind.IGNORED_GUILD_MESSAGE ->
+                            error("Ignored guild messages must not reach mapping")
                     },
             ),
-            DiscordChatPlatformAdapter(botUsername, updateReaction, startTyping, loadChannelHistory, loadThreadHistory, send),
+            DiscordChatPlatformAdapter(
+                botUsername,
+                updateReaction,
+                startTyping,
+                loadChannelHistory,
+                loadThreadHistory,
+                send,
+            ),
         )
     }
 
@@ -198,7 +213,9 @@ class DiscordConfiguration {
                                 replyChannel =
                                     withContext(Dispatchers.IO) {
                                         event.message.startedThread
-                                            ?: event.message.createThreadChannel(event.jda.selfUser.name).complete()
+                                            ?: event.message
+                                                .createThreadChannel(event.jda.selfUser.name)
+                                                .complete()
                                     }
                                 needsThread = false
                             }
@@ -227,14 +244,17 @@ class DiscordConfiguration {
                             }
                         }
                     }
-                    val loadChannelHistory: suspend (Int, String?) -> DiscordChannelHistoryPage = { limit, cursor ->
-                        historyChannel.loadDiscordHistoryPage(historyChannel.id, limit, cursor)
-                    }
-                    val loadThreadHistory: suspend (String, Int, String?) -> DiscordThreadHistoryPage =
+                    val loadChannelHistory: suspend (Int, String?) -> DiscordChannelHistoryPage =
+                        { limit, cursor ->
+                            historyChannel.loadDiscordHistoryPage(historyChannel.id, limit, cursor)
+                        }
+                    val loadThreadHistory:
+                        suspend (String, Int, String?) -> DiscordThreadHistoryPage =
                         { threadId, limit, cursor ->
-                            val thread = requireNotNull(event.jda.getThreadChannelById(threadId)) {
-                                "Discord thread $threadId is not active or visible."
-                            }
+                            val thread =
+                                requireNotNull(event.jda.getThreadChannelById(threadId)) {
+                                    "Discord thread $threadId is not active or visible."
+                                }
                             require(thread.parentChannel.id == historyChannel.id) {
                                 "Discord thread $threadId is not in channel ${historyChannel.id}."
                             }
@@ -242,23 +262,27 @@ class DiscordConfiguration {
                         }
                     scope.launch {
                         runCatching {
-                            ingress.receive(
-                                event.toIncomingMessage(),
-                                event.jda.selfUser.id,
-                                send,
-                                updateReaction,
-                                startTyping,
-                                loadChannelHistory,
-                                loadThreadHistory,
-                            )
-                        }
+                                ingress.receive(
+                                    event.toIncomingMessage(),
+                                    event.jda.selfUser.id,
+                                    send,
+                                    updateReaction,
+                                    startTyping,
+                                    loadChannelHistory,
+                                    loadThreadHistory,
+                                )
+                            }
                             .onFailure { log.error("Discord message handling failed", it) }
                     }
                 }
             }
         val jda =
-            JDABuilder
-                .createLight(token, GatewayIntent.DIRECT_MESSAGES, GatewayIntent.GUILD_MESSAGES, GatewayIntent.MESSAGE_CONTENT)
+            JDABuilder.createLight(
+                    token,
+                    GatewayIntent.DIRECT_MESSAGES,
+                    GatewayIntent.GUILD_MESSAGES,
+                    GatewayIntent.MESSAGE_CONTENT,
+                )
                 .addEventListeners(listener)
                 .build()
                 .awaitReady()
@@ -276,14 +300,25 @@ class DiscordConfiguration {
             authorName = author.globalName ?: author.name,
             text = message.contentRaw,
             attachmentNames = message.attachments.map(Message.Attachment::getFileName),
-            kind = discordMessageKind(isFromGuild, thread != null, message.contentRaw, jda.selfUser.id),
+            kind =
+                discordMessageKind(
+                    isFromGuild,
+                    thread != null,
+                    message.contentRaw,
+                    jda.selfUser.id,
+                ),
             isBot = author.isBot,
             isWebhook = message.isWebhookMessage,
         )
     }
 
-    private suspend fun net.dv8tion.jda.api.entities.channel.middleman.MessageChannel.send(text: String): DiscordSentMessage {
-        val message = withContext(Dispatchers.IO) { sendMessage(text).setAllowedMentions(emptyList()).complete() }
+    private suspend fun net.dv8tion.jda.api.entities.channel.middleman.MessageChannel.send(
+        text: String
+    ): DiscordSentMessage {
+        val message =
+            withContext(Dispatchers.IO) {
+                sendMessage(text).setAllowedMentions(emptyList()).complete()
+            }
         return DiscordSentMessage(message.id, message.timeCreated.toInstant().toEpochMilli())
     }
 

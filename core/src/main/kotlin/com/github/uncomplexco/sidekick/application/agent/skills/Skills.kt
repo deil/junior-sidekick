@@ -6,20 +6,17 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.github.uncomplexco.sidekick.application.utils.hasMarkdownFrontmatter
 import com.github.uncomplexco.sidekick.application.utils.parseMarkdownFrontmatter
+import java.nio.file.Files
+import java.nio.file.Path
+import kotlin.io.path.isDirectory
+import kotlin.io.path.name
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
-import java.nio.file.Files
-import java.nio.file.Path
-import kotlin.io.path.isDirectory
-import kotlin.io.path.name
 
-@Serializable
-data class ExtensionsConfig(
-    val extensions: List<ExtensionRepository> = emptyList(),
-)
+@Serializable data class ExtensionsConfig(val extensions: List<ExtensionRepository> = emptyList())
 
 @Serializable
 data class ExtensionRepository(
@@ -28,9 +25,7 @@ data class ExtensionRepository(
     val sshKeyPath: String? = null,
 )
 
-data class SkillCatalog(
-    val skills: List<Skill>,
-)
+data class SkillCatalog(val skills: List<Skill>)
 
 data class Skill(
     val name: String,
@@ -74,7 +69,11 @@ class Skills : SkillCatalogProvider {
         val checkouts =
             extensionsConfig.extensions.map { repository ->
                 val checkout = checkoutPath(config, repository)
-                Loggers.EXTENSIONS.info("Syncing extension repository {} into {}", repository.url, checkout)
+                Loggers.EXTENSIONS.info(
+                    "Syncing extension repository {} into {}",
+                    repository.url,
+                    checkout,
+                )
                 syncRepository(repository, checkout, config.workingDirectoryPath())
                 repository to checkout
             }
@@ -83,9 +82,7 @@ class Skills : SkillCatalogProvider {
             checkouts
                 .map { (repository, checkout) -> scanRepository(repository, checkout) }
                 .fold(SkillCatalog(emptyList())) { acc, next ->
-                    SkillCatalog(
-                        skills = acc.skills + next.skills,
-                    )
+                    SkillCatalog(skills = acc.skills + next.skills)
                 }
 
         Loggers.EXTENSIONS.info(
@@ -110,7 +107,11 @@ class Skills : SkillCatalogProvider {
     fun checkoutPath(
         config: AgentConfig,
         repository: ExtensionRepository,
-    ): Path = gitRepositoryCheckoutPath(config.workspaceLayout().extensionsRepositoryDirectoryPath(), repository.url)
+    ): Path =
+        gitRepositoryCheckoutPath(
+            config.workspaceLayout().extensionsRepositoryDirectoryPath(),
+            repository.url,
+        )
 
     fun scanRepository(
         repository: ExtensionRepository,
@@ -118,7 +119,10 @@ class Skills : SkillCatalogProvider {
     ): SkillCatalog {
         val skillsPath = checkout.resolve(repository.path.ifBlank { "." }).normalize()
         if (!Files.isDirectory(skillsPath)) {
-            Loggers.EXTENSIONS.warn("Skipping skill repository path {}: configured skills path does not exist", skillsPath)
+            Loggers.EXTENSIONS.warn(
+                "Skipping skill repository path {}: configured skills path does not exist",
+                skillsPath,
+            )
             return SkillCatalog(emptyList())
         }
 
@@ -130,14 +134,22 @@ class Skills : SkillCatalogProvider {
                 .forEach { skillFolder ->
                     val skillFile = skillFolder.resolve(SKILL_FILE_NAME)
                     if (!Files.isRegularFile(skillFile)) {
-                        Loggers.EXTENSIONS.warn("Skipping skill folder {}: missing {}", skillFolder, SKILL_FILE_NAME)
+                        Loggers.EXTENSIONS.warn(
+                            "Skipping skill folder {}: missing {}",
+                            skillFolder,
+                            SKILL_FILE_NAME,
+                        )
                         return@forEach
                     }
 
                     try {
                         skills += parseSkill(skillFile)
                     } catch (ex: IllegalArgumentException) {
-                        Loggers.EXTENSIONS.warn("Skipping skill folder {}: {}", skillFolder, ex.message ?: "invalid $SKILL_FILE_NAME")
+                        Loggers.EXTENSIONS.warn(
+                            "Skipping skill folder {}: {}",
+                            skillFolder,
+                            ex.message ?: "invalid $SKILL_FILE_NAME",
+                        )
                     }
                 }
         }
@@ -164,7 +176,14 @@ class Skills : SkillCatalogProvider {
         repository: ExtensionRepository,
         checkout: Path,
         workingDirectory: Path,
-    ) = syncGitRepository(repository.url, repository.sshKeyPath, checkout, workingDirectory, "Extension repository")
+    ) =
+        syncGitRepository(
+            repository.url,
+            repository.sshKeyPath,
+            checkout,
+            workingDirectory,
+            "Extension repository",
+        )
 
     private fun parseSkill(skillFile: Path): Skill {
         val markdown = Files.readString(skillFile)
@@ -174,11 +193,15 @@ class Skills : SkillCatalogProvider {
         val frontmatter = parseMarkdownFrontmatter(markdown).frontmatter
 
         val name = frontmatter["name"]?.takeUnless { it.isBlank() }
-        val description = frontmatter["description"]?.takeUnless { it.isBlank() }?.take(MAX_DESCRIPTION_LENGTH)
-        val disableModelInvocation = frontmatter["disable-model-invocation"]?.toBooleanStrictOrNull() ?: false
+        val description =
+            frontmatter["description"]?.takeUnless { it.isBlank() }?.take(MAX_DESCRIPTION_LENGTH)
+        val disableModelInvocation =
+            frontmatter["disable-model-invocation"]?.toBooleanStrictOrNull() ?: false
         val userInvocable = frontmatter["user-invocable"]?.toBooleanStrictOrNull() ?: false
         require(name != null) { "$SKILL_FILE_NAME is missing frontmatter field 'name'" }
-        require(description != null) { "$SKILL_FILE_NAME is missing frontmatter field 'description'" }
+        require(description != null) {
+            "$SKILL_FILE_NAME is missing frontmatter field 'description'"
+        }
         require(SKILL_NAME_RE.matches(name)) {
             "$SKILL_FILE_NAME frontmatter field 'name' must use lowercase letters, numbers, and single hyphens only"
         }

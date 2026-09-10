@@ -3,18 +3,18 @@ package com.github.uncomplexco.sidekick.application.tools
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.ChatReply
-import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.TurnResultHandler
 import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
-import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
+import org.junit.jupiter.api.Test
 
 class SystemToolsTest {
     @Test
@@ -92,7 +92,8 @@ private class RecordingChatPlatform : ChatPlatformAdapter {
             override suspend fun markFailed(message: InboundMessage) = Unit
         }
 
-    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
+        emptyList()
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,

@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.application.chat
 
-import com.github.uncomplexco.sidekick.application.turn.TurnExecutor
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
+import com.github.uncomplexco.sidekick.application.turn.TurnExecutor
 import kotlinx.coroutines.Dispatchers
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -35,21 +35,25 @@ class InboundMessagesQueue(
     private fun startQueueConsumer(
         key: BatchKey,
         chat: ChatPlatformAdapter,
-    ) = scope.launch(Dispatchers.Default) {
-        log.info("${key.conversationId.logLabel()} startMessagesConsumer()")
+    ) =
+        scope.launch(Dispatchers.Default) {
+            log.info("${key.conversationId.logLabel()} startMessagesConsumer()")
 
-        while (true) {
-            val messages = drain(key) ?: break
+            while (true) {
+                val messages = drain(key) ?: break
 
-            try {
-                turnExecutor.run(key.conversationId, messages, chat)
-            } catch (e: Exception) {
-                log.error("${key.conversationId.logLabel()}: error processing messages: ${e.message}", e)
+                try {
+                    turnExecutor.run(key.conversationId, messages, chat)
+                } catch (e: Exception) {
+                    log.error(
+                        "${key.conversationId.logLabel()}: error processing messages: ${e.message}",
+                        e,
+                    )
+                }
             }
-        }
 
-        log.info("${key.conversationId.logLabel()}: startMessagesConsumer() exited")
-    }
+            log.info("${key.conversationId.logLabel()}: startMessagesConsumer() exited")
+        }
 
     private fun drain(key: BatchKey) =
         synchronized(queue) {
@@ -77,7 +81,7 @@ internal fun batchKeyFor(
 ): BatchKey =
     if (
         chatConversationId.isThread ||
-        (chatConversationId.platform == ChatPlatform.DISCORD && chatConversationId.isDM)
+            (chatConversationId.platform == ChatPlatform.DISCORD && chatConversationId.isDM)
     ) {
         BatchKey.Thread(chatConversationId)
     } else {
@@ -88,9 +92,7 @@ internal sealed interface BatchKey {
     val conversationId: ChatConversationId
     val threadId: String
 
-    data class Thread(
-        override val conversationId: ChatConversationId,
-    ) : BatchKey {
+    data class Thread(override val conversationId: ChatConversationId) : BatchKey {
         override val threadId: String
             get() = conversationId.threadId.orEmpty()
     }

@@ -9,9 +9,8 @@ import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
 import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
-import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
-import com.github.uncomplexco.sidekick.application.conversation.ConversationManager
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationManager
 import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
@@ -19,10 +18,10 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRo
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.turn.koog.AgentTurnRunner
 import com.github.uncomplexco.sidekick.application.utils.Loggers
-import kotlinx.coroutines.CancellationException
-import org.springframework.stereotype.Component
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CancellationException
+import org.springframework.stereotype.Component
 
 @Component
 class TurnExecutor(
@@ -48,8 +47,9 @@ class TurnExecutor(
                 text = job.prompt,
                 createdAtMs = startedAtMs,
                 explicitSkillInvocation =
-                    detectUserSkillInvocation(job.prompt, skills.catalog())
-                        ?.let { ExplicitSkillInvocation(it.skill.name) },
+                    detectUserSkillInvocation(job.prompt, skills.catalog())?.let {
+                        ExplicitSkillInvocation(it.skill.name)
+                    },
             )
 
         chat.resultHandler.start()
@@ -75,9 +75,15 @@ class TurnExecutor(
     ) {
         try {
             val decision =
-                when (val triggerDecision = turnTrigger.shouldTriggerTurn(conversationId, messages)) {
+                when (
+                    val triggerDecision = turnTrigger.shouldTriggerTurn(conversationId, messages)
+                ) {
                     TurnTriggerDecision.Ignore -> {
-                        log.debug("{} ignored batch size={}", conversationId.logLabel(), messages.size)
+                        log.debug(
+                            "{} ignored batch size={}",
+                            conversationId.logLabel(),
+                            messages.size,
+                        )
                         return
                     }
 
@@ -87,9 +93,15 @@ class TurnExecutor(
                 }
 
             chat.resultHandler.start()
-            messages.sortedBy { it.createdAtMs }.forEach { message ->
-                handle(message.copy(files = message.files.take(MAX_MESSAGE_FILES)), decision, chat)
-            }
+            messages
+                .sortedBy { it.createdAtMs }
+                .forEach { message ->
+                    handle(
+                        message.copy(files = message.files.take(MAX_MESSAGE_FILES)),
+                        decision,
+                        chat,
+                    )
+                }
         } finally {
             chat.resultHandler.endTurn()
         }
@@ -103,10 +115,9 @@ class TurnExecutor(
         val turnStartedAt = TimeSource.Monotonic.markNow()
 
         if (message.files.isNotEmpty()) {
-            val text = message.files.map { file -> "File: ${file.name} ${file.filetype} ${file.mimetype}" }
-            log.debug(
-                "Attached files: ${text.joinToString(", ")}",
-            )
+            val text =
+                message.files.map { file -> "File: ${file.name} ${file.filetype} ${file.mimetype}" }
+            log.debug("Attached files: ${text.joinToString(", ")}")
         }
 
         val attachedFiles =
@@ -124,14 +135,17 @@ class TurnExecutor(
                 createdAtMs = message.createdAtMs,
                 explicitMention = decision.explicitMention,
                 explicitSkillInvocation =
-                    detectUserSkillInvocation(message.text, skills.catalog())
-                        ?.let { ExplicitSkillInvocation(it.skill.name) },
+                    detectUserSkillInvocation(message.text, skills.catalog())?.let {
+                        ExplicitSkillInvocation(it.skill.name)
+                    },
             )
 
         conversationManager.compactIfNeeded(decision.conversationId) { hook ->
             when (hook) {
-                SessionContextCompactor.CompactionHook.PreCompaction -> chat.resultHandler.`continue`("Compacting conversation...")
-                SessionContextCompactor.CompactionHook.PostCompaction -> chat.resultHandler.`continue`()
+                SessionContextCompactor.CompactionHook.PreCompaction ->
+                    chat.resultHandler.`continue`("Compacting conversation...")
+                SessionContextCompactor.CompactionHook.PostCompaction ->
+                    chat.resultHandler.`continue`()
             }
         }
 
@@ -158,9 +172,10 @@ class TurnExecutor(
                     isPrivateMessage = message.type == ChatMessageType.ASSISTANT_MESSAGE,
                     conversationId = decision.conversationId,
                     hasAssistantHistory =
-                        turn.conversation.history.messages
-                            .any { it.role == SessionMessageRole.ASSISTANT },
-                ),
+                        turn.conversation.history.messages.any {
+                            it.role == SessionMessageRole.ASSISTANT
+                        },
+                )
             )
 
         if (shouldReply.shouldReply) {
@@ -168,7 +183,14 @@ class TurnExecutor(
             chat.resultHandler.markProcessing(message)
 
             try {
-                val completed = executeAgentTurn(decision.conversationId, turn, currentMessage, chat, turnStartedAt)
+                val completed =
+                    executeAgentTurn(
+                        decision.conversationId,
+                        turn,
+                        currentMessage,
+                        chat,
+                        turnStartedAt,
+                    )
                 if (completed) {
                     chat.resultHandler.markCompleted(message)
                 } else {
@@ -183,7 +205,7 @@ class TurnExecutor(
             }
         } else if (shouldReply.shouldUnsubscribe) {
             log.debug(
-                "Unsubscribing session for message id=${message.id}: ${shouldReply.reason} ${shouldReply.detail}",
+                "Unsubscribing session for message id=${message.id}: ${shouldReply.reason} ${shouldReply.detail}"
             )
             conversationManager.markMessageSkipped(
                 conversationId = decision.conversationId,
@@ -194,7 +216,7 @@ class TurnExecutor(
             runCatching { chat.resultHandler.postUnsubscribed() }
         } else {
             log.debug(
-                "Skipping reply for message id=${message.id}: ${shouldReply.reason} ${shouldReply.detail}",
+                "Skipping reply for message id=${message.id}: ${shouldReply.reason} ${shouldReply.detail}"
             )
             conversationManager.markMessageSkipped(
                 conversationId = decision.conversationId,

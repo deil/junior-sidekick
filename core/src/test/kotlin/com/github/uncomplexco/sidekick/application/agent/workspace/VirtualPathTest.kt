@@ -1,9 +1,5 @@
 package com.github.uncomplexco.sidekick.application.agent.workspace
 
-import org.junit.jupiter.api.io.TempDir
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.MethodSource
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
@@ -11,10 +7,13 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.stream.Stream
 import kotlin.test.assertEquals
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 
 class VirtualPathTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `factory stores bash work outside session folder`() {
@@ -23,11 +22,20 @@ class VirtualPathTest {
         val conversationId = ConversationId("C123", "1700000000.000")
 
         val virtualPaths =
-            VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()), ChatPlatform.SLACK)
+            VirtualPathsFactory(
+                    AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()),
+                    ChatPlatform.SLACK,
+                )
                 .forConversation(conversationId)
 
-        assertEquals(workingRoot.resolve("data/workspaces/threads/C123_1700000000.000"), virtualPaths.workRoot)
-        assertEquals(stateRoot.resolve("slack/channels/C123/threads/1700000000.000/attachments"), virtualPaths.sessionRoot)
+        assertEquals(
+            workingRoot.resolve("data/workspaces/threads/C123_1700000000.000"),
+            virtualPaths.workRoot,
+        )
+        assertEquals(
+            stateRoot.resolve("slack/channels/C123/threads/1700000000.000/attachments"),
+            virtualPaths.sessionRoot,
+        )
         assertEquals(workingRoot.resolve("data/workspaces/projects/C123"), virtualPaths.projectRoot)
         assertEquals(true, Files.isDirectory(virtualPaths.sessionRoot))
     }
@@ -43,11 +51,17 @@ class VirtualPathTest {
         val conversationId = ConversationId("C123", "1700000000.000")
 
         val virtualPaths =
-            VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()), ChatPlatform.SLACK)
+            VirtualPathsFactory(
+                    AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()),
+                    ChatPlatform.SLACK,
+                )
                 .forConversation(conversationId)
 
         assertEquals("work\n", Files.readString(virtualPaths.workRoot.resolve("bin/tool.sh")))
-        assertEquals("project\n", Files.readString(virtualPaths.projectRoot.resolve("docs/readme.md")))
+        assertEquals(
+            "project\n",
+            Files.readString(virtualPaths.projectRoot.resolve("docs/readme.md")),
+        )
     }
 
     @Test
@@ -57,12 +71,24 @@ class VirtualPathTest {
         val conversationId = ConversationId("123456789012345678", "")
 
         val virtualPaths =
-            VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()), ChatPlatform.DISCORD)
+            VirtualPathsFactory(
+                    AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()),
+                    ChatPlatform.DISCORD,
+                )
                 .forConversation(conversationId)
 
-        assertEquals(workingRoot.resolve("data/workspaces/threads/123456789012345678_"), virtualPaths.workRoot)
-        assertEquals(stateRoot.resolve("discord/channels/123456789012345678/session/attachments"), virtualPaths.sessionRoot)
-        assertEquals(workingRoot.resolve("data/workspaces/projects/123456789012345678"), virtualPaths.projectRoot)
+        assertEquals(
+            workingRoot.resolve("data/workspaces/threads/123456789012345678_"),
+            virtualPaths.workRoot,
+        )
+        assertEquals(
+            stateRoot.resolve("discord/channels/123456789012345678/session/attachments"),
+            virtualPaths.sessionRoot,
+        )
+        assertEquals(
+            workingRoot.resolve("data/workspaces/projects/123456789012345678"),
+            virtualPaths.projectRoot,
+        )
     }
 
     @Test
@@ -72,11 +98,17 @@ class VirtualPathTest {
         Files.createDirectories(workingRoot.resolve("templates/project"))
         Files.writeString(workingRoot.resolve("templates/project/config.txt"), "template\n")
         Files.createDirectories(workingRoot.resolve("data/workspaces/projects/C123"))
-        Files.writeString(workingRoot.resolve("data/workspaces/projects/C123/config.txt"), "existing\n")
+        Files.writeString(
+            workingRoot.resolve("data/workspaces/projects/C123/config.txt"),
+            "existing\n",
+        )
         val conversationId = ConversationId("C123", "1700000000.000")
 
         val virtualPaths =
-            VirtualPathsFactory(AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()), ChatPlatform.SLACK)
+            VirtualPathsFactory(
+                    AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()),
+                    ChatPlatform.SLACK,
+                )
                 .forConversation(conversationId)
 
         assertEquals("existing\n", Files.readString(virtualPaths.projectRoot.resolve("config.txt")))
@@ -97,7 +129,10 @@ class VirtualPathTest {
 
         val result = parseVirtualPath(virtualPath, virtualPaths)
 
-        assertEquals(expected(sessionRoot, skillsRoot, globalRoot, workRoot, projectRoot).toString(), result)
+        assertEquals(
+            expected(sessionRoot, skillsRoot, globalRoot, workRoot, projectRoot).toString(),
+            result,
+        )
     }
 
     @ParameterizedTest
@@ -134,16 +169,51 @@ class VirtualPathTest {
         @JvmStatic
         fun virtualToRealCases(): Stream<Array<Any>> =
             Stream.of(
-                arrayOf("/data/session", { session: Path, _: Path, _: Path, _: Path, _: Path -> session }),
-                arrayOf("/data/session/file.md", { session: Path, _: Path, _: Path, _: Path, _: Path -> session.resolve("file.md") }),
-                arrayOf("/data/skills", { _: Path, skills: Path, _: Path, _: Path, _: Path -> skills }),
-                arrayOf("/data/skills/repo/skill/SKILL.md", { _: Path, skills: Path, _: Path, _: Path, _: Path -> skills.resolve("repo/skill/SKILL.md") }),
-                arrayOf("/data/global", { _: Path, _: Path, global: Path, _: Path, _: Path -> global }),
-                arrayOf("/data/global/handbook/security.md", { _: Path, _: Path, global: Path, _: Path, _: Path -> global.resolve("handbook/security.md") }),
+                arrayOf(
+                    "/data/session",
+                    { session: Path, _: Path, _: Path, _: Path, _: Path -> session },
+                ),
+                arrayOf(
+                    "/data/session/file.md",
+                    { session: Path, _: Path, _: Path, _: Path, _: Path ->
+                        session.resolve("file.md")
+                    },
+                ),
+                arrayOf(
+                    "/data/skills",
+                    { _: Path, skills: Path, _: Path, _: Path, _: Path -> skills },
+                ),
+                arrayOf(
+                    "/data/skills/repo/skill/SKILL.md",
+                    { _: Path, skills: Path, _: Path, _: Path, _: Path ->
+                        skills.resolve("repo/skill/SKILL.md")
+                    },
+                ),
+                arrayOf(
+                    "/data/global",
+                    { _: Path, _: Path, global: Path, _: Path, _: Path -> global },
+                ),
+                arrayOf(
+                    "/data/global/handbook/security.md",
+                    { _: Path, _: Path, global: Path, _: Path, _: Path ->
+                        global.resolve("handbook/security.md")
+                    },
+                ),
                 arrayOf("/work", { _: Path, _: Path, _: Path, work: Path, _: Path -> work }),
-                arrayOf("/work/result.md", { _: Path, _: Path, _: Path, work: Path, _: Path -> work.resolve("result.md") }),
-                arrayOf("/data/project", { _: Path, _: Path, _: Path, _: Path, project: Path -> project }),
-                arrayOf("/data/project/src/Main.kt", { _: Path, _: Path, _: Path, _: Path, project: Path -> project.resolve("src/Main.kt") }),
+                arrayOf(
+                    "/work/result.md",
+                    { _: Path, _: Path, _: Path, work: Path, _: Path -> work.resolve("result.md") },
+                ),
+                arrayOf(
+                    "/data/project",
+                    { _: Path, _: Path, _: Path, _: Path, project: Path -> project },
+                ),
+                arrayOf(
+                    "/data/project/src/Main.kt",
+                    { _: Path, _: Path, _: Path, _: Path, project: Path ->
+                        project.resolve("src/Main.kt")
+                    },
+                ),
             )
 
         @JvmStatic

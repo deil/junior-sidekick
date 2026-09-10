@@ -1,12 +1,12 @@
 package com.github.uncomplexco.sidekick.application.scheduling
 
+import java.time.Instant
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.springframework.scheduling.support.CronExpression
 import org.springframework.stereotype.Component
-import java.time.Instant
-import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 
 const val ACTIVE_JOB_LIMIT = 5
 const val JOB_COOLDOWN_MILLIS = 60 * 60 * 1000L
@@ -47,14 +47,18 @@ data class UpdateScheduledJob(
     val enabled: Boolean? = null,
 ) {
     fun hasChanges(): Boolean =
-        name != null || updateDescription || schedule != null || timezone != null || prompt != null || enabled != null
+        name != null ||
+            updateDescription ||
+            schedule != null ||
+            timezone != null ||
+            prompt != null ||
+            enabled != null
 }
 
 @Component
-class ScheduledJobService(
-    private val store: ScheduledJobStore,
-) {
-    fun list(channelId: String): List<ScheduledJob> = store.load(channelId).sortedBy { it.name.lowercase() }
+class ScheduledJobService(private val store: ScheduledJobStore) {
+    fun list(channelId: String): List<ScheduledJob> =
+        store.load(channelId).sortedBy { it.name.lowercase() }
 
     suspend fun create(
         channelId: String,
@@ -104,7 +108,9 @@ class ScheduledJobService(
             val updated =
                 current.copy(
                     name = command.name?.cleanRequired("name") ?: current.name,
-                    description = if (command.updateDescription) command.description.cleanOptional() else current.description,
+                    description =
+                        if (command.updateDescription) command.description.cleanOptional()
+                        else current.description,
                     schedule = command.schedule?.let(::normalizeSchedule) ?: current.schedule,
                     timezone = command.timezone?.let(::normalizeTimezone) ?: current.timezone,
                     prompt = command.prompt?.cleanRequired("prompt") ?: current.prompt,
@@ -125,7 +131,9 @@ class ScheduledJobService(
     ): ScheduledJob =
         store.withChannelLock(channelId) {
             val jobs = store.load(channelId).toMutableList()
-            val removed = jobs.find { it.id == jobId } ?: throw IllegalArgumentException("Scheduled job not found: $jobId")
+            val removed =
+                jobs.find { it.id == jobId }
+                    ?: throw IllegalArgumentException("Scheduled job not found: $jobId")
 
             jobs.remove(removed)
             store.save(channelId, jobs)
@@ -175,7 +183,9 @@ class ScheduledJobService(
 
 fun normalizeSchedule(value: String): String {
     val normalized = value.trim().split(Regex("\\s+")).joinToString(" ")
-    require(normalized.split(' ').size == 5) { "schedule must use five-field cron: minute hour day-of-month month day-of-week" }
+    require(normalized.split(' ').size == 5) {
+        "schedule must use five-field cron: minute hour day-of-month month day-of-week"
+    }
     runCatching { CronExpression.parse("0 $normalized") }
         .getOrElse { throw IllegalArgumentException("Invalid schedule: ${it.message}") }
     return normalized
@@ -205,6 +215,7 @@ internal fun ScheduledJob.isDue(now: Instant): Boolean {
 
 private fun ScheduledJob.cron(): CronExpression = CronExpression.parse("0 $schedule")
 
-private fun String.cleanRequired(field: String): String = trim().also { require(it.isNotEmpty()) { "$field is required" } }
+private fun String.cleanRequired(field: String): String =
+    trim().also { require(it.isNotEmpty()) { "$field is required" } }
 
 private fun String?.cleanOptional(): String? = this?.trim()?.takeIf { it.isNotEmpty() }

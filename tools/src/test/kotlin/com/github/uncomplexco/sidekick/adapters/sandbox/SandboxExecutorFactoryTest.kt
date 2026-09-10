@@ -1,8 +1,8 @@
 package com.github.uncomplexco.sidekick.adapters.sandbox
 
-import org.junit.jupiter.api.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import org.junit.jupiter.api.Test
 
 class SandboxExecutorFactoryTest {
     @Test
@@ -32,8 +32,6 @@ class SandboxExecutorFactoryTest {
             }
 
         // Act / Assert
-        assertFailsWith<IllegalStateException> {
-            SandboxExecutorFactory(config).create()
-        }
+        assertFailsWith<IllegalStateException> { SandboxExecutorFactory(config).create() }
     }
 }

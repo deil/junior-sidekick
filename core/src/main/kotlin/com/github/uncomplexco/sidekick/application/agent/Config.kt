@@ -6,12 +6,12 @@ import ai.koog.prompt.llm.LLMCapability
 import com.github.uncomplexco.sidekick.application.agent.workspace.WorkspaceLayout
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Configuration
-import java.nio.file.Files
-import java.nio.file.Path
 
 @Configuration
 class AgentConfig(
@@ -24,14 +24,18 @@ class AgentConfig(
     fun stateDirectoryPath(): Path {
         val path = Path.of(stateDir).toAbsolutePath().normalize()
         Files.createDirectories(path)
-        require(Files.isDirectory(path)) { "Configured agent state directory is not a directory: $path" }
+        require(Files.isDirectory(path)) {
+            "Configured agent state directory is not a directory: $path"
+        }
         return path
     }
 
     fun workingDirectoryPath(): Path {
         val path = Path.of(workingDir).toAbsolutePath().normalize()
         Files.createDirectories(path)
-        require(Files.isDirectory(path)) { "Configured agent working directory is not a directory: $path" }
+        require(Files.isDirectory(path)) {
+            "Configured agent working directory is not a directory: $path"
+        }
         return path
     }
 
@@ -40,34 +44,22 @@ class AgentConfig(
 
 @Configuration
 class KoogConfig(
-    @Value($$"${adapters.open-router.api-key}")
-    internal val openRouterApiKey: String,
-    @Value($$"${agent.name}")
-    internal val openRouterAppTitle: String,
-    @Value($$"${adapters.open-router.app-url:}")
-    internal val openRouterAppUrl: String,
-    @Value($$"${agent.llm.fast.model}")
-    private val fastModel: String,
-    @Value($$"${agent.llm.fast.provider}")
-    private val fastProvider: String,
-    @Value($$"${agent.llm.fast.reasoning-effort}")
-    private val fastReasoningEffort: String,
-    @Value($$"${agent.llm.default.model}")
-    private val defaultModel: String,
-    @Value($$"${agent.llm.default.provider}")
-    private val defaultProvider: String,
+    @Value($$"${adapters.open-router.api-key}") internal val openRouterApiKey: String,
+    @Value($$"${agent.name}") internal val openRouterAppTitle: String,
+    @Value($$"${adapters.open-router.app-url:}") internal val openRouterAppUrl: String,
+    @Value($$"${agent.llm.fast.model}") private val fastModel: String,
+    @Value($$"${agent.llm.fast.provider}") private val fastProvider: String,
+    @Value($$"${agent.llm.fast.reasoning-effort}") private val fastReasoningEffort: String,
+    @Value($$"${agent.llm.default.model}") private val defaultModel: String,
+    @Value($$"${agent.llm.default.provider}") private val defaultProvider: String,
     @Value($$"${agent.llm.default.reasoning-effort:medium}")
     private val defaultReasoningEffort: String,
-    @Value($$"${agent.llm.ultrathink.model}")
-    private val ultrathinkModel: String,
-    @Value($$"${agent.llm.ultrathink.provider}")
-    private val ultrathinkProvider: String,
+    @Value($$"${agent.llm.ultrathink.model}") private val ultrathinkModel: String,
+    @Value($$"${agent.llm.ultrathink.provider}") private val ultrathinkProvider: String,
     @Value($$"${agent.llm.ultrathink.reasoning-effort:high}")
     private val ultrathinkReasoningEffort: String,
-    @Value($$"${agent.llm.image.model}")
-    val imageModel: String,
-    @Value($$"${agent.llm.max-agent-iterations:50}")
-    val maxAgentIterations: Int,
+    @Value($$"${agent.llm.image.model}") val imageModel: String,
+    @Value($$"${agent.llm.max-agent-iterations:50}") val maxAgentIterations: Int,
 ) {
     val fastProfile: LlmProfile
         get() =
@@ -105,10 +97,7 @@ class KoogConfig(
         conversationId: ConversationId? = null,
     ): OpenRouterParams =
         OpenRouterParams(
-            provider =
-                ProviderPreferences(
-                    only = listOf(profile.provider),
-                ),
+            provider = ProviderPreferences(only = listOf(profile.provider)),
             additionalProperties =
                 buildMap {
                     put(
@@ -135,9 +124,7 @@ data class LlmProfile(
     val reasoningEffort: ReasoningEffort,
 )
 
-enum class ReasoningEffort(
-    val apiValue: String,
-) {
+enum class ReasoningEffort(val apiValue: String) {
     NONE("none"),
     MINIMAL("minimal"),
     LOW("low"),
@@ -147,4 +134,5 @@ enum class ReasoningEffort(
     MAX("max"),
 }
 
-private fun parseReasoningEffort(value: String): ReasoningEffort = ReasoningEffort.valueOf(value.trim().uppercase().replace('-', '_'))
+private fun parseReasoningEffort(value: String): ReasoningEffort =
+    ReasoningEffort.valueOf(value.trim().uppercase().replace('-', '_'))

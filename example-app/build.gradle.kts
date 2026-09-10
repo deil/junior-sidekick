@@ -5,11 +5,7 @@ plugins {
     alias(libs.plugins.spring.dependency.management)
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
-}
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 
 dependencies {
     implementation(project(":app"))
@@ -30,12 +26,12 @@ kotlin {
     }
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
-}
+tasks.withType<Test> { useJUnitPlatform() }
 
 dependencyManagement {
     imports {
-        mavenBom("org.jetbrains.kotlinx:kotlinx-coroutines-bom:${libs.versions.kotlinx.coroutines.get()}")
+        mavenBom(
+            "org.jetbrains.kotlinx:kotlinx-coroutines-bom:${libs.versions.kotlinx.coroutines.get()}"
+        )
     }
 }

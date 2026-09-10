@@ -2,12 +2,12 @@ package com.github.uncomplexco.sidekick.application.agent
 
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import kotlin.test.assertEquals
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
-import kotlin.test.assertEquals
 
 class KoogConfigTest {
     @Test
@@ -37,10 +37,14 @@ class KoogConfigTest {
         val config = testConfig()
 
         // Act
-        val params = config.openRouterParams(config.normalProfile, ConversationId("channel", "thread"))
+        val params =
+            config.openRouterParams(config.normalProfile, ConversationId("channel", "thread"))
 
         // Assert
-        assertEquals("channel:thread", params.additionalProperties?.get("session_id")?.jsonPrimitive?.content)
+        assertEquals(
+            "channel:thread",
+            params.additionalProperties?.get("session_id")?.jsonPrimitive?.content,
+        )
     }
 
     @ParameterizedTest

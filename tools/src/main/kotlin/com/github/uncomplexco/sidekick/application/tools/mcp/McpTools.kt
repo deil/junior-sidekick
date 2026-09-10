@@ -16,11 +16,11 @@ import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTool
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import io.modelcontextprotocol.kotlin.sdk.client.Client
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlinx.serialization.builtins.nullable
 import kotlinx.serialization.json.Json
 import org.springframework.stereotype.Component
-import java.nio.file.Files
-import java.nio.file.Path
 
 internal const val MAX_MCP_TOOL_OUTPUT_CHARACTERS = 50_000
 
@@ -36,7 +36,8 @@ class McpAuthTools(
     private val config: McpToolsConfig,
     private val oauth: McpOAuthService,
 ) {
-    fun asTools(chat: ChatPlatformAdapter): List<ToolBase<*, *>> = config.servers.map { server -> ConnectMcpTool(server, oauth, chat) }
+    fun asTools(chat: ChatPlatformAdapter): List<ToolBase<*, *>> =
+        config.servers.map { server -> ConnectMcpTool(server, oauth, chat) }
 }
 
 class McpServerTool(
@@ -44,7 +45,8 @@ class McpServerTool(
     private val originalToolName: String,
     descriptor: ToolDescriptor,
     private val workRoot: Path,
-) : Tool<JSONObject, CallToolResult?>(
+) :
+    Tool<JSONObject, CallToolResult?>(
         argsType = typeToken<JSONObject>(),
         resultType = typeToken<CallToolResult?>(),
         descriptor = descriptor,
@@ -61,7 +63,8 @@ class McpServerTool(
     override fun decodeResult(
         rawResult: JSONElement,
         serializer: JSONSerializer,
-    ): CallToolResult? = json.decodeFromJsonElement(resultSerializer, rawResult.toKotlinxJsonElement())
+    ): CallToolResult? =
+        json.decodeFromJsonElement(resultSerializer, rawResult.toKotlinxJsonElement())
 
     override fun encodeResult(
         result: CallToolResult?,
@@ -88,13 +91,15 @@ class McpServerTool(
 private class McpStatusTool(
     private val ctx: TurnContext,
     private val serverId: String,
-) : Tool<JSONObject, JSONObject>(
+) :
+    Tool<JSONObject, JSONObject>(
         argsType = typeToken<JSONObject>(),
         resultType = typeToken<JSONObject>(),
         descriptor =
             ToolDescriptor(
                 name = "get_mcp_status_$serverId",
-                description = "Check whether the requester is already connected to $serverId MCP server",
+                description =
+                    "Check whether the requester is already connected to $serverId MCP server",
             ),
     ) {
     override suspend fun execute(args: JSONObject): JSONObject {
@@ -103,7 +108,7 @@ private class McpStatusTool(
             mapOf(
                 "server_id" to JSONPrimitive(serverId),
                 "connected" to JSONPrimitive(connected),
-            ),
+            )
         )
     }
 }
@@ -112,7 +117,8 @@ private class ConnectMcpTool(
     private val server: McpServerConfig,
     private val oauth: McpOAuthService,
     private val chat: ChatPlatformAdapter,
-) : Tool<JSONObject, JSONObject>(
+) :
+    Tool<JSONObject, JSONObject>(
         argsType = typeToken<JSONObject>(),
         resultType = typeToken<JSONObject>(),
         descriptor =
@@ -129,7 +135,7 @@ private class ConnectMcpTool(
                 "auth" to JSONPrimitive(result.auth),
                 "started" to JSONPrimitive(result.started),
                 "message" to JSONPrimitive(result.message),
-            ),
+            )
         )
     }
 }

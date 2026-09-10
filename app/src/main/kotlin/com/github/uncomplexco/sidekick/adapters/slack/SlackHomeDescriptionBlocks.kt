@@ -25,7 +25,9 @@ internal object SlackHomeDescriptionBlocks {
         }
 
     private fun header(text: String): HeaderBlock =
-        HeaderBlock.builder().text(PlainTextObject.builder().text(text.take(HEADER_MAX_CHARS)).emoji(true).build()).build()
+        HeaderBlock.builder()
+            .text(PlainTextObject.builder().text(text.take(HEADER_MAX_CHARS)).emoji(true).build())
+            .build()
 
     private fun section(text: String): SectionBlock =
         SectionBlock.builder().text(MarkdownTextObject.builder().text(text).build()).build()

@@ -4,10 +4,10 @@ import com.github.uncomplexco.sidekick.application.conversation.ActiveTurn
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationState
 import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
-import org.junit.jupiter.api.Test
 import java.time.Duration
 import java.time.Instant
 import kotlin.test.assertEquals
+import org.junit.jupiter.api.Test
 
 class WeeklyStatsServiceTest {
     @Test

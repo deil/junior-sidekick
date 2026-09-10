@@ -11,8 +11,7 @@ import org.springframework.context.annotation.Bean
 
 @SpringBootTest(classes = [SidekickTestApplication::class])
 class EnableSidekickTest {
-    @Autowired
-    lateinit var selectedChatPlatform: ChatPlatform
+    @Autowired lateinit var selectedChatPlatform: ChatPlatform
 
     @Test
     fun contextLoads() {
@@ -23,6 +22,5 @@ class EnableSidekickTest {
 @SpringBootConfiguration
 @EnableSidekick
 private class SidekickTestApplication {
-    @Bean
-    fun hostCoroutineScope(): CoroutineScope = CoroutineScope(SupervisorJob())
+    @Bean fun hostCoroutineScope(): CoroutineScope = CoroutineScope(SupervisorJob())
 }

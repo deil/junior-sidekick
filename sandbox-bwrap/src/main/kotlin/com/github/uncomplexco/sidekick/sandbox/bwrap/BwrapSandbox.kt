@@ -8,9 +8,7 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.pathString
 
-class BwrapSandbox(
-    private val config: BwrapSandboxConfig,
-) {
+class BwrapSandbox(private val config: BwrapSandboxConfig) {
     fun execute(request: BwrapSandboxRequest): BwrapSandboxResult {
         require(request.command.isNotBlank()) { "command is required" }
         require(request.timeoutSeconds >= 1) { "timeoutSeconds must be at least 1" }
@@ -46,77 +44,76 @@ class BwrapSandbox(
         networkEnabled: Boolean,
         mounts: List<BwrapMount>,
         command: String,
-    ): List<String> =
-        buildList {
-            add(config.bwrapPath)
-            add("--die-with-parent")
-            add("--new-session")
-            add("--clearenv")
-            add("--unshare-user")
-            add("--unshare-ipc")
-            add("--unshare-pid")
-            add("--unshare-uts")
-            add("--unshare-cgroup-try")
-            if (!networkEnabled) {
-                add("--unshare-net")
-            }
-            add("--uid")
-            add(config.uid.toString())
-            add("--gid")
-            add(config.gid.toString())
-            add("--ro-bind")
-            add(rootfs.pathString)
-            add("/")
-            for (mount in mounts) {
-                add(if (mount.mode == BwrapMountMode.RO) "--ro-bind" else "--bind")
-                add(mount.source.pathString)
-                add(mount.target)
-            }
-            add("--tmpfs")
-            add("/tmp")
-            add("--proc")
-            add("/proc")
-            add("--dev")
-            add("/dev")
-            add("--chdir")
-            add(workdir)
-            add("--setenv")
-            add("HOME")
-            add("/work")
-            add("--setenv")
-            add("PWD")
-            add(workdir)
-            add("--setenv")
-            add("SHELL")
-            add("/bin/bash")
-            add("--setenv")
-            add("USER")
-            add("sidekick")
-            add("--setenv")
-            add("LOGNAME")
-            add("sidekick")
-            add("--setenv")
-            add("TMPDIR")
-            add("/tmp")
-            add("--setenv")
-            add("MISE_CACHE_DIR")
-            add("/work/.mise/cache")
-            add("--setenv")
-            add("MISE_CONFIG_DIR")
-            add("/work/.mise/config")
-            add("--setenv")
-            add("MISE_DATA_DIR")
-            add("/work/.mise/data")
-            add("--setenv")
-            add("MISE_STATE_DIR")
-            add("/work/.mise/state")
-            add("--setenv")
-            add("PATH")
-            add("/usr/local/bin:/usr/bin:/bin")
-            add("/bin/bash")
-            add("-lc")
-            add(command)
+    ): List<String> = buildList {
+        add(config.bwrapPath)
+        add("--die-with-parent")
+        add("--new-session")
+        add("--clearenv")
+        add("--unshare-user")
+        add("--unshare-ipc")
+        add("--unshare-pid")
+        add("--unshare-uts")
+        add("--unshare-cgroup-try")
+        if (!networkEnabled) {
+            add("--unshare-net")
         }
+        add("--uid")
+        add(config.uid.toString())
+        add("--gid")
+        add(config.gid.toString())
+        add("--ro-bind")
+        add(rootfs.pathString)
+        add("/")
+        for (mount in mounts) {
+            add(if (mount.mode == BwrapMountMode.RO) "--ro-bind" else "--bind")
+            add(mount.source.pathString)
+            add(mount.target)
+        }
+        add("--tmpfs")
+        add("/tmp")
+        add("--proc")
+        add("/proc")
+        add("--dev")
+        add("/dev")
+        add("--chdir")
+        add(workdir)
+        add("--setenv")
+        add("HOME")
+        add("/work")
+        add("--setenv")
+        add("PWD")
+        add(workdir)
+        add("--setenv")
+        add("SHELL")
+        add("/bin/bash")
+        add("--setenv")
+        add("USER")
+        add("sidekick")
+        add("--setenv")
+        add("LOGNAME")
+        add("sidekick")
+        add("--setenv")
+        add("TMPDIR")
+        add("/tmp")
+        add("--setenv")
+        add("MISE_CACHE_DIR")
+        add("/work/.mise/cache")
+        add("--setenv")
+        add("MISE_CONFIG_DIR")
+        add("/work/.mise/config")
+        add("--setenv")
+        add("MISE_DATA_DIR")
+        add("/work/.mise/data")
+        add("--setenv")
+        add("MISE_STATE_DIR")
+        add("/work/.mise/state")
+        add("--setenv")
+        add("PATH")
+        add("/usr/local/bin:/usr/bin:/bin")
+        add("/bin/bash")
+        add("-lc")
+        add(command)
+    }
 
     private fun validatedMount(mount: BwrapMount): BwrapMount =
         BwrapMount(
@@ -141,8 +138,12 @@ class BwrapSandbox(
         label: String,
     ): Path {
         val normalized = path.toAbsolutePath().normalize()
-        require(!Files.isSymbolicLink(normalized)) { "Bash sandbox $label must not be a symbolic link: $normalized" }
-        require(Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS)) { "Bash sandbox $label is not a directory: $normalized" }
+        require(!Files.isSymbolicLink(normalized)) {
+            "Bash sandbox $label must not be a symbolic link: $normalized"
+        }
+        require(Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS)) {
+            "Bash sandbox $label is not a directory: $normalized"
+        }
         return normalized.toRealPath(LinkOption.NOFOLLOW_LINKS)
     }
 
@@ -151,14 +152,14 @@ class BwrapSandbox(
         label: String,
     ): Path {
         val normalized = path.toAbsolutePath().normalize()
-        require(Files.exists(normalized, LinkOption.NOFOLLOW_LINKS)) { "Bash sandbox $label does not exist: $normalized" }
+        require(Files.exists(normalized, LinkOption.NOFOLLOW_LINKS)) {
+            "Bash sandbox $label does not exist: $normalized"
+        }
         return normalized.toRealPath(LinkOption.NOFOLLOW_LINKS)
     }
 }
 
-private class LimitedOutput(
-    private val maxBytes: Int,
-) {
+private class LimitedOutput(private val maxBytes: Int) {
     private val bytes = ByteArrayOutputStream(maxBytes.coerceAtLeast(0))
     var truncated: Boolean = false
         private set

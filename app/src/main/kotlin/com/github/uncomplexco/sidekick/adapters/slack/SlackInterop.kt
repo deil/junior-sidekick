@@ -17,6 +17,7 @@ import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.slack.api.bolt.context.builtin.EventContext
 import com.slack.api.methods.MethodsClient
 import com.slack.api.model.Attachment
+import com.slack.api.model.File as SlackFile
 import com.slack.api.model.block.Blocks.asBlocks
 import com.slack.api.model.block.Blocks.context
 import com.slack.api.model.block.Blocks.markdown
@@ -30,7 +31,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.util.Locale
-import com.slack.api.model.File as SlackFile
 
 class SlackChatPlatformAdapter(
     private val ctx: EventContext,
@@ -39,9 +39,11 @@ class SlackChatPlatformAdapter(
     private val fileIngestor: SlackFileIngestor,
 ) : SlackBackedChatPlatformAdapter {
     override val botUsername: String = ctx.botUserId
-    override val resultHandler: TurnResultHandler = SlackTurnResultHandler(ctx.client(), ctx.channelId, threadId)
+    override val resultHandler: TurnResultHandler =
+        SlackTurnResultHandler(ctx.client(), ctx.channelId, threadId)
 
-    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = historyLoader(conversationId)
+    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
+        historyLoader(conversationId)
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,
@@ -85,41 +87,48 @@ internal class SlackTurnResultHandler(
         val filePermalinks =
             reply.attachments.mapNotNull { attachment ->
                 try {
-                    val response =
-                        client.filesUploadV2 { req ->
-                            req.file(attachment.path.toFile())
-                            req.filename(attachment.name)
-                            req.title(attachment.name)
-                        }
+                    val response = client.filesUploadV2 { req ->
+                        req.file(attachment.path.toFile())
+                        req.filename(attachment.name)
+                        req.title(attachment.name)
+                    }
                     if (!response.isOk) {
-                        Loggers.SLACK.warn("Slack reply attachment upload failed for {}: {}", attachment.name, response.error)
+                        Loggers.SLACK.warn(
+                            "Slack reply attachment upload failed for {}: {}",
+                            attachment.name,
+                            response.error,
+                        )
                         null
                     } else {
-                        response.file?.permalink ?: response.files
-                            .orEmpty()
-                            .firstOrNull()
-                            ?.permalink
+                        response.file?.permalink
+                            ?: response.files.orEmpty().firstOrNull()?.permalink
                     }
                 } catch (error: Exception) {
-                    Loggers.SLACK.warn("Slack reply attachment upload failed for {}", attachment.name, error)
+                    Loggers.SLACK.warn(
+                        "Slack reply attachment upload failed for {}",
+                        attachment.name,
+                        error,
+                    )
                     null
                 }
             }
         val text = (listOf(reply.text) + filePermalinks).joinToString("\n")
 
-        val postResponse =
-            client.chatPostMessage { req ->
-                req.channel(channelId)
-                threadId?.also { req.threadTs(it.threadTs) }
-                req.text(text)
-                req.blocks(replyBlocks(text, reply.statusLine ?: stats?.statusLine()))
-            }
+        val postResponse = client.chatPostMessage { req ->
+            req.channel(channelId)
+            threadId?.also { req.threadTs(it.threadTs) }
+            req.text(text)
+            req.blocks(replyBlocks(text, reply.statusLine ?: stats?.statusLine()))
+        }
 
         val response =
             if (postResponse.isOk) {
                 postResponse
             } else {
-                Loggers.SLACK.warn("Slack block post failed: {}; fallback to plain text", postResponse.error)
+                Loggers.SLACK.warn(
+                    "Slack block post failed: {}; fallback to plain text",
+                    postResponse.error,
+                )
                 client.chatPostMessage { req ->
                     req.channel(channelId)
                     threadId?.also { req.threadTs(it.threadTs) }
@@ -144,15 +153,18 @@ internal class SlackTurnResultHandler(
         statusLine: String?,
     ): List<LayoutBlock> =
         asBlocks(markdown { it.text(text) }) +
-            statusLine?.let { asBlocks(context { block -> block.elements(listOf(markdownText(it))) }) }.orEmpty()
+            statusLine
+                ?.let { asBlocks(context { block -> block.elements(listOf(markdownText(it))) }) }
+                .orEmpty()
 
     private fun TurnStats.statusLine(): String =
         listOfNotNull(
-            profileName,
-            formattedExecutionTime(),
-            "${formattedTokenCount(inputTokenCount)} → ${formattedTokenCount(outputTokenCount)}",
-            toolCallCount.takeIf { it > 0 }?.let { "$it tools" },
-        ).joinToString(" · ")
+                profileName,
+                formattedExecutionTime(),
+                "${formattedTokenCount(inputTokenCount)} → ${formattedTokenCount(outputTokenCount)}",
+                toolCallCount.takeIf { it > 0 }?.let { "$it tools" },
+            )
+            .joinToString(" · ")
 
     private fun TurnStats.formattedExecutionTime(): String =
         if (executionTimeSeconds < 60) {
@@ -175,8 +187,7 @@ internal class SlackTurnResultHandler(
     ) {
         val targetThread = threadId ?: return
         runCatching {
-            val response =
-                client.assistantThreadsSetStatus { req ->
+                val response = client.assistantThreadsSetStatus { req ->
                     req.channelId(channelId)
                     req.threadTs(targetThread.threadTs)
                     req.status(status)
@@ -188,12 +199,11 @@ internal class SlackTurnResultHandler(
 
                     req
                 }
-            if (!response.isOk) {
-                Loggers.SLACK.warn("Slack assistant status update failed: {}", response.error)
+                if (!response.isOk) {
+                    Loggers.SLACK.warn("Slack assistant status update failed: {}", response.error)
+                }
             }
-        }.onFailure {
-            Loggers.SLACK.warn("Slack assistant status update failed", it)
-        }
+            .onFailure { Loggers.SLACK.warn("Slack assistant status update failed", it) }
     }
 
     private fun updateReaction(
@@ -202,27 +212,29 @@ internal class SlackTurnResultHandler(
         add: Boolean,
     ) {
         runCatching {
-            val response =
-                if (add) {
-                    client.reactionsAdd { req ->
-                        req.channel(channelId)
-                        req.timestamp(message.id)
-                        req.name(reaction)
+                val response =
+                    if (add) {
+                        client.reactionsAdd { req ->
+                            req.channel(channelId)
+                            req.timestamp(message.id)
+                            req.name(reaction)
+                        }
+                    } else {
+                        client.reactionsRemove { req ->
+                            req.channel(channelId)
+                            req.timestamp(message.id)
+                            req.name(reaction)
+                        }
                     }
-                } else {
-                    client.reactionsRemove { req ->
-                        req.channel(channelId)
-                        req.timestamp(message.id)
-                        req.name(reaction)
-                    }
-                }
 
-            if (!response.isOk) {
-                Loggers.SLACK.warn("Slack processing reaction update failed: {}", response.error)
+                if (!response.isOk) {
+                    Loggers.SLACK.warn(
+                        "Slack processing reaction update failed: {}",
+                        response.error,
+                    )
+                }
             }
-        }.onFailure {
-            Loggers.SLACK.warn("Slack processing reaction update failed", it)
-        }
+            .onFailure { Loggers.SLACK.warn("Slack processing reaction update failed", it) }
     }
 
     private companion object {
@@ -271,10 +283,7 @@ internal fun incomingChatFiles(
 ): List<IncomingChatFile> {
     val directFiles = files.toIncomingChatFiles()
     return directFiles.ifEmpty {
-        attachments
-            .orEmpty()
-            .flatMap { it.files.orEmpty() }
-            .toIncomingChatFiles()
+        attachments.orEmpty().flatMap { it.files.orEmpty() }.toIncomingChatFiles()
     }
 }
 
@@ -283,8 +292,7 @@ class SlackFileIngestor(
     private val virtualPathsFactory: VirtualPathsFactory,
     private val imageSummarizer: ImageSummarizer,
     private val httpClient: HttpClient =
-        HttpClient
-            .newBuilder()
+        HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build(),
@@ -294,83 +302,82 @@ class SlackFileIngestor(
         files: List<IncomingChatFile>,
         summarizeImages: Boolean = true,
     ): List<IncomingChatFile> =
-        files
-            .take(MAX_MESSAGE_FILES)
-            .mapNotNull { file ->
-                val virtualPaths = virtualPathsFactory.forConversation(conversationId)
-                val localPath = download(virtualPaths, file) ?: return@mapNotNull null
-                file.copy(
-                    localPath = virtualPaths.virtualPath(localPath.toString()),
-                    summary =
-                        if (summarizeImages && file.mimetype?.startsWith("image/") == true) {
-                            when (val result = imageSummarizer.summarize(localPath)) {
-                                is ImageSummarizer.Result.Success -> {
-                                    result.summary
-                                }
-
-                                is ImageSummarizer.Result.Failure -> {
-                                    Loggers.SLACK.warn("Image summarization failed for file id={}", file.id, result.error)
-                                    null
-                                }
+        files.take(MAX_MESSAGE_FILES).mapNotNull { file ->
+            val virtualPaths = virtualPathsFactory.forConversation(conversationId)
+            val localPath = download(virtualPaths, file) ?: return@mapNotNull null
+            file.copy(
+                localPath = virtualPaths.virtualPath(localPath.toString()),
+                summary =
+                    if (summarizeImages && file.mimetype?.startsWith("image/") == true) {
+                        when (val result = imageSummarizer.summarize(localPath)) {
+                            is ImageSummarizer.Result.Success -> {
+                                result.summary
                             }
-                        } else {
-                            null
-                        },
-                )
-            }
+
+                            is ImageSummarizer.Result.Failure -> {
+                                Loggers.SLACK.warn(
+                                    "Image summarization failed for file id={}",
+                                    file.id,
+                                    result.error,
+                                )
+                                null
+                            }
+                        }
+                    } else {
+                        null
+                    },
+            )
+        }
 
     private fun download(
         virtualPaths: VirtualPaths,
         file: IncomingChatFile,
     ): Path? =
         runCatching {
-            val response =
-                httpClient.send(
-                    HttpRequest
-                        .newBuilder(URI.create(file.urlPrivateDownload))
-                        .timeout(Duration.ofSeconds(30))
-                        .header("Authorization", "Bearer $slackBotToken")
-                        .GET()
-                        .build(),
-                    HttpResponse.BodyHandlers.ofByteArray(),
-                )
-            check(response.statusCode() in 200..299) { "Slack file download failed with HTTP ${response.statusCode()}." }
+                val response =
+                    httpClient.send(
+                        HttpRequest.newBuilder(URI.create(file.urlPrivateDownload))
+                            .timeout(Duration.ofSeconds(30))
+                            .header("Authorization", "Bearer $slackBotToken")
+                            .GET()
+                            .build(),
+                        HttpResponse.BodyHandlers.ofByteArray(),
+                    )
+                check(response.statusCode() in 200..299) {
+                    "Slack file download failed with HTTP ${response.statusCode()}."
+                }
 
-            Files.createDirectories(virtualPaths.sessionRoot)
-            val target = virtualPaths.sessionRoot.resolve(downloadFileName(file))
-            Files.write(target, response.body())
-            return@runCatching target
-        }.getOrElse {
-            Loggers.SLACK.warn("Slack file ingest failed for file id={}", file.id, it)
-            null
-        }
+                Files.createDirectories(virtualPaths.sessionRoot)
+                val target = virtualPaths.sessionRoot.resolve(downloadFileName(file))
+                Files.write(target, response.body())
+                return@runCatching target
+            }
+            .getOrElse {
+                Loggers.SLACK.warn("Slack file ingest failed for file id={}", file.id, it)
+                null
+            }
 }
 
 private fun List<SlackFile>?.toIncomingChatFiles(): List<IncomingChatFile> =
-    this
-        .orEmpty()
-        .take(MAX_MESSAGE_FILES)
-        .mapNotNull { file ->
-            if (file.id == null || file.urlPrivateDownload == null) return@mapNotNull null
+    this.orEmpty().take(MAX_MESSAGE_FILES).mapNotNull { file ->
+        if (file.id == null || file.urlPrivateDownload == null) return@mapNotNull null
 
-            IncomingChatFile(
-                id = file.id,
-                name = file.name,
-                mimetype = file.mimetype,
-                filetype = file.filetype,
-                permalink = file.permalink,
-                urlPrivateDownload = file.urlPrivateDownload,
-                localPath = null,
-            )
-        }
+        IncomingChatFile(
+            id = file.id,
+            name = file.name,
+            mimetype = file.mimetype,
+            filetype = file.filetype,
+            permalink = file.permalink,
+            urlPrivateDownload = file.urlPrivateDownload,
+            localPath = null,
+        )
+    }
 
-internal fun downloadFileName(file: IncomingChatFile): String = "${sanitizeFileName(file.id)}-${sanitizeFileName(file.name)}"
+internal fun downloadFileName(file: IncomingChatFile): String =
+    "${sanitizeFileName(file.id)}-${sanitizeFileName(file.name)}"
 
 private fun sanitizeFileName(value: String): String =
-    value
-        .replace(Regex("[^A-Za-z0-9._-]"), "_")
-        .trim('.', '_')
-        .ifBlank { "file" }
+    value.replace(Regex("[^A-Za-z0-9._-]"), "_").trim('.', '_').ifBlank { "file" }
 
 internal fun slackTsToMillis(ts: String): Long = (ts.toDouble().times(1000)).toLong()
 

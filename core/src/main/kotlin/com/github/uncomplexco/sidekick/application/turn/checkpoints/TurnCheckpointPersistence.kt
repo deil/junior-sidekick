@@ -9,10 +9,9 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationStat
 import org.springframework.stereotype.Component
 
 @Component
-class TurnCheckpointPersistence(
-    private val store: ConversationStateStore,
-) {
-    fun forTurn(turnId: String): PersistenceStorageProvider<Unit> = ActiveTurnCheckpointProvider(store, turnId)
+class TurnCheckpointPersistence(private val store: ConversationStateStore) {
+    fun forTurn(turnId: String): PersistenceStorageProvider<Unit> =
+        ActiveTurnCheckpointProvider(store, turnId)
 }
 
 private class ActiveTurnCheckpointProvider(
@@ -29,7 +28,8 @@ private class ActiveTurnCheckpointProvider(
         agentCheckpointData: AgentCheckpointData,
     ) {
         val conversationId = ConversationId.fromLockKey(sessionId)
-        val activeTurn = agentCheckpointData.takeUnless { it.isTombstone() }?.let { ActiveTurn(turnId, it) }
+        val activeTurn =
+            agentCheckpointData.takeUnless { it.isTombstone() }?.let { ActiveTurn(turnId, it) }
         store.saveActiveTurn(conversationId, activeTurn)
     }
 

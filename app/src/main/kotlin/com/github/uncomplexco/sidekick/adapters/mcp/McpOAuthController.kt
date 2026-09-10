@@ -7,9 +7,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-class McpOAuthController(
-    private val oauth: McpOAuthService,
-) {
+class McpOAuthController(private val oauth: McpOAuthService) {
     @GetMapping("/mcp/oauth/callback", produces = [MediaType.TEXT_HTML_VALUE])
     fun callback(
         @RequestParam state: String,
@@ -29,7 +27,8 @@ class McpOAuthController(
         <html>
         <body><p>${escapeHtml(message)}</p></body>
         </html>
-        """.trimIndent()
+        """
+            .trimIndent()
 
     private fun escapeHtml(message: String): String =
         message

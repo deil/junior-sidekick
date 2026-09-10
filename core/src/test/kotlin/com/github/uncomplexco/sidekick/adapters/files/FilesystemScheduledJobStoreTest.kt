@@ -2,16 +2,15 @@ package com.github.uncomplexco.sidekick.adapters.files
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class FilesystemScheduledJobStoreTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `stores channel jobs as json lines`() {
@@ -67,6 +66,10 @@ class FilesystemScheduledJobStoreTest {
 
     private fun store(): FilesystemScheduledJobStore =
         FilesystemScheduledJobStore(
-            AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString()),
+            AgentConfig(
+                "Sidekick",
+                dir.resolve("state").toString(),
+                dir.resolve("workspace").toString(),
+            )
         )
 }

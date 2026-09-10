@@ -24,9 +24,9 @@ internal fun renderFileAttachments(
                 appendLine("filename: ${escapeXml(it.name)}")
                 appendLine("public_share_url: ${escapeXml(it.displayName)}")
                 appendLine("mime_type: ${escapeXml(it.mimetype!!)}")
-                it.summary?.takeIf { summary -> summary.isNotBlank() }?.let { summary ->
-                    appendLine("summary: ${escapeXml(summary)}")
-                }
+                it.summary
+                    ?.takeIf { summary -> summary.isNotBlank() }
+                    ?.let { summary -> appendLine("summary: ${escapeXml(summary)}") }
                 appendLine("local_path: ${escapeXml(it.localPath)}")
                 appendLine("</attachment>")
             }

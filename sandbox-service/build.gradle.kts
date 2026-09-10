@@ -4,11 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
-}
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 
 dependencies {
     implementation(project(":sandbox-bwrap"))
@@ -26,9 +22,7 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
-application {
-    mainClass = "com.github.uncomplexco.sidekick.sandbox.service.SandboxServiceKt"
-}
+application { mainClass = "com.github.uncomplexco.sidekick.sandbox.service.SandboxServiceKt" }
 
 kotlin {
     compilerOptions {
@@ -36,6 +30,4 @@ kotlin {
     }
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
-}
+tasks.withType<Test> { useJUnitPlatform() }

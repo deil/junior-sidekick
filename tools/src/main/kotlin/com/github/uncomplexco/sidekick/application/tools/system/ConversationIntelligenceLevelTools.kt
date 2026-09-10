@@ -19,11 +19,11 @@ class ConversationIntelligenceLevelTools(
 
     @Tool
     @LLMDescription(
-        "Controls assistant's intelligence level for current conversation. Persists across turns. Use only the the user explicitly requests to enable 'ultrathink' mode. Disable immediately when user requests so.",
+        "Controls assistant's intelligence level for current conversation. Persists across turns. Use only the the user explicitly requests to enable 'ultrathink' mode. Disable immediately when user requests so."
     )
     suspend fun enableTokenmaxxin(
         @LLMDescription("Enables or disables ultrathink mode for this conversation")
-        enabled: Boolean = true,
+        enabled: Boolean = true
     ): TokenmaxxinResult {
         val intelligenceLevel = if (enabled) AiModelProfile.ULTRATHINK else AiModelProfile.NORMAL
 

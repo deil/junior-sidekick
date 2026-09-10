@@ -1,21 +1,19 @@
 package com.github.uncomplexco.sidekick.application.tools
 
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceRead
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFiles
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-import org.junit.jupiter.api.io.TempDir
-import java.nio.charset.StandardCharsets
+import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceRead
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
 
 class WorkspaceFilesTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `read paginates file contents in opencode format`() {
@@ -63,9 +61,7 @@ class WorkspaceFilesTest {
         Files.createSymbolicLink(dir.resolve("linked"), dir.resolve("real"))
 
         val error =
-            assertThrows<IllegalArgumentException> {
-                WorkspaceFiles(dir).glob("**/*.kt", "linked")
-            }
+            assertThrows<IllegalArgumentException> { WorkspaceFiles(dir).glob("**/*.kt", "linked") }
 
         assertContains(error.message.orEmpty(), "Symbolic links are not allowed")
     }
@@ -108,7 +104,10 @@ class WorkspaceFilesTest {
     fun `grep skips non utf8 files instead of failing`() {
         Files.createDirectories(dir.resolve("src"))
         Files.writeString(dir.resolve("src/App.kt"), "fun main() = println(\"needle\")\n")
-        Files.write(dir.resolve("src/binary.dat"), byteArrayOf(0x48, 0x65, 0x79, 0x2D, 0x80.toByte()))
+        Files.write(
+            dir.resolve("src/binary.dat"),
+            byteArrayOf(0x48, 0x65, 0x79, 0x2D, 0x80.toByte()),
+        )
 
         val result = WorkspaceFiles(dir).grep("needle", "src", null)
 
@@ -119,7 +118,8 @@ class WorkspaceFilesTest {
 
     @Test
     fun `write matches opencode success contract`() {
-        val result = WorkspaceFiles(dir).write(dir.resolve("newfile.txt").toString(), "Hello, World!")
+        val result =
+            WorkspaceFiles(dir).write(dir.resolve("newfile.txt").toString(), "Hello, World!")
 
         assertEquals("Wrote file successfully.", result)
         assertEquals("Hello, World!", Files.readString(dir.resolve("newfile.txt")))
@@ -129,7 +129,9 @@ class WorkspaceFilesTest {
     fun `edit matches opencode success contract`() {
         Files.writeString(dir.resolve("file.txt"), "old content here")
 
-        val result = WorkspaceFiles(dir).edit(dir.resolve("file.txt").toString(), "old content", "new content", false)
+        val result =
+            WorkspaceFiles(dir)
+                .edit(dir.resolve("file.txt").toString(), "old content", "new content", false)
 
         assertEquals("Edit applied successfully.", result)
         assertEquals("new content here", Files.readString(dir.resolve("file.txt")))
@@ -142,7 +144,10 @@ class WorkspaceFilesTest {
                 WorkspaceFiles(dir).edit(dir.resolve("file.txt").toString(), "same", "same", false)
             }
 
-        assertContains(error.message.orEmpty(), "No changes to apply: oldString and newString are identical.")
+        assertContains(
+            error.message.orEmpty(),
+            "No changes to apply: oldString and newString are identical.",
+        )
     }
 
     @Test
@@ -225,6 +230,6 @@ class WorkspaceFilesTest {
                 globalRoot = dir.resolve("global"),
                 workRoot = dir.resolve("work"),
                 projectRoot = dir.resolve("project"),
-            ),
+            )
         )
 }

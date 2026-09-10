@@ -5,9 +5,9 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
+import java.nio.file.Path
 import kotlinx.serialization.Serializable
 import org.springframework.http.MediaType
-import java.nio.file.Path
 
 internal interface FilePublisher {
     fun publishFile(
@@ -36,13 +36,9 @@ internal interface FilePublisher {
     ): String
 
     sealed interface Result {
-        data class Ok(
-            val url: String,
-        ) : Result
+        data class Ok(val url: String) : Result
 
-        data class Error(
-            val message: String,
-        ) : Result
+        data class Error(val message: String) : Result
     }
 }
 
@@ -53,15 +49,12 @@ internal class InternalFileExchangeTools(
 ) : ToolSet {
     @Tool
     @LLMDescription(
-        "Publish a file to the internal file exchange and returns a secure share URL. Use this for files that exist in the workspace, or attached files that are already downloaded",
+        "Publish a file to the internal file exchange and returns a secure share URL. Use this for files that exist in the workspace, or attached files that are already downloaded"
     )
     fun publishFileInternally(
-        @LLMDescription("Absolute path to the file to publish")
-        path: String,
-        @LLMDescription("Name of the file")
-        title: String,
-        @LLMDescription("File MIME type. Only text files are accepted")
-        mimeType: String,
+        @LLMDescription("Absolute path to the file to publish") path: String,
+        @LLMDescription("Name of the file") title: String,
+        @LLMDescription("File MIME type. Only text files are accepted") mimeType: String,
     ): InternalFilePublishResult {
         val mediaType = MediaType.parseMediaType(mimeType)
         validate(mediaType in SUPPORTED_INTERNAL_FILE_MIME_TYPES) {
@@ -70,7 +63,9 @@ internal class InternalFileExchangeTools(
 
         try {
             val realPath = resolvePath(path)
-            return when (val result = filePublisher.publishFile(realPath.toString(), title, mimeType)) {
+            return when (
+                val result = filePublisher.publishFile(realPath.toString(), title, mimeType)
+            ) {
                 is FilePublisher.Result.Error -> {
                     throw ToolException.ValidationFailure(result.message)
                 }
@@ -92,13 +87,11 @@ internal class InternalFileExchangeTools(
 
     @Tool
     @LLMDescription(
-        "Publish new inline Markdown/HTML/text content to the internal file exchange and return a secure share URL. Do not use this for files that exist in the workspace unless you intentionally transformed or extracted content",
+        "Publish new inline Markdown/HTML/text content to the internal file exchange and return a secure share URL. Do not use this for files that exist in the workspace unless you intentionally transformed or extracted content"
     )
     fun publishSnippetInternally(
-        @LLMDescription("HTML or Markdown content to publish.")
-        content: String,
-        @LLMDescription("Snippet title")
-        title: String,
+        @LLMDescription("HTML or Markdown content to publish.") content: String,
+        @LLMDescription("Snippet title") title: String,
         @LLMDescription("MIME type of the content. Only text, HTML or Markdown are accepted.")
         mimeType: String,
     ): InternalFilePublishResult {
@@ -139,15 +132,12 @@ internal class InternalFileExchangeTools(
         - To read later sections, call this tool again with a larger offset.
         - Contents are returned with each line prefixed by its line number as `<line>: <content>`.
         - Any line longer than 2000 characters is truncated.
-        """,
+        """
     )
     fun readInternalSnippet(
-        @LLMDescription("Published page id")
-        id: String,
-        @LLMDescription("The line number to start reading from (1-indexed)")
-        offset: Int?,
-        @LLMDescription("The maximum number of lines to read (defaults to 2000)")
-        limit: Int?,
+        @LLMDescription("Published page id") id: String,
+        @LLMDescription("The line number to start reading from (1-indexed)") offset: Int?,
+        @LLMDescription("The maximum number of lines to read (defaults to 2000)") limit: Int?,
     ): String = filePublisher.readFileContents(id, offset, limit)
 
     @Tool
@@ -161,13 +151,11 @@ internal class InternalFileExchangeTools(
         - The edit fails if oldString is not found in the current file.
         - The edit fails if oldString matches multiple times and replaceAll is not true.
         - Use replaceAll for renaming or replacing every occurrence.
-        """,
+        """
     )
     fun editInternalSnippet(
-        @LLMDescription("Published page id")
-        id: String,
-        @LLMDescription("The text to replace")
-        oldString: String,
+        @LLMDescription("Published page id") id: String,
+        @LLMDescription("The text to replace") oldString: String,
         @LLMDescription("The text to replace it with (must be different from oldString)")
         newString: String,
         @LLMDescription("Replace all occurrences of oldString (default false)")

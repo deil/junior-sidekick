@@ -1,15 +1,15 @@
 package com.github.uncomplexco.sidekick.application.conversation.triggers
 
-import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
+import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.turn.LlmReplyDecisionClassifier
 import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionInput
 import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionReason
 import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionService
 import com.github.uncomplexco.sidekick.application.turn.SimpleReplyDecisionClassifier
+import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
-import kotlin.test.assertEquals
 
 class ReplyDecisionServiceTest {
     @Test
@@ -26,8 +26,7 @@ class ReplyDecisionServiceTest {
             )
 
         // Act
-        val decision =
-            classifier.classify(input)!!
+        val decision = classifier.classify(input)!!
 
         // Assert
         assertEquals(ReplyDecisionReason.EXPLICIT_MENTION, decision.reason)
@@ -107,8 +106,7 @@ class ReplyDecisionServiceTest {
             )
 
         // Act
-        val decision =
-            classifier.classify(input)!!
+        val decision = classifier.classify(input)!!
 
         // Assert
         assertEquals(ReplyDecisionReason.DIRECTED_TO_OTHER_PARTY, decision.reason)
@@ -128,8 +126,7 @@ class ReplyDecisionServiceTest {
             )
 
         // Act
-        val decision =
-            classifier.classify(input)!!
+        val decision = classifier.classify(input)!!
 
         // Assert
         assertEquals(ReplyDecisionReason.ACKNOWLEDGMENT, decision.reason)
@@ -177,57 +174,55 @@ class ReplyDecisionServiceTest {
     }
 
     @Test
-    fun `private message without prior assistant message bypasses llm classifier`() =
-        runBlocking {
-            // Arrange
-            val service =
-                ReplyDecisionService(
-                    SimpleReplyDecisionClassifier(),
-                    LlmReplyDecisionClassifier(koogConfig()) { _, _ -> error("classifier should not run") },
-                )
-            val input =
-                ReplyDecisionInput(
-                    text = "identify where https://headshots.ltd is hosted; use bash tool",
-                    botUser = botUser(),
-                    messageHistory = emptyList(),
-                    hasAssistantHistory = false,
-                    isPrivateMessage = true,
-                )
+    fun `private message without prior assistant message bypasses llm classifier`() = runBlocking {
+        // Arrange
+        val service =
+            ReplyDecisionService(
+                SimpleReplyDecisionClassifier(),
+                LlmReplyDecisionClassifier(koogConfig()) { _, _ ->
+                    error("classifier should not run")
+                },
+            )
+        val input =
+            ReplyDecisionInput(
+                text = "identify where https://headshots.ltd is hosted; use bash tool",
+                botUser = botUser(),
+                messageHistory = emptyList(),
+                hasAssistantHistory = false,
+                isPrivateMessage = true,
+            )
 
-            // Act
-            val decision = service.shouldReply(input)
+        // Act
+        val decision = service.shouldReply(input)
 
-            // Assert
-            assertEquals(true, decision.shouldReply)
-            assertEquals(ReplyDecisionReason.PRIVATE_MESSAGE, decision.reason)
-            assertEquals(null, decision.detail)
-        }
+        // Assert
+        assertEquals(true, decision.shouldReply)
+        assertEquals(ReplyDecisionReason.PRIVATE_MESSAGE, decision.reason)
+        assertEquals(null, decision.detail)
+    }
 
     @Test
-    fun `llm classifier failure returns classifier error instead of crashing`() =
-        runBlocking {
-            // Arrange
-            val classifier =
-                LlmReplyDecisionClassifier(koogConfig()) { _, _ ->
-                    error("llm unavailable")
-                }
-            val input =
-                ReplyDecisionInput(
-                    text = "can you check this?",
-                    botUser = botUser(),
-                    messageHistory = emptyList(),
-                    hasAssistantHistory = false,
-                    isPrivateMessage = true,
-                )
+    fun `llm classifier failure returns classifier error instead of crashing`() = runBlocking {
+        // Arrange
+        val classifier =
+            LlmReplyDecisionClassifier(koogConfig()) { _, _ -> error("llm unavailable") }
+        val input =
+            ReplyDecisionInput(
+                text = "can you check this?",
+                botUser = botUser(),
+                messageHistory = emptyList(),
+                hasAssistantHistory = false,
+                isPrivateMessage = true,
+            )
 
-            // Act
-            val decision = classifier.classify(input)
+        // Act
+        val decision = classifier.classify(input)
 
-            // Assert
-            assertEquals(false, decision.shouldReply)
-            assertEquals(ReplyDecisionReason.CLASSIFIER_ERROR, decision.reason)
-            assertEquals("llm unavailable", decision.detail)
-        }
+        // Assert
+        assertEquals(false, decision.shouldReply)
+        assertEquals(ReplyDecisionReason.CLASSIFIER_ERROR, decision.reason)
+        assertEquals("llm unavailable", decision.detail)
+    }
 
     private fun botUser() = MessageAuthor(username = "sidekick", fullName = "Sidekick")
 

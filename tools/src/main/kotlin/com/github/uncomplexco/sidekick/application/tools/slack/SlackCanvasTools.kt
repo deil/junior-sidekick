@@ -8,9 +8,7 @@ import com.slack.api.methods.MethodsClient
 import com.slack.api.model.canvas.CanvasDocumentContent
 import org.slf4j.LoggerFactory
 
-data class SlackCanvasRuntimeContext(
-    val channelId: String?,
-)
+data class SlackCanvasRuntimeContext(val channelId: String?)
 
 @LLMDescription("Slack canvas tools for long-form artifacts tracked in the current thread")
 class SlackCanvasTools(
@@ -19,23 +17,24 @@ class SlackCanvasTools(
 ) : ToolSet {
     @Tool
     @LLMDescription(
-        "Create a standalone Slack canvas for long-form output and grant the active conversation access to it. Use when the answer is better as a reusable document than a thread reply: long-form research, timelines, bios/profiles, structured notes, plans, comparisons, or anything likely to exceed one compact Slack reply. After creating it, reply with one or two short sentences plus the canvas link; do not recap the canvas contents. Do not use for short answers that fit cleanly in one normal thread reply.",
+        "Create a standalone Slack canvas for long-form output and grant the active conversation access to it. Use when the answer is better as a reusable document than a thread reply: long-form research, timelines, bios/profiles, structured notes, plans, comparisons, or anything likely to exceed one compact Slack reply. After creating it, reply with one or two short sentences plus the canvas link; do not recap the canvas contents. Do not use for short answers that fit cleanly in one normal thread reply."
     )
     fun slackCanvasCreate(
-        @LLMDescription("Canvas title.")
-        title: String,
-        @LLMDescription("Canvas markdown body content.")
-        markdown: String,
+        @LLMDescription("Canvas title.") title: String,
+        @LLMDescription("Canvas markdown body content.") markdown: String,
     ): String {
         val targetChannelId = conversationId.channelId
         val normalized = normalizeCanvasMarkdown(markdown)
-        val created =
-            slackClient.canvasesCreate { req ->
-                req.title(title)
-                req.documentContent(CanvasDocumentContent.builder().markdown(normalized.markdown).build())
-            }
+        val created = slackClient.canvasesCreate { req ->
+            req.title(title)
+            req.documentContent(
+                CanvasDocumentContent.builder().markdown(normalized.markdown).build()
+            )
+        }
         if (!created.isOk || created.canvasId.isNullOrBlank()) {
-            throw IllegalStateException(created.error ?: "Slack canvas was created without canvas_id")
+            throw IllegalStateException(
+                created.error ?: "Slack canvas was created without canvas_id"
+            )
         }
 
         val canvasId = created.canvasId
@@ -47,7 +46,8 @@ class SlackCanvasTools(
             canvasId,
             targetChannelId,
         )
-        val result = """{"ok":true,"canvas_id":"$canvasId","permalink":${
+        val result =
+            """{"ok":true,"canvas_id":"$canvasId","permalink":${
             permalink?.let {
                 "\"$it\""
             } ?: "null"
@@ -60,31 +60,33 @@ class SlackCanvasTools(
         channelId: String,
     ) {
         runCatching {
-            slackClient.canvasesAccessSet { req ->
-                req.canvasId(canvasId)
-                req.accessLevel("write")
-                req.channelIds(listOf(channelId))
+                slackClient.canvasesAccessSet { req ->
+                    req.canvasId(canvasId)
+                    req.accessLevel("write")
+                    req.channelIds(listOf(channelId))
+                }
             }
-        }.onFailure { error ->
-            log.warn(
-                "Failed to grant Slack canvas access session={} canvasId={} channelId={}",
-                conversationId.lockKey(),
-                canvasId,
-                channelId,
-                error,
-            )
-        }
+            .onFailure { error ->
+                log.warn(
+                    "Failed to grant Slack canvas access session={} canvasId={} channelId={}",
+                    conversationId.lockKey(),
+                    canvasId,
+                    channelId,
+                    error,
+                )
+            }
     }
 
     private fun fetchCanvasPermalink(canvasId: String): String? =
         runCatching {
-            val info = slackClient.filesInfo { req -> req.file(canvasId) }
-            if (info.isOk) {
-                info.file?.permalink
-            } else {
-                null
+                val info = slackClient.filesInfo { req -> req.file(canvasId) }
+                if (info.isOk) {
+                    info.file?.permalink
+                } else {
+                    null
+                }
             }
-        }.getOrNull()
+            .getOrNull()
 
     companion object {
         private val log = LoggerFactory.getLogger(SlackCanvasTools::class.java)
@@ -94,14 +96,12 @@ class SlackCanvasTools(
 fun normalizeCanvasMarkdown(markdown: String): CanvasMarkdownNormalization {
     var normalizedHeadingCount = 0
     val normalized =
-        markdown
-            .lines()
-            .joinToString("\n") { line ->
-                line.replace(Regex("^(#{4,})(?=\\s)")) {
-                    normalizedHeadingCount += 1
-                    "###"
-                }
+        markdown.lines().joinToString("\n") { line ->
+            line.replace(Regex("^(#{4,})(?=\\s)")) {
+                normalizedHeadingCount += 1
+                "###"
             }
+        }
     return CanvasMarkdownNormalization(normalized, normalizedHeadingCount)
 }
 

@@ -3,9 +3,7 @@ package com.github.uncomplexco.sidekick.application.agent.workspace
 import java.nio.file.Files
 import java.nio.file.Path
 
-class WorkspaceLayout(
-    private val root: Path,
-) {
+class WorkspaceLayout(private val root: Path) {
     fun configDirectoryPath(): Path = directory("config")
 
     fun templatesDirectoryPath(): Path = directory("templates")
@@ -25,7 +23,9 @@ class WorkspaceLayout(
     private fun directory(relativePath: String): Path {
         val path = root.resolve(relativePath).toAbsolutePath().normalize()
         Files.createDirectories(path)
-        require(Files.isDirectory(path)) { "Configured agent workspace path is not a directory: $path" }
+        require(Files.isDirectory(path)) {
+            "Configured agent workspace path is not a directory: $path"
+        }
         return path
     }
 }

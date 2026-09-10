@@ -1,15 +1,15 @@
 package com.github.uncomplexco.sidekick.adapters.http
 
 import jakarta.servlet.FilterChain
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 class HttpBearerTokenAuthFilterTest {
     @Test
@@ -55,7 +55,10 @@ class HttpBearerTokenAuthFilterTest {
     fun `requires configured token`() {
         val error = assertThrows<IllegalArgumentException> { HttpBearerTokenAuthFilter(" ") }
 
-        assertEquals("adapters.http.token is required when adapters.http.enabled=true", error.message)
+        assertEquals(
+            "adapters.http.token is required when adapters.http.enabled=true",
+            error.message,
+        )
     }
 }
 

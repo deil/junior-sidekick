@@ -3,11 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
-}
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 
 dependencies {
     testImplementation(libs.kotlin.test.junit5)
@@ -20,6 +16,4 @@ kotlin {
     }
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
-}
+tasks.withType<Test> { useJUnitPlatform() }

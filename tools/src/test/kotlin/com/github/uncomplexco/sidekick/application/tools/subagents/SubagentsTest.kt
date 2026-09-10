@@ -3,16 +3,15 @@ package com.github.uncomplexco.sidekick.application.tools.subagents
 import com.github.uncomplexco.sidekick.adapters.git.gitRepositoryCheckoutPath
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.utils.parseMarkdownFrontmatter
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class SubagentsTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `loads built in subagent`() {
@@ -20,12 +19,7 @@ class SubagentsTest {
         val subagents = Subagents()
 
         // Act
-        val prompt =
-            subagents
-                .catalog()
-                .subagents
-                .single { it.name == "general" }
-                .systemPrompt
+        val prompt = subagents.catalog().subagents.single { it.name == "general" }.systemPrompt
 
         // Assert
         assertTrue(prompt.startsWith("You are a general-purpose subagent."), prompt)
@@ -41,8 +35,13 @@ class SubagentsTest {
 
         // Assert
         assertEquals(listOf("general"), subagents.map { it.name })
-        assertEquals(listOf("general-purpose agent for complex questions and multi-step tasks"), subagents.map { it.description })
-        assertTrue(subagents.single().systemPrompt.startsWith("You are a general-purpose subagent."))
+        assertEquals(
+            listOf("general-purpose agent for complex questions and multi-step tasks"),
+            subagents.map { it.description },
+        )
+        assertTrue(
+            subagents.single().systemPrompt.startsWith("You are a general-purpose subagent.")
+        )
     }
 
     @Test
@@ -50,7 +49,10 @@ class SubagentsTest {
         // Arrange
         val config = config()
         val checkout =
-            gitRepositoryCheckoutPath(config.workspaceLayout().extensionsRepositoryDirectoryPath(), "git@github.com:deil/agents.git")
+            gitRepositoryCheckoutPath(
+                config.workspaceLayout().extensionsRepositoryDirectoryPath(),
+                "git@github.com:deil/agents.git",
+            )
         writeSubagentFile(
             checkout.resolve("sidekick/agents/explore.md"),
             "explore",
@@ -68,7 +70,10 @@ class SubagentsTest {
 
         // Assert
         assertEquals(listOf("general", "explore"), subagents.map { it.name })
-        assertEquals("fast codebase exploration agent", subagents.single { it.name == "explore" }.description)
+        assertEquals(
+            "fast codebase exploration agent",
+            subagents.single { it.name == "explore" }.description,
+        )
         assertEquals(
             "Inspect the codebase and report findings.",
             subagents.single { it.name == "explore" }.systemPrompt,
@@ -80,12 +85,28 @@ class SubagentsTest {
         // Arrange
         val config = config()
         val checkout =
-            gitRepositoryCheckoutPath(config.workspaceLayout().extensionsRepositoryDirectoryPath(), "git@github.com:deil/agents.git")
-        writeSubagentFile(checkout.resolve("agents/valid.md"), "valid", "Valid agent", "Run valid tasks.")
-        writeSubagentFile(checkout.resolve("agents/wrong-file.md"), "wrong-name", "Wrong file", "Skip me.")
+            gitRepositoryCheckoutPath(
+                config.workspaceLayout().extensionsRepositoryDirectoryPath(),
+                "git@github.com:deil/agents.git",
+            )
+        writeSubagentFile(
+            checkout.resolve("agents/valid.md"),
+            "valid",
+            "Valid agent",
+            "Run valid tasks.",
+        )
+        writeSubagentFile(
+            checkout.resolve("agents/wrong-file.md"),
+            "wrong-name",
+            "Wrong file",
+            "Skip me.",
+        )
         writeSubagentFile(checkout.resolve("agents/unsafe.md"), "../unsafe", "Unsafe", "Skip me.")
         Files.createDirectories(checkout.resolve("agents"))
-        Files.writeString(checkout.resolve("agents/missing-description.md"), "---\nname: missing-description\n---\nSkip me.")
+        Files.writeString(
+            checkout.resolve("agents/missing-description.md"),
+            "---\nname: missing-description\n---\nSkip me.",
+        )
         Files.writeString(
             config.workspaceLayout().extensionsConfigPath(),
             """{"extensions": [{"url": "git@github.com:deil/agents.git"}]}""",
@@ -109,11 +130,11 @@ class SubagentsTest {
             description: General agent
             ---
             System prompt.
-            """.trimIndent()
+            """
+                .trimIndent()
 
         // Act
-        val prompt =
-            parseMarkdownFrontmatter(markdown).body
+        val prompt = parseMarkdownFrontmatter(markdown).body
 
         // Assert
         assertEquals("System prompt.", prompt)
@@ -134,9 +155,15 @@ class SubagentsTest {
             description: $description
             ---
             $prompt
-            """.trimIndent(),
+            """
+                .trimIndent(),
         )
     }
 
-    private fun config(): AgentConfig = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.resolve("workspace").toString())
+    private fun config(): AgentConfig =
+        AgentConfig(
+            "Sidekick",
+            dir.resolve("state").toString(),
+            dir.resolve("workspace").toString(),
+        )
 }

@@ -3,14 +3,12 @@ package com.github.uncomplexco.sidekick.adapters.sandbox
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutor
 import com.github.uncomplexco.sidekick.sandbox.bwrap.BwrapSandbox
 import com.github.uncomplexco.sidekick.sandbox.bwrap.BwrapSandboxConfig
+import java.nio.file.Path
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
-import java.nio.file.Path
 
 @Component
-class SandboxExecutorFactory(
-    private val config: SandboxExecutorConfig,
-) {
+class SandboxExecutorFactory(private val config: SandboxExecutorConfig) {
     fun create(): SandboxExecutor =
         when (config.provider.trim().lowercase()) {
             "bwrap" -> bwrapExecutor()
@@ -45,8 +43,8 @@ class SandboxExecutorFactory(
                     maxOutputBytes = bwrap.maxOutputBytes,
                     uid = bwrap.uid,
                     gid = bwrap.gid,
-                ),
-            ),
+                )
+            )
         )
     }
 }

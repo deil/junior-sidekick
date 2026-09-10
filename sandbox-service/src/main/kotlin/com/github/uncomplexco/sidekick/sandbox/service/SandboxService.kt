@@ -5,8 +5,8 @@ import com.github.uncomplexco.sidekick.sandbox.bwrap.BwrapSandboxConfig
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStarted
-import io.ktor.server.application.log
 import io.ktor.server.application.install
+import io.ktor.server.application.log
 import io.ktor.server.netty.EngineMain
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import kotlinx.serialization.json.Json
@@ -26,13 +26,11 @@ fun Application.sandboxServiceModule(
             Json {
                 ignoreUnknownKeys = false
                 explicitNulls = false
-            },
+            }
         )
     }
 
-    monitor.subscribe(ApplicationStarted) {
-        log.info("Sandbox service started")
-    }
+    monitor.subscribe(ApplicationStarted) { log.info("Sandbox service started") }
 
     executeRoute(
         token = config.token,
@@ -50,7 +48,7 @@ private fun bwrapExecutor(config: SandboxServiceConfig): SandboxCommandExecutor 
                 maxOutputBytes = config.maxOutputBytes,
                 uid = config.uid,
                 gid = config.gid,
-            ),
+            )
         )
     return SandboxCommandExecutor { sandbox.execute(it) }
 }

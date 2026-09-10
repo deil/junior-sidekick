@@ -15,17 +15,17 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.stats.ConversationUsage
 import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.json.Json
-import org.springframework.stereotype.Component
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.json.Json
+import org.springframework.stereotype.Component
 
 @Component
 class FilesystemConversationStateStore(
@@ -33,15 +33,11 @@ class FilesystemConversationStateStore(
     private val platform: ChatPlatform,
 ) : ConversationStateStore {
     private val locks = ConcurrentHashMap<String, Mutex>()
-    private val json =
-        Json {
-            ignoreUnknownKeys = true
-            encodeDefaults = true
-        }
-    private val runtimeJson =
-        Json(json) {
-            prettyPrint = true
-        }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
+    private val runtimeJson = Json(json) { prettyPrint = true }
 
     override fun exists(id: ConversationId): Boolean = load(id).messages.isNotEmpty()
 
@@ -75,25 +71,29 @@ class FilesystemConversationStateStore(
         startInclusiveMs: Long,
         endExclusiveMs: Long,
     ): List<ConversationUsage> {
-        val channelsRoot = config.stateDirectoryPath().resolve(platform.name.lowercase()).resolve("channels")
+        val channelsRoot =
+            config.stateDirectoryPath().resolve(platform.name.lowercase()).resolve("channels")
         if (!Files.isDirectory(channelsRoot)) return emptyList()
 
         val conversationIds = mutableListOf<ConversationId>()
         Files.newDirectoryStream(channelsRoot).use { channelFolders ->
-            channelFolders.filter { Files.isDirectory(it) }.forEach { channelFolder ->
-                val channelId = channelFolder.fileName.toString()
-                val threadsFolder = channelFolder.resolve("threads")
-                if (Files.isDirectory(threadsFolder)) {
-                    Files.newDirectoryStream(threadsFolder).use { threadFolders ->
-                        threadFolders
-                            .filter { Files.isRegularFile(it.resolve("messages.jsonl")) }
-                            .filter { it.creationTimeMs() in startInclusiveMs..<endExclusiveMs }
-                            .forEach {
-                                conversationIds += ConversationId(channelId, it.fileName.toString())
-                            }
+            channelFolders
+                .filter { Files.isDirectory(it) }
+                .forEach { channelFolder ->
+                    val channelId = channelFolder.fileName.toString()
+                    val threadsFolder = channelFolder.resolve("threads")
+                    if (Files.isDirectory(threadsFolder)) {
+                        Files.newDirectoryStream(threadsFolder).use { threadFolders ->
+                            threadFolders
+                                .filter { Files.isRegularFile(it.resolve("messages.jsonl")) }
+                                .filter { it.creationTimeMs() in startInclusiveMs..<endExclusiveMs }
+                                .forEach {
+                                    conversationIds +=
+                                        ConversationId(channelId, it.fileName.toString())
+                                }
+                        }
                     }
                 }
-            }
         }
 
         return conversationIds.map { id ->
@@ -145,11 +145,12 @@ class FilesystemConversationStateStore(
     override suspend fun saveActiveTurn(
         id: ConversationId,
         activeTurn: ActiveTurn?,
-    ) = withSessionLock(id) {
-        val folder = id.folder(config.stateDirectoryPath(), platform)
-        val runtime = loadRuntime(folder)
-        writeRuntime(folder, runtime.copy(activeTurn = activeTurn))
-    }
+    ) =
+        withSessionLock(id) {
+            val folder = id.folder(config.stateDirectoryPath(), platform)
+            val runtime = loadRuntime(folder)
+            writeRuntime(folder, runtime.copy(activeTurn = activeTurn))
+        }
 
     override suspend fun loadActiveTurn(id: ConversationId): ActiveTurn? =
         withSessionLock(id) {
@@ -161,8 +162,7 @@ class FilesystemConversationStateStore(
             return emptyList()
         }
 
-        return Files
-            .readAllLines(path, StandardCharsets.UTF_8)
+        return Files.readAllLines(path, StandardCharsets.UTF_8)
             .asSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() }
@@ -206,7 +206,9 @@ class FilesystemConversationStateStore(
     private fun loadRuntime(folder: Path): ConversationRuntime {
         val runtimePath = folder.resolve(RUNTIME_FILE)
         if (Files.exists(runtimePath)) {
-            return runtimeJson.decodeFromString(Files.readString(runtimePath, StandardCharsets.UTF_8))
+            return runtimeJson.decodeFromString(
+                Files.readString(runtimePath, StandardCharsets.UTF_8)
+            )
         }
 
         val legacyStats =
@@ -227,8 +229,17 @@ class FilesystemConversationStateStore(
         val temporary = Files.createTempFile(folder, "runtime-", ".json.tmp")
 
         try {
-            Files.writeString(temporary, runtimeJson.encodeToString(runtime), StandardCharsets.UTF_8)
-            Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            Files.writeString(
+                temporary,
+                runtimeJson.encodeToString(runtime),
+                StandardCharsets.UTF_8,
+            )
+            Files.move(
+                temporary,
+                path,
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING,
+            )
             Files.deleteIfExists(folder.resolve(LEGACY_STATS_FILE))
         } finally {
             Files.deleteIfExists(temporary)

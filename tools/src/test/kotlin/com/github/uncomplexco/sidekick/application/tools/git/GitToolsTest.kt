@@ -2,16 +2,15 @@ package com.github.uncomplexco.sidekick.application.tools.git
 
 import ai.koog.agents.core.tools.ToolException
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
 
 class GitToolsTest {
-    @TempDir
-    lateinit var dir: Path
+    @TempDir lateinit var dir: Path
 
     @Test
     fun `clones github https url into project path using ssh url`() {
@@ -50,7 +49,11 @@ class GitToolsTest {
     fun `fetches existing checkout with matching origin`() {
         // Arrange
         val checkout = Files.createDirectories(dir.resolve("project/repo"))
-        val git = FakeGitRepository(gitRepositories = setOf(checkout), origins = mapOf(checkout to "git@github.com:acme/repo.git"))
+        val git =
+            FakeGitRepository(
+                gitRepositories = setOf(checkout),
+                origins = mapOf(checkout to "git@github.com:acme/repo.git"),
+            )
         val tools = tools(git)
 
         // Act
@@ -72,7 +75,8 @@ class GitToolsTest {
                 gitRepositories = setOf(checkout),
                 origins =
                     mapOf(
-                        checkout to "https://Profitsword@dev.azure.com/Profitsword/Katana/_git/Actabl.BI.Gateway",
+                        checkout to
+                            "https://Profitsword@dev.azure.com/Profitsword/Katana/_git/Actabl.BI.Gateway"
                     ),
             )
         val tools = tools(git)
@@ -83,7 +87,11 @@ class GitToolsTest {
         )
 
         assertEquals(
-            Triple(checkout, "origin", "git@ssh.dev.azure.com:v3/Profitsword/Katana/Actabl.BI.Gateway"),
+            Triple(
+                checkout,
+                "origin",
+                "git@ssh.dev.azure.com:v3/Profitsword/Katana/Actabl.BI.Gateway",
+            ),
             git.updatedRemote,
         )
     }
@@ -103,7 +111,11 @@ class GitToolsTest {
     fun `rejects existing checkout with different origin`() {
         // Arrange
         val checkout = Files.createDirectories(dir.resolve("project/repo"))
-        val git = FakeGitRepository(gitRepositories = setOf(checkout), origins = mapOf(checkout to "git@github.com:acme/other.git"))
+        val git =
+            FakeGitRepository(
+                gitRepositories = setOf(checkout),
+                origins = mapOf(checkout to "git@github.com:acme/other.git"),
+            )
         val tools = tools(git)
 
         // Act / Assert
@@ -263,7 +275,8 @@ class GitToolsTest {
                         dirty = false,
                         remote = "origin",
                         upstream = "refs/heads/main",
-                        remoteUrl = "https://dev.azure.com/Profitsword/Katana/_git/Actabl.BI.Gateway",
+                        remoteUrl =
+                            "https://dev.azure.com/Profitsword/Katana/_git/Actabl.BI.Gateway",
                         status = null,
                         message = "Ready",
                     )
@@ -274,7 +287,11 @@ class GitToolsTest {
         tools.push("/data/project/repo")
 
         assertEquals(
-            Triple(checkout, "origin", "git@ssh.dev.azure.com:v3/Profitsword/Katana/Actabl.BI.Gateway"),
+            Triple(
+                checkout,
+                "origin",
+                "git@ssh.dev.azure.com:v3/Profitsword/Katana/Actabl.BI.Gateway",
+            ),
             git.updatedRemote,
         )
     }
@@ -406,16 +423,18 @@ class GitToolsTest {
         val tools = tools(FakeGitRepository())
 
         // Act / Assert
-        assertThrows<ToolException.ValidationFailure> {
-            tools.push("/data/project/repo")
-        }
+        assertThrows<ToolException.ValidationFailure> { tools.push("/data/project/repo") }
     }
 
     @Test
     fun `pulls remote refspec using provider key`() {
         // Arrange
         val checkout = Files.createDirectories(dir.resolve("project/repo"))
-        val git = FakeGitRepository(gitRepositories = setOf(checkout), origins = mapOf(checkout to "git@github.com:acme/repo.git"))
+        val git =
+            FakeGitRepository(
+                gitRepositories = setOf(checkout),
+                origins = mapOf(checkout to "git@github.com:acme/repo.git"),
+            )
         val tools = tools(git)
 
         // Act
@@ -492,7 +511,12 @@ private class FakeGitRepository(
         sshKeyFile: String,
     ): GitRepositoryState {
         fetchedCheckout = checkout
-        return GitRepositoryState(checkout, "main", "def456", GitRepositoryStatus.FETCHED_FAST_FORWARDED)
+        return GitRepositoryState(
+            checkout,
+            "main",
+            "def456",
+            GitRepositoryStatus.FETCHED_FAST_FORWARDED,
+        )
     }
 
     override fun isGitRepository(checkout: Path): Boolean = checkout in gitRepositories
@@ -517,17 +541,18 @@ private class FakeGitRepository(
         branch: String?,
     ): GitPushPlan {
         val selectedBranch = branch ?: "main"
-        return pushPlan?.invoke(checkout, branch) ?: GitPushPlan(
-            path = checkout,
-            branch = selectedBranch,
-            commitHash = "ghi789",
-            dirty = true,
-            remote = "origin",
-            upstream = "refs/heads/$selectedBranch",
-            remoteUrl = "git@github.com:acme/repo.git",
-            status = null,
-            message = "Ready",
-        )
+        return pushPlan?.invoke(checkout, branch)
+            ?: GitPushPlan(
+                path = checkout,
+                branch = selectedBranch,
+                commitHash = "ghi789",
+                dirty = true,
+                remote = "origin",
+                upstream = "refs/heads/$selectedBranch",
+                remoteUrl = "git@github.com:acme/repo.git",
+                status = null,
+                message = "Ready",
+            )
     }
 
     override fun push(

@@ -30,7 +30,8 @@ internal fun skillsSection(
                 User-invocable skills are listed separately. Do not activate those unless the user explicitly requested one.
                 Do not answer from memory when a skill fits.
                 If none fits, do not load a skill.
-                """.trimIndent(),
+                """
+                    .trimIndent()
             )
             appendLine()
 
@@ -43,7 +44,7 @@ internal fun skillsSection(
                                 appendLine(renderSkill(skill, virtualPaths))
                             }
                         },
-                    ),
+                    )
                 )
             }
 
@@ -56,7 +57,7 @@ internal fun skillsSection(
                                 appendLine(renderSkill(skill, virtualPaths))
                             }
                         },
-                    ),
+                    )
                 )
             }
         },
@@ -82,10 +83,10 @@ internal fun renderSkill(
                                 .resolve(SKILL_FILE_NAME)
                                 .toAbsolutePath()
                                 .normalize()
-                                .toString(),
-                        ),
+                                .toString()
+                        )
                     )
-                }</location>",
+                }</location>"
             )
         },
     )

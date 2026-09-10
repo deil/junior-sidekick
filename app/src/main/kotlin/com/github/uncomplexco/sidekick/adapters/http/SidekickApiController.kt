@@ -6,18 +6,20 @@ import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.ChatReply
-import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.TurnResultHandler
 import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
-import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -32,8 +34,6 @@ import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 @RestController
 @RequestMapping("/api")
@@ -47,16 +47,17 @@ class SidekickApiController(
 ) {
     @PostMapping("/conversations")
     @ResponseStatus(HttpStatus.CREATED)
-    fun startSession(
-        @RequestBody request: StartSessionRequest,
-    ): SendMessageResponse =
-        runBlocking {
-            val conversationId = newId("api_conversation")
-            val chatConversationId = ChatConversationId(channelId = projectId, threadId = conversationId)
-            handleMessage(chatConversationId, request.toInboundMessage(), conversationId)
-        }
+    fun startSession(@RequestBody request: StartSessionRequest): SendMessageResponse = runBlocking {
+        val conversationId = newId("api_conversation")
+        val chatConversationId =
+            ChatConversationId(channelId = projectId, threadId = conversationId)
+        handleMessage(chatConversationId, request.toInboundMessage(), conversationId)
+    }
 
-    @PostMapping("/conversations/{conversationId}/messages", produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
+    @PostMapping(
+        "/conversations/{conversationId}/messages",
+        produces = [MediaType.TEXT_EVENT_STREAM_VALUE],
+    )
     fun sendMessage(
         @PathVariable conversationId: String,
         @RequestBody request: SendMessageRequest,
@@ -66,16 +67,23 @@ class SidekickApiController(
         }
 
         val message = request.toInboundMessage()
-        val chatConversationId = ChatConversationId(channelId = projectId, threadId = conversationId)
+        val chatConversationId =
+            ChatConversationId(channelId = projectId, threadId = conversationId)
         val emitter = SseEmitter(0L)
 
         scope.launch {
             try {
-                val response = handleStreamingMessage(chatConversationId, message, conversationId, emitter)
+                val response =
+                    handleStreamingMessage(chatConversationId, message, conversationId, emitter)
                 emitter.sendEvent("final", FinalStreamEvent(response))
                 emitter.complete()
             } catch (error: Exception) {
-                runCatching { emitter.sendEvent("error", ErrorStreamEvent(error.message ?: "Failed to process message")) }
+                runCatching {
+                    emitter.sendEvent(
+                        "error",
+                        ErrorStreamEvent(error.message ?: "Failed to process message"),
+                    )
+                }
                 emitter.completeWithError(error)
             }
         }
@@ -84,9 +92,7 @@ class SidekickApiController(
     }
 
     @GetMapping("/conversations/{conversationId}/messages")
-    fun getMessages(
-        @PathVariable conversationId: String,
-    ): ConversationMessagesResponse {
+    fun getMessages(@PathVariable conversationId: String): ConversationMessagesResponse {
         if (conversationId.isBlank()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "conversation_id is required")
         }
@@ -120,7 +126,7 @@ class SidekickApiController(
     ): SendMessageResponse {
         val chat =
             HttpChatPlatformAdapter(
-                emitStatus = { status -> emitter.sendEvent("status", StatusStreamEvent(status)) },
+                emitStatus = { status -> emitter.sendEvent("status", StatusStreamEvent(status)) }
             )
         handleIncomingChatMessage.handleNow(chatConversationId, message, chat)
         return SendMessageResponse(
@@ -151,21 +157,13 @@ class SidekickApiController(
                 type = ChatMessageType.ASSISTANT_MESSAGE,
             )
         }
-
 }
 
 private fun SseEmitter.sendEvent(
     name: String,
     data: Any,
 ) {
-    synchronized(this) {
-        send(
-            SseEmitter
-                .event()
-                .name(name)
-                .data(data),
-        )
-    }
+    synchronized(this) { send(SseEmitter.event().name(name).data(data)) }
 }
 
 private fun SessionMessage.toApiMessage(): ApiMessage =
@@ -188,9 +186,7 @@ private fun SessionMessage.apiStatus(): String =
         else -> "pending"
     }
 
-class HttpChatPlatformAdapter(
-    emitStatus: ((String) -> Unit)? = null,
-) : ChatPlatformAdapter {
+class HttpChatPlatformAdapter(emitStatus: ((String) -> Unit)? = null) : ChatPlatformAdapter {
     private val handler = HttpTurnResultHandler(emitStatus)
 
     override val botUsername: String = "sidekick-api"
@@ -198,7 +194,8 @@ class HttpChatPlatformAdapter(
     val replies: List<ApiReply>
         get() = handler.replies
 
-    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
+        emptyList()
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,
@@ -206,9 +203,8 @@ class HttpChatPlatformAdapter(
     ): List<IncomingChatFile> = emptyList()
 }
 
-private class HttpTurnResultHandler(
-    private val emitStatus: ((String) -> Unit)? = null,
-) : TurnResultHandler {
+private class HttpTurnResultHandler(private val emitStatus: ((String) -> Unit)? = null) :
+    TurnResultHandler {
     val replies = mutableListOf<ApiReply>()
 
     override fun start() = Unit
@@ -225,7 +221,12 @@ private class HttpTurnResultHandler(
         reply: ChatReply,
         stats: TurnStats?,
     ): ReplyResult {
-        val apiReply = ApiReply(id = newId("api_reply"), text = reply.text, createdAtMs = System.currentTimeMillis())
+        val apiReply =
+            ApiReply(
+                id = newId("api_reply"),
+                text = reply.text,
+                createdAtMs = System.currentTimeMillis(),
+            )
         replies += apiReply
         return ReplyResult(apiReply.id, apiReply.createdAtMs)
     }
@@ -235,44 +236,33 @@ private class HttpTurnResultHandler(
     override suspend fun markFailed(message: InboundMessage) = Unit
 
     private fun emit(text: String?) {
-        text?.takeIf { it.isNotBlank() }?.also { status -> runCatching { emitStatus?.invoke(status) } }
+        text
+            ?.takeIf { it.isNotBlank() }
+            ?.also { status -> runCatching { emitStatus?.invoke(status) } }
     }
-
 }
 
-data class StartSessionRequest(
-    val text: String,
-)
+data class StartSessionRequest(val text: String)
 
-data class SendMessageRequest(
-    val text: String,
-)
+data class SendMessageRequest(val text: String)
 
 data class SendMessageResponse(
-    @JsonProperty("conversation_id")
-    val conversationId: String,
-    @JsonProperty("message_id")
-    val messageId: String,
+    @JsonProperty("conversation_id") val conversationId: String,
+    @JsonProperty("message_id") val messageId: String,
     val replies: List<ApiReply>,
 )
 
 data class StatusStreamEvent(
     val message: String,
-    @JsonProperty("created_at_ms")
-    val createdAtMs: Long = System.currentTimeMillis(),
+    @JsonProperty("created_at_ms") val createdAtMs: Long = System.currentTimeMillis(),
 )
 
-data class FinalStreamEvent(
-    val response: SendMessageResponse,
-)
+data class FinalStreamEvent(val response: SendMessageResponse)
 
-data class ErrorStreamEvent(
-    val message: String,
-)
+data class ErrorStreamEvent(val message: String)
 
 data class ConversationMessagesResponse(
-    @JsonProperty("conversation_id")
-    val conversationId: String,
+    @JsonProperty("conversation_id") val conversationId: String,
     val messages: List<ApiMessage>,
 )
 
@@ -282,25 +272,20 @@ data class ApiMessage(
     val status: String,
     val text: String,
     val author: ApiAuthor?,
-    @JsonProperty("created_at_ms")
-    val createdAtMs: Long,
+    @JsonProperty("created_at_ms") val createdAtMs: Long,
     val replied: Boolean?,
-    @JsonProperty("skipped_reason")
-    val skippedReason: String?,
+    @JsonProperty("skipped_reason") val skippedReason: String?,
 )
 
 data class ApiAuthor(
-    @JsonProperty("user_id")
-    val userId: String,
-    @JsonProperty("user_name")
-    val userName: String?,
+    @JsonProperty("user_id") val userId: String,
+    @JsonProperty("user_name") val userName: String?,
 )
 
 data class ApiReply(
     val id: String,
     val text: String,
-    @JsonProperty("created_at_ms")
-    val createdAtMs: Long,
+    @JsonProperty("created_at_ms") val createdAtMs: Long,
 )
 
 private fun validateText(text: String): String =
@@ -309,4 +294,5 @@ private fun validateText(text: String): String =
     }
 
 @OptIn(ExperimentalUuidApi::class)
-private fun newId(prefix: String): String = "${prefix}_${Uuid.generateV7().toString().replace("-", "").take(16)}"
+private fun newId(prefix: String): String =
+    "${prefix}_${Uuid.generateV7().toString().replace("-", "").take(16)}"

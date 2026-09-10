@@ -18,9 +18,7 @@ import com.github.uncomplexco.sidekick.application.utils.xmlTag
 import org.springframework.stereotype.Component
 
 @Component
-class KoogSessionContextSummarizer(
-    private val config: KoogConfig,
-) : SessionContextSummarizer {
+class KoogSessionContextSummarizer(private val config: KoogConfig) : SessionContextSummarizer {
     override suspend fun summarize(
         conversationId: ConversationId,
         compactions: List<SessionCompaction>,
@@ -28,62 +26,67 @@ class KoogSessionContextSummarizer(
     ): String {
         log.debug("Starting session context summarization for {} messages", messages.size)
 
-        val transcript =
-            buildString {
-                if (!compactions.isEmpty()) {
-                    appendLine(
-                        xmlTag(
-                            ContextTags.THREAD_SUMMARIES,
-                            trimStart(
-                                buildString {
-                                    compactions.forEach { compaction ->
-                                        appendLine(xmlTag(ContextTags.HANDOFF_SUMMARY, compaction.summary))
-                                    }
-                                },
-                                MAX_INPUT_SUMMARIES_CHARS,
-                            ),
+        val transcript = buildString {
+            if (!compactions.isEmpty()) {
+                appendLine(
+                    xmlTag(
+                        ContextTags.THREAD_SUMMARIES,
+                        trimStart(
+                            buildString {
+                                compactions.forEach { compaction ->
+                                    appendLine(
+                                        xmlTag(ContextTags.HANDOFF_SUMMARY, compaction.summary)
+                                    )
+                                }
+                            },
+                            MAX_INPUT_SUMMARIES_CHARS,
                         ),
                     )
+                )
 
-                    appendLine()
-                }
-
-                messages.forEach { message ->
-                    appendLine("[${message.role}] ${trimEnd(message.text, MAX_MESSAGE_CHARS)}\n")
-                }
+                appendLine()
             }
+
+            messages.forEach { message ->
+                appendLine("[${message.role}] ${trimEnd(message.text, MAX_MESSAGE_CHARS)}\n")
+            }
+        }
 
         val aiModelProfile = config.fastProfile
 
         return runCatching {
-            config.openRouterExecutor().use { executor ->
-                executor
-                    .execute(
-                        prompt =
-                            prompt(
-                                id = "sidekick-session-context-compaction",
-                                params = config.openRouterParams(aiModelProfile, conversationId),
-                            ) {
-                                user("${Prompts.CONTEXT_COMPACTION_PROMPT}\n$transcript")
-                            },
-                        model =
-                            LLModel(
-                                provider = LLMProvider.OpenRouter,
-                                id = aiModelProfile.model,
-                                capabilities = config.modelCapabilities(),
-                            ),
-                    ).textContent()
-                    .trim()
-                    .takeIf { it.isNotBlank() }
-                    ?.take(MAX_GENERATED_SUMMARY_CHARS)
-                    ?.also { log.debug("Session context summarization completed") }
+                config.openRouterExecutor().use { executor ->
+                    executor
+                        .execute(
+                            prompt =
+                                prompt(
+                                    id = "sidekick-session-context-compaction",
+                                    params =
+                                        config.openRouterParams(aiModelProfile, conversationId),
+                                ) {
+                                    user("${Prompts.CONTEXT_COMPACTION_PROMPT}\n$transcript")
+                                },
+                            model =
+                                LLModel(
+                                    provider = LLMProvider.OpenRouter,
+                                    id = aiModelProfile.model,
+                                    capabilities = config.modelCapabilities(),
+                                ),
+                        )
+                        .textContent()
+                        .trim()
+                        .takeIf { it.isNotBlank() }
+                        ?.take(MAX_GENERATED_SUMMARY_CHARS)
+                        ?.also { log.debug("Session context summarization completed") }
+                }
             }
-        }.getOrElse { error ->
-            log.warn("Session context summarization failed", error)
-            null
-        } ?: trimStart(transcript, FALLBACK_SUMMARY_CHARS).also {
-            log.debug("Using fallback session context summary excerpt")
-        }
+            .getOrElse { error ->
+                log.warn("Session context summarization failed", error)
+                null
+            }
+            ?: trimStart(transcript, FALLBACK_SUMMARY_CHARS).also {
+                log.debug("Using fallback session context summary excerpt")
+            }
     }
 
     companion object {

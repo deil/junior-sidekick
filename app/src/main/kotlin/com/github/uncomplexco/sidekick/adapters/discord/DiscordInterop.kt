@@ -12,10 +12,10 @@ import com.github.uncomplexco.sidekick.application.chat.TurnResultHandler
 import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
+import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import org.slf4j.LoggerFactory
-import java.util.Locale
 
 private val log = LoggerFactory.getLogger(DiscordTurnResultHandler::class.java)
 
@@ -32,9 +32,11 @@ internal class DiscordChatPlatformAdapter(
     private val loadThreadHistory: suspend (String, Int, String?) -> DiscordThreadHistoryPage,
     send: suspend (String) -> DiscordSentMessage,
 ) : DiscordBackedChatPlatformAdapter {
-    override val resultHandler: TurnResultHandler = DiscordTurnResultHandler(updateReaction, startTyping, send)
+    override val resultHandler: TurnResultHandler =
+        DiscordTurnResultHandler(updateReaction, startTyping, send)
 
-    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
+        emptyList()
 
     override suspend fun loadChannelHistory(
         limit: Int,
@@ -109,7 +111,11 @@ internal class DiscordTurnResultHandler(
         val attachmentNotice =
             reply.attachments
                 .takeIf { it.isNotEmpty() }
-                ?.joinToString(prefix = "\n\nGenerated attachments are not supported on Discord: ") { it.name }
+                ?.joinToString(
+                    prefix = "\n\nGenerated attachments are not supported on Discord: "
+                ) {
+                    it.name
+                }
                 .orEmpty()
         val statusSubtext =
             (reply.statusLine ?: stats?.statusLine())
@@ -126,11 +132,12 @@ internal class DiscordTurnResultHandler(
 
     private fun TurnStats.statusLine(): String =
         listOfNotNull(
-            profileName,
-            formattedExecutionTime(),
-            "${formattedTokenCount(inputTokenCount)} → ${formattedTokenCount(outputTokenCount)}",
-            toolCallCount.takeIf { it > 0 }?.let { "$it tools" },
-        ).joinToString(" · ")
+                profileName,
+                formattedExecutionTime(),
+                "${formattedTokenCount(inputTokenCount)} → ${formattedTokenCount(outputTokenCount)}",
+                toolCallCount.takeIf { it > 0 }?.let { "$it tools" },
+            )
+            .joinToString(" · ")
 
     private fun TurnStats.formattedExecutionTime(): String =
         if (executionTimeSeconds < 60) {
@@ -157,19 +164,18 @@ internal fun startDiscordTypingHeartbeat(
     sendTyping: suspend () -> Unit,
     waitForRefresh: suspend () -> Unit = { delay(discordTypingRefreshIntervalMs()) },
 ): AutoCloseable {
-    val job =
-        scope.launch {
-            while (true) {
-                try {
-                    sendTyping()
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    log.warn("Discord typing indicator update failed", error)
-                }
-                waitForRefresh()
+    val job = scope.launch {
+        while (true) {
+            try {
+                sendTyping()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                log.warn("Discord typing indicator update failed", error)
             }
+            waitForRefresh()
         }
+    }
     return AutoCloseable { job.cancel() }
 }
 
@@ -190,4 +196,5 @@ internal fun splitDiscordMessage(text: String): List<String> {
 private const val DISCORD_MESSAGE_LIMIT = 2_000
 private const val DISCORD_TYPING_INDICATOR_LIFETIME_MS = 10_000L
 private const val DISCORD_TYPING_REFRESH_MARGIN_MS = 2_000L
-private const val DISCORD_TYPING_REFRESH_MS = DISCORD_TYPING_INDICATOR_LIFETIME_MS - DISCORD_TYPING_REFRESH_MARGIN_MS
+private const val DISCORD_TYPING_REFRESH_MS =
+    DISCORD_TYPING_INDICATOR_LIFETIME_MS - DISCORD_TYPING_REFRESH_MARGIN_MS

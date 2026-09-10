@@ -11,7 +11,8 @@ data class ConversationId(
     fun lockKey(): String = "$channelId:$threadId"
 
     companion object {
-        fun fromLockKey(key: String): ConversationId = ConversationId(key.substringBefore(':'), key.substringAfter(':'))
+        fun fromLockKey(key: String): ConversationId =
+            ConversationId(key.substringBefore(':'), key.substringAfter(':'))
     }
 }
 
@@ -65,10 +66,7 @@ class SessionMessage(
     var skippedReason: String? = null,
 )
 
-@Serializable
-data class ExplicitSkillInvocation(
-    val skillName: String,
-)
+@Serializable data class ExplicitSkillInvocation(val skillName: String)
 
 @Serializable
 data class SessionCompaction(

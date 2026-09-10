@@ -18,9 +18,7 @@ sealed interface TurnTriggerDecision {
 }
 
 @Component
-class InboundMessageFilter(
-    private val conversations: ConversationManager,
-) {
+class InboundMessageFilter(private val conversations: ConversationManager) {
     fun shouldTriggerTurn(
         chatConversationId: ChatConversationId,
         messages: List<InboundMessage>,
@@ -33,7 +31,8 @@ class InboundMessageFilter(
                         trigger = message.type,
                         messageId = message.id,
                     )
-                }.filterIsInstance<TurnTriggerDecision.ShouldHandle>()
+                }
+                .filterIsInstance<TurnTriggerDecision.ShouldHandle>()
 
         if (handles.isEmpty()) {
             return TurnTriggerDecision.Ignore
@@ -79,7 +78,10 @@ class InboundMessageFilter(
                 }
 
                 val conversationId = convert(chatConversationId)
-                if (!conversations.exists(conversationId) || !conversations.isSubscribed(conversationId)) {
+                if (
+                    !conversations.exists(conversationId) ||
+                        !conversations.isSubscribed(conversationId)
+                ) {
                     return TurnTriggerDecision.Ignore
                 }
 
@@ -94,7 +96,9 @@ class InboundMessageFilter(
     private fun convert(id: ChatConversationId): ConversationId =
         ConversationId(
             channelId = id.channelId,
-            threadId = id.threadId ?: if (id.isDM) "" else error("A channel continuation requires a thread id"),
+            threadId =
+                id.threadId
+                    ?: if (id.isDM) "" else error("A channel continuation requires a thread id"),
         )
 
     private fun threadOrParent(

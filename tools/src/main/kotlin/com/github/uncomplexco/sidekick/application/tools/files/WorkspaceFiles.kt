@@ -47,9 +47,7 @@ private sealed interface PatchOperation {
         val content: String,
     ) : PatchOperation
 
-    data class DeleteFile(
-        val path: String,
-    ) : PatchOperation
+    data class DeleteFile(val path: String) : PatchOperation
 
     data class UpdateFile(
         val path: String,
@@ -105,7 +103,9 @@ private fun parseApplyPatch(patchText: String): List<PatchOperation> {
                 while (index < lines.lastIndex && !lines[index].startsWith("*** ")) {
                     val current = lines[index]
                     if (!current.startsWith("+")) {
-                        throw IllegalArgumentException("apply_patch verification failed: invalid add file line: $current")
+                        throw IllegalArgumentException(
+                            "apply_patch verification failed: invalid add file line: $current"
+                        )
                     }
                     content += current.removePrefix("+")
                     index += 1
@@ -137,7 +137,9 @@ private fun parseApplyPatch(patchText: String): List<PatchOperation> {
                     index += 1
                 }
                 if (diff.isEmpty()) {
-                    throw IllegalArgumentException("apply_patch verification failed: no hunks found")
+                    throw IllegalArgumentException(
+                        "apply_patch verification failed: no hunks found"
+                    )
                 }
                 operations += PatchOperation.UpdateFile(path, moveTo, diff)
             }
@@ -147,7 +149,9 @@ private fun parseApplyPatch(patchText: String): List<PatchOperation> {
             }
 
             else -> {
-                throw IllegalArgumentException("apply_patch verification failed: invalid patch line: $line")
+                throw IllegalArgumentException(
+                    "apply_patch verification failed: invalid patch line: $line"
+                )
             }
         }
     }
@@ -167,13 +171,22 @@ private fun applyUnifiedUpdate(
     }
 
     for (hunk in hunks) {
-        val oldBlock = hunk.filter { it.startsWith("-") || it.startsWith(" ") }.joinToString("\n") { it.drop(1) }
-        val newBlock = hunk.filter { it.startsWith("+") || it.startsWith(" ") }.joinToString("\n") { it.drop(1) }
+        val oldBlock =
+            hunk
+                .filter { it.startsWith("-") || it.startsWith(" ") }
+                .joinToString("\n") { it.drop(1) }
+        val newBlock =
+            hunk
+                .filter { it.startsWith("+") || it.startsWith(" ") }
+                .joinToString("\n") { it.drop(1) }
         content =
             when {
                 oldBlock.isEmpty() -> insertByContext(content, hunk, newBlock)
                 content.contains(oldBlock) -> content.replaceFirst(oldBlock, newBlock)
-                else -> throw IllegalArgumentException("apply_patch verification failed: Failed to apply update to ${source.pathString}")
+                else ->
+                    throw IllegalArgumentException(
+                        "apply_patch verification failed: Failed to apply update to ${source.pathString}"
+                    )
             }
     }
 
@@ -212,7 +225,9 @@ private fun insertByContext(
     val anchor = contextLines.joinToString("\n")
     val index = joinedContent.joinToString("\n").indexOf(anchor)
     if (index < 0) {
-        throw IllegalArgumentException("apply_patch verification failed: Failed to apply insert hunk")
+        throw IllegalArgumentException(
+            "apply_patch verification failed: Failed to apply insert hunk"
+        )
     }
     val anchorEnd = index + anchor.length
     return content.substring(0, anchorEnd) + "\n" + newBlock + content.substring(anchorEnd)
@@ -240,18 +255,23 @@ private fun replaceOrThrow(
         throw IllegalArgumentException("oldString not found in file")
     }
     if (!replaceAll && occurrences > 1) {
-        throw IllegalArgumentException("Found multiple matches for oldString. Provide more surrounding context to make the match unique.")
+        throw IllegalArgumentException(
+            "Found multiple matches for oldString. Provide more surrounding context to make the match unique."
+        )
     }
-    return if (replaceAll) content.replace(oldString, newString) else content.replaceFirst(oldString, newString)
+    return if (replaceAll) content.replace(oldString, newString)
+    else content.replaceFirst(oldString, newString)
 }
 
-class WorkspaceFiles(
-    root: Path,
-) {
+class WorkspaceFiles(root: Path) {
     private val root = root.toAbsolutePath().normalize()
     private val realRoot =
         root
-            .also { require(!Files.isSymbolicLink(it)) { "Workspace root must not be a symbolic link: $it" } }
+            .also {
+                require(!Files.isSymbolicLink(it)) {
+                    "Workspace root must not be a symbolic link: $it"
+                }
+            }
             .toRealPath(LinkOption.NOFOLLOW_LINKS)
 
     fun glob(
@@ -293,7 +313,8 @@ class WorkspaceFiles(
                         file.relative.pathString,
                         Files.getLastModifiedTime(file.actual).toMillis(),
                     )
-                }.sortedWith(compareByDescending<WorkspaceGlobMatch> { it.mtime }.thenBy { it.path })
+                }
+                .sortedWith(compareByDescending<WorkspaceGlobMatch> { it.mtime }.thenBy { it.path })
                 .take(MAX_GLOB_RESULTS + 1)
                 .toList()
 
@@ -318,7 +339,9 @@ class WorkspaceFiles(
         }
 
         val output =
-            mutableListOf("Found ${result.total} matches${if (result.truncated) " (showing first $MAX_GREP_RESULTS)" else ""}")
+            mutableListOf(
+                "Found ${result.total} matches${if (result.truncated) " (showing first $MAX_GREP_RESULTS)" else ""}"
+            )
 
         var current = ""
         for (match in result.matches) {
@@ -371,21 +394,29 @@ class WorkspaceFiles(
                     }
                     val mtime = Files.getLastModifiedTime(item.actual).toMillis()
                     runCatching {
-                        Files.readAllLines(item.actual, StandardCharsets.UTF_8).mapIndexedNotNull { index, text ->
-                            if (!regex.containsMatchIn(text)) {
-                                null
+                            Files.readAllLines(item.actual, StandardCharsets.UTF_8)
+                                .mapIndexedNotNull { index, text ->
+                                    if (!regex.containsMatchIn(text)) {
+                                        null
+                                    } else {
+                                        WorkspaceGrepMatch(
+                                            item.display.pathString,
+                                            index + 1,
+                                            clipForGrep(text),
+                                            mtime,
+                                        )
+                                    }
+                                }
+                        }
+                        .getOrElse { error ->
+                            if (error is MalformedInputException) {
+                                emptyList()
                             } else {
-                                WorkspaceGrepMatch(item.display.pathString, index + 1, clipForGrep(text), mtime)
+                                throw error
                             }
                         }
-                    }.getOrElse { error ->
-                        if (error is MalformedInputException) {
-                            emptyList()
-                        } else {
-                            throw error
-                        }
-                    }
-                }.sortedWith(compareByDescending<WorkspaceGrepMatch> { it.mtime }.thenBy { it.path })
+                }
+                .sortedWith(compareByDescending<WorkspaceGrepMatch> { it.mtime }.thenBy { it.path })
 
         val truncated = rows.size > MAX_GREP_RESULTS
         val final = if (truncated) rows.take(MAX_GREP_RESULTS) else rows
@@ -416,7 +447,9 @@ class WorkspaceFiles(
             throw IllegalArgumentException("filePath is required")
         }
         if (oldString == newString) {
-            throw IllegalArgumentException("No changes to apply: oldString and newString are identical.")
+            throw IllegalArgumentException(
+                "No changes to apply: oldString and newString are identical."
+            )
         }
 
         val target = resolve(filePath)
@@ -466,7 +499,7 @@ class WorkspaceFiles(
                     val target = resolve(operation.path)
                     if (!Files.exists(target) || Files.isDirectory(target)) {
                         throw IllegalArgumentException(
-                            "apply_patch verification failed: Failed to read file to update: ${target.pathString}",
+                            "apply_patch verification failed: Failed to read file to update: ${target.pathString}"
                         )
                     }
                     Files.delete(target)
@@ -477,7 +510,7 @@ class WorkspaceFiles(
                     val source = resolve(operation.path)
                     if (!Files.exists(source) || Files.isDirectory(source)) {
                         throw IllegalArgumentException(
-                            "apply_patch verification failed: Failed to read file to update: ${source.pathString}",
+                            "apply_patch verification failed: Failed to read file to update: ${source.pathString}"
                         )
                     }
                     val original = readUtf8(source)
@@ -512,7 +545,9 @@ class WorkspaceFiles(
             return listOf(WalkedFile(target, target, relative))
         }
 
-        return walkFiles(cwd).filter { includeMatchers == null || matchesGlob(includeMatchers, it.relative) }
+        return walkFiles(cwd).filter {
+            includeMatchers == null || matchesGlob(includeMatchers, it.relative)
+        }
     }
 
     private fun walkFiles(root: Path): List<WalkedFile> {
@@ -526,7 +561,8 @@ class WorkspaceFiles(
                     val relative = base.relativize(actual)
                     val display = root.resolve(relative).normalize()
                     WalkedFile(actual, display, relative)
-                }.toList()
+                }
+                .toList()
         }
     }
 
@@ -553,7 +589,9 @@ class WorkspaceFiles(
         for (segment in relative) {
             current = current.resolve(segment)
             if (Files.isSymbolicLink(current)) {
-                throw IllegalArgumentException("Symbolic links are not allowed in workspace paths: $current")
+                throw IllegalArgumentException(
+                    "Symbolic links are not allowed in workspace paths: $current"
+                )
             }
         }
     }
@@ -575,16 +613,21 @@ class WorkspaceFiles(
 
     private fun readUtf8(path: Path): String = Files.readString(path, StandardCharsets.UTF_8)
 
-    private fun relativeDisplay(path: Path): String = root.relativize(path).pathString.replace("\\", "/")
+    private fun relativeDisplay(path: Path): String =
+        root.relativize(path).pathString.replace("\\", "/")
 
-    private fun clipForGrep(text: String): String = if (text.length > MAX_LINE_LENGTH) text.substring(0, MAX_LINE_LENGTH) + "..." else text
+    private fun clipForGrep(text: String): String =
+        if (text.length > MAX_LINE_LENGTH) text.substring(0, MAX_LINE_LENGTH) + "..." else text
 
-    private fun containsGitDir(path: Path): Boolean = path.normalize().asSequence().any { it.toString() == ".git" }
+    private fun containsGitDir(path: Path): Boolean =
+        path.normalize().asSequence().any { it.toString() == ".git" }
 
     private fun matchesGlob(
         matchers: List<PathMatcher>,
         relative: Path,
-    ): Boolean = matchers.any { matcher -> matcher.matches(relative) || (relative.nameCount == 1 && matcher.matches(relative.fileName)) }
+    ): Boolean = matchers.any { matcher ->
+        matcher.matches(relative) || (relative.nameCount == 1 && matcher.matches(relative.fileName))
+    }
 
     private fun globMatchers(
         base: Path,
@@ -598,11 +641,7 @@ class WorkspaceFiles(
     }
 
     private fun isBinaryFile(path: Path): Boolean {
-        val ext =
-            path.fileName
-                .toString()
-                .substringAfterLast('.', "")
-                .lowercase()
+        val ext = path.fileName.toString().substringAfterLast('.', "").lowercase()
         if (ext in BINARY_FILE_EXTENSIONS) {
             return true
         }

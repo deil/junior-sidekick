@@ -1,9 +1,9 @@
 package com.github.uncomplexco.sidekick.application.stats
 
 import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
-import org.springframework.stereotype.Component
 import java.time.Duration
 import java.time.Instant
+import org.springframework.stereotype.Component
 
 data class WeeklyStats(
     val channels: Int,
@@ -20,9 +20,7 @@ data class ConversationUsage(
 )
 
 @Component
-class WeeklyStatsService(
-    private val conversations: ConversationStateStore,
-) {
+class WeeklyStatsService(private val conversations: ConversationStateStore) {
     fun gather(executedAt: Instant): WeeklyStats {
         val periodStartMs = executedAt.minus(REPORTING_PERIOD).toEpochMilli()
         val periodEndMs = executedAt.toEpochMilli()
@@ -31,10 +29,7 @@ class WeeklyStatsService(
         return WeeklyStats(
             channels = selected.map { it.channelId }.distinct().size,
             conversations = selected.size,
-            tokensConsumed =
-                selected.sumOf {
-                    it.consumedInputTokens + it.consumedOutputTokens
-                },
+            tokensConsumed = selected.sumOf { it.consumedInputTokens + it.consumedOutputTokens },
             users = selected.flatMap { it.userIds }.distinct().size,
         )
     }

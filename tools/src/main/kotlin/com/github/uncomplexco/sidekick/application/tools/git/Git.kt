@@ -9,15 +9,15 @@ import com.github.uncomplexco.sidekick.adapters.jgit.JGitRepository
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths.Companion.PROJECT_ROOT
 import com.github.uncomplexco.sidekick.application.utils.Loggers
-import kotlinx.serialization.Serializable
-import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.stereotype.Component
-import org.slf4j.LoggerFactory
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import kotlin.io.path.pathString
+import kotlinx.serialization.Serializable
+import org.slf4j.LoggerFactory
+import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.stereotype.Component
 
 private val PREFERRED_BRANCHES = listOf("develop", "master", "main")
 private val SCP_LIKE_URL_RE = Regex("^git@([^/:\\s]+):(.+)$")
@@ -42,12 +42,13 @@ class GitTools(
     private val logger = LoggerFactory.getLogger(Loggers.TOOLS.name + ".git")
 
     @Tool("git__clone")
-    @LLMDescription("Clone or fetch and fast-forward a private Git repository into the project workspace")
+    @LLMDescription(
+        "Clone or fetch and fast-forward a private Git repository into the project workspace"
+    )
     fun clone(
         @LLMDescription("Git repository URL. Both SSH and HTTPS clone URLs are supported")
         url: String,
-        @LLMDescription("Destination folder path. Must be under /data/project")
-        path: String,
+        @LLMDescription("Destination folder path. Must be under /data/project") path: String,
     ): GitCloneResult {
         validate(url.isNotBlank()) { "url is required" }
         validate(path.isNotBlank()) { "path is required" }
@@ -62,7 +63,13 @@ class GitTools(
                     cloneOrFetchExisting(repository, sshKeyFile, checkout)
                 } else {
                     prepareMissingDestination(checkout)
-                    git.clone(repository.sshUrl, sshKeyFile, checkout, virtualPaths.projectRoot, PREFERRED_BRANCHES)
+                    git.clone(
+                        repository.sshUrl,
+                        sshKeyFile,
+                        checkout,
+                        virtualPaths.projectRoot,
+                        PREFERRED_BRANCHES,
+                    )
                 }
             } catch (error: IllegalArgumentException) {
                 logger.error("Git clone failed path={}", path, error)
@@ -77,21 +84,20 @@ class GitTools(
 
     @Tool("git__push")
     @LLMDescription(
-        "Update remote refs along with associated objects. Use instead of direct 'git push' invocation for private repositories",
+        "Update remote refs along with associated objects. Use instead of direct 'git push' invocation for private repositories"
     )
     fun push(
-        @LLMDescription("Repository folder path")
-        path: String,
+        @LLMDescription("Repository folder path") path: String,
         @LLMDescription(
-            "What destination ref to update with what source object. Equivalent to 'git push origin <branch>'. Defaults to the current branch upstream",
+            "What destination ref to update with what source object. Equivalent to 'git push origin <branch>'. Defaults to the current branch upstream"
         )
         refspec: String? = null,
         @LLMDescription(
-            "Push all branches (i.e. refs under refs/heads/); cannot be used with other <refspec>. Equivalent to 'git push --all",
+            "Push all branches (i.e. refs under refs/heads/); cannot be used with other <refspec>. Equivalent to 'git push --all"
         )
         all: Boolean = false,
         @LLMDescription(
-            "All refs under refs/tags are pushed, in addition to refspecs explicitly listed in <refspec>. Equivalent to 'git push --tags'",
+            "All refs under refs/tags are pushed, in addition to refspecs explicitly listed in <refspec>. Equivalent to 'git push --tags'"
         )
         tags: Boolean = false,
     ): GitPushResult {
@@ -116,10 +122,16 @@ class GitTools(
             return state.toToolResult(virtualPaths)
         }
 
-        val remoteUrl = plan.remoteUrl ?: throw ToolException.ValidationFailure("Git repository upstream remote has no URL")
+        val remoteUrl =
+            plan.remoteUrl
+                ?: throw ToolException.ValidationFailure(
+                    "Git repository upstream remote has no URL"
+                )
         val repository = parseRepositoryUrl(remoteUrl)
         val sshKeyFile = sshKeyFile(repository.provider)
-        val remote = plan.remote ?: throw ToolException.ValidationFailure("Git repository has no upstream remote")
+        val remote =
+            plan.remote
+                ?: throw ToolException.ValidationFailure("Git repository has no upstream remote")
 
         val state =
             try {
@@ -138,11 +150,10 @@ class GitTools(
 
     @Tool("git__pull")
     @LLMDescription(
-        "Fetch from and integrate with another repository or a local branch. Use instead of direct 'git pull' invocation for private repositories",
+        "Fetch from and integrate with another repository or a local branch. Use instead of direct 'git pull' invocation for private repositories"
     )
     fun pull(
-        @LLMDescription("Repository folder path")
-        path: String,
+        @LLMDescription("Repository folder path") path: String,
         @LLMDescription("Name of a remote that is the source of a fetch or pull operation")
         remote: String,
         @LLMDescription("Specifies which refs to fetch and which local refs to update")
@@ -156,7 +167,9 @@ class GitTools(
         validate(!Files.isSymbolicLink(checkout)) { "'path' must not be a symbolic link" }
         validate(git.isGitRepository(checkout)) { "'path' is not a Git repository" }
 
-        val remoteUrl = git.remoteUrl(checkout, remote) ?: throw ToolException.ValidationFailure("Git repository remote has no URL")
+        val remoteUrl =
+            git.remoteUrl(checkout, remote)
+                ?: throw ToolException.ValidationFailure("Git repository remote has no URL")
         val repository = parseRepositoryUrl(remoteUrl)
         val sshKeyFile = sshKeyFile(repository.provider)
 
@@ -181,26 +194,36 @@ class GitTools(
         checkout: Path,
     ): GitRepositoryState {
         if (Files.isSymbolicLink(checkout)) {
-            throw ToolException.ValidationFailure("Path must not be a symbolic link: ${virtualPaths.virtualPath(checkout.pathString)}")
+            throw ToolException.ValidationFailure(
+                "Path must not be a symbolic link: ${virtualPaths.virtualPath(checkout.pathString)}"
+            )
         }
         if (!git.isGitRepository(checkout)) {
-            if (Files.isDirectory(checkout, LinkOption.NOFOLLOW_LINKS) && isEmptyDirectory(checkout)) {
-                return git.clone(repository.sshUrl, sshKeyFile, checkout, virtualPaths.projectRoot, PREFERRED_BRANCHES)
+            if (
+                Files.isDirectory(checkout, LinkOption.NOFOLLOW_LINKS) && isEmptyDirectory(checkout)
+            ) {
+                return git.clone(
+                    repository.sshUrl,
+                    sshKeyFile,
+                    checkout,
+                    virtualPaths.projectRoot,
+                    PREFERRED_BRANCHES,
+                )
             }
             throw ToolException.ValidationFailure(
-                "Path exists but is not an empty directory or Git repository: ${virtualPaths.virtualPath(checkout.pathString)}",
+                "Path exists but is not an empty directory or Git repository: ${virtualPaths.virtualPath(checkout.pathString)}"
             )
         }
 
         val origin =
             git.originUrl(checkout)
                 ?: throw ToolException.ValidationFailure(
-                    "Git repository has no origin remote: ${virtualPaths.virtualPath(checkout.pathString)}",
+                    "Git repository has no origin remote: ${virtualPaths.virtualPath(checkout.pathString)}"
                 )
         val originRepository = parseRepositoryUrl(origin)
         if (originRepository.canonical != repository.canonical) {
             throw ToolException.ValidationFailure(
-                "Git repository origin does not match requested URL: ${virtualPaths.virtualPath(checkout.pathString)}",
+                "Git repository origin does not match requested URL: ${virtualPaths.virtualPath(checkout.pathString)}"
             )
         }
         useSshRemote(checkout, "origin", origin, originRepository)
@@ -232,8 +255,8 @@ class GitTools(
         when (state.status) {
             GitRepositoryStatus.CLONED,
             GitRepositoryStatus.FETCHED_FAST_FORWARDED,
-            GitRepositoryStatus.FETCHED_UP_TO_DATE,
-            -> logger.info("Git clone operation completed path={} status={}", path, state.status)
+            GitRepositoryStatus.FETCHED_UP_TO_DATE ->
+                logger.info("Git clone operation completed path={} status={}", path, state.status)
             else -> logger.error("Git clone operation failed path={} status={}", path, state.status)
         }
     }
@@ -242,9 +265,22 @@ class GitTools(
         val path = virtualPaths.virtualPath(state.path.pathString)
         when (state.status) {
             GitPushStatus.PUSHED,
-            GitPushStatus.UP_TO_DATE,
-            -> logger.info("Git push completed path={} status={} remote={} branch={}", path, state.status, state.remote, state.branch)
-            else -> logger.error("Git push failed path={} status={} remote={} branch={}", path, state.status, state.remote, state.branch)
+            GitPushStatus.UP_TO_DATE ->
+                logger.info(
+                    "Git push completed path={} status={} remote={} branch={}",
+                    path,
+                    state.status,
+                    state.remote,
+                    state.branch,
+                )
+            else ->
+                logger.error(
+                    "Git push failed path={} status={} remote={} branch={}",
+                    path,
+                    state.status,
+                    state.remote,
+                    state.branch,
+                )
         }
     }
 
@@ -253,22 +289,41 @@ class GitTools(
         when (state.status) {
             GitPullStatus.FAST_FORWARDED,
             GitPullStatus.UP_TO_DATE,
-            GitPullStatus.MERGED,
-            -> logger.info("Git pull completed path={} status={} remote={} branch={}", path, state.status, state.remote, state.branch)
-            else -> logger.error("Git pull failed path={} status={} remote={} branch={}", path, state.status, state.remote, state.branch)
+            GitPullStatus.MERGED ->
+                logger.info(
+                    "Git pull completed path={} status={} remote={} branch={}",
+                    path,
+                    state.status,
+                    state.remote,
+                    state.branch,
+                )
+            else ->
+                logger.error(
+                    "Git pull failed path={} status={} remote={} branch={}",
+                    path,
+                    state.status,
+                    state.remote,
+                    state.branch,
+                )
         }
     }
 
     private fun prepareMissingDestination(checkout: Path) {
-        val parent = checkout.parent ?: throw ToolException.ValidationFailure("Path must name a destination folder")
+        val parent =
+            checkout.parent
+                ?: throw ToolException.ValidationFailure("Path must name a destination folder")
         ensureNoSymlinksFromWritableRoot(parent)
         Files.createDirectories(parent)
     }
 
     private fun resolveWritablePath(path: String): Path {
         val root =
-            virtualPaths.roots.firstOrNull { root -> path == root.virtual || path.startsWith("${root.virtual}/") }
-                ?: throw ToolException.ValidationFailure("Path must be under a writable workspace root")
+            virtualPaths.roots.firstOrNull { root ->
+                path == root.virtual || path.startsWith("${root.virtual}/")
+            }
+                ?: throw ToolException.ValidationFailure(
+                    "Path must be under a writable workspace root"
+                )
         if (!root.writable) {
             throw ToolException.ValidationFailure("Path must be under a writable workspace root")
         }
@@ -279,11 +334,7 @@ class GitTools(
         }
 
         val rootPath = root.real.toAbsolutePath().normalize()
-        val checkout =
-            root.real
-                .resolve(relative)
-                .toAbsolutePath()
-                .normalize()
+        val checkout = root.real.resolve(relative).toAbsolutePath().normalize()
         if (!checkout.startsWith(rootPath)) {
             throw ToolException.ValidationFailure("Path must be under a writable workspace root")
         }
@@ -318,7 +369,7 @@ class GitTools(
             current = current.resolve(segment)
             if (Files.isSymbolicLink(current)) {
                 throw ToolException.ValidationFailure(
-                    "Path must not traverse a symbolic link: ${virtualPaths.virtualPath(current.pathString)}",
+                    "Path must not traverse a symbolic link: ${virtualPaths.virtualPath(current.pathString)}"
                 )
             }
         }
@@ -328,7 +379,9 @@ class GitTools(
         val absolutePath = path.toAbsolutePath().normalize()
         val root =
             virtualPaths.roots.firstOrNull { root -> root.writable && root.contains(absolutePath) }
-                ?: throw ToolException.ValidationFailure("Path must be under a writable workspace root")
+                ?: throw ToolException.ValidationFailure(
+                    "Path must be under a writable workspace root"
+                )
         val rootPath = root.real.toAbsolutePath().normalize()
 
         var current = rootPath
@@ -337,7 +390,7 @@ class GitTools(
             current = current.resolve(segment)
             if (Files.isSymbolicLink(current)) {
                 throw ToolException.ValidationFailure(
-                    "Path must not traverse a symbolic link: ${virtualPaths.virtualPath(current.pathString)}",
+                    "Path must not traverse a symbolic link: ${virtualPaths.virtualPath(current.pathString)}"
                 )
             }
         }
@@ -346,14 +399,16 @@ class GitTools(
     private fun sshKeyFile(provider: GitProvider): String {
         val (value, property) =
             when (provider) {
-                GitProvider.GITHUB -> config.github.sshKeyFile to "agent.tools.git.github.ssh-key-file"
-                GitProvider.BITBUCKET -> config.bitbucket.sshKeyFile to "agent.tools.git.bitbucket.ssh-key-file"
+                GitProvider.GITHUB ->
+                    config.github.sshKeyFile to "agent.tools.git.github.ssh-key-file"
+                GitProvider.BITBUCKET ->
+                    config.bitbucket.sshKeyFile to "agent.tools.git.bitbucket.ssh-key-file"
                 GitProvider.AZURE_DEVOPS,
                 GitProvider.OTHER -> config.sshKeyFile to "agent.tools.git.ssh-key-file"
             }
         return value?.takeIf { it.isNotBlank() }
             ?: throw ToolException.ValidationFailure(
-                "${provider.displayName} SSH key is not configured: $property",
+                "${provider.displayName} SSH key is not configured: $property"
             )
     }
 }
@@ -559,7 +614,8 @@ private fun GitPullState.toToolResult(virtualPaths: VirtualPaths): GitPullResult
         message = message,
     )
 
-private fun isEmptyDirectory(path: Path): Boolean = Files.list(path).use { entries -> entries.findAny().isEmpty }
+private fun isEmptyDirectory(path: Path): Boolean =
+    Files.list(path).use { entries -> entries.findAny().isEmpty }
 
 private fun parseRepositoryUrl(url: String): GitRepositoryUrl {
     SCP_LIKE_URL_RE.matchEntire(url)?.let { match ->
@@ -574,7 +630,9 @@ private fun parseRepositoryUrl(url: String): GitRepositoryUrl {
         } catch (_: IllegalArgumentException) {
             throw ToolException.ValidationFailure("Unsupported Git repository URL")
         }
-    val host = uri.host?.lowercase() ?: throw ToolException.ValidationFailure("Unsupported Git repository URL")
+    val host =
+        uri.host?.lowercase()
+            ?: throw ToolException.ValidationFailure("Unsupported Git repository URL")
     if (uri.scheme !in setOf("https", "ssh")) {
         throw ToolException.ValidationFailure("Git repository URL must use SSH or HTTPS")
     }
@@ -591,17 +649,17 @@ private fun repositoryUrl(
         return azureDevOpsRepositoryUrl(normalizedHost, path)
     }
 
-    val parts =
-        path
-            .trim('/')
-            .split('/')
-            .filter { it.isNotBlank() }
+    val parts = path.trim('/').split('/').filter { it.isNotBlank() }
     if (parts.size < 2) {
-        throw ToolException.ValidationFailure("Git repository URL must identify owner and repository")
+        throw ToolException.ValidationFailure(
+            "Git repository URL must identify owner and repository"
+        )
     }
     val repository = parts.last().removeSuffix(".git")
     if (repository.isBlank()) {
-        throw ToolException.ValidationFailure("Git repository URL must identify owner and repository")
+        throw ToolException.ValidationFailure(
+            "Git repository URL must identify owner and repository"
+        )
     }
     val repositoryPath = (parts.dropLast(1) + repository).joinToString("/")
 
@@ -624,21 +682,23 @@ private fun azureDevOpsRepositoryUrl(
     host: String,
     path: String,
 ): GitRepositoryUrl {
-    val parts =
-        path
-            .trim('/')
-            .split('/')
-            .filter { it.isNotBlank() }
+    val parts = path.trim('/').split('/').filter { it.isNotBlank() }
     val coordinates =
         when {
-            host == "dev.azure.com" && parts.size == 4 && parts[2].equals("_git", ignoreCase = true) ->
+            host == "dev.azure.com" &&
+                parts.size == 4 &&
+                parts[2].equals("_git", ignoreCase = true) ->
                 listOf(parts[0], parts[1], parts[3].removeSuffix(".git"))
-            host == "ssh.dev.azure.com" && parts.size == 4 && parts[0].equals("v3", ignoreCase = true) ->
+            host == "ssh.dev.azure.com" &&
+                parts.size == 4 &&
+                parts[0].equals("v3", ignoreCase = true) ->
                 listOf(parts[1], parts[2], parts[3].removeSuffix(".git"))
             else -> throw ToolException.ValidationFailure("Unsupported Azure DevOps repository URL")
         }
     if (coordinates.any { it.isBlank() }) {
-        throw ToolException.ValidationFailure("Azure DevOps URL must identify organization, project, and repository")
+        throw ToolException.ValidationFailure(
+            "Azure DevOps URL must identify organization, project, and repository"
+        )
     }
     val repositoryPath = coordinates.joinToString("/")
 
@@ -659,9 +719,7 @@ private data class GitRepositoryUrl(
     val canonical = "$host/${repositoryPath.lowercase()}"
 }
 
-private enum class GitProvider(
-    val displayName: String,
-) {
+private enum class GitProvider(val displayName: String) {
     GITHUB("GitHub"),
     BITBUCKET("Bitbucket"),
     AZURE_DEVOPS("Azure DevOps"),

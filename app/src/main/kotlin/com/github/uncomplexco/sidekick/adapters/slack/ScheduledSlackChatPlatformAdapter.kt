@@ -12,9 +12,11 @@ class ScheduledSlackChatPlatformAdapter(
     channelId: String,
     override val botUsername: String,
 ) : SlackBackedChatPlatformAdapter {
-    override val resultHandler: TurnResultHandler = SlackTurnResultHandler(client, channelId, threadId = null)
+    override val resultHandler: TurnResultHandler =
+        SlackTurnResultHandler(client, channelId, threadId = null)
 
-    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
+        emptyList()
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,
