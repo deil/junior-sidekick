@@ -67,6 +67,17 @@ class JGitRepository : GitRepository {
             git.repository.config.getString("remote", remote, "url")
         }
 
+    override fun setRemoteUrl(
+        checkout: Path,
+        remote: String,
+        url: String,
+    ) {
+        Git.open(checkout.toFile()).use { git ->
+            git.repository.config.setString("remote", remote, "url", url)
+            git.repository.config.save()
+        }
+    }
+
     override fun pushPlan(
         checkout: Path,
         branch: String?,

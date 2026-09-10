@@ -65,6 +65,30 @@ class GitToolsTest {
     }
 
     @Test
+    fun `converts matching Azure DevOps https origin before fetch`() {
+        val checkout = Files.createDirectories(dir.resolve("project/repo"))
+        val git =
+            FakeGitRepository(
+                gitRepositories = setOf(checkout),
+                origins =
+                    mapOf(
+                        checkout to "https://Profitsword@dev.azure.com/Profitsword/Katana/_git/Actabl.BI.Gateway",
+                    ),
+            )
+        val tools = tools(git)
+
+        tools.clone(
+            "https://dev.azure.com/Profitsword/Katana/_git/Actabl.BI.Gateway",
+            "/data/project/repo",
+        )
+
+        assertEquals(
+            Triple(checkout, "origin", "git@ssh.dev.azure.com:v3/Profitsword/Katana/Actabl.BI.Gateway"),
+            git.updatedRemote,
+        )
+    }
+
+    @Test
     fun `rejects destination outside project root`() {
         // Arrange
         val tools = tools(FakeGitRepository())
@@ -116,6 +140,39 @@ class GitToolsTest {
         // Assert
         assertEquals("git@gitlab.com:acme/platform/repo.git", git.clonedUrl)
         assertEquals("/keys/other", git.clonedSshKeyFile)
+    }
+
+    @Test
+    fun `clones Azure DevOps https url using provider ssh url`() {
+        val git = FakeGitRepository()
+        val tools = tools(git)
+
+        tools.clone(
+            "https://Profitsword@dev.azure.com/Profitsword/Katana/_git/Actabl.BI.Gateway",
+            "/data/project/gateway",
+        )
+
+        assertEquals(
+            "git@ssh.dev.azure.com:v3/Profitsword/Katana/Actabl.BI.Gateway",
+            git.clonedUrl,
+        )
+        assertEquals("/keys/other", git.clonedSshKeyFile)
+    }
+
+    @Test
+    fun `accepts Azure DevOps ssh url`() {
+        val git = FakeGitRepository()
+        val tools = tools(git)
+
+        tools.clone(
+            "git@ssh.dev.azure.com:v3/Profitsword/Katana/Actabl.BI.Gateway",
+            "/data/project/gateway",
+        )
+
+        assertEquals(
+            "git@ssh.dev.azure.com:v3/Profitsword/Katana/Actabl.BI.Gateway",
+            git.clonedUrl,
+        )
     }
 
     @Test
@@ -190,6 +247,36 @@ class GitToolsTest {
         assertEquals(null, git.pushedBranch)
         assertEquals(false, git.pushedAll)
         assertEquals(false, git.pushedTags)
+    }
+
+    @Test
+    fun `converts Azure DevOps https upstream before push`() {
+        val checkout = Files.createDirectories(dir.resolve("project/repo"))
+        val git =
+            FakeGitRepository(
+                gitRepositories = setOf(checkout),
+                pushPlan = { path, _ ->
+                    GitPushPlan(
+                        path = path,
+                        branch = "main",
+                        commitHash = "ghi789",
+                        dirty = false,
+                        remote = "origin",
+                        upstream = "refs/heads/main",
+                        remoteUrl = "https://dev.azure.com/Profitsword/Katana/_git/Actabl.BI.Gateway",
+                        status = null,
+                        message = "Ready",
+                    )
+                },
+            )
+        val tools = tools(git)
+
+        tools.push("/data/project/repo")
+
+        assertEquals(
+            Triple(checkout, "origin", "git@ssh.dev.azure.com:v3/Profitsword/Katana/Actabl.BI.Gateway"),
+            git.updatedRemote,
+        )
     }
 
     @Test
@@ -384,6 +471,7 @@ private class FakeGitRepository(
     var pulledSshKeyFile: String? = null
     var pulledRemote: String? = null
     var pulledRefspec: String? = null
+    var updatedRemote: Triple<Path, String, String>? = null
 
     override fun clone(
         url: String,
@@ -415,6 +503,14 @@ private class FakeGitRepository(
         checkout: Path,
         remote: String,
     ): String? = origins[checkout]
+
+    override fun setRemoteUrl(
+        checkout: Path,
+        remote: String,
+        url: String,
+    ) {
+        updatedRemote = Triple(checkout, remote, url)
+    }
 
     override fun pushPlan(
         checkout: Path,

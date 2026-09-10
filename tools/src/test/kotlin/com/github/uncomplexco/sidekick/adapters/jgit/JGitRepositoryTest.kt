@@ -15,6 +15,19 @@ class JGitRepositoryTest {
     lateinit var dir: Path
 
     @Test
+    fun `updates remote url`() {
+        val checkout = createRepository("checkout")
+        Git.open(checkout.toFile()).use { git ->
+            git.repository.config.setString("remote", "origin", "url", "https://example.com/acme/repo")
+            git.repository.config.save()
+        }
+
+        JGitRepository().setRemoteUrl(checkout, "origin", "git@example.com:acme/repo.git")
+
+        assertEquals("git@example.com:acme/repo.git", JGitRepository().originUrl(checkout))
+    }
+
+    @Test
     fun `fetch fast-forwards current branch when remote is ahead`() {
         // Arrange
         val remote = createRepository("remote")

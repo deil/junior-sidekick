@@ -34,6 +34,20 @@ _Opinionated. Not everyone will agree — that's fine._
 - Validation belongs at the anti-corruption layer (API boundary, message consumer, etc.) — once data is inside the app, treat it as correct; do not re-validate inside methods; the exception: explicit business invariants that must hold before entering a workflow or algorithm
 - Do not catch exceptions you don't know how to handle — unhandled errors propagate naturally to logs and 500 responses; wrapping or rethrowing without a clear corrective action is noise
 
+### Logging
+
+Every state change, mutation, transition, side effect, and external-system invocation must produce an `INFO` log.
+
+Log a semantic application or domain operation, not each field assignment or database statement. The caller that owns the operation logs its outcome once, even when the operation runs several queries or DML statements.
+
+Repository and database operations are not external-system invocations. Do not log them merely because they access the database.
+
+Use the remaining levels by outcome:
+
+- `ERROR`: An error or exception prevents the request or operation from completing.
+- `WARN`: An error or exception occurs, but handling it allows the request or operation to complete.
+- `DEBUG`: Anything else that needs to be logged.
+
 ### Tests
 
 - Prefer Kotlin

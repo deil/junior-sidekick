@@ -8,9 +8,11 @@ import ai.koog.agents.core.tools.validate
 import com.github.uncomplexco.sidekick.adapters.jgit.JGitRepository
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths.Companion.PROJECT_ROOT
+import com.github.uncomplexco.sidekick.application.utils.Loggers
 import kotlinx.serialization.Serializable
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
+import org.slf4j.LoggerFactory
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -37,6 +39,8 @@ class GitTools(
     private val virtualPaths: VirtualPaths,
     private val git: GitRepository = JGitRepository(),
 ) : ToolSet {
+    private val logger = LoggerFactory.getLogger(Loggers.TOOLS.name + ".git")
+
     @Tool("git__clone")
     @LLMDescription("Clone or fetch and fast-forward a private Git repository into the project workspace")
     fun clone(
@@ -52,18 +56,23 @@ class GitTools(
         val sshKeyFile = sshKeyFile(repository.provider)
         val checkout = resolveWritablePath(path)
 
-        return try {
-            if (Files.exists(checkout, LinkOption.NOFOLLOW_LINKS)) {
-                cloneOrFetchExisting(repository, sshKeyFile, checkout)
-            } else {
-                prepareMissingDestination(checkout)
-                git.clone(repository.sshUrl, sshKeyFile, checkout, virtualPaths.projectRoot, PREFERRED_BRANCHES)
+        val state =
+            try {
+                if (Files.exists(checkout, LinkOption.NOFOLLOW_LINKS)) {
+                    cloneOrFetchExisting(repository, sshKeyFile, checkout)
+                } else {
+                    prepareMissingDestination(checkout)
+                    git.clone(repository.sshUrl, sshKeyFile, checkout, virtualPaths.projectRoot, PREFERRED_BRANCHES)
+                }
+            } catch (error: IllegalArgumentException) {
+                logger.error("Git clone failed path={}", path, error)
+                throw ToolException.ValidationFailure(error.message ?: "Invalid git clone request")
+            } catch (error: Exception) {
+                logger.error("Git clone failed path={}", path, error)
+                throw ToolException.ValidationFailure(error.message ?: "Git clone failed")
             }
-        } catch (error: IllegalArgumentException) {
-            throw ToolException.ValidationFailure(error.message ?: "Invalid git clone request")
-        } catch (error: Exception) {
-            throw ToolException.ValidationFailure(error.message ?: "Git clone failed")
-        }.toToolResult(virtualPaths)
+        logCloneOutcome(state)
+        return state.toToolResult(virtualPaths)
     }
 
     @Tool("git__push")
@@ -98,21 +107,33 @@ class GitTools(
             try {
                 git.pushPlan(checkout, refspec)
             } catch (error: IllegalArgumentException) {
+                logger.error("Git push failed path={}", path, error)
                 throw ToolException.ValidationFailure(error.message ?: "Invalid git push request")
             }
         if (plan.status != null) {
-            return plan.toState(plan.status, plan.message).toToolResult(virtualPaths)
+            val state = plan.toState(plan.status, plan.message)
+            logPushOutcome(state)
+            return state.toToolResult(virtualPaths)
         }
 
         val remoteUrl = plan.remoteUrl ?: throw ToolException.ValidationFailure("Git repository upstream remote has no URL")
         val repository = parseRepositoryUrl(remoteUrl)
         val sshKeyFile = sshKeyFile(repository.provider)
+        val remote = plan.remote ?: throw ToolException.ValidationFailure("Git repository has no upstream remote")
 
-        return try {
-            git.push(checkout, sshKeyFile, refspec, all, tags).toToolResult(virtualPaths)
-        } catch (error: IllegalArgumentException) {
-            throw ToolException.ValidationFailure(error.message ?: "Invalid git push request")
-        }
+        val state =
+            try {
+                useSshRemote(checkout, remote, remoteUrl, repository)
+                git.push(checkout, sshKeyFile, refspec, all, tags)
+            } catch (error: IllegalArgumentException) {
+                logger.error("Git push failed path={}", path, error)
+                throw ToolException.ValidationFailure(error.message ?: "Invalid git push request")
+            } catch (error: Exception) {
+                logger.error("Git push failed path={}", path, error)
+                throw error
+            }
+        logPushOutcome(state)
+        return state.toToolResult(virtualPaths)
     }
 
     @Tool("git__pull")
@@ -139,11 +160,19 @@ class GitTools(
         val repository = parseRepositoryUrl(remoteUrl)
         val sshKeyFile = sshKeyFile(repository.provider)
 
-        return try {
-            git.pull(checkout, sshKeyFile, remote, refspec).toToolResult(virtualPaths)
-        } catch (error: IllegalArgumentException) {
-            throw ToolException.ValidationFailure(error.message ?: "Invalid git pull request")
-        }
+        val state =
+            try {
+                useSshRemote(checkout, remote, remoteUrl, repository)
+                git.pull(checkout, sshKeyFile, remote, refspec)
+            } catch (error: IllegalArgumentException) {
+                logger.error("Git pull failed path={} remote={}", path, remote, error)
+                throw ToolException.ValidationFailure(error.message ?: "Invalid git pull request")
+            } catch (error: Exception) {
+                logger.error("Git pull failed path={} remote={}", path, remote, error)
+                throw error
+            }
+        logPullOutcome(state)
+        return state.toToolResult(virtualPaths)
     }
 
     private fun cloneOrFetchExisting(
@@ -174,8 +203,60 @@ class GitTools(
                 "Git repository origin does not match requested URL: ${virtualPaths.virtualPath(checkout.pathString)}",
             )
         }
+        useSshRemote(checkout, "origin", origin, originRepository)
 
         return git.fetch(checkout, sshKeyFile)
+    }
+
+    private fun useSshRemote(
+        checkout: Path,
+        remote: String,
+        currentUrl: String,
+        repository: GitRepositoryUrl,
+    ) {
+        if (currentUrl != repository.sshUrl) {
+            git.setRemoteUrl(checkout, remote, repository.sshUrl)
+            logger.info(
+                "Converted Git remote to SSH path={} remote={} provider={} source_url={} target_url={}",
+                virtualPaths.virtualPath(checkout.pathString),
+                remote,
+                repository.provider.displayName,
+                currentUrl,
+                repository.sshUrl,
+            )
+        }
+    }
+
+    private fun logCloneOutcome(state: GitRepositoryState) {
+        val path = virtualPaths.virtualPath(state.path.pathString)
+        when (state.status) {
+            GitRepositoryStatus.CLONED,
+            GitRepositoryStatus.FETCHED_FAST_FORWARDED,
+            GitRepositoryStatus.FETCHED_UP_TO_DATE,
+            -> logger.info("Git clone operation completed path={} status={}", path, state.status)
+            else -> logger.error("Git clone operation failed path={} status={}", path, state.status)
+        }
+    }
+
+    private fun logPushOutcome(state: GitPushState) {
+        val path = virtualPaths.virtualPath(state.path.pathString)
+        when (state.status) {
+            GitPushStatus.PUSHED,
+            GitPushStatus.UP_TO_DATE,
+            -> logger.info("Git push completed path={} status={} remote={} branch={}", path, state.status, state.remote, state.branch)
+            else -> logger.error("Git push failed path={} status={} remote={} branch={}", path, state.status, state.remote, state.branch)
+        }
+    }
+
+    private fun logPullOutcome(state: GitPullState) {
+        val path = virtualPaths.virtualPath(state.path.pathString)
+        when (state.status) {
+            GitPullStatus.FAST_FORWARDED,
+            GitPullStatus.UP_TO_DATE,
+            GitPullStatus.MERGED,
+            -> logger.info("Git pull completed path={} status={} remote={} branch={}", path, state.status, state.remote, state.branch)
+            else -> logger.error("Git pull failed path={} status={} remote={} branch={}", path, state.status, state.remote, state.branch)
+        }
     }
 
     private fun prepareMissingDestination(checkout: Path) {
@@ -267,6 +348,7 @@ class GitTools(
             when (provider) {
                 GitProvider.GITHUB -> config.github.sshKeyFile to "agent.tools.git.github.ssh-key-file"
                 GitProvider.BITBUCKET -> config.bitbucket.sshKeyFile to "agent.tools.git.bitbucket.ssh-key-file"
+                GitProvider.AZURE_DEVOPS,
                 GitProvider.OTHER -> config.sshKeyFile to "agent.tools.git.ssh-key-file"
             }
         return value?.takeIf { it.isNotBlank() }
@@ -298,6 +380,12 @@ interface GitRepository {
         checkout: Path,
         remote: String,
     ): String?
+
+    fun setRemoteUrl(
+        checkout: Path,
+        remote: String,
+        url: String,
+    )
 
     fun pushPlan(
         checkout: Path,
@@ -499,6 +587,10 @@ private fun repositoryUrl(
     path: String,
 ): GitRepositoryUrl {
     val normalizedHost = host.lowercase()
+    if (normalizedHost == "dev.azure.com" || normalizedHost == "ssh.dev.azure.com") {
+        return azureDevOpsRepositoryUrl(normalizedHost, path)
+    }
+
     val parts =
         path
             .trim('/')
@@ -528,6 +620,36 @@ private fun repositoryUrl(
     )
 }
 
+private fun azureDevOpsRepositoryUrl(
+    host: String,
+    path: String,
+): GitRepositoryUrl {
+    val parts =
+        path
+            .trim('/')
+            .split('/')
+            .filter { it.isNotBlank() }
+    val coordinates =
+        when {
+            host == "dev.azure.com" && parts.size == 4 && parts[2].equals("_git", ignoreCase = true) ->
+                listOf(parts[0], parts[1], parts[3].removeSuffix(".git"))
+            host == "ssh.dev.azure.com" && parts.size == 4 && parts[0].equals("v3", ignoreCase = true) ->
+                listOf(parts[1], parts[2], parts[3].removeSuffix(".git"))
+            else -> throw ToolException.ValidationFailure("Unsupported Azure DevOps repository URL")
+        }
+    if (coordinates.any { it.isBlank() }) {
+        throw ToolException.ValidationFailure("Azure DevOps URL must identify organization, project, and repository")
+    }
+    val repositoryPath = coordinates.joinToString("/")
+
+    return GitRepositoryUrl(
+        provider = GitProvider.AZURE_DEVOPS,
+        host = "dev.azure.com",
+        repositoryPath = repositoryPath,
+        sshUrl = "git@ssh.dev.azure.com:v3/$repositoryPath",
+    )
+}
+
 private data class GitRepositoryUrl(
     val provider: GitProvider,
     val host: String,
@@ -542,5 +664,6 @@ private enum class GitProvider(
 ) {
     GITHUB("GitHub"),
     BITBUCKET("Bitbucket"),
+    AZURE_DEVOPS("Azure DevOps"),
     OTHER("Git provider"),
 }
