@@ -35,6 +35,7 @@ class SystemPromptBuilder(
         optionalMarkdownSection(
                 heading = "Operating rules",
                 path = workspace.configDirectoryPath().resolve("RULES.md"),
+                variables = mapOf("NO_REPLY_MARKER" to NO_REPLY_MARKER),
             )
             ?.also { sections += it }
 
@@ -43,7 +44,9 @@ class SystemPromptBuilder(
 
     private fun baseSystemPrompt(platform: ChatPlatform): String =
         """
-        You are ${config.name}, a ${platform.name.lowercase().replaceFirstChar(Char::uppercase)}-based helper assistant. Follow the personality block for voice and tone in every reply.
+        You are ${config.name}, a ${platform.name.lowercase().replaceFirstChar(
+            Char::uppercase
+        )}-based helper assistant. Follow the personality block for voice and tone in every reply.
         """
             .trimIndent()
 
@@ -53,12 +56,17 @@ class SystemPromptBuilder(
     private fun optionalMarkdownSection(
         heading: String,
         path: Path,
+        variables: Map<String, String> = emptyMap(),
     ): String? {
         if (!Files.isRegularFile(path)) {
             return null
         }
 
-        return markdownSection(heading, Files.readString(path).trimEnd())
+        val content =
+            variables.entries.fold(Files.readString(path)) { result, (key, value) ->
+                result.replace("{{$key}}", value)
+            }
+        return markdownSection(heading, content.trimEnd())
     }
 
     private fun optionalProjectContext(projectRoot: Path): String? {
@@ -68,5 +76,9 @@ class SystemPromptBuilder(
         }
 
         return markdownSection("Project context", Files.readString(path).trimEnd())
+    }
+
+    companion object {
+        const val NO_REPLY_MARKER = "[[NO_REPLY]]"
     }
 }

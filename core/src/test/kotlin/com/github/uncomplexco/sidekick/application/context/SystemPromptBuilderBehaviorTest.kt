@@ -65,6 +65,21 @@ class SystemPromptBuilderBehaviorTest {
     }
 
     @Test
+    fun `replaces operating rule variables`() {
+        val workingDir = Files.createDirectories(dir.resolve("workspace"))
+        Files.createDirectories(workingDir.resolve("config"))
+        Files.writeString(
+            workingDir.resolve("config/RULES.md"),
+            "Return {{NO_REPLY_MARKER}} when no reply is needed.",
+        )
+
+        val prompt = prompt(workingDir)
+
+        assertTrue(prompt.contains("Return [[NO_REPLY]] when no reply is needed."), prompt)
+        assertFalse(prompt.contains("{{NO_REPLY_MARKER}}"), prompt)
+    }
+
+    @Test
     fun `ignores legacy global project context`() {
         val workingDir = Files.createDirectories(dir.resolve("workspace"))
         val contextDir =

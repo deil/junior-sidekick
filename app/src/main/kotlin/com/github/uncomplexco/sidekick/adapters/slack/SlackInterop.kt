@@ -11,6 +11,7 @@ import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.TurnResultHandler
 import com.github.uncomplexco.sidekick.application.chat.TurnStats
+import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
 import com.github.uncomplexco.sidekick.application.utils.Loggers
@@ -31,6 +32,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.util.Locale
+import kotlin.time.Clock
 
 class SlackChatPlatformAdapter(
     private val ctx: EventContext,
@@ -112,7 +114,17 @@ internal class SlackTurnResultHandler(
                     null
                 }
             }
-        val text = (listOf(reply.text) + filePermalinks).joinToString("\n")
+
+        val replyText =
+            reply.text.takeUnless {
+                it.isBlank() || it.contains(SystemPromptBuilder.NO_REPLY_MARKER)
+            }
+        val text = (listOfNotNull(replyText) + filePermalinks).joinToString("\n")
+
+        if (text.isBlank()) {
+            val ts = Clock.System.now().toEpochMilliseconds()
+            return ReplyResult("no_reply:$ts", ts)
+        }
 
         val postResponse = client.chatPostMessage { req ->
             req.channel(channelId)
