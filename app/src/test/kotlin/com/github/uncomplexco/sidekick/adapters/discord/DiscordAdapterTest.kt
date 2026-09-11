@@ -16,6 +16,7 @@ import com.github.uncomplexco.sidekick.application.chat.InboundMessagesQueue
 import com.github.uncomplexco.sidekick.application.chat.ReplyAttachment
 import com.github.uncomplexco.sidekick.application.chat.TurnStats
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
+import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ConversationManager
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
@@ -418,6 +419,24 @@ class DiscordAdapterTest {
         handler.postReply(ChatReply("Ready."), TurnStats("normal", 65, 2, 1_200, 340))
 
         assertEquals("Ready.\n\n-# normal · 1m 5s · 1.2K → 340 · 2 tools", sent.single())
+    }
+
+    @Test
+    fun `marker-only reply with stats is not sent`() = runBlocking {
+        var sends = 0
+        val handler = DiscordTurnResultHandler {
+            sends += 1
+            DiscordSentMessage("reply", 1)
+        }
+
+        val result =
+            handler.postReply(
+                ChatReply(SystemPromptBuilder.NO_REPLY_MARKER),
+                TurnStats("normal", 65, 2, 1_200, 340),
+            )
+
+        assertEquals(0, sends)
+        assertEquals("no_reply:${result.timestamp}", result.messageId)
     }
 
     @Test

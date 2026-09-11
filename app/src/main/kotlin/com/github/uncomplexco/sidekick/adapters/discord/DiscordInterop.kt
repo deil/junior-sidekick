@@ -10,9 +10,11 @@ import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.ReplyResult
 import com.github.uncomplexco.sidekick.application.chat.TurnResultHandler
 import com.github.uncomplexco.sidekick.application.chat.TurnStats
+import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import java.util.Locale
+import kotlin.time.Clock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import org.slf4j.LoggerFactory
@@ -117,14 +119,24 @@ internal class DiscordTurnResultHandler(
                     it.name
                 }
                 .orEmpty()
+        val replyText =
+            reply.text.takeUnless {
+                it.isBlank() || it.contains(SystemPromptBuilder.NO_REPLY_MARKER)
+            }
+        val text = replyText.orEmpty() + attachmentNotice
+
+        if (text.isBlank()) {
+            val timestamp = Clock.System.now().toEpochMilliseconds()
+            return ReplyResult("no_reply:$timestamp", timestamp)
+        }
+
         val statusSubtext =
             (reply.statusLine ?: stats?.statusLine())
                 ?.takeIf { it.isNotBlank() }
                 ?.lineSequence()
                 ?.joinToString(prefix = "\n\n", separator = "\n") { "-# $it" }
                 .orEmpty()
-        val chunks = splitDiscordMessage(reply.text + attachmentNotice + statusSubtext)
-        require(chunks.isNotEmpty()) { "Discord reply must not be blank" }
+        val chunks = splitDiscordMessage(text + statusSubtext)
 
         val sent = chunks.map { send(it) }.last()
         return ReplyResult(sent.id, sent.createdAtMs)
