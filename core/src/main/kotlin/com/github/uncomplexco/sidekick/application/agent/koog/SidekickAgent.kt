@@ -17,10 +17,10 @@ import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
-import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
+import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
+import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
@@ -28,12 +28,13 @@ import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.stats.AgentStats
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
+import com.github.uncomplexco.sidekick.application.turn.RecordedTurn
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
+import java.nio.file.Path
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.nio.file.Path
 
 private val log = LoggerFactory.getLogger(SidekickAgent::class.java)
 
@@ -79,7 +80,7 @@ class SidekickAgent(
     private val checkpointPersistence: TurnCheckpointPersistence,
 ) : AgentTurnExecutor {
     override suspend fun execute(
-        turn: com.github.uncomplexco.sidekick.application.turn.RecordedTurn,
+        turn: RecordedTurn,
         chat: ChatPlatformAdapter,
     ): TurnExecutionResult {
         val ctx = turn.context
@@ -99,7 +100,8 @@ class SidekickAgent(
             val mcpToolRegistry =
                 mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
             val baseTools =
-                toolRegistryFactory.buildExecutionTools(ctxWithMcp, chat, replyAttachments) { subagentUsage ->
+                toolRegistryFactory.buildExecutionTools(ctxWithMcp, chat, replyAttachments) {
+                    subagentUsage ->
                     usage += subagentUsage
                 } + mcpToolRegistry
             val toolRegistry =
@@ -130,7 +132,7 @@ class SidekickAgent(
                                         systemPromptBuilder.buildSystemPrompt(
                                             config.botUsername!!,
                                             ctx.conversation.virtualPaths.projectRoot,
-                                        ),
+                                        )
                                     )
                                 },
                             model =
@@ -157,15 +159,9 @@ class SidekickAgent(
                             usage +=
                                 AgentUsageStats(
                                     inputTokenCount =
-                                        llmCall.response
-                                            ?.metaInfo
-                                            ?.inputTokensCount
-                                            ?.toLong() ?: 0,
+                                        llmCall.response?.metaInfo?.inputTokensCount?.toLong() ?: 0,
                                     outputTokenCount =
-                                        llmCall.response
-                                            ?.metaInfo
-                                            ?.outputTokensCount
-                                            ?.toLong()
+                                        llmCall.response?.metaInfo?.outputTokensCount?.toLong()
                                             ?: 0,
                                 )
                         }

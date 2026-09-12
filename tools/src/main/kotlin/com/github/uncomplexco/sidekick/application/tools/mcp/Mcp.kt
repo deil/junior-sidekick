@@ -2,9 +2,9 @@ package com.github.uncomplexco.sidekick.application.tools.mcp
 
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.mcp.DefaultMcpToolDescriptorParser
-import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.agent.koog.ConnectedMcpServer
 import com.github.uncomplexco.sidekick.application.agent.koog.McpServersRegistry
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import io.ktor.client.*
 import io.ktor.client.plugins.*

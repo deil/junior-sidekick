@@ -5,10 +5,10 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationKind
-import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.IncomingBatch
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.turn.TurnAdmission
 import com.github.uncomplexco.sidekick.application.turn.TurnAdmissionDecision
@@ -97,13 +97,13 @@ class TurnAdmissionTest {
             historyLoader = { emptyList() },
             message =
                 SessionMessage(
-                        id = "seed",
-                        role = SessionMessageRole.USER,
-                        author = author(),
-                        text = "existing",
-                        fileIds = emptyList(),
-                        createdAtMs = 1,
-                    ),
+                    id = "seed",
+                    role = SessionMessageRole.USER,
+                    author = author(),
+                    text = "existing",
+                    fileIds = emptyList(),
+                    createdAtMs = 1,
+                ),
             files = emptyList(),
         )
         val policy = TurnAdmission(agentSessions)
@@ -131,13 +131,13 @@ class TurnAdmissionTest {
             historyLoader = { emptyList() },
             message =
                 SessionMessage(
-                        id = "seed",
-                        role = SessionMessageRole.USER,
-                        author = author(),
-                        text = "existing",
-                        fileIds = emptyList(),
-                        createdAtMs = 1,
-                    ),
+                    id = "seed",
+                    role = SessionMessageRole.USER,
+                    author = author(),
+                    text = "existing",
+                    fileIds = emptyList(),
+                    createdAtMs = 1,
+                ),
             files = emptyList(),
         )
         agentSessions.setSubscribed(sessionId, false)
@@ -164,13 +164,13 @@ class TurnAdmissionTest {
                 historyLoader = { emptyList() },
                 message =
                     SessionMessage(
-                            id = "seed",
-                            role = SessionMessageRole.USER,
-                            author = author(),
-                            text = "existing",
-                            fileIds = emptyList(),
-                            createdAtMs = 1,
-                        ),
+                        id = "seed",
+                        role = SessionMessageRole.USER,
+                        author = author(),
+                        text = "existing",
+                        fileIds = emptyList(),
+                        createdAtMs = 1,
+                    ),
                 files = emptyList(),
             )
             agentSessions.setSubscribed(sessionId, false)
@@ -281,13 +281,13 @@ class TurnAdmissionTest {
                 historyLoader = { emptyList() },
                 message =
                     SessionMessage(
-                            id = "seed",
-                            role = SessionMessageRole.USER,
-                            author = author(),
-                            text = "existing",
-                            fileIds = emptyList(),
-                            createdAtMs = 1,
-                        ),
+                        id = "seed",
+                        role = SessionMessageRole.USER,
+                        author = author(),
+                        text = "existing",
+                        fileIds = emptyList(),
+                        createdAtMs = 1,
+                    ),
                 files = emptyList(),
             )
             val policy = TurnAdmission(agentSessions)
@@ -372,15 +372,13 @@ class TurnAdmissionTest {
         policy: TurnAdmission,
         conversationId: ChatConversationId,
         message: IncomingMessage,
-    ): TurnAdmissionDecision =
-        policy.admit(IncomingBatch(conversationId, listOf(message)))
+    ): TurnAdmissionDecision = policy.admit(IncomingBatch(conversationId, listOf(message)))
 
     private fun trigger(
         policy: TurnAdmission,
         conversationId: ChatConversationId,
         messages: List<IncomingMessage>,
-    ): TurnAdmissionDecision =
-        policy.admit(IncomingBatch(conversationId, messages))
+    ): TurnAdmissionDecision = policy.admit(IncomingBatch(conversationId, messages))
 
     private fun agentSessions(): SessionManager {
         val config =

@@ -59,18 +59,20 @@ class TurnAdmission(private val sessions: SessionManager) {
                 )
 
             IncomingMessageType.PASSIVE_MESSAGE -> {
-                if (!chatConversationId.isThread) return null
-
-                val conversationId = convert(chatConversationId)
-                if (!sessions.exists(conversationId) || !sessions.isSubscribed(conversationId)) {
-                    return null
+                if (chatConversationId.isThread) {
+                    val conversationId = convert(chatConversationId)
+                    if (sessions.exists(conversationId) && sessions.isSubscribed(conversationId)) {
+                        Candidate(
+                            conversationId = conversationId,
+                            seedHistory = false,
+                            explicitMention = false,
+                        )
+                    } else {
+                        null
+                    }
+                } else {
+                    null
                 }
-
-                Candidate(
-                    conversationId = conversationId,
-                    seedHistory = false,
-                    explicitMention = false,
-                )
             }
         }
     }

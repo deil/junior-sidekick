@@ -1,22 +1,21 @@
 package com.github.uncomplexco.sidekick.application.tools
 
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
-import com.github.uncomplexco.sidekick.application.agent.AgentResponse
-import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
-import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
-import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
+import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
-import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
-import org.junit.jupiter.api.Test
+import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
+import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
+import org.junit.jupiter.api.Test
 
 class SystemToolsTest {
     @Test
@@ -100,7 +99,8 @@ private class RecordingChatPlatform : ChatPlatformAdapter {
     override val lifecycle: TurnLifecycle = output
     override val delivery: ResponseDelivery = output
 
-    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
+        emptyList()
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,

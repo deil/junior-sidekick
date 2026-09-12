@@ -1,21 +1,20 @@
 package com.github.uncomplexco.sidekick.adapters.discord
 
-import com.github.uncomplexco.sidekick.application.chat.ChatMessage
+import com.github.uncomplexco.sidekick.adapters.statusLine
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
+import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.DiscordBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.DiscordChannelHistoryPage
 import com.github.uncomplexco.sidekick.application.chat.DiscordThreadHistoryPage
-import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
-import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
-import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
-import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
+import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
-import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
-import java.util.Locale
+import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
+import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
 import kotlin.time.Clock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -145,36 +144,6 @@ internal class DiscordTurnOutput(
         val sent = chunks.map { send(it) }.last()
         return PublishedMessage(sent.id, sent.createdAtMs)
     }
-
-    private fun TurnStats.statusLine(): String =
-        listOfNotNull(
-                profileName,
-                formattedExecutionTime(),
-                "${formattedTokenCount(inputTokenCount)} → ${formattedTokenCount(outputTokenCount)}",
-                toolCallCount.takeIf { it > 0 }?.let { "$it tools" },
-            )
-            .joinToString(" · ")
-
-    private fun ResponseMetadata.statusLine(): String? =
-        when (this) {
-            ResponseMetadata.None -> null
-            ResponseMetadata.RuntimeFailure -> "`[runtime failure]`"
-            is ResponseMetadata.Turn -> stats.statusLine()
-        }
-
-    private fun TurnStats.formattedExecutionTime(): String =
-        if (executionTimeSeconds < 60) {
-            "${executionTimeSeconds}s"
-        } else {
-            "${executionTimeSeconds / 60}m ${executionTimeSeconds % 60}s"
-        }
-
-    private fun formattedTokenCount(tokenCount: Long): String =
-        if (tokenCount < 1_000) {
-            tokenCount.toString()
-        } else {
-            String.format(Locale.ROOT, "%.1fK", tokenCount / 1000.0)
-        }
 
     private companion object {
         const val PROCESSING_REACTION = "👀"

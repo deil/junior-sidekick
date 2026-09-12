@@ -1,12 +1,9 @@
 package com.github.uncomplexco.sidekick.application.chat
 
-import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
-import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
-import java.nio.file.Path
 
 interface ChatPlatformAdapter {
     val botUsername: String

@@ -10,10 +10,10 @@ import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
+import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import java.util.UUID
 import org.springframework.stereotype.Component
 

@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import org.junit.jupiter.api.Test
 
-class InboundQueueTest {
+class IncomingMessageQueueTest {
     @Test
     fun `thread messages in same chat conversation use same batch key`() {
         // Arrange

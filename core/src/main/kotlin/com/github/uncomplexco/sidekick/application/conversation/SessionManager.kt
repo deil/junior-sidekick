@@ -105,7 +105,6 @@ class SessionManager(
 
     suspend fun recordAssistantReply(
         conversationId: ConversationId,
-        turnId: String,
         text: String,
         replyId: String,
         createdAtMs: Long,
@@ -192,7 +191,7 @@ class SessionManager(
 
     @OptIn(ExperimentalUuidApi::class)
     private fun generateTurnId(prefix: String = "turn") =
-        "${prefix}_${System.currentTimeMillis()}_${Uuid.generateV7().toString().replace("-", "").take(8)}"
+        "${prefix}_${System.currentTimeMillis()}_${Uuid.generateV7().toString().replace("-", "").take(TURN_ID_SUFFIX_LENGTH)}"
 
     private fun normalizeMessageText(text: String): String =
         text.trim().replace(Regex("\\s+"), " ").take(CONTEXT_MAX_MESSAGE_CHARS)
@@ -211,6 +210,7 @@ class SessionManager(
 
     companion object {
         private const val CONTEXT_MAX_MESSAGE_CHARS = 3200
+        private const val TURN_ID_SUFFIX_LENGTH = 8
     }
 }
 

@@ -2,10 +2,10 @@ package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
-import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
 import com.slack.api.methods.MethodsClient
 
 class ScheduledSlackChatPlatformAdapter(

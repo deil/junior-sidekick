@@ -1,24 +1,25 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
+import com.github.uncomplexco.sidekick.adapters.statusLine
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
-import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
-import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
-import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
-import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
-import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
+import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
-import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
+import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.slack.api.bolt.context.builtin.EventContext
 import com.slack.api.methods.MethodsClient
+import com.slack.api.methods.SlackApiException
 import com.slack.api.model.Attachment
 import com.slack.api.model.File as SlackFile
 import com.slack.api.model.block.Blocks.asBlocks
@@ -26,6 +27,7 @@ import com.slack.api.model.block.Blocks.context
 import com.slack.api.model.block.Blocks.markdown
 import com.slack.api.model.block.LayoutBlock
 import com.slack.api.model.block.composition.BlockCompositions.markdownText
+import java.io.IOException
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -33,8 +35,15 @@ import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
-import java.util.Locale
 import kotlin.time.Clock
+
+private fun attachmentUploadFailure(
+    name: String,
+    error: Throwable,
+): String? {
+    Loggers.SLACK.warn("Slack reply attachment upload failed for {}", name, error)
+    return null
+}
 
 class SlackChatPlatformAdapter(
     private val ctx: EventContext,
@@ -108,13 +117,10 @@ internal class SlackTurnOutput(
                         response.file?.permalink
                             ?: response.files.orEmpty().firstOrNull()?.permalink
                     }
-                } catch (error: Exception) {
-                    Loggers.SLACK.warn(
-                        "Slack reply attachment upload failed for {}",
-                        attachment.name,
-                        error,
-                    )
-                    null
+                } catch (error: IOException) {
+                    attachmentUploadFailure(attachment.name, error)
+                } catch (error: SlackApiException) {
+                    attachmentUploadFailure(attachment.name, error)
                 }
             }
 
@@ -171,36 +177,6 @@ internal class SlackTurnOutput(
             statusLine
                 ?.let { asBlocks(context { block -> block.elements(listOf(markdownText(it))) }) }
                 .orEmpty()
-
-    private fun TurnStats.statusLine(): String =
-        listOfNotNull(
-                profileName,
-                formattedExecutionTime(),
-                "${formattedTokenCount(inputTokenCount)} → ${formattedTokenCount(outputTokenCount)}",
-                toolCallCount.takeIf { it > 0 }?.let { "$it tools" },
-            )
-            .joinToString(" · ")
-
-    private fun ResponseMetadata.statusLine(): String? =
-        when (this) {
-            ResponseMetadata.None -> null
-            ResponseMetadata.RuntimeFailure -> "`[runtime failure]`"
-            is ResponseMetadata.Turn -> stats.statusLine()
-        }
-
-    private fun TurnStats.formattedExecutionTime(): String =
-        if (executionTimeSeconds < 60) {
-            "${executionTimeSeconds}s"
-        } else {
-            "${executionTimeSeconds / 60}m ${executionTimeSeconds % 60}s"
-        }
-
-    private fun formattedTokenCount(tokenCount: Long): String =
-        if (tokenCount < 1_000) {
-            tokenCount.toString()
-        } else {
-            String.format(Locale.ROOT, "%.1fK", tokenCount / 1000.0)
-        }
 
     private fun setStatus(
         status: String,

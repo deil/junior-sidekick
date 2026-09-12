@@ -51,9 +51,7 @@ class SlackAppFactory {
         val app = App(slackAdapterConfig)
         sharedContext.slackClient = app.client()
 
-        app.assistant(
-            buildSlackAssistant(app, eventDeduper, receiveChatMessage, slackFileIngestor)
-        )
+        app.assistant(buildSlackAssistant(app, eventDeduper, receiveChatMessage, slackFileIngestor))
 
         app.event(MessageChangedEvent::class.java) { payload, ctx -> ctx.ack() }
 
@@ -88,20 +86,20 @@ class SlackAppFactory {
                     receiveChatMessage.receive(
                         conversationId,
                         IncomingMessage(
-                                        id = event.ts,
-                                        createdAtMs = slackTsToMillis(event.ts),
-                                        sender = toMessageAuthor(event.user, ctx),
-                                        text = event.text!!.trim(),
-                                        type = IncomingMessageType.EXPLICIT_MENTION,
-                                        files = incomingChatFiles(event.files, event.attachments),
-                                    ),
-                            slackChatPlatformAdapter(
-                                ctx = ctx,
-                                threadId = ChatThreadId(responseThreadTs, event.threadTs != null),
-                                currentMessageTs = event.ts,
-                                fileIngestor = slackFileIngestor,
-                            ),
-                        )
+                            id = event.ts,
+                            createdAtMs = slackTsToMillis(event.ts),
+                            sender = toMessageAuthor(event.user, ctx),
+                            text = event.text!!.trim(),
+                            type = IncomingMessageType.EXPLICIT_MENTION,
+                            files = incomingChatFiles(event.files, event.attachments),
+                        ),
+                        slackChatPlatformAdapter(
+                            ctx = ctx,
+                            threadId = ChatThreadId(responseThreadTs, event.threadTs != null),
+                            currentMessageTs = event.ts,
+                            fileIngestor = slackFileIngestor,
+                        ),
+                    )
                 }
             }
 
@@ -125,13 +123,13 @@ class SlackAppFactory {
                         receiveChatMessage.receive(
                             event.toConversationId(),
                             IncomingMessage(
-                                        id = event.ts,
-                                        createdAtMs = slackTsToMillis(event.ts),
-                                        sender = toMessageAuthor(event.user, ctx),
-                                        text = event.text.trim(),
-                                        type = IncomingMessageType.PASSIVE_MESSAGE,
-                                        files = incomingChatFiles(event.files, event.attachments),
-                                    ),
+                                id = event.ts,
+                                createdAtMs = slackTsToMillis(event.ts),
+                                sender = toMessageAuthor(event.user, ctx),
+                                text = event.text.trim(),
+                                type = IncomingMessageType.PASSIVE_MESSAGE,
+                                files = incomingChatFiles(event.files, event.attachments),
+                            ),
                             slackChatPlatformAdapter(
                                 ctx = ctx,
                                 threadId = ChatThreadId(responseThreadTs, event.threadTs != null),
@@ -157,23 +155,23 @@ class SlackAppFactory {
                         receiveChatMessage.receive(
                             event.toConversationId(),
                             IncomingMessage(
-                                        id = event.ts,
-                                        createdAtMs = slackTsToMillis(event.ts),
-                                        sender = toMessageAuthor(event.user, ctx),
-                                        text = event.text.orEmpty().trim(),
-                                        type =
-                                            if (
-                                                containsMention(
-                                                    event.text,
-                                                    ctx.botUserId,
-                                                )
-                                            ) {
-                                                IncomingMessageType.EXPLICIT_MENTION
-                                            } else {
-                                                IncomingMessageType.PASSIVE_MESSAGE
-                                            },
-                                        files = files,
-                                    ),
+                                id = event.ts,
+                                createdAtMs = slackTsToMillis(event.ts),
+                                sender = toMessageAuthor(event.user, ctx),
+                                text = event.text.orEmpty().trim(),
+                                type =
+                                    if (
+                                        containsMention(
+                                            event.text,
+                                            ctx.botUserId,
+                                        )
+                                    ) {
+                                        IncomingMessageType.EXPLICIT_MENTION
+                                    } else {
+                                        IncomingMessageType.PASSIVE_MESSAGE
+                                    },
+                                files = files,
+                            ),
                             slackChatPlatformAdapter(
                                 ctx = ctx,
                                 threadId = ChatThreadId(responseThreadTs, event.threadTs != null),
@@ -263,13 +261,13 @@ internal fun buildSlackAssistant(
             receiveChatMessage.receive(
                 conversationId,
                 IncomingMessage(
-                            id = req.event.ts,
-                            createdAtMs = slackTsToMillis(req.event.ts),
-                            sender = toMessageAuthor(req.event.user, ctx),
-                            text = text.trim(),
-                            type = IncomingMessageType.ASSISTANT_MESSAGE,
-                            files = emptyList(),
-                        ),
+                    id = req.event.ts,
+                    createdAtMs = slackTsToMillis(req.event.ts),
+                    sender = toMessageAuthor(req.event.user, ctx),
+                    text = text.trim(),
+                    type = IncomingMessageType.ASSISTANT_MESSAGE,
+                    files = emptyList(),
+                ),
                 slackChatPlatformAdapter(
                     ctx = ctx,
                     threadId = ChatThreadId(responseThreadTs, req.event.threadTs != null),
@@ -291,13 +289,13 @@ internal fun buildSlackAssistant(
             receiveChatMessage.receive(
                 conversationId,
                 IncomingMessage(
-                            id = req.event.ts,
-                            createdAtMs = slackTsToMillis(req.event.ts),
-                            sender = toMessageAuthor(req.event.user, ctx),
-                            text = text.orEmpty().trim(),
-                            type = IncomingMessageType.ASSISTANT_MESSAGE,
-                            files = incomingChatFiles(req.event.files, req.event.attachments),
-                        ),
+                    id = req.event.ts,
+                    createdAtMs = slackTsToMillis(req.event.ts),
+                    sender = toMessageAuthor(req.event.user, ctx),
+                    text = text.orEmpty().trim(),
+                    type = IncomingMessageType.ASSISTANT_MESSAGE,
+                    files = incomingChatFiles(req.event.files, req.event.attachments),
+                ),
                 slackChatPlatformAdapter(
                     ctx = ctx,
                     threadId = ChatThreadId(responseThreadTs, req.event.threadTs != null),

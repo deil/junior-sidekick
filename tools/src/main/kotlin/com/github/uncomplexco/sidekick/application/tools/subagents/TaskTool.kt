@@ -5,9 +5,8 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.fail
 import ai.koog.agents.core.tools.validate
 import ai.koog.serialization.typeToken
-import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
-import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
+import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
@@ -31,7 +30,8 @@ class TaskTool(
     private val activityReporter: TurnLifecycle,
     availableSubagents: List<Subagent>,
     private val onSubagentCompleted: (AgentUsageStats) -> Unit,
-) : Tool<TaskTool.Args, String>(
+) :
+    Tool<TaskTool.Args, String>(
         argsType = typeToken<Args>(),
         resultType = typeToken<String>(),
         name = TOOL_TASK,
@@ -44,7 +44,7 @@ class TaskTool(
         @property:LLMDescription("Short 3-5 word label for the task") val description: String,
         @property:LLMDescription("The task for the subagent to perform") val prompt: String,
         @property:LLMDescription(
-            "The type of specialized agent to use for this task. Defaults to 'general'",
+            "The type of specialized agent to use for this task. Defaults to 'general'"
         )
         val subagent_type: String = "general",
     )
@@ -96,14 +96,13 @@ class TaskTool(
     }
 }
 
-fun taskDescription(availableSubagents: List<Subagent>): String =
-    buildString {
-        appendLine(
-            "Launch a subagent to perform a delegated task in a fresh context, and return its final answer.",
-        )
-        appendLine()
-        appendLine("Available agent types and the tools they have access to:")
-        availableSubagents.forEach { subagent ->
-            appendLine("  - ${subagent.name}: ${subagent.description}")
-        }
+fun taskDescription(availableSubagents: List<Subagent>): String = buildString {
+    appendLine(
+        "Launch a subagent to perform a delegated task in a fresh context, and return its final answer."
+    )
+    appendLine()
+    appendLine("Available agent types and the tools they have access to:")
+    availableSubagents.forEach { subagent ->
+        appendLine("  - ${subagent.name}: ${subagent.description}")
     }
+}

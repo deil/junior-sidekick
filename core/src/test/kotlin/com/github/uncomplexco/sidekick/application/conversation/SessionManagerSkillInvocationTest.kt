@@ -30,10 +30,10 @@ class SessionManagerSkillInvocationTest {
             historyLoader = { emptyList() },
             message =
                 message(
-                        id = "current",
-                        text = "please /code-review this",
-                        explicitSkillInvocation = ExplicitSkillInvocation("code-review"),
-                    ),
+                    id = "current",
+                    text = "please /code-review this",
+                    explicitSkillInvocation = ExplicitSkillInvocation("code-review"),
+                ),
             files = emptyList(),
         )
 

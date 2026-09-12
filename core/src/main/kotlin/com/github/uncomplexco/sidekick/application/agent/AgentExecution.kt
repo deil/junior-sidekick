@@ -1,9 +1,9 @@
 package com.github.uncomplexco.sidekick.application.agent
 
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
-import com.github.uncomplexco.sidekick.application.turn.ReplyAttachment
-import com.github.uncomplexco.sidekick.application.turn.RecordedTurn
 import com.github.uncomplexco.sidekick.application.stats.AgentStats
+import com.github.uncomplexco.sidekick.application.turn.RecordedTurn
+import com.github.uncomplexco.sidekick.application.turn.ReplyAttachment
 import java.nio.file.Files
 import kotlin.collections.forEach
 

@@ -183,7 +183,10 @@ class LlmParticipationClassifier(
     private val executeClassifier: suspend (Prompt, LLModel) -> ParticipationClassifierResult =
         { prompt, model ->
             config.openRouterExecutor().use { executor ->
-                executor.executeStructured<ParticipationClassifierResult>(prompt, model).getOrThrow().data
+                executor
+                    .executeStructured<ParticipationClassifierResult>(prompt, model)
+                    .getOrThrow()
+                    .data
             }
         },
 ) {

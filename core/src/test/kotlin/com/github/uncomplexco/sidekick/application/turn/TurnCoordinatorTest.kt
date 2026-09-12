@@ -2,31 +2,31 @@ package com.github.uncomplexco.sidekick.application.turn
 
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
+import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
+import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
-import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
-import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.chat.IncomingBatch
-import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
-import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
+import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
-import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
-import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.stats.AgentStats
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
+import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
@@ -41,13 +41,7 @@ class TurnCoordinatorTest {
     @Test
     fun `scheduled turn runs directly in isolated session`() = runBlocking {
         // Arrange
-        val config =
-            AgentConfig(
-                "Sidekick",
-                dir.resolve("state").toString(),
-                dir.resolve("workspace").toString(),
-            )
-        config.botUsername = "USIDEKICK"
+        val config = config()
         val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
         val manager = conversationManager(config, store)
         val replies = mutableListOf<String>()
@@ -109,13 +103,7 @@ class TurnCoordinatorTest {
     @Test
     fun `posts temporary failure reply and marks message skipped when agent fails`() = runBlocking {
         // Arrange
-        val config =
-            AgentConfig(
-                "Sidekick",
-                dir.resolve("state").toString(),
-                dir.resolve("workspace").toString(),
-            )
-        config.botUsername = "USIDEKICK"
+        val config = config()
         val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
         val manager = conversationManager(config, store)
         val replies = mutableListOf<String>()
@@ -160,13 +148,7 @@ class TurnCoordinatorTest {
     @Test
     fun `delivers reply attachments and removes staged files`() = runBlocking {
         // Arrange
-        val config =
-            AgentConfig(
-                "Sidekick",
-                dir.resolve("state").toString(),
-                dir.resolve("workspace").toString(),
-            )
-        config.botUsername = "USIDEKICK"
+        val config = config()
         val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
         val manager = conversationManager(config, store)
         val stagedFile = dir.resolve("staged/report.csv")
@@ -273,13 +255,7 @@ class TurnCoordinatorTest {
     @Test
     fun `does not mark skipped messages as processing`() = runBlocking {
         // Arrange
-        val config =
-            AgentConfig(
-                "Sidekick",
-                dir.resolve("state").toString(),
-                dir.resolve("workspace").toString(),
-            )
-        config.botUsername = "USIDEKICK"
+        val config = config()
         val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
         val manager = conversationManager(config, store)
         val lifecycle = mutableListOf<String>()
@@ -314,13 +290,7 @@ class TurnCoordinatorTest {
     @Test
     fun `posts unsubscribe notification without marking message as processing`() = runBlocking {
         // Arrange
-        val config =
-            AgentConfig(
-                "Sidekick",
-                dir.resolve("state").toString(),
-                dir.resolve("workspace").toString(),
-            )
-        config.botUsername = "USIDEKICK"
+        val config = config()
         val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
         val manager = conversationManager(config, store)
         val replies = mutableListOf<String>()
@@ -361,6 +331,14 @@ class TurnCoordinatorTest {
                 summarizer = { _, _, messages -> "summary for ${messages.size} messages" }
             ),
         )
+
+    private fun config(): AgentConfig =
+        AgentConfig(
+                "Sidekick",
+                dir.resolve("state").toString(),
+                dir.resolve("workspace").toString(),
+            )
+            .also { it.botUsername = "USIDEKICK" }
 
     private fun participation(config: AgentConfig): TurnParticipation =
         TurnParticipation(

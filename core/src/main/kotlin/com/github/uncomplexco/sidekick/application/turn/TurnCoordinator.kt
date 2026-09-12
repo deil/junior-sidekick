@@ -4,9 +4,8 @@ import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.agent.skills.detectUserSkillInvocation
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
-import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingBatch
-import com.github.uncomplexco.sidekick.application.stats.TurnStats
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
@@ -14,6 +13,7 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
+import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
@@ -88,7 +88,8 @@ class TurnCoordinator(
         val message = incomingMessage.copy(files = incomingMessage.files.take(MAX_INCOMING_FILES))
 
         if (message.files.isNotEmpty()) {
-            val files = message.files.map { file -> "File: ${file.name} ${file.filetype} ${file.mimetype}" }
+            val files =
+                message.files.map { file -> "File: ${file.name} ${file.filetype} ${file.mimetype}" }
             log.debug("Attached files: ${files.joinToString(", ")}")
         }
 
@@ -166,7 +167,10 @@ class TurnCoordinator(
 
             is TurnParticipationDecision.Unsubscribe -> {
                 log.debug(
-                    "Unsubscribing session for message id=${message.id}: ${participationDecision.reason} ${participationDecision.detail}"
+                    "Unsubscribing session for message id={}: {} {}",
+                    message.id,
+                    participationDecision.reason,
+                    participationDecision.detail,
                 )
                 sessions.markMessageSkipped(
                     conversationId = decision.conversationId,
@@ -179,7 +183,10 @@ class TurnCoordinator(
 
             is TurnParticipationDecision.Skip -> {
                 log.debug(
-                    "Skipping reply for message id=${message.id}: ${participationDecision.reason} ${participationDecision.detail}"
+                    "Skipping reply for message id={}: {} {}",
+                    message.id,
+                    participationDecision.reason,
+                    participationDecision.detail,
                 )
                 sessions.markMessageSkipped(
                     conversationId = decision.conversationId,
@@ -239,7 +246,6 @@ class TurnCoordinator(
 
         sessions.recordAssistantReply(
             conversationId = conversationId,
-            turnId = turn.context.turnId,
             text = agentReply.text,
             replyId = replyMessageId.messageId,
             createdAtMs = replyMessageId.timestamp,

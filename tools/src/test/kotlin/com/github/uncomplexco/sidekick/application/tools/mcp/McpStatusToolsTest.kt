@@ -4,13 +4,13 @@ import ai.koog.agents.core.tools.Tool
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.serialization.JSONObject
 import ai.koog.serialization.JSONPrimitive
+import com.github.uncomplexco.sidekick.application.agent.koog.ConnectedMcpServer
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.agent.koog.ConnectedMcpServer
 import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test

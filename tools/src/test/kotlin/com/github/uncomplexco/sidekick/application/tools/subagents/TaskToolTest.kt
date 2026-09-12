@@ -1,30 +1,29 @@
 package com.github.uncomplexco.sidekick.application.tools.subagents
 
 import ai.koog.agents.core.tools.ToolException
-import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
-import com.github.uncomplexco.sidekick.application.agent.AgentResponse
-import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
-import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
-import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
+import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
-import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
+import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
+import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import java.nio.file.Path
+import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
-import java.nio.file.Path
-import kotlin.test.assertContains
-import kotlin.test.assertEquals
 
 class TaskToolTest {
     @TempDir lateinit var tempDir: Path
@@ -46,10 +45,9 @@ class TaskToolTest {
         val chat = RecordingChatPlatform()
         val tool = tool(runner, chat)
 
-        val result =
-            runBlocking {
-                tool.execute(TaskTool.Args(description = "Find owners", prompt = "Inspect the repo"))
-            }
+        val result = runBlocking {
+            tool.execute(TaskTool.Args(description = "Find owners", prompt = "Inspect the repo"))
+        }
 
         assertEquals(listOf("Inspect the repo"), runner.prompts)
         assertEquals(listOf("general"), runner.subagentTypes)
@@ -113,9 +111,7 @@ class TaskToolTest {
         )
 }
 
-private class RecordingSubagentRunner(
-    private val result: String,
-) : SubagentRunner {
+private class RecordingSubagentRunner(private val result: String) : SubagentRunner {
     val prompts = mutableListOf<String>()
     val subagentTypes = mutableListOf<String>()
 
@@ -165,7 +161,8 @@ private class RecordingChatPlatform : ChatPlatformAdapter {
     override val lifecycle: TurnLifecycle = output
     override val delivery: ResponseDelivery = output
 
-    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
+    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
+        emptyList()
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,

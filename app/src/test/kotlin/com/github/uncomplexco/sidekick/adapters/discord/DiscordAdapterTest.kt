@@ -2,36 +2,36 @@ package com.github.uncomplexco.sidekick.adapters.discord
 
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
+import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
+import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationKind
-import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
-import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.chat.DiscordChannelHistoryMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageQueue
-import com.github.uncomplexco.sidekick.application.turn.ReplyAttachment
-import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
-import com.github.uncomplexco.sidekick.application.stats.TurnStats
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
+import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
-import com.github.uncomplexco.sidekick.application.turn.TurnAdmission
-import com.github.uncomplexco.sidekick.application.turn.DeterministicParticipationClassifier
-import com.github.uncomplexco.sidekick.application.turn.LlmParticipationClassifier
-import com.github.uncomplexco.sidekick.application.turn.TurnParticipation
-import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
-import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
-import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.stats.AgentStats
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
+import com.github.uncomplexco.sidekick.application.stats.TurnStats
+import com.github.uncomplexco.sidekick.application.turn.DeterministicParticipationClassifier
+import com.github.uncomplexco.sidekick.application.turn.LlmParticipationClassifier
+import com.github.uncomplexco.sidekick.application.turn.ReplyAttachment
+import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
+import com.github.uncomplexco.sidekick.application.turn.TurnAdmission
+import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
+import com.github.uncomplexco.sidekick.application.turn.TurnParticipation
 import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
 import java.nio.file.Files
 import java.nio.file.Path
@@ -465,25 +465,31 @@ class DiscordAdapterTest {
                 TurnCoordinator(
                     admission = TurnAdmission(manager),
                     sessions = manager,
-                    participation = TurnParticipation(
-                        config,
-                        DeterministicParticipationClassifier(),
-                        LlmParticipationClassifier(koogConfig()) { _, _ ->
-                            error("classifier should not run for a DM")
+                    participation =
+                        TurnParticipation(
+                            config,
+                            DeterministicParticipationClassifier(),
+                            LlmParticipationClassifier(koogConfig()) { _, _ ->
+                                error("classifier should not run for a DM")
+                            },
+                        ),
+                    agent =
+                        AgentTurnExecutor { turn, _ ->
+                            assertEquals("hello", turn.message.text)
+                            TurnExecutionResult(
+                                AgentResponse("hello from Sidekick"),
+                                AgentStats("normal", AgentUsageStats()),
+                            )
                         },
-                    ),
-                    agent = AgentTurnExecutor { turn, _ ->
-                        assertEquals("hello", turn.message.text)
-                        TurnExecutionResult(
-                            AgentResponse("hello from Sidekick"),
-                            AgentStats("normal", AgentUsageStats()),
-                        )
-                    },
                     skills = { SkillCatalog(emptyList()) },
                 )
             val scope = SidekickCoroutineScope()
             val usecase =
-                ReceiveChatMessageUsecase(config, IncomingMessageQueue(scope, coordinator), coordinator)
+                ReceiveChatMessageUsecase(
+                    config,
+                    IncomingMessageQueue(scope, coordinator),
+                    coordinator,
+                )
             val sent = mutableListOf<String>()
             val ingress = DiscordIngress { conversationId, message, chat ->
                 usecase.receiveNow(conversationId, message, chat)
@@ -528,25 +534,31 @@ class DiscordAdapterTest {
                 TurnCoordinator(
                     admission = TurnAdmission(manager),
                     sessions = manager,
-                    participation = TurnParticipation(
-                        config,
-                        DeterministicParticipationClassifier(),
-                        LlmParticipationClassifier(koogConfig()) { _, _ ->
-                            error("classifier should not run for a mention")
+                    participation =
+                        TurnParticipation(
+                            config,
+                            DeterministicParticipationClassifier(),
+                            LlmParticipationClassifier(koogConfig()) { _, _ ->
+                                error("classifier should not run for a mention")
+                            },
+                        ),
+                    agent =
+                        AgentTurnExecutor { turn, _ ->
+                            assertEquals("hello <@999>", turn.message.text)
+                            TurnExecutionResult(
+                                AgentResponse("guild reply"),
+                                AgentStats("normal", AgentUsageStats()),
+                            )
                         },
-                    ),
-                    agent = AgentTurnExecutor { turn, _ ->
-                        assertEquals("hello <@999>", turn.message.text)
-                        TurnExecutionResult(
-                            AgentResponse("guild reply"),
-                            AgentStats("normal", AgentUsageStats()),
-                        )
-                    },
                     skills = { SkillCatalog(emptyList()) },
                 )
             val scope = SidekickCoroutineScope()
             val usecase =
-                ReceiveChatMessageUsecase(config, IncomingMessageQueue(scope, coordinator), coordinator)
+                ReceiveChatMessageUsecase(
+                    config,
+                    IncomingMessageQueue(scope, coordinator),
+                    coordinator,
+                )
             val sent = mutableListOf<String>()
             val ingress = DiscordIngress { conversationId, message, chat ->
                 usecase.receiveNow(conversationId, message, chat)

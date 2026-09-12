@@ -11,9 +11,8 @@ import ai.koog.serialization.kotlinx.toKoogJSONElement
 import ai.koog.serialization.kotlinx.toKotlinxJsonElement
 import ai.koog.serialization.typeToken
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths.Companion.WORK_ROOT
-import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
-import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
+import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import io.modelcontextprotocol.kotlin.sdk.client.Client
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
