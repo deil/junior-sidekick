@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application.turn.koog
+package com.github.uncomplexco.sidekick.application.agent.koog
 
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig

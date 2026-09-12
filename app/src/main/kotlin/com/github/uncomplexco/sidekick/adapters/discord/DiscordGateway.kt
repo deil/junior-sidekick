@@ -2,16 +2,16 @@ package com.github.uncomplexco.sidekick.adapters.discord
 
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationKind
-import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.DiscordChannelHistoryMessage
 import com.github.uncomplexco.sidekick.application.chat.DiscordChannelHistoryPage
 import com.github.uncomplexco.sidekick.application.chat.DiscordThreadHistoryPage
-import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
-import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
+import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
 import java.util.LinkedHashSet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -68,7 +68,8 @@ internal fun discordMessageKind(
     }
 
 internal class DiscordIngress(
-    private val handle: suspend (ChatConversationId, InboundMessage, ChatPlatformAdapter) -> Unit
+    private val receive:
+        suspend (ChatConversationId, IncomingMessage, ChatPlatformAdapter) -> Unit
 ) {
     private val handledMessageIds = LinkedHashSet<String>()
 
@@ -109,34 +110,38 @@ internal class DiscordIngress(
         val text = message.text.trim()
         if (text.isEmpty()) return
 
-        handle(
+        receive(
             ChatConversationId(
-                channelId = message.channelId,
-                threadId = message.threadId,
-                platform = ChatPlatform.DISCORD,
-                kind =
-                    when (message.kind) {
-                        DiscordMessageKind.DIRECT_MESSAGE -> ChatConversationKind.DIRECT_MESSAGE
-                        DiscordMessageKind.GUILD_MENTION -> ChatConversationKind.CHANNEL
-                        DiscordMessageKind.GUILD_THREAD_MESSAGE -> ChatConversationKind.CHANNEL
-                        DiscordMessageKind.IGNORED_GUILD_MESSAGE ->
-                            error("Ignored guild messages must not reach mapping")
-                    },
-            ),
-            InboundMessage(
-                id = message.id,
-                createdAtMs = message.createdAtMs,
-                sender = MessageAuthor(message.authorId, message.authorName),
-                text = text,
-                type =
-                    when (message.kind) {
-                        DiscordMessageKind.DIRECT_MESSAGE -> ChatMessageType.ASSISTANT_MESSAGE
-                        DiscordMessageKind.GUILD_MENTION -> ChatMessageType.EXPLICIT_MENTION
-                        DiscordMessageKind.GUILD_THREAD_MESSAGE -> ChatMessageType.PASSIVE_MESSAGE
-                        DiscordMessageKind.IGNORED_GUILD_MESSAGE ->
-                            error("Ignored guild messages must not reach mapping")
-                    },
-            ),
+                        channelId = message.channelId,
+                        threadId = message.threadId,
+                        platform = ChatPlatform.DISCORD,
+                        kind =
+                            when (message.kind) {
+                                DiscordMessageKind.DIRECT_MESSAGE ->
+                                    ChatConversationKind.DIRECT_MESSAGE
+                                DiscordMessageKind.GUILD_MENTION -> ChatConversationKind.CHANNEL
+                                DiscordMessageKind.GUILD_THREAD_MESSAGE -> ChatConversationKind.CHANNEL
+                                DiscordMessageKind.IGNORED_GUILD_MESSAGE ->
+                                    error("Ignored guild messages must not reach mapping")
+                            },
+                    ),
+            IncomingMessage(
+                        id = message.id,
+                        createdAtMs = message.createdAtMs,
+                        sender = MessageAuthor(message.authorId, message.authorName),
+                        text = text,
+                        type =
+                            when (message.kind) {
+                                DiscordMessageKind.DIRECT_MESSAGE ->
+                                    IncomingMessageType.ASSISTANT_MESSAGE
+                                DiscordMessageKind.GUILD_MENTION ->
+                                    IncomingMessageType.EXPLICIT_MENTION
+                                DiscordMessageKind.GUILD_THREAD_MESSAGE ->
+                                    IncomingMessageType.PASSIVE_MESSAGE
+                                DiscordMessageKind.IGNORED_GUILD_MESSAGE ->
+                                    error("Ignored guild messages must not reach mapping")
+                            },
+                    ),
             DiscordChatPlatformAdapter(
                 botUsername,
                 updateReaction,
@@ -194,11 +199,11 @@ class DiscordConfiguration {
     fun discordGateway(
         @Value("\${adapters.discord.bot.token}") token: String,
         selectedChatPlatform: ChatPlatform,
-        incoming: HandleIncomingChatMessageUsecase,
+        incoming: ReceiveChatMessageUsecase,
         scope: SidekickCoroutineScope,
     ): JDA {
         check(selectedChatPlatform == ChatPlatform.DISCORD)
-        val ingress = DiscordIngress(incoming::handle)
+        val ingress = DiscordIngress(incoming::receive)
         val listener =
             object : ListenerAdapter() {
                 override fun onMessageReceived(event: MessageReceivedEvent) {

@@ -253,8 +253,7 @@ class TurnPromptBuilderSkillsTest {
                     mcpServers = emptyList(),
                 ),
             turnId = "turn",
-            currentMessageIds = listOf("m1"),
-            currentFiles = emptyList(),
+            currentMessageId = "m1",
             sessionFiles = emptyList(),
             aiModelProfile =
                 com.github.uncomplexco.sidekick.application.conversation.AiModelProfile.NORMAL,

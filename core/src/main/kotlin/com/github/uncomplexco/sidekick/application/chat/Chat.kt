@@ -1,14 +1,17 @@
 package com.github.uncomplexco.sidekick.application.chat
 
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
-import java.nio.file.Files
+import com.github.uncomplexco.sidekick.application.stats.TurnStats
+import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
 import java.nio.file.Path
 
 interface ChatPlatformAdapter {
     val botUsername: String
-    val resultHandler: TurnResultHandler
+    val lifecycle: TurnLifecycle
+    val delivery: ResponseDelivery
 
     suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage>
 
@@ -56,45 +59,18 @@ data class DiscordChannelHistoryMessage(
     val threadId: String?,
 )
 
-interface TurnResultHandler {
-    fun start()
+interface TurnLifecycle {
+    fun begin()
 
-    fun `continue`(text: String? = null)
+    fun progress(text: String? = null)
 
-    fun endTurn()
+    fun end()
 
-    suspend fun markProcessing(message: InboundMessage)
+    suspend fun markProcessing(message: IncomingMessage)
 
-    suspend fun postReply(
-        reply: ChatReply,
-        stats: TurnStats? = null,
-    ): ReplyResult
+    suspend fun markCompleted(message: IncomingMessage)
 
-    suspend fun postRuntimeFailure(error: Exception) {
-        postReply(
-            ChatReply(
-                text =
-                    error.message?.takeIf { it.isNotBlank() }?.let { ":warning: $it" }
-                        ?: TEMPORARY_FAILURE_REPLY,
-                statusLine = RUNTIME_FAILURE_STATUS,
-            )
-        )
-    }
-
-    suspend fun postUnsubscribed() {
-        postReply(ChatReply(UNSUBSCRIBE_ACK))
-    }
-
-    suspend fun markCompleted(message: InboundMessage)
-
-    suspend fun markFailed(message: InboundMessage)
-
-    private companion object {
-        const val UNSUBSCRIBE_ACK = "Unsubscribed. Mention me to resume"
-        const val TEMPORARY_FAILURE_REPLY =
-            ":warning: I hit a temporary model/provider error while processing this. Please retry"
-        const val RUNTIME_FAILURE_STATUS = "`[runtime failure]`"
-    }
+    suspend fun markFailed(message: IncomingMessage)
 }
 
 data class ChatThreadId(
@@ -141,38 +117,18 @@ data class ChatMessage(
     val files: List<IncomingChatFile>,
 )
 
-enum class ChatMessageType {
+enum class IncomingMessageType {
     EXPLICIT_MENTION,
     PASSIVE_MESSAGE,
     ASSISTANT_MESSAGE,
 }
 
-data class ReplyResult(
+data class PublishedMessage(
     val messageId: String,
     val timestamp: Long,
 )
 
-data class TurnStats(
-    val profileName: String,
-    val executionTimeSeconds: Long,
-    val toolCallCount: Int,
-    val inputTokenCount: Long,
-    val outputTokenCount: Long,
-)
-
-data class ChatReply(
-    val text: String,
-    val attachments: List<ReplyAttachment> = emptyList(),
-    val statusLine: String? = null,
-) {
-    fun deleteAttachments() {
-        attachments.forEach { Files.deleteIfExists(it.path) }
-    }
-}
-
-data class ReplyAttachment(
-    val path: Path,
-    val name: String,
-    val mimeType: String,
-    val bytes: Long,
+data class IncomingBatch(
+    val conversationId: ChatConversationId,
+    val messages: List<IncomingMessage>,
 )

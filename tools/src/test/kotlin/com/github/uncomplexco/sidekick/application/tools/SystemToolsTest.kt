@@ -2,25 +2,27 @@ package com.github.uncomplexco.sidekick.application.tools
 
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
-import com.github.uncomplexco.sidekick.application.chat.ChatReply
-import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
+import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
-import com.github.uncomplexco.sidekick.application.chat.ReplyResult
-import com.github.uncomplexco.sidekick.application.chat.TurnResultHandler
-import com.github.uncomplexco.sidekick.application.chat.TurnStats
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
+import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
+import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
+import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
+import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
+import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
-import org.junit.jupiter.api.Test
 
 class SystemToolsTest {
     @Test
     fun `report assistant activity updates chat activity indicator`() {
         val chat = RecordingChatPlatform()
-        val tools = SystemTools(chat = chat)
+        val tools = SystemTools(activityReporter = chat.lifecycle)
 
         val result = tools.reportAssistantActivity("Reading project files")
 
@@ -35,7 +37,7 @@ class SystemToolsTest {
             object : Clock {
                 override fun now(): Instant = Instant.parse("2026-06-01T12:34:56Z")
             }
-        val tools = SystemTools(clock)
+        val tools = SystemTools(clock, RecordingChatPlatform().lifecycle)
 
         // Act
         val result = tools.currentDateTime()
@@ -48,7 +50,9 @@ class SystemToolsTest {
 
     @Test
     fun `timestamp to iso utc treats ten digit values as seconds`() {
-        val result = SystemTools().timestampToIsoUtc(1_780_317_296)
+        val result =
+            SystemTools(activityReporter = RecordingChatPlatform().lifecycle)
+                .timestampToIsoUtc(1_780_317_296)
 
         assertTrue(result.ok)
         assertEquals(1_780_317_296, result.timestamp)
@@ -58,7 +62,9 @@ class SystemToolsTest {
 
     @Test
     fun `timestamp to iso utc treats thirteen digit values as milliseconds`() {
-        val result = SystemTools().timestampToIsoUtc(1_780_317_296_123)
+        val result =
+            SystemTools(activityReporter = RecordingChatPlatform().lifecycle)
+                .timestampToIsoUtc(1_780_317_296_123)
 
         assertTrue(result.ok)
         assertEquals(1_780_317_296_123, result.timestamp)
@@ -70,30 +76,31 @@ class SystemToolsTest {
 private class RecordingChatPlatform : ChatPlatformAdapter {
     override val botUsername = "USIDEKICK"
     val continuedWith = mutableListOf<String?>()
-    override val resultHandler =
-        object : TurnResultHandler {
-            override fun start() = Unit
+    private val output =
+        object : TurnLifecycle, ResponseDelivery {
+            override fun begin() = Unit
 
-            override fun `continue`(text: String?) {
+            override fun progress(text: String?) {
                 continuedWith += text
             }
 
-            override fun endTurn() = Unit
+            override fun end() = Unit
 
-            override suspend fun markProcessing(message: InboundMessage) = Unit
+            override suspend fun markProcessing(message: IncomingMessage) = Unit
 
-            override suspend fun postReply(
-                reply: ChatReply,
-                stats: TurnStats?,
-            ): ReplyResult = ReplyResult("reply", 1)
+            override suspend fun deliver(
+                response: AgentResponse,
+                metadata: ResponseMetadata,
+            ): PublishedMessage = PublishedMessage("reply", 1)
 
-            override suspend fun markCompleted(message: InboundMessage) = Unit
+            override suspend fun markCompleted(message: IncomingMessage) = Unit
 
-            override suspend fun markFailed(message: InboundMessage) = Unit
+            override suspend fun markFailed(message: IncomingMessage) = Unit
         }
+    override val lifecycle: TurnLifecycle = output
+    override val delivery: ResponseDelivery = output
 
-    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
-        emptyList()
+    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,

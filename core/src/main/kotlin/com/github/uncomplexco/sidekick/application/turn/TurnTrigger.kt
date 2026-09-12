@@ -1,113 +1,20 @@
 package com.github.uncomplexco.sidekick.application.turn
 
-import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
-import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
-import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.IncomingBatch
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.ConversationManager
-import org.springframework.stereotype.Component
+import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 
-sealed interface TurnTriggerDecision {
-    data class ShouldHandle(
+sealed interface TurnTrigger {
+    data class Incoming(
+        val batch: IncomingBatch,
+        val chat: ChatPlatformAdapter,
+    ) : TurnTrigger
+
+    data class Scheduled(
         val conversationId: ConversationId,
-        val seedHistory: Boolean,
-        val explicitMention: Boolean,
-    ) : TurnTriggerDecision
-
-    data object Ignore : TurnTriggerDecision
-}
-
-@Component
-class InboundMessageFilter(private val conversations: ConversationManager) {
-    fun shouldTriggerTurn(
-        chatConversationId: ChatConversationId,
-        messages: List<InboundMessage>,
-    ): TurnTriggerDecision {
-        val handles =
-            messages
-                .map { message ->
-                    shouldTriggerTurn(
-                        chatConversationId = chatConversationId,
-                        trigger = message.type,
-                        messageId = message.id,
-                    )
-                }
-                .filterIsInstance<TurnTriggerDecision.ShouldHandle>()
-
-        if (handles.isEmpty()) {
-            return TurnTriggerDecision.Ignore
-        }
-
-        val conversationIds = handles.map { it.conversationId }.distinct()
-        require(conversationIds.size == 1) {
-            "Inbound batch resolved to multiple conversations: $conversationIds"
-        }
-
-        return TurnTriggerDecision.ShouldHandle(
-            conversationId = handles.first().conversationId,
-            seedHistory = handles.any { it.seedHistory },
-            explicitMention = handles.any { it.explicitMention },
-        )
-    }
-
-    fun shouldTriggerTurn(
-        chatConversationId: ChatConversationId,
-        trigger: ChatMessageType,
-        messageId: String,
-    ): TurnTriggerDecision =
-        when (trigger) {
-            ChatMessageType.EXPLICIT_MENTION -> {
-                TurnTriggerDecision.ShouldHandle(
-                    conversationId = threadOrParent(chatConversationId, messageId),
-                    seedHistory = chatConversationId.isThread,
-                    explicitMention = true,
-                )
-            }
-
-            ChatMessageType.ASSISTANT_MESSAGE -> {
-                TurnTriggerDecision.ShouldHandle(
-                    conversationId = convert(chatConversationId),
-                    seedHistory = true,
-                    explicitMention = false,
-                )
-            }
-
-            ChatMessageType.PASSIVE_MESSAGE -> {
-                if (!chatConversationId.isThread) {
-                    return TurnTriggerDecision.Ignore
-                }
-
-                val conversationId = convert(chatConversationId)
-                if (
-                    !conversations.exists(conversationId) ||
-                        !conversations.isSubscribed(conversationId)
-                ) {
-                    return TurnTriggerDecision.Ignore
-                }
-
-                TurnTriggerDecision.ShouldHandle(
-                    conversationId = conversationId,
-                    seedHistory = false,
-                    explicitMention = false,
-                )
-            }
-        }
-
-    private fun convert(id: ChatConversationId): ConversationId =
-        ConversationId(
-            channelId = id.channelId,
-            threadId =
-                id.threadId
-                    ?: if (id.isDM) "" else error("A channel continuation requires a thread id"),
-        )
-
-    private fun threadOrParent(
-        id: ChatConversationId,
-        messageId: String,
-    ): ConversationId =
-        if (id.isThread) {
-            convert(id)
-        } else {
-            ConversationId(id.channelId, messageId)
-        }
+        val job: ScheduledJob,
+        val chat: ChatPlatformAdapter,
+        val startedAtMs: Long,
+    ) : TurnTrigger
 }

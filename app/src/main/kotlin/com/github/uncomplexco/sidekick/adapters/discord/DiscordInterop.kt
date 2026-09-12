@@ -1,15 +1,17 @@
 package com.github.uncomplexco.sidekick.adapters.discord
 
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
-import com.github.uncomplexco.sidekick.application.chat.ChatReply
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.chat.DiscordBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.DiscordChannelHistoryPage
 import com.github.uncomplexco.sidekick.application.chat.DiscordThreadHistoryPage
-import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
-import com.github.uncomplexco.sidekick.application.chat.ReplyResult
-import com.github.uncomplexco.sidekick.application.chat.TurnResultHandler
-import com.github.uncomplexco.sidekick.application.chat.TurnStats
+import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
+import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
+import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
+import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
@@ -19,7 +21,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import org.slf4j.LoggerFactory
 
-private val log = LoggerFactory.getLogger(DiscordTurnResultHandler::class.java)
+private val log = LoggerFactory.getLogger(DiscordTurnOutput::class.java)
 
 internal data class DiscordSentMessage(
     val id: String,
@@ -34,8 +36,9 @@ internal class DiscordChatPlatformAdapter(
     private val loadThreadHistory: suspend (String, Int, String?) -> DiscordThreadHistoryPage,
     send: suspend (String) -> DiscordSentMessage,
 ) : DiscordBackedChatPlatformAdapter {
-    override val resultHandler: TurnResultHandler =
-        DiscordTurnResultHandler(updateReaction, startTyping, send)
+    private val output = DiscordTurnOutput(updateReaction, startTyping, send)
+    override val lifecycle: TurnLifecycle = output
+    override val delivery: ResponseDelivery = output
 
     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
         emptyList()
@@ -60,41 +63,41 @@ internal class DiscordChatPlatformAdapter(
     }
 }
 
-internal class DiscordTurnResultHandler(
+internal class DiscordTurnOutput(
     private val updateReaction: suspend (String, Boolean) -> Unit = { _, _ -> },
     private val startTyping: () -> AutoCloseable = { AutoCloseable {} },
     private val send: suspend (String) -> DiscordSentMessage,
-) : TurnResultHandler {
+) : TurnLifecycle, ResponseDelivery {
     private var turnActive = false
     private var typingHeartbeat: AutoCloseable? = null
 
-    override fun start() {
+    override fun begin() {
         turnActive = true
     }
 
-    override fun `continue`(text: String?) {
+    override fun progress(text: String?) {
         if (turnActive && typingHeartbeat == null) {
             typingHeartbeat = startTyping()
         }
     }
 
-    override fun endTurn() {
+    override fun end() {
         turnActive = false
         typingHeartbeat?.close()
         typingHeartbeat = null
     }
 
-    override suspend fun markProcessing(message: InboundMessage) {
+    override suspend fun markProcessing(message: IncomingMessage) {
         updateReaction(PROCESSING_REACTION, add = true)
-        `continue`()
+        progress()
     }
 
-    override suspend fun markCompleted(message: InboundMessage) {
+    override suspend fun markCompleted(message: IncomingMessage) {
         updateReaction(PROCESSING_REACTION, add = false)
         updateReaction(COMPLETED_REACTION, add = true)
     }
 
-    override suspend fun markFailed(message: InboundMessage) {
+    override suspend fun markFailed(message: IncomingMessage) {
         updateReaction(PROCESSING_REACTION, add = false)
     }
 
@@ -106,12 +109,12 @@ internal class DiscordTurnResultHandler(
             .onFailure { log.warn("Discord processing reaction update failed", it) }
     }
 
-    override suspend fun postReply(
-        reply: ChatReply,
-        stats: TurnStats?,
-    ): ReplyResult {
+    override suspend fun deliver(
+        response: AgentResponse,
+        metadata: ResponseMetadata,
+    ): PublishedMessage {
         val attachmentNotice =
-            reply.attachments
+            response.attachments
                 .takeIf { it.isNotEmpty() }
                 ?.joinToString(
                     prefix = "\n\nGenerated attachments are not supported on Discord: "
@@ -120,18 +123,19 @@ internal class DiscordTurnResultHandler(
                 }
                 .orEmpty()
         val replyText =
-            reply.text.takeUnless {
+            response.text.takeUnless {
                 it.isBlank() || it.contains(SystemPromptBuilder.NO_REPLY_MARKER)
             }
         val text = replyText.orEmpty() + attachmentNotice
 
         if (text.isBlank()) {
             val timestamp = Clock.System.now().toEpochMilliseconds()
-            return ReplyResult("no_reply:$timestamp", timestamp)
+            return PublishedMessage("no_reply:$timestamp", timestamp)
         }
 
         val statusSubtext =
-            (reply.statusLine ?: stats?.statusLine())
+            metadata
+                .statusLine()
                 ?.takeIf { it.isNotBlank() }
                 ?.lineSequence()
                 ?.joinToString(prefix = "\n\n", separator = "\n") { "-# $it" }
@@ -139,7 +143,7 @@ internal class DiscordTurnResultHandler(
         val chunks = splitDiscordMessage(text + statusSubtext)
 
         val sent = chunks.map { send(it) }.last()
-        return ReplyResult(sent.id, sent.createdAtMs)
+        return PublishedMessage(sent.id, sent.createdAtMs)
     }
 
     private fun TurnStats.statusLine(): String =
@@ -150,6 +154,13 @@ internal class DiscordTurnResultHandler(
                 toolCallCount.takeIf { it > 0 }?.let { "$it tools" },
             )
             .joinToString(" · ")
+
+    private fun ResponseMetadata.statusLine(): String? =
+        when (this) {
+            ResponseMetadata.None -> null
+            ResponseMetadata.RuntimeFailure -> "`[runtime failure]`"
+            is ResponseMetadata.Turn -> stats.statusLine()
+        }
 
     private fun TurnStats.formattedExecutionTime(): String =
         if (executionTimeSeconds < 60) {

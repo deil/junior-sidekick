@@ -1,28 +1,30 @@
 package com.github.uncomplexco.sidekick.application.tools.subagents
 
 import ai.koog.agents.core.tools.ToolException
+import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
-import com.github.uncomplexco.sidekick.application.chat.ChatReply
-import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
+import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
-import com.github.uncomplexco.sidekick.application.chat.ReplyResult
-import com.github.uncomplexco.sidekick.application.chat.TurnResultHandler
-import com.github.uncomplexco.sidekick.application.chat.TurnStats
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
+import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
+import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
+import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
+import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
-import java.nio.file.Path
-import kotlin.test.assertContains
-import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
+import kotlin.test.assertContains
+import kotlin.test.assertEquals
 
 class TaskToolTest {
     @TempDir lateinit var tempDir: Path
@@ -44,9 +46,10 @@ class TaskToolTest {
         val chat = RecordingChatPlatform()
         val tool = tool(runner, chat)
 
-        val result = runBlocking {
-            tool.execute(TaskTool.Args(description = "Find owners", prompt = "Inspect the repo"))
-        }
+        val result =
+            runBlocking {
+                tool.execute(TaskTool.Args(description = "Find owners", prompt = "Inspect the repo"))
+            }
 
         assertEquals(listOf("Inspect the repo"), runner.prompts)
         assertEquals(listOf("general"), runner.subagentTypes)
@@ -104,13 +107,15 @@ class TaskToolTest {
         TaskTool(
             runner = runner,
             ctx = turnContext(tempDir),
-            chat = chat,
+            activityReporter = chat.lifecycle,
             availableSubagents = listOf(Subagent("general", "General-purpose subagent", "Prompt")),
             onSubagentCompleted = {},
         )
 }
 
-private class RecordingSubagentRunner(private val result: String) : SubagentRunner {
+private class RecordingSubagentRunner(
+    private val result: String,
+) : SubagentRunner {
     val prompts = mutableListOf<String>()
     val subagentTypes = mutableListOf<String>()
 
@@ -136,30 +141,31 @@ private class FailingSubagentRunner : SubagentRunner {
 private class RecordingChatPlatform : ChatPlatformAdapter {
     override val botUsername = "USIDEKICK"
     val continuedWith = mutableListOf<String?>()
-    override val resultHandler =
-        object : TurnResultHandler {
-            override fun start() = Unit
+    private val output =
+        object : TurnLifecycle, ResponseDelivery {
+            override fun begin() = Unit
 
-            override fun `continue`(text: String?) {
+            override fun progress(text: String?) {
                 continuedWith += text
             }
 
-            override fun endTurn() = Unit
+            override fun end() = Unit
 
-            override suspend fun markProcessing(message: InboundMessage) = Unit
+            override suspend fun markProcessing(message: IncomingMessage) = Unit
 
-            override suspend fun postReply(
-                reply: ChatReply,
-                stats: TurnStats?,
-            ): ReplyResult = ReplyResult("reply", 1)
+            override suspend fun deliver(
+                response: AgentResponse,
+                metadata: ResponseMetadata,
+            ): PublishedMessage = PublishedMessage("reply", 1)
 
-            override suspend fun markCompleted(message: InboundMessage) = Unit
+            override suspend fun markCompleted(message: IncomingMessage) = Unit
 
-            override suspend fun markFailed(message: InboundMessage) = Unit
+            override suspend fun markFailed(message: IncomingMessage) = Unit
         }
+    override val lifecycle: TurnLifecycle = output
+    override val delivery: ResponseDelivery = output
 
-    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
-        emptyList()
+    override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> = emptyList()
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,
@@ -177,8 +183,7 @@ private fun turnContext(tempDir: Path): TurnContext =
                 mcpServers = emptyList(),
             ),
         turnId = "turn-1",
-        currentMessageIds = listOf("message-1"),
-        currentFiles = emptyList(),
+        currentMessageId = "message-1",
         sessionFiles = emptyList(),
         aiModelProfile = AiModelProfile.NORMAL,
     )

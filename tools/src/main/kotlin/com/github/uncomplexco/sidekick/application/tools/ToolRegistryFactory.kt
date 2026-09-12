@@ -3,6 +3,8 @@ package com.github.uncomplexco.sidekick.application.tools
 import ai.koog.agents.core.tools.ToolRegistry
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
+import com.github.uncomplexco.sidekick.application.agent.koog.ToolRegistryFactory
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
 import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
@@ -37,12 +39,10 @@ import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
-import com.github.uncomplexco.sidekick.application.turn.koog.ToolRegistryFactory
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
 import com.github.uncomplexco.sidekick.tools.SidekickToolProvider
-import java.nio.file.Path
 import org.springframework.stereotype.Component
+import java.nio.file.Path
 
 @Component
 class DefaultToolRegistryFactory(
@@ -69,7 +69,7 @@ class DefaultToolRegistryFactory(
         replyAttachments: ReplyAttachmentCollector,
         onSubagentCompleted: (AgentUsageStats) -> Unit,
     ) = ToolRegistry {
-        tools(SystemTools(chat = chat))
+        tools(SystemTools(activityReporter = chat.lifecycle))
         tools(StatsTools(weeklyStats))
 
         tools(WorkspaceFileTools(ctx.conversation.virtualPaths))
@@ -79,7 +79,7 @@ class DefaultToolRegistryFactory(
                     bashToolConfig,
                     ctx.conversation.virtualPaths,
                     sandboxExecutorFactory.create(),
-                )
+                ),
             )
         }
 
@@ -88,7 +88,7 @@ class DefaultToolRegistryFactory(
         tools(SkillTools(skills, ctx.conversation.virtualPaths, skillCatalogReloader))
 
         tool(
-            TaskTool(subagentRunner, ctx, chat, subagents.catalog().subagents, onSubagentCompleted)
+            TaskTool(subagentRunner, ctx, chat.lifecycle, subagents.catalog().subagents, onSubagentCompleted),
         )
 
         tools(GitTools(gitToolConfig, ctx.conversation.virtualPaths))
@@ -102,17 +102,19 @@ class DefaultToolRegistryFactory(
                 ScheduledJobTools(
                     channelId = ctx.conversation.conversationId.channelId,
                     jobs = scheduledJobs,
-                )
+                ),
             )
         }
         tools(McpStatusTools(ctx, mcpToolsConfig.servers).asTools())
-        tools(mcpAuthTools.asTools(chat))
+        tools(mcpAuthTools.asTools(chat.delivery))
 
-        val extensionContext = SidekickToolContext { virtualPath ->
-            Path.of(parseVirtualPath(virtualPath, ctx.conversation.virtualPaths))
-                .toAbsolutePath()
-                .normalize()
-        }
+        val extensionContext =
+            SidekickToolContext { virtualPath ->
+                Path
+                    .of(parseVirtualPath(virtualPath, ctx.conversation.virtualPaths))
+                    .toAbsolutePath()
+                    .normalize()
+            }
         sidekickToolProviders.forEach { tools(it.toolSet(extensionContext)) }
     }
 
@@ -127,7 +129,7 @@ class DefaultToolRegistryFactory(
                     sharedContext.slackClient,
                     ctx,
                     conversationStateStore,
-                )
+                ),
             )
         }
 
@@ -137,7 +139,7 @@ class DefaultToolRegistryFactory(
                 chat = chat,
                 toolRegistry = toolRegistry,
                 ctx = ctx,
-            )
+            ),
         )
     }
 }

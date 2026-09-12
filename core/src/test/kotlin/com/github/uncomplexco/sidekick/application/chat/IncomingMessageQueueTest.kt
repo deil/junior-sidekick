@@ -123,12 +123,12 @@ class InboundQueueTest {
         )
     }
 
-    private fun message(id: String = "1700000001.000"): InboundMessage =
-        InboundMessage(
+    private fun message(id: String = "1700000001.000"): IncomingMessage =
+        IncomingMessage(
             id = id,
             createdAtMs = 1,
             sender = MessageAuthor(username = "U123", fullName = "User"),
             text = "hello",
-            type = ChatMessageType.PASSIVE_MESSAGE,
+            type = IncomingMessageType.PASSIVE_MESSAGE,
         )
 }

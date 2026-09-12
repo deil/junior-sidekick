@@ -7,31 +7,32 @@ import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationKind
-import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
-import com.github.uncomplexco.sidekick.application.chat.ChatReply
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.chat.DiscordChannelHistoryMessage
-import com.github.uncomplexco.sidekick.application.chat.InboundMessage
-import com.github.uncomplexco.sidekick.application.chat.InboundMessagesQueue
-import com.github.uncomplexco.sidekick.application.chat.ReplyAttachment
-import com.github.uncomplexco.sidekick.application.chat.TurnStats
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessageQueue
+import com.github.uncomplexco.sidekick.application.turn.ReplyAttachment
+import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
+import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.ConversationManager
+import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
-import com.github.uncomplexco.sidekick.application.turn.InboundMessageFilter
-import com.github.uncomplexco.sidekick.application.turn.LlmReplyDecisionClassifier
-import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionService
-import com.github.uncomplexco.sidekick.application.turn.SimpleReplyDecisionClassifier
-import com.github.uncomplexco.sidekick.application.turn.TurnExecutor
-import com.github.uncomplexco.sidekick.application.turn.koog.AgentTurnResult
-import com.github.uncomplexco.sidekick.application.turn.koog.AgentTurnRunner
-import com.github.uncomplexco.sidekick.application.turn.koog.AgentTurnStats
-import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
-import com.github.uncomplexco.sidekick.usecases.HandleIncomingChatMessageUsecase
+import com.github.uncomplexco.sidekick.application.turn.TurnAdmission
+import com.github.uncomplexco.sidekick.application.turn.DeterministicParticipationClassifier
+import com.github.uncomplexco.sidekick.application.turn.LlmParticipationClassifier
+import com.github.uncomplexco.sidekick.application.turn.TurnParticipation
+import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
+import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
+import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
+import com.github.uncomplexco.sidekick.application.stats.AgentStats
+import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
+import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
@@ -49,9 +50,9 @@ class DiscordAdapterTest {
 
     @Test
     fun `ingress maps one text dm with real ids`() = runBlocking {
-        val received = mutableListOf<Pair<ChatConversationId, InboundMessage>>()
-        val ingress = DiscordIngress { conversation, message, _ ->
-            received += conversation to message
+        val received = mutableListOf<Pair<ChatConversationId, IncomingMessage>>()
+        val ingress = DiscordIngress { conversationId, message, _ ->
+            received += conversationId to message
         }
 
         ingress.receive(message(), "999", ::sent)
@@ -64,7 +65,7 @@ class DiscordAdapterTest {
         assertEquals("234567890123456789", incoming.id)
         assertEquals("345678901234567890", incoming.sender.username)
         assertEquals("hello", incoming.text)
-        assertEquals(ChatMessageType.ASSISTANT_MESSAGE, incoming.type)
+        assertEquals(IncomingMessageType.ASSISTANT_MESSAGE, incoming.type)
     }
 
     @Test
@@ -105,9 +106,9 @@ class DiscordAdapterTest {
 
     @Test
     fun `ingress maps guild mention to isolated channel turn with real ids`() = runBlocking {
-        val received = mutableListOf<Pair<ChatConversationId, InboundMessage>>()
-        val ingress = DiscordIngress { conversation, message, _ ->
-            received += conversation to message
+        val received = mutableListOf<Pair<ChatConversationId, IncomingMessage>>()
+        val ingress = DiscordIngress { conversationId, message, _ ->
+            received += conversationId to message
         }
 
         ingress.receive(
@@ -122,14 +123,14 @@ class DiscordAdapterTest {
         assertEquals(ChatConversationKind.CHANNEL, conversation.kind)
         assertEquals(null, conversation.threadId)
         assertEquals("234567890123456789", incoming.id)
-        assertEquals(ChatMessageType.EXPLICIT_MENTION, incoming.type)
+        assertEquals(IncomingMessageType.EXPLICIT_MENTION, incoming.type)
     }
 
     @Test
     fun `ingress maps passive thread message to its existing session`() = runBlocking {
-        val received = mutableListOf<Pair<ChatConversationId, InboundMessage>>()
-        val ingress = DiscordIngress { conversation, message, _ ->
-            received += conversation to message
+        val received = mutableListOf<Pair<ChatConversationId, IncomingMessage>>()
+        val ingress = DiscordIngress { conversationId, message, _ ->
+            received += conversationId to message
         }
 
         ingress.receive(
@@ -145,7 +146,7 @@ class DiscordAdapterTest {
         assertEquals("123456789012345678", conversation.channelId)
         assertEquals("234567890123456789", conversation.threadId)
         assertEquals(ChatConversationKind.CHANNEL, conversation.kind)
-        assertEquals(ChatMessageType.PASSIVE_MESSAGE, incoming.type)
+        assertEquals(IncomingMessageType.PASSIVE_MESSAGE, incoming.type)
     }
 
     @Test
@@ -224,17 +225,17 @@ class DiscordAdapterTest {
     fun `turn reactions move from processing to completed`() = runBlocking {
         val reactions = mutableListOf<Pair<String, Boolean>>()
         val handler =
-            DiscordTurnResultHandler(
+            DiscordTurnOutput(
                 updateReaction = { emoji, add -> reactions += emoji to add },
                 send = ::sent,
             )
         val message =
-            InboundMessage(
+            IncomingMessage(
                 "message",
                 1,
                 MessageAuthor("user", "User"),
                 "hello",
-                ChatMessageType.EXPLICIT_MENTION,
+                IncomingMessageType.EXPLICIT_MENTION,
             )
 
         handler.markProcessing(message)
@@ -247,17 +248,17 @@ class DiscordAdapterTest {
     fun `failed turn removes processing reaction`() = runBlocking {
         val reactions = mutableListOf<Pair<String, Boolean>>()
         val handler =
-            DiscordTurnResultHandler(
+            DiscordTurnOutput(
                 updateReaction = { emoji, add -> reactions += emoji to add },
                 send = ::sent,
             )
         val message =
-            InboundMessage(
+            IncomingMessage(
                 "message",
                 1,
                 MessageAuthor("user", "User"),
                 "hello",
-                ChatMessageType.EXPLICIT_MENTION,
+                IncomingMessageType.EXPLICIT_MENTION,
             )
 
         handler.markProcessing(message)
@@ -271,7 +272,7 @@ class DiscordAdapterTest {
         var starts = 0
         var stops = 0
         val handler =
-            DiscordTurnResultHandler(
+            DiscordTurnOutput(
                 startTyping = {
                     starts += 1
                     AutoCloseable { stops += 1 }
@@ -279,19 +280,19 @@ class DiscordAdapterTest {
                 send = ::sent,
             )
         val message =
-            InboundMessage(
+            IncomingMessage(
                 "message",
                 1,
                 MessageAuthor("user", "User"),
                 "hello",
-                ChatMessageType.EXPLICIT_MENTION,
+                IncomingMessageType.EXPLICIT_MENTION,
             )
 
-        handler.start()
+        handler.begin()
         handler.markProcessing(message)
-        handler.`continue`("working")
-        handler.endTurn()
-        handler.endTurn()
+        handler.progress("working")
+        handler.end()
+        handler.end()
 
         assertEquals(1, starts)
         assertEquals(1, stops)
@@ -345,12 +346,12 @@ class DiscordAdapterTest {
     fun `reply sends complete text in 2000 character chunks and returns last real metadata`() =
         runBlocking {
             val chunks = mutableListOf<String>()
-            val handler = DiscordTurnResultHandler { text ->
+            val handler = DiscordTurnOutput { text ->
                 chunks += text
                 DiscordSentMessage("reply-${chunks.size}", 1_000L + chunks.size)
             }
 
-            val result = handler.postReply(ChatReply("x".repeat(4_001)))
+            val result = handler.deliver(AgentResponse("x".repeat(4_001)))
 
             assertEquals(listOf(2_000, 2_000, 1), chunks.map { it.length })
             assertEquals("x".repeat(4_001), chunks.joinToString(""))
@@ -361,12 +362,12 @@ class DiscordAdapterTest {
     @Test
     fun `reply does not split an emoji surrogate pair`() = runBlocking {
         val chunks = mutableListOf<String>()
-        val handler = DiscordTurnResultHandler { text ->
+        val handler = DiscordTurnOutput { text ->
             chunks += text
             DiscordSentMessage("reply", 1)
         }
 
-        handler.postReply(ChatReply("x".repeat(1_999) + "😀"))
+        handler.deliver(AgentResponse("x".repeat(1_999) + "😀"))
 
         assertEquals(listOf(1_999, 2), chunks.map(String::length))
         assertEquals("x".repeat(1_999) + "😀", chunks.joinToString(""))
@@ -377,13 +378,13 @@ class DiscordAdapterTest {
         val path = dir.resolve("report.csv")
         Files.writeString(path, "report")
         val sent = mutableListOf<String>()
-        val handler = DiscordTurnResultHandler { text ->
+        val handler = DiscordTurnOutput { text ->
             sent += text
             DiscordSentMessage("reply", 1)
         }
 
-        handler.postReply(
-            ChatReply("Ready.", listOf(ReplyAttachment(path, "report.csv", "text/csv", 6)))
+        handler.deliver(
+            AgentResponse("Ready.", listOf(ReplyAttachment(path, "report.csv", "text/csv", 6)))
         )
 
         assertEquals(
@@ -395,14 +396,14 @@ class DiscordAdapterTest {
     @Test
     fun `reply renders explicit status line as Discord subtext`() = runBlocking {
         val sent = mutableListOf<String>()
-        val handler = DiscordTurnResultHandler { text ->
+        val handler = DiscordTurnOutput { text ->
             sent += text
             DiscordSentMessage("reply", 1)
         }
 
-        handler.postReply(
-            ChatReply("Try again.", statusLine = "`[runtime failure]`"),
-            TurnStats("normal", 65, 2, 1_200, 340),
+        handler.deliver(
+            AgentResponse("Try again."),
+            ResponseMetadata.RuntimeFailure,
         )
 
         assertEquals("Try again.\n\n-# `[runtime failure]`", sent.single())
@@ -411,12 +412,15 @@ class DiscordAdapterTest {
     @Test
     fun `reply renders turn stats as Discord subtext`() = runBlocking {
         val sent = mutableListOf<String>()
-        val handler = DiscordTurnResultHandler { text ->
+        val handler = DiscordTurnOutput { text ->
             sent += text
             DiscordSentMessage("reply", 1)
         }
 
-        handler.postReply(ChatReply("Ready."), TurnStats("normal", 65, 2, 1_200, 340))
+        handler.deliver(
+            AgentResponse("Ready."),
+            ResponseMetadata.Turn(TurnStats("normal", 65, 2, 1_200, 340)),
+        )
 
         assertEquals("Ready.\n\n-# normal · 1m 5s · 1.2K → 340 · 2 tools", sent.single())
     }
@@ -424,15 +428,15 @@ class DiscordAdapterTest {
     @Test
     fun `marker-only reply with stats is not sent`() = runBlocking {
         var sends = 0
-        val handler = DiscordTurnResultHandler {
+        val handler = DiscordTurnOutput {
             sends += 1
             DiscordSentMessage("reply", 1)
         }
 
         val result =
-            handler.postReply(
-                ChatReply(SystemPromptBuilder.NO_REPLY_MARKER),
-                TurnStats("normal", 65, 2, 1_200, 340),
+            handler.deliver(
+                AgentResponse(SystemPromptBuilder.NO_REPLY_MARKER),
+                ResponseMetadata.Turn(TurnStats("normal", 65, 2, 1_200, 340)),
             )
 
         assertEquals(0, sends)
@@ -450,43 +454,39 @@ class DiscordAdapterTest {
                 )
             val store = FilesystemConversationStateStore(config, ChatPlatform.DISCORD)
             val manager =
-                ConversationManager(
+                SessionManager(
                     store,
                     VirtualPathsFactory(config, ChatPlatform.DISCORD),
                     SessionContextCompactor { _, _, messages ->
                         "summary for ${messages.size} messages"
                     },
                 )
-            val executor =
-                TurnExecutor(
-                    InboundMessageFilter(manager),
-                    manager,
-                    ReplyDecisionService(
-                        SimpleReplyDecisionClassifier(),
-                        LlmReplyDecisionClassifier(koogConfig()) { _, _ ->
+            val coordinator =
+                TurnCoordinator(
+                    admission = TurnAdmission(manager),
+                    sessions = manager,
+                    participation = TurnParticipation(
+                        config,
+                        DeterministicParticipationClassifier(),
+                        LlmParticipationClassifier(koogConfig()) { _, _ ->
                             error("classifier should not run for a DM")
                         },
                     ),
-                    config,
-                    AgentTurnRunner { _, message, _ ->
-                        assertEquals("hello", message.text)
-                        AgentTurnResult(
-                            ChatReply("hello from Sidekick"),
-                            AgentTurnStats("normal", AgentUsageStats()),
+                    agent = AgentTurnExecutor { turn, _ ->
+                        assertEquals("hello", turn.message.text)
+                        TurnExecutionResult(
+                            AgentResponse("hello from Sidekick"),
+                            AgentStats("normal", AgentUsageStats()),
                         )
                     },
-                    { SkillCatalog(emptyList()) },
+                    skills = { SkillCatalog(emptyList()) },
                 )
             val scope = SidekickCoroutineScope()
             val usecase =
-                HandleIncomingChatMessageUsecase(
-                    config,
-                    InboundMessagesQueue(scope, executor),
-                    executor,
-                )
+                ReceiveChatMessageUsecase(config, IncomingMessageQueue(scope, coordinator), coordinator)
             val sent = mutableListOf<String>()
-            val ingress = DiscordIngress { conversation, message, chat ->
-                usecase.handleNow(conversation, message, chat)
+            val ingress = DiscordIngress { conversationId, message, chat ->
+                usecase.receiveNow(conversationId, message, chat)
             }
 
             ingress.receive(message(), "999") { text ->
@@ -517,43 +517,39 @@ class DiscordAdapterTest {
                 )
             val store = FilesystemConversationStateStore(config, ChatPlatform.DISCORD)
             val manager =
-                ConversationManager(
+                SessionManager(
                     store,
                     VirtualPathsFactory(config, ChatPlatform.DISCORD),
                     SessionContextCompactor { _, _, messages ->
                         "summary for ${messages.size} messages"
                     },
                 )
-            val executor =
-                TurnExecutor(
-                    InboundMessageFilter(manager),
-                    manager,
-                    ReplyDecisionService(
-                        SimpleReplyDecisionClassifier(),
-                        LlmReplyDecisionClassifier(koogConfig()) { _, _ ->
+            val coordinator =
+                TurnCoordinator(
+                    admission = TurnAdmission(manager),
+                    sessions = manager,
+                    participation = TurnParticipation(
+                        config,
+                        DeterministicParticipationClassifier(),
+                        LlmParticipationClassifier(koogConfig()) { _, _ ->
                             error("classifier should not run for a mention")
                         },
                     ),
-                    config,
-                    AgentTurnRunner { _, message, _ ->
-                        assertEquals("hello <@999>", message.text)
-                        AgentTurnResult(
-                            ChatReply("guild reply"),
-                            AgentTurnStats("normal", AgentUsageStats()),
+                    agent = AgentTurnExecutor { turn, _ ->
+                        assertEquals("hello <@999>", turn.message.text)
+                        TurnExecutionResult(
+                            AgentResponse("guild reply"),
+                            AgentStats("normal", AgentUsageStats()),
                         )
                     },
-                    { SkillCatalog(emptyList()) },
+                    skills = { SkillCatalog(emptyList()) },
                 )
             val scope = SidekickCoroutineScope()
             val usecase =
-                HandleIncomingChatMessageUsecase(
-                    config,
-                    InboundMessagesQueue(scope, executor),
-                    executor,
-                )
+                ReceiveChatMessageUsecase(config, IncomingMessageQueue(scope, coordinator), coordinator)
             val sent = mutableListOf<String>()
-            val ingress = DiscordIngress { conversation, message, chat ->
-                usecase.handleNow(conversation, message, chat)
+            val ingress = DiscordIngress { conversationId, message, chat ->
+                usecase.receiveNow(conversationId, message, chat)
             }
 
             ingress.receive(

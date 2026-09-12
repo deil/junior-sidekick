@@ -3,14 +3,16 @@ package com.github.uncomplexco.sidekick.adapters.slack
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
-import com.github.uncomplexco.sidekick.application.chat.ChatReply
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
-import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
-import com.github.uncomplexco.sidekick.application.chat.ReplyResult
+import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
+import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
-import com.github.uncomplexco.sidekick.application.chat.TurnResultHandler
-import com.github.uncomplexco.sidekick.application.chat.TurnStats
+import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
+import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
@@ -41,8 +43,9 @@ class SlackChatPlatformAdapter(
     private val fileIngestor: SlackFileIngestor,
 ) : SlackBackedChatPlatformAdapter {
     override val botUsername: String = ctx.botUserId
-    override val resultHandler: TurnResultHandler =
-        SlackTurnResultHandler(ctx.client(), ctx.channelId, threadId)
+    private val output = SlackTurnOutput(ctx.client(), ctx.channelId, threadId)
+    override val lifecycle: TurnLifecycle = output
+    override val delivery: ResponseDelivery = output
 
     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
         historyLoader(conversationId)
@@ -53,18 +56,18 @@ class SlackChatPlatformAdapter(
     ): List<IncomingChatFile> = fileIngestor.ingest(conversationId, files)
 }
 
-internal class SlackTurnResultHandler(
+internal class SlackTurnOutput(
     private val client: MethodsClient,
     private val channelId: String,
     private val threadId: ChatThreadId?,
-) : TurnResultHandler {
+) : TurnLifecycle, ResponseDelivery {
     private var turnActive = false
 
-    override fun start() {
+    override fun begin() {
         turnActive = true
     }
 
-    override fun `continue`(text: String?) {
+    override fun progress(text: String?) {
         setStatus(
             status = STATUS_THINKING,
             emoji = ":face_in_clouds:",
@@ -72,22 +75,22 @@ internal class SlackTurnResultHandler(
         )
     }
 
-    override fun endTurn() {
+    override fun end() {
         turnActive = false
         setStatus("")
     }
 
-    override suspend fun markProcessing(message: InboundMessage) {
+    override suspend fun markProcessing(message: IncomingMessage) {
         updateReaction(message, PROCESSING_REACTION, add = true)
-        `continue`()
+        progress()
     }
 
-    override suspend fun postReply(
-        reply: ChatReply,
-        stats: TurnStats?,
-    ): ReplyResult {
+    override suspend fun deliver(
+        response: AgentResponse,
+        metadata: ResponseMetadata,
+    ): PublishedMessage {
         val filePermalinks =
-            reply.attachments.mapNotNull { attachment ->
+            response.attachments.mapNotNull { attachment ->
                 try {
                     val response = client.filesUploadV2 { req ->
                         req.file(attachment.path.toFile())
@@ -116,21 +119,21 @@ internal class SlackTurnResultHandler(
             }
 
         val replyText =
-            reply.text.takeUnless {
+            response.text.takeUnless {
                 it.isBlank() || it.contains(SystemPromptBuilder.NO_REPLY_MARKER)
             }
         val text = (listOfNotNull(replyText) + filePermalinks).joinToString("\n")
 
         if (text.isBlank()) {
             val ts = Clock.System.now().toEpochMilliseconds()
-            return ReplyResult("no_reply:$ts", ts)
+            return PublishedMessage("no_reply:$ts", ts)
         }
 
         val postResponse = client.chatPostMessage { req ->
             req.channel(channelId)
             threadId?.also { req.threadTs(it.threadTs) }
             req.text(text)
-            req.blocks(replyBlocks(text, reply.statusLine ?: stats?.statusLine()))
+            req.blocks(replyBlocks(text, metadata.statusLine()))
         }
 
         val response =
@@ -148,15 +151,15 @@ internal class SlackTurnResultHandler(
                 }
             }
 
-        return ReplyResult(response.ts, slackTsToMillis(response.ts))
+        return PublishedMessage(response.ts, slackTsToMillis(response.ts))
     }
 
-    override suspend fun markCompleted(message: InboundMessage) {
+    override suspend fun markCompleted(message: IncomingMessage) {
         updateReaction(message, PROCESSING_REACTION, add = false)
         updateReaction(message, COMPLETED_REACTION, add = true)
     }
 
-    override suspend fun markFailed(message: InboundMessage) {
+    override suspend fun markFailed(message: IncomingMessage) {
         updateReaction(message, PROCESSING_REACTION, add = false)
     }
 
@@ -177,6 +180,13 @@ internal class SlackTurnResultHandler(
                 toolCallCount.takeIf { it > 0 }?.let { "$it tools" },
             )
             .joinToString(" · ")
+
+    private fun ResponseMetadata.statusLine(): String? =
+        when (this) {
+            ResponseMetadata.None -> null
+            ResponseMetadata.RuntimeFailure -> "`[runtime failure]`"
+            is ResponseMetadata.Turn -> stats.statusLine()
+        }
 
     private fun TurnStats.formattedExecutionTime(): String =
         if (executionTimeSeconds < 60) {
@@ -219,7 +229,7 @@ internal class SlackTurnResultHandler(
     }
 
     private fun updateReaction(
-        message: InboundMessage,
+        message: IncomingMessage,
         reaction: String,
         add: Boolean,
     ) {

@@ -13,7 +13,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 
-class ConversationManagerSkillInvocationTest {
+class SessionManagerSkillInvocationTest {
     @TempDir lateinit var dir: Path
 
     @Test
@@ -24,18 +24,16 @@ class ConversationManagerSkillInvocationTest {
         val manager = manager(store)
 
         // Act
-        manager.recordIncomingMessages(
+        manager.recordIncomingMessage(
             conversationId = conversationId,
             seedHistory = false,
             historyLoader = { emptyList() },
-            messages =
-                listOf(
-                    message(
+            message =
+                message(
                         id = "current",
                         text = "please /code-review this",
                         explicitSkillInvocation = ExplicitSkillInvocation("code-review"),
-                    )
-                ),
+                    ),
             files = emptyList(),
         )
 
@@ -52,7 +50,7 @@ class ConversationManagerSkillInvocationTest {
         val manager = manager(store)
 
         // Act
-        manager.recordIncomingMessages(
+        manager.recordIncomingMessage(
             conversationId = conversationId,
             seedHistory = true,
             historyLoader = {
@@ -67,8 +65,7 @@ class ConversationManagerSkillInvocationTest {
                     )
                 )
             },
-            messages =
-                listOf(message(id = "current", text = "please review this", createdAtMs = 2)),
+            message = message(id = "current", text = "please review this", createdAtMs = 2),
             files = emptyList(),
         )
 
@@ -77,10 +74,10 @@ class ConversationManagerSkillInvocationTest {
         assertNull(seeded.explicitSkillInvocation)
     }
 
-    private fun manager(store: FilesystemConversationStateStore): ConversationManager {
+    private fun manager(store: FilesystemConversationStateStore): SessionManager {
         val config = config()
 
-        return ConversationManager(
+        return SessionManager(
             store,
             VirtualPathsFactory(config, ChatPlatform.SLACK),
             SessionContextCompactor(

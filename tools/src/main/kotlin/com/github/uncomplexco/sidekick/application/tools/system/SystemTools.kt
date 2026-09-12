@@ -5,30 +5,31 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
+import kotlinx.serialization.Serializable
 import kotlin.time.Clock
 import kotlin.time.Instant
-import kotlinx.serialization.Serializable
 
 @LLMDescription("General system/runtime tools")
 class SystemTools(
     private val clock: Clock = Clock.System,
-    private val chat: ChatPlatformAdapter? = null,
+    private val activityReporter: TurnLifecycle,
 ) : ToolSet {
     @Tool(TOOL_REPORT_ASSISTANT_ACTIVITY)
     @LLMDescription(
-        "Report current activity to the user as a short status message. Use at the start of each work phase or a tool call. Use again when the current task, phase, or investigation direction changes. Use for status updates during multi-step work such as researching, diagnosing, searching files, running bash commands, running tests, building, deploying, etc. Messages should be short sentence-case fragments that describe what is happening now and start with a present-participle verb, for example: 'investigating the failure', 'searching files', or 'running tests', and so on."
+        "Report current activity to the user as a short status message. Use at the start of each work phase or a tool call. Use again when the current task, phase, or investigation direction changes. Use for status updates during multi-step work such as researching, diagnosing, searching files, running bash commands, running tests, building, deploying, etc. Messages should be short sentence-case fragments that describe what is happening now and start with a present-participle verb, for example: 'investigating the failure', 'searching files', or 'running tests', and so on.",
     )
     fun reportAssistantActivity(
         @LLMDescription("Short user-facing activity message describing what is happening now.")
-        message: String
+        message: String,
     ): ReportAssistantActivityResult {
-        chat?.resultHandler?.`continue`(message)
+        activityReporter.progress(message)
         return ReportAssistantActivityResult(ok = true)
     }
 
     @Tool
     @LLMDescription(
-        "Return current system time in UTC. Use when the user asks for current time/date context. Do not use as a substitute for historical or timezone-conversion research."
+        "Return current system time in UTC. Use when the user asks for current time/date context. Do not use as a substitute for historical or timezone-conversion research.",
     )
     fun currentDateTime(): SystemTimeResult {
         val now = clock.now()
@@ -41,26 +42,28 @@ class SystemTools(
 
     @Tool
     @LLMDescription(
-        "Convert a Unix timestamp to ISO UTC. Supports seconds and milliseconds; 11+ digit values are treated as milliseconds."
+        "Convert a Unix timestamp to ISO UTC. Supports seconds and milliseconds; 11+ digit values are treated as milliseconds.",
     )
     fun timestampToIsoUtc(
-        @LLMDescription("Unix timestamp as seconds or milliseconds since epoch.") timestamp: Long
+        @LLMDescription("Unix timestamp as seconds or milliseconds since epoch.") timestamp: Long,
     ): TimestampToIsoUtcResult {
         val unit =
-            if (timestamp in -99_999_999_999..99_999_999_999) TimestampUnit.SECONDS
-            else TimestampUnit.MILLISECONDS
+            if (timestamp in -99_999_999_999..99_999_999_999) {
+                TimestampUnit.SECONDS
+            } else {
+                TimestampUnit.MILLISECONDS
+            }
         val instant =
             runCatching {
-                    when (unit) {
-                        TimestampUnit.SECONDS -> Instant.fromEpochSeconds(timestamp)
-                        TimestampUnit.MILLISECONDS -> Instant.fromEpochMilliseconds(timestamp)
-                    }
+                when (unit) {
+                    TimestampUnit.SECONDS -> Instant.fromEpochSeconds(timestamp)
+                    TimestampUnit.MILLISECONDS -> Instant.fromEpochMilliseconds(timestamp)
                 }
-                .getOrElse { cause ->
-                    throw ToolException.ValidationFailure(
-                        cause.message ?: "Invalid Unix timestamp."
-                    )
-                }
+            }.getOrElse { cause ->
+                throw ToolException.ValidationFailure(
+                    cause.message ?: "Invalid Unix timestamp.",
+                )
+            }
 
         return TimestampToIsoUtcResult(
             ok = true,
@@ -75,7 +78,9 @@ class SystemTools(
     }
 }
 
-private enum class TimestampUnit(val value: String) {
+private enum class TimestampUnit(
+    val value: String,
+) {
     SECONDS("seconds"),
     MILLISECONDS("milliseconds"),
 }
@@ -87,7 +92,9 @@ data class SystemTimeResult(
     val iso_utc: String,
 )
 
-@Serializable data class ReportAssistantActivityResult(val ok: Boolean)
+@Serializable data class ReportAssistantActivityResult(
+    val ok: Boolean,
+)
 
 @Serializable
 data class TimestampToIsoUtcResult(

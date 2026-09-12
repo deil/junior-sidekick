@@ -2,22 +2,23 @@ package com.github.uncomplexco.sidekick.application.conversation.triggers
 
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
-import com.github.uncomplexco.sidekick.application.turn.LlmReplyDecisionClassifier
-import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionInput
-import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionReason
-import com.github.uncomplexco.sidekick.application.turn.ReplyDecisionService
-import com.github.uncomplexco.sidekick.application.turn.SimpleReplyDecisionClassifier
+import com.github.uncomplexco.sidekick.application.turn.DeterministicParticipationClassifier
+import com.github.uncomplexco.sidekick.application.turn.LlmParticipationClassifier
+import com.github.uncomplexco.sidekick.application.turn.ParticipationClassifierInput
+import com.github.uncomplexco.sidekick.application.turn.TurnParticipationDecision
+import com.github.uncomplexco.sidekick.application.turn.TurnParticipationReason
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 
-class ReplyDecisionServiceTest {
+class TurnParticipationTest {
     @Test
     fun `explicit mention always replies`() {
         // Arrange
-        val classifier = SimpleReplyDecisionClassifier()
+        val classifier = DeterministicParticipationClassifier()
         val input =
-            ReplyDecisionInput(
+            ParticipationClassifierInput(
                 text = "@heytech help",
                 botUser = botUser(),
                 messageHistory = emptyList(),
@@ -29,14 +30,14 @@ class ReplyDecisionServiceTest {
         val decision = classifier.classify(input)!!
 
         // Assert
-        assertEquals(ReplyDecisionReason.EXPLICIT_MENTION, decision.reason)
-        assertEquals(true, decision.shouldReply)
+        assertIs<TurnParticipationDecision.Respond>(decision)
+        assertEquals(TurnParticipationReason.EXPLICIT_MENTION, decision.reason)
     }
 
     @Test
     fun `explicit unsubscribe command short-circuits reply and unsubscribes`() {
         // Arrange
-        val classifier = SimpleReplyDecisionClassifier()
+        val classifier = DeterministicParticipationClassifier()
         val commands =
             listOf(
                 "<@sidekick> unsubscribe",
@@ -53,7 +54,7 @@ class ReplyDecisionServiceTest {
 
         commands.forEach { command ->
             val input =
-                ReplyDecisionInput(
+                ParticipationClassifierInput(
                     text = command,
                     botUser = botUser(),
                     messageHistory = emptyList(),
@@ -65,18 +66,17 @@ class ReplyDecisionServiceTest {
             val decision = classifier.classify(input)!!
 
             // Assert
-            assertEquals(false, decision.shouldReply, command)
-            assertEquals(true, decision.shouldUnsubscribe, command)
-            assertEquals(ReplyDecisionReason.UNSUBSCRIBE_COMMAND, decision.reason, command)
+            assertIs<TurnParticipationDecision.Unsubscribe>(decision, command)
+            assertEquals(TurnParticipationReason.UNSUBSCRIBE_COMMAND, decision.reason, command)
         }
     }
 
     @Test
     fun `explicit unsubscribe command is detected independent of scope`() {
         // Arrange
-        val classifier = SimpleReplyDecisionClassifier()
+        val classifier = DeterministicParticipationClassifier()
         val input =
-            ReplyDecisionInput(
+            ParticipationClassifierInput(
                 text = "<@sidekick> unsubscribe",
                 botUser = botUser(),
                 messageHistory = emptyList(),
@@ -88,17 +88,16 @@ class ReplyDecisionServiceTest {
         val decision = classifier.classify(input)!!
 
         // Assert
-        assertEquals(false, decision.shouldReply)
-        assertEquals(true, decision.shouldUnsubscribe)
-        assertEquals(ReplyDecisionReason.UNSUBSCRIBE_COMMAND, decision.reason)
+        assertIs<TurnParticipationDecision.Unsubscribe>(decision)
+        assertEquals(TurnParticipationReason.UNSUBSCRIBE_COMMAND, decision.reason)
     }
 
     @Test
     fun `slack user mention to someone else does not reply`() {
         // Arrange
-        val classifier = SimpleReplyDecisionClassifier()
+        val classifier = DeterministicParticipationClassifier()
         val input =
-            ReplyDecisionInput(
+            ParticipationClassifierInput(
                 text = "<@U039RPWU0V8> test",
                 botUser = botUser(),
                 messageHistory = emptyList(),
@@ -109,16 +108,16 @@ class ReplyDecisionServiceTest {
         val decision = classifier.classify(input)!!
 
         // Assert
-        assertEquals(ReplyDecisionReason.DIRECTED_TO_OTHER_PARTY, decision.reason)
-        assertEquals(false, decision.shouldReply)
+        assertIs<TurnParticipationDecision.Skip>(decision)
+        assertEquals(TurnParticipationReason.DIRECTED_TO_OTHER_PARTY, decision.reason)
     }
 
     @Test
     fun `acknowledgment does not reply`() {
         // Arrange
-        val classifier = SimpleReplyDecisionClassifier()
+        val classifier = DeterministicParticipationClassifier()
         val input =
-            ReplyDecisionInput(
+            ParticipationClassifierInput(
                 text = "thanks",
                 botUser = botUser(),
                 messageHistory = emptyList(),
@@ -129,16 +128,16 @@ class ReplyDecisionServiceTest {
         val decision = classifier.classify(input)!!
 
         // Assert
-        assertEquals(ReplyDecisionReason.ACKNOWLEDGMENT, decision.reason)
-        assertEquals(false, decision.shouldReply)
+        assertIs<TurnParticipationDecision.Skip>(decision)
+        assertEquals(TurnParticipationReason.ACKNOWLEDGMENT, decision.reason)
     }
 
     @Test
     fun `private message without assistant history replies without llm classifier`() {
         // Arrange
-        val classifier = SimpleReplyDecisionClassifier()
+        val classifier = DeterministicParticipationClassifier()
         val input =
-            ReplyDecisionInput(
+            ParticipationClassifierInput(
                 text = "can you help with this?",
                 botUser = botUser(),
                 messageHistory = emptyList(),
@@ -150,16 +149,16 @@ class ReplyDecisionServiceTest {
         val decision = classifier.classify(input)!!
 
         // Assert
-        assertEquals(true, decision.shouldReply)
-        assertEquals(ReplyDecisionReason.PRIVATE_MESSAGE, decision.reason)
+        assertIs<TurnParticipationDecision.Respond>(decision)
+        assertEquals(TurnParticipationReason.PRIVATE_MESSAGE, decision.reason)
     }
 
     @Test
     fun `subscribed ambiguous message delegates to llm classifier`() {
         // Arrange
-        val classifier = SimpleReplyDecisionClassifier()
+        val classifier = DeterministicParticipationClassifier()
         val input =
-            ReplyDecisionInput(
+            ParticipationClassifierInput(
                 text = "what do you mean by that?",
                 botUser = botUser(),
                 messageHistory = emptyList(),
@@ -174,17 +173,11 @@ class ReplyDecisionServiceTest {
     }
 
     @Test
-    fun `private message without prior assistant message bypasses llm classifier`() = runBlocking {
+    fun `private message without prior assistant message is handled by simple classifier`() {
         // Arrange
-        val service =
-            ReplyDecisionService(
-                SimpleReplyDecisionClassifier(),
-                LlmReplyDecisionClassifier(koogConfig()) { _, _ ->
-                    error("classifier should not run")
-                },
-            )
+        val classifier = DeterministicParticipationClassifier()
         val input =
-            ReplyDecisionInput(
+            ParticipationClassifierInput(
                 text = "identify where https://headshots.ltd is hosted; use bash tool",
                 botUser = botUser(),
                 messageHistory = emptyList(),
@@ -193,11 +186,11 @@ class ReplyDecisionServiceTest {
             )
 
         // Act
-        val decision = service.shouldReply(input)
+        val decision = classifier.classify(input)!!
 
         // Assert
-        assertEquals(true, decision.shouldReply)
-        assertEquals(ReplyDecisionReason.PRIVATE_MESSAGE, decision.reason)
+        assertIs<TurnParticipationDecision.Respond>(decision)
+        assertEquals(TurnParticipationReason.PRIVATE_MESSAGE, decision.reason)
         assertEquals(null, decision.detail)
     }
 
@@ -205,9 +198,9 @@ class ReplyDecisionServiceTest {
     fun `llm classifier failure returns classifier error instead of crashing`() = runBlocking {
         // Arrange
         val classifier =
-            LlmReplyDecisionClassifier(koogConfig()) { _, _ -> error("llm unavailable") }
+            LlmParticipationClassifier(koogConfig()) { _, _ -> error("llm unavailable") }
         val input =
-            ReplyDecisionInput(
+            ParticipationClassifierInput(
                 text = "can you check this?",
                 botUser = botUser(),
                 messageHistory = emptyList(),
@@ -219,8 +212,8 @@ class ReplyDecisionServiceTest {
         val decision = classifier.classify(input)
 
         // Assert
-        assertEquals(false, decision.shouldReply)
-        assertEquals(ReplyDecisionReason.CLASSIFIER_ERROR, decision.reason)
+        assertIs<TurnParticipationDecision.Skip>(decision)
+        assertEquals(TurnParticipationReason.CLASSIFIER_ERROR, decision.reason)
         assertEquals("llm unavailable", decision.detail)
     }
 

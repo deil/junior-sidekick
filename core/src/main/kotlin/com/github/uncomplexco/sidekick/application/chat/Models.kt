@@ -13,11 +13,11 @@ data class IncomingChatFile(
     val summary: String? = null,
 )
 
-data class InboundMessage(
+data class IncomingMessage(
     val id: String,
     val createdAtMs: Long,
     val sender: MessageAuthor,
     val text: String,
-    val type: ChatMessageType,
+    val type: IncomingMessageType,
     val files: List<IncomingChatFile> = emptyList(),
 )

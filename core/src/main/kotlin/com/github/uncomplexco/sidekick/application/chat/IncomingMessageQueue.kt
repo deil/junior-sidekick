@@ -1,24 +1,30 @@
 package com.github.uncomplexco.sidekick.application.chat
 
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
-import com.github.uncomplexco.sidekick.application.turn.TurnExecutor
+import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
+import com.github.uncomplexco.sidekick.application.turn.TurnTrigger
 import kotlinx.coroutines.Dispatchers
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Component
-class InboundMessagesQueue(
+class IncomingMessageQueue(
     private val scope: SidekickCoroutineScope,
-    private val turnExecutor: TurnExecutor,
+    private val turnCoordinator: TurnCoordinator,
 ) {
-    private val queue = HashMap<BatchKey, MutableList<InboundMessage>>()
+    private val queue = HashMap<BatchKey, MutableList<IncomingMessage>>()
 
     suspend fun enqueue(
         conversationId: ChatConversationId,
-        message: InboundMessage,
+        message: IncomingMessage,
         chat: ChatPlatformAdapter,
     ) {
-        log.debug("{} @{}: {}", conversationId.logLabel(), message.sender.username, message.text)
+        log.debug(
+            "{} @{}: {}",
+            conversationId.logLabel(),
+            message.sender.username,
+            message.text,
+        )
 
         val key = batchKeyFor(conversationId, message)
 
@@ -43,7 +49,12 @@ class InboundMessagesQueue(
                 val messages = drain(key) ?: break
 
                 try {
-                    turnExecutor.run(key.conversationId, messages, chat)
+                    turnCoordinator.run(
+                        TurnTrigger.Incoming(
+                            IncomingBatch(key.conversationId, messages),
+                            chat,
+                        )
+                    )
                 } catch (e: Exception) {
                     log.error(
                         "${key.conversationId.logLabel()}: error processing messages: ${e.message}",
@@ -64,7 +75,7 @@ class InboundMessagesQueue(
                 return@synchronized null
             }
 
-            return@synchronized mutableListOf<InboundMessage>().also {
+            return@synchronized mutableListOf<IncomingMessage>().also {
                 it.addAll(messages)
                 messages.clear()
             }
@@ -76,16 +87,16 @@ class InboundMessagesQueue(
 }
 
 internal fun batchKeyFor(
-    chatConversationId: ChatConversationId,
-    message: InboundMessage,
+    conversationId: ChatConversationId,
+    message: IncomingMessage,
 ): BatchKey =
     if (
-        chatConversationId.isThread ||
-            (chatConversationId.platform == ChatPlatform.DISCORD && chatConversationId.isDM)
+        conversationId.isThread ||
+            (conversationId.platform == ChatPlatform.DISCORD && conversationId.isDM)
     ) {
-        BatchKey.Thread(chatConversationId)
+        BatchKey.Thread(conversationId)
     } else {
-        BatchKey.Single(chatConversationId, message.id)
+        BatchKey.Single(conversationId, message.id)
     }
 
 internal sealed interface BatchKey {

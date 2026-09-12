@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application.turn.koog
+package com.github.uncomplexco.sidekick.application.agent.koog
 
 import ai.koog.agents.chatMemory.feature.ChatHistoryProvider
 import ai.koog.agents.chatMemory.feature.ChatMemory
@@ -17,20 +17,23 @@ import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
+import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
-import com.github.uncomplexco.sidekick.application.chat.ChatReply
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
+import com.github.uncomplexco.sidekick.application.stats.AgentStats
+import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
-import java.nio.file.Path
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.nio.file.Path
 
 private val log = LoggerFactory.getLogger(SidekickAgent::class.java)
 
@@ -74,12 +77,13 @@ class SidekickAgent(
     private val mcpServersRegistry: McpServersRegistry,
     private val chatHistoryProvider: ChatHistoryProvider,
     private val checkpointPersistence: TurnCheckpointPersistence,
-) : AgentTurnRunner {
-    override suspend fun runTurn(
-        ctx: TurnContext,
-        message: SessionMessage,
+) : AgentTurnExecutor {
+    override suspend fun execute(
+        turn: com.github.uncomplexco.sidekick.application.turn.RecordedTurn,
         chat: ChatPlatformAdapter,
-    ): AgentTurnResult {
+    ): TurnExecutionResult {
+        val ctx = turn.context
+        val message = turn.message
         var usage = AgentUsageStats()
 
         val mcpServers =
@@ -95,8 +99,7 @@ class SidekickAgent(
             val mcpToolRegistry =
                 mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
             val baseTools =
-                toolRegistryFactory.buildExecutionTools(ctxWithMcp, chat, replyAttachments) {
-                    subagentUsage ->
+                toolRegistryFactory.buildExecutionTools(ctxWithMcp, chat, replyAttachments) { subagentUsage ->
                     usage += subagentUsage
                 } + mcpToolRegistry
             val toolRegistry =
@@ -127,7 +130,7 @@ class SidekickAgent(
                                         systemPromptBuilder.buildSystemPrompt(
                                             config.botUsername!!,
                                             ctx.conversation.virtualPaths.projectRoot,
-                                        )
+                                        ),
                                     )
                                 },
                             model =
@@ -154,9 +157,15 @@ class SidekickAgent(
                             usage +=
                                 AgentUsageStats(
                                     inputTokenCount =
-                                        llmCall.response?.metaInfo?.inputTokensCount?.toLong() ?: 0,
+                                        llmCall.response
+                                            ?.metaInfo
+                                            ?.inputTokensCount
+                                            ?.toLong() ?: 0,
                                     outputTokenCount =
-                                        llmCall.response?.metaInfo?.outputTokensCount?.toLong()
+                                        llmCall.response
+                                            ?.metaInfo
+                                            ?.outputTokensCount
+                                            ?.toLong()
                                             ?: 0,
                                 )
                         }
@@ -185,15 +194,15 @@ class SidekickAgent(
                 }
 
             val input = turnPromptBuilder.buildSessionTurnPrompt(message, ctxWithMcp)
-            val reply =
-                ChatReply(
+            val response =
+                AgentResponse(
                     agent.run(input, ctx.conversation.conversationId.lockKey()),
                     replyAttachments.collected(),
                 )
-            return AgentTurnResult(
-                reply = reply,
+            return TurnExecutionResult(
+                response = response,
                 stats =
-                    AgentTurnStats(
+                    AgentStats(
                         profileName = ctx.aiModelProfile.name.lowercase(),
                         usage = usage,
                     ),
@@ -221,34 +230,3 @@ internal fun sidekickStrategy() =
         edge(requestModelResponseWithToolResults forwardTo executeToolCalls onToolCalls { true })
         edge(requestModelResponseWithToolResults forwardTo nodeFinish onTextMessage { true })
     }
-
-fun interface AgentTurnRunner {
-    suspend fun runTurn(
-        ctx: TurnContext,
-        message: SessionMessage,
-        chat: ChatPlatformAdapter,
-    ): AgentTurnResult
-}
-
-data class AgentTurnResult(
-    val reply: ChatReply,
-    val stats: AgentTurnStats,
-)
-
-data class AgentTurnStats(
-    val profileName: String,
-    val usage: AgentUsageStats,
-)
-
-data class AgentUsageStats(
-    val toolCallCount: Int = 0,
-    val inputTokenCount: Long = 0,
-    val outputTokenCount: Long = 0,
-)
-
-private operator fun AgentUsageStats.plus(other: AgentUsageStats): AgentUsageStats =
-    AgentUsageStats(
-        toolCallCount = toolCallCount + other.toolCallCount,
-        inputTokenCount = inputTokenCount + other.inputTokenCount,
-        outputTokenCount = outputTokenCount + other.outputTokenCount,
-    )

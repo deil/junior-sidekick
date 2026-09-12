@@ -16,10 +16,10 @@ A chat message can start a new session or continue an existing one. If admitted,
 
 `Turn` is work:
 
-- Triggered by one admitted `InboundMessage`.
+- Triggered by one or more admitted `IncomingMessage` values in an `IncomingBatch`.
 - Belongs to exactly one session.
-- Starts after turn admission returns `TurnTriggerDecision.ShouldHandle`.
-- Has `TurnContext`: conversation id, turn id, current files, prior session history, and compactions.
+- Starts after `TurnAdmission` returns `TurnAdmissionDecision.Admitted`.
+- Has `TurnContext`: conversation id, turn id, current message id, session files, prior session history, and compactions.
 - Carries the session intelligence level for this turn: `normal` by default, or `ultrathink` after the conversation has opted in.
 - Ends when Sidekick records an assistant reply or marks the incoming message skipped.
 
@@ -32,16 +32,16 @@ Slack event
 Slack adapter
   |
   | converts Slack payloads into:
-  | - InboundMessage
   | - ChatConversationId
+  | - IncomingMessage
   | - ChatPlatformAdapter
   |
   v
 Turn admission
   |
-  | InboundMessageFilter decides:
+  | TurnAdmission decides:
   | - Ignore
-  | - ShouldHandle(conversationId, seedHistory, explicitMention)
+  | - Admitted(conversationId, seedHistory, explicitMention)
   |
   v
 Turn processing
@@ -62,14 +62,14 @@ Turn processing
   |     v
   |   TurnContext
   |
-  +-- ReplyDecisionService
+   +-- TurnParticipation
   |     |
-  |     | deterministic reply/skip policy
-  |     | LlmReplyDecisionClassifier for ambiguous passive turns
+  |     | deterministic participation decision
+  |     | LlmParticipationClassifier for ambiguous passive turns
   |     v
-  |   ReplyDecision
+  |   TurnParticipationDecision
   |
-  +-- if shouldReply=false
+  +-- Skip or Unsubscribe
   |     |
   |     v
   |   SessionManager.markMessageSkipped
@@ -77,15 +77,15 @@ Turn processing
   |     v
   |   turn complete
   |
-  +-- if shouldReply=true
+  +-- Respond
         |
         v
-      SidekickAgent.runTurn
+       AgentExecutor.execute
         |
         +-- success: Koog returns reply text
         |     |
         |     v
-      TurnResultHandler.postReply
+       ResponseDelivery.deliver
         |     |
         |     v
       SessionManager.recordAssistantReply
@@ -117,19 +117,19 @@ The adapter owns Slack-specific work:
 - Deduplication by `channel + ts`.
 - Ignoring Sidekick's own messages.
 - Ignoring Slack `message.*` events whose mention is owned by `app_mention`.
-- Mapping Slack payloads to `InboundMessage`, `ChatConversationId`, and `ChatPlatformAdapter`.
-- Turn activity, reply delivery, reactions, and user-facing result formatting through `SlackTurnResultHandler`.
+- Mapping Slack payloads to `IncomingMessage`, `ChatConversationId`, and `ChatPlatformAdapter`.
+- Turn activity and response delivery through `TurnLifecycle`, `ResponseDelivery`, and `SlackTurnOutput`.
 
 Application code should not need raw Slack payloads after this stage.
 
 ### Turn admission
 
-`InboundMessageFilter` decides whether a normalized chat message becomes a turn.
+`TurnAdmission` decides whether a normalized batch of messages from one chat conversation becomes a turn.
 
 It returns either:
 
-- `TurnTriggerDecision.Ignore`
-- `TurnTriggerDecision.ShouldHandle(conversationId, seedHistory, explicitMention)`
+- `TurnAdmissionDecision.Ignore`
+- `TurnAdmissionDecision.Admitted(conversationId, seedHistory, explicitMention)`
 
 Admission also selects the session. A root app mention creates a session from the message id. A thread message maps to the thread session. A direct assistant message maps to the direct-message session.
 
@@ -139,13 +139,13 @@ Explicit skill invocation preprocessing runs before session recording. It detect
 
 `SessionManager.recordIncomingMessage` is the persistence boundary after preprocessing.
 
-It locks the session, loads or creates `ConversationState`, optionally seeds Slack history, records the current user message, compacts context if needed, saves session state, and returns `TurnContext`.
+It locks the session, loads or creates `ConversationState`, optionally seeds Slack history, records the current user message, compacts context if needed, saves session state, and returns a `RecordedTurn` containing `TurnContext` and the current session message.
 
 Seeded messages are context. The triggering message is the current turn input.
 
-### Reply policy
+### Turn participation
 
-`ReplyDecisionService` decides whether the turn should produce a reply.
+`TurnParticipation` decides whether Sidekick should respond during an admitted turn. It returns `Respond`, `Skip`, or `Unsubscribe`.
 
 Deterministic decisions happen first:
 
@@ -157,33 +157,33 @@ Deterministic decisions happen first:
 
 Private assistant messages do not require prior assistant history. They are allowed to proceed even when the session has no assistant messages yet.
 
-Ambiguous passive turns go to `LlmReplyDecisionClassifier`.
+Ambiguous passive turns go to `LlmParticipationClassifier`.
 
 ### Agent turn
 
-`SidekickAgent.runTurn` receives `TurnContext` and `TurnMessage`.
+`AgentExecutor.execute` receives a `RecordedTurn` and the chat adapter.
 
-It builds the prompt, selects the configured Koog model profile from `TurnContext.intelligenceLevel`, runs Koog, executes tools as needed, and returns reply text. This is the point where Sidekick generates the actual answer.
+It builds the prompt, selects the configured Koog model profile from `TurnContext.aiModelProfile`, runs Koog, executes tools as needed, and returns reply text. This is the point where Sidekick generates the actual answer.
 
-The OpenRouter client is wrapped with Koog `RetryingLLMClient` using `RetryConfig.PRODUCTION`, so transient provider failures such as 429s and temporary unavailability are retried before the turn sees an error. If agent execution still fails after retries, `TurnExecutor` posts a compact temporary-failure reply and marks the triggering message skipped with `AGENT_FAILURE`; it does not record an assistant reply in session history.
+The OpenRouter client is wrapped with Koog `RetryingLLMClient` using `RetryConfig.PRODUCTION`, so transient provider failures such as 429s and temporary unavailability are retried before the turn sees an error. If agent execution still fails after retries, `TurnCoordinator` posts a compact temporary-failure reply and marks the triggering message skipped with `AGENT_FAILURE`; it does not record an assistant reply in session history.
 
 Session intelligence level is per conversation and defaults to `normal`. The `enableTokenmaxxin` system tool switches the current conversation between `normal` and `ultrathink`; the selected intelligence level applies when future turns initialize Koog.
 
-### Reply delivery and completion
+### Response delivery and completion
 
-When Sidekick replies, `TurnResultHandler` posts the reply and returns the chat message id/timestamp. Runtime-failure and unsubscribe notifications, status lines, and platform-specific message formatting are owned by its adapter implementation.
+When Sidekick responds, `ResponseDelivery` delivers the response and returns the chat message id/timestamp. Runtime-failure and unsubscribe notifications, status lines, and platform-specific message formatting are owned by its adapter implementation.
 
-After reply policy commits to a reply, the Slack adapter adds `:eyes:` to the triggering message. Successful final delivery and persistence replace it with `:white_check_mark:`. Agent or delivery failure removes `:eyes:` without adding a completion reaction. Ignored, skipped, and unsubscribe messages do not receive processing reactions.
+After turn participation returns `Respond`, the Slack adapter adds `:eyes:` to the triggering message. Successful final delivery and persistence replace it with `:white_check_mark:`. Agent or delivery failure removes `:eyes:` without adding a completion reaction. Ignored, skipped, and unsubscribe messages do not receive processing reactions.
 
 `SessionManager.recordAssistantReply` then marks the user message as replied, stores the assistant message, updates inflight state, saves the session, and completes the turn.
 
-When Sidekick skips by reply policy, `SessionManager.markMessageSkipped` records the skip reason and completes the turn without calling Koog or posting to chat. Agent/model failures are different: Sidekick posts a temporary-failure reply first, then marks the triggering message skipped with `AGENT_FAILURE`.
+When turn participation returns `Skip`, `SessionManager.markMessageSkipped` records the reason and completes the turn without calling Koog or delivering a response. Agent/model failures are different: Sidekick delivers a temporary-failure response first, then marks the triggering message skipped with `AGENT_FAILURE`.
 
 ## Boundaries
 
 A session is durable continuity. A turn is a single work unit.
 
-The turn boundary starts after `InboundMessageFilter` returns `TurnTriggerDecision.ShouldHandle`. It ends after one of:
+The turn boundary starts after `TurnAdmission` returns `TurnAdmissionDecision.Admitted`. It ends after one of:
 
 - `SessionManager.recordAssistantReply`
 - `SessionManager.markMessageSkipped`
@@ -195,7 +195,10 @@ The turn boundary starts after `InboundMessageFilter` returns `TurnTriggerDecisi
 ## Key files
 
 - `app/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/slack/SlackAppFactory.kt` - Slack event intake and mapping.
-- `app/src/main/kotlin/com/github/uncomplexco/sidekick/usecases/HandleIncomingChatMessageUsecase.kt` - Current turn orchestrator.
+- `app/src/main/kotlin/com/github/uncomplexco/sidekick/usecases/ReceiveChatMessageUsecase.kt` - Queued and immediate incoming-message entry points.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnCoordinator.kt` - Turn orchestration and completion/failure handling.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnAdmission.kt` - Batch admission and session selection.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnParticipation.kt` - Per-turn participation decision.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/conversation/SessionManager.kt` - Session state operations used during turns.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/conversation/Models.kt` - `ConversationId`, `ConversationState`, `SessionMessage`, compactions, inflight state.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnContext.kt` - Turn-local context.

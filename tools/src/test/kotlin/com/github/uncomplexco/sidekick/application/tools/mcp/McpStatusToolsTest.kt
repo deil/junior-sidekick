@@ -10,7 +10,7 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.turn.koog.ConnectedMcpServer
+import com.github.uncomplexco.sidekick.application.agent.koog.ConnectedMcpServer
 import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
@@ -41,8 +41,7 @@ class McpStatusToolsTest {
                             mcpServers = listOf(TestConnectedMcpServer("grafana")),
                         ),
                     turnId = "turn",
-                    currentMessageIds = listOf("m1"),
-                    currentFiles = emptyList(),
+                    currentMessageId = "m1",
                     sessionFiles = emptyList(),
                     aiModelProfile = AiModelProfile.NORMAL,
                 )

@@ -19,7 +19,7 @@ Hierarchical index of project context documentation for future-us and AI agents.
 - [slack.md](slack.md) – Slack channel and thread identifier semantics, including `C`/`G`/`D` prefixes and DM channel handling; read for Slack adapter mapping changes.
 - [skills.md](skills.md) – Remote extension repository configuration, checkout layout, skill discovery metadata, validation, and current scope; read for skills loading and activation changes.
 - [subagents.md](subagents.md) – `Task` tool behavior, built-in and extension subagent loading, frontmatter stripping, and subagent isolation; read for subagent behavior changes.
-- [turn-flow.md](turn-flow.md) – Session/Turn processing model, turn boundary, and processing stages from Slack event to reply delivery; read for turn orchestration and trigger/reply-policy changes.
+- [turn-flow.md](turn-flow.md) – Session/Turn processing model, turn boundary, and processing stages from Slack event through turn participation and response delivery; read for turn orchestration and participation changes.
 - [turn-suspension.md](turn-suspension.md) – Durable turn checkpoint/resume semantics, external-action waiting, supersession, races, parallel tools, and Koog Persistence versus ChatMemory; read for suspended turns and per-user OAuth continuation work.
 - [scheduled-jobs.md](scheduled-jobs.md) – Channel-scoped recurring prompts, conversational management, isolated scheduled runs, persistence, and delivery; read for scheduled agent work.
 - [workspace.md](workspace.md) – Virtual path roots for session, skills, and global context storage; read for file storage and workspace path changes.

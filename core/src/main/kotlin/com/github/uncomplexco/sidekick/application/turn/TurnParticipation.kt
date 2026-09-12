@@ -5,8 +5,11 @@ import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.model.executeStructured
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
@@ -17,7 +20,7 @@ import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
-data class ReplyDecisionInput(
+data class ParticipationClassifierInput(
     val text: String,
     val botUser: MessageAuthor,
     val messageHistory: List<SessionMessage>,
@@ -27,7 +30,7 @@ data class ReplyDecisionInput(
     val conversationId: ConversationId? = null,
 )
 
-enum class ReplyDecisionReason {
+enum class TurnParticipationReason {
     EXPLICIT_MENTION,
     PRIVATE_MESSAGE,
     UNSUBSCRIBE_COMMAND,
@@ -40,57 +43,98 @@ enum class ReplyDecisionReason {
     CLASSIFIER_ERROR,
 }
 
-data class ReplyDecision(
-    val shouldReply: Boolean,
-    val reason: ReplyDecisionReason,
-    val detail: String? = null,
-    val shouldUnsubscribe: Boolean = false,
+sealed interface TurnParticipationDecision {
+    val reason: TurnParticipationReason
+    val detail: String?
+
+    data class Respond(
+        override val reason: TurnParticipationReason,
+        override val detail: String? = null,
+    ) : TurnParticipationDecision
+
+    data class Skip(
+        override val reason: TurnParticipationReason,
+        override val detail: String? = null,
+    ) : TurnParticipationDecision
+
+    data class Unsubscribe(
+        override val reason: TurnParticipationReason,
+        override val detail: String? = null,
+    ) : TurnParticipationDecision
+}
+
+data class TurnParticipationInput(
+    val message: IncomingMessage,
+    val turn: RecordedTurn,
+    val explicitMention: Boolean,
 )
 
 @Component
-class ReplyDecisionService(
-    private val simpleClassifier: SimpleReplyDecisionClassifier,
-    private val llmClassifier: LlmReplyDecisionClassifier,
+class TurnParticipation(
+    private val agentConfig: AgentConfig,
+    private val deterministicClassifier: DeterministicParticipationClassifier,
+    private val llmClassifier: LlmParticipationClassifier,
 ) {
-    suspend fun shouldReply(input: ReplyDecisionInput): ReplyDecision =
-        simpleClassifier.classify(input) ?: llmClassifier.classify(input)
+    suspend fun decide(input: TurnParticipationInput): TurnParticipationDecision {
+        val message = input.message
+        val turn = input.turn
+        val botUser =
+            MessageAuthor(
+                username = agentConfig.botUsername!!,
+                fullName = agentConfig.name,
+            )
+        val history = turn.context.conversation.history.messages
+        val classifierInput =
+            ParticipationClassifierInput(
+                text = message.text,
+                botUser = botUser,
+                messageHistory = history,
+                isExplicitMention = input.explicitMention,
+                isPrivateMessage = message.type == IncomingMessageType.ASSISTANT_MESSAGE,
+                conversationId = turn.context.conversation.conversationId,
+                hasAssistantHistory = history.any { it.role == SessionMessageRole.ASSISTANT },
+            )
+
+        return deterministicClassifier.classify(classifierInput)
+            ?: llmClassifier.classify(classifierInput)
+    }
 }
 
 @Component
-class SimpleReplyDecisionClassifier {
-    fun classify(input: ReplyDecisionInput): ReplyDecision? {
+class DeterministicParticipationClassifier {
+    fun classify(input: ParticipationClassifierInput): TurnParticipationDecision? {
         if (input.isExplicitMention && isUnsubscribeCommand(input.text)) {
-            return ReplyDecision(
-                shouldReply = false,
-                reason = ReplyDecisionReason.UNSUBSCRIBE_COMMAND,
-                shouldUnsubscribe = true,
+            return TurnParticipationDecision.Unsubscribe(
+                TurnParticipationReason.UNSUBSCRIBE_COMMAND
             )
         }
 
         if (input.isExplicitMention || explicitMention(input.text, input.botUser.username)) {
-            return ReplyDecision(true, ReplyDecisionReason.EXPLICIT_MENTION)
+            return TurnParticipationDecision.Respond(TurnParticipationReason.EXPLICIT_MENTION)
         }
 
         val text = input.text
 
         if (text.isBlank()) {
-            return ReplyDecision(false, ReplyDecisionReason.EMPTY_MESSAGE)
+            return TurnParticipationDecision.Skip(TurnParticipationReason.EMPTY_MESSAGE)
         }
 
         leadingSlackUserMention(text)?.let {
-            return ReplyDecision(false, ReplyDecisionReason.DIRECTED_TO_OTHER_PARTY, it)
+            return TurnParticipationDecision.Skip(
+                TurnParticipationReason.DIRECTED_TO_OTHER_PARTY,
+                it,
+            )
         }
 
         if (isAcknowledgmentOnly(text)) {
-            return ReplyDecision(false, ReplyDecisionReason.ACKNOWLEDGMENT)
+            return TurnParticipationDecision.Skip(TurnParticipationReason.ACKNOWLEDGMENT)
         }
 
         if (input.isPrivateMessage) {
-            return ReplyDecision(true, ReplyDecisionReason.PRIVATE_MESSAGE)
+            return TurnParticipationDecision.Respond(TurnParticipationReason.PRIVATE_MESSAGE)
         } else if (!input.hasAssistantHistory) {
-            return ReplyDecision(
-                false,
-                ReplyDecisionReason.SIDE_CONVERSATION,
+            return TurnParticipationDecision.Skip(
+                TurnParticipationReason.SIDE_CONVERSATION,
                 "not_subscribed_to_thread",
             )
         }
@@ -134,16 +178,16 @@ class SimpleReplyDecisionClassifier {
 }
 
 @Component
-class LlmReplyDecisionClassifier(
+class LlmParticipationClassifier(
     private val config: KoogConfig,
-    private val executeClassifier: suspend (Prompt, LLModel) -> ReplyClassifierResult =
+    private val executeClassifier: suspend (Prompt, LLModel) -> ParticipationClassifierResult =
         { prompt, model ->
             config.openRouterExecutor().use { executor ->
-                executor.executeStructured<ReplyClassifierResult>(prompt, model).getOrThrow().data
+                executor.executeStructured<ParticipationClassifierResult>(prompt, model).getOrThrow().data
             }
         },
 ) {
-    suspend fun classify(input: ReplyDecisionInput): ReplyDecision {
+    suspend fun classify(input: ParticipationClassifierInput): TurnParticipationDecision {
         return runCatching {
                 val aiModelProfile = config.fastProfile
                 val model =
@@ -195,27 +239,35 @@ class LlmReplyDecisionClassifier(
 
                 val result = executeClassifier(prompt, model)
                 if (!result.shouldReply) {
-                    return ReplyDecision(
-                        shouldReply = false,
+                    return TurnParticipationDecision.Skip(
                         reason =
                             if (result.confidence < ROUTER_CONFIDENCE_THRESHOLD) {
-                                ReplyDecisionReason.LOW_CONFIDENCE
+                                TurnParticipationReason.LOW_CONFIDENCE
                             } else {
-                                ReplyDecisionReason.SIDE_CONVERSATION
+                                TurnParticipationReason.SIDE_CONVERSATION
                             },
                         detail = result.reason,
                     )
                 }
 
                 if (result.confidence < ROUTER_CONFIDENCE_THRESHOLD) {
-                    ReplyDecision(false, ReplyDecisionReason.LOW_CONFIDENCE, result.reason)
+                    TurnParticipationDecision.Skip(
+                        TurnParticipationReason.LOW_CONFIDENCE,
+                        result.reason,
+                    )
                 } else {
-                    ReplyDecision(true, ReplyDecisionReason.CLASSIFIER, result.reason)
+                    TurnParticipationDecision.Respond(
+                        TurnParticipationReason.CLASSIFIER,
+                        result.reason,
+                    )
                 }
             }
             .getOrElse { error ->
-                log.warn("Reply classifier failed", error)
-                ReplyDecision(false, ReplyDecisionReason.CLASSIFIER_ERROR, error.message)
+                log.warn("Participation classifier failed", error)
+                TurnParticipationDecision.Skip(
+                    TurnParticipationReason.CLASSIFIER_ERROR,
+                    error.message,
+                )
             }
     }
 
@@ -258,7 +310,7 @@ class LlmReplyDecisionClassifier(
             .joinToString("\n")
 
     @Serializable
-    data class ReplyClassifierResult(
+    data class ParticipationClassifierResult(
         val shouldReply: Boolean,
         val confidence: Double,
         val reason: String? = null,
@@ -266,6 +318,6 @@ class LlmReplyDecisionClassifier(
 
     companion object {
         private const val ROUTER_CONFIDENCE_THRESHOLD = 0.8
-        private val log = LoggerFactory.getLogger(LlmReplyDecisionClassifier::class.java)
+        private val log = LoggerFactory.getLogger(LlmParticipationClassifier::class.java)
     }
 }

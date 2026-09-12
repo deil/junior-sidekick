@@ -159,8 +159,7 @@ class TurnPromptBuilderTest {
                     mcpServers = emptyList(),
                 ),
             turnId = "turn",
-            currentMessageIds = listOf("m1"),
-            currentFiles = emptyList(),
+            currentMessageId = "m1",
             sessionFiles = listOfNotNull(file),
             aiModelProfile = AiModelProfile.NORMAL,
         )

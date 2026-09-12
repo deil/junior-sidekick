@@ -6,13 +6,14 @@ import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
+import com.github.uncomplexco.sidekick.application.turn.RecordedTurn
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import org.springframework.stereotype.Component
 
 @Component
-class ConversationManager(
+class SessionManager(
     private val store: ConversationStateStore,
     private val virtualPathsFactory: VirtualPathsFactory,
     private val contextCompactor: SessionContextCompactor,
@@ -46,16 +47,15 @@ class ConversationManager(
         }
     }
 
-    suspend fun recordIncomingMessages(
+    suspend fun recordIncomingMessage(
         conversationId: ConversationId,
         seedHistory: Boolean,
         historyLoader: suspend (ConversationId) -> List<ChatMessage>,
-        messages: List<SessionMessage>,
+        message: SessionMessage,
         files: List<IncomingChatFile>,
-    ): TurnContext =
+    ): RecordedTurn =
         store.withSessionLock(conversationId) {
             val turnId = generateTurnId()
-            val message = messages.last()
             val state = loadOrSeedState(conversationId, seedHistory, historyLoader)
             upsertFiles(state.files, files.map { it.toSessionFileRef() })
             upsertMessage(state.messages, message)
@@ -68,19 +68,22 @@ class ConversationManager(
                     history =
                         ConversationHistory(
                             compactions = state.compactions,
-                            messages = filterOutRecentMessages(state.messages, messages),
+                            messages = filterOutRecentMessages(state.messages, listOf(message)),
                             hasKoogMessages = state.koogMessages.isNotEmpty(),
                         ),
                     mcpServers = emptyList(),
                 )
 
-            TurnContext(
-                conversation = conversation,
-                turnId = turnId,
-                currentMessageIds = messages.map { it.id },
-                currentFiles = files,
-                sessionFiles = state.files,
-                aiModelProfile = state.aiModel,
+            RecordedTurn(
+                context =
+                    TurnContext(
+                        conversation = conversation,
+                        turnId = turnId,
+                        currentMessageId = message.id,
+                        sessionFiles = state.files,
+                        aiModelProfile = state.aiModel,
+                    ),
+                message = message,
             )
         }
 

@@ -1,6 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
-import com.github.uncomplexco.sidekick.application.chat.ChatReply
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.slack.api.RequestConfigurator
 import com.slack.api.methods.MethodsClient
 import com.slack.api.methods.request.chat.ChatPostMessageRequest
@@ -20,7 +20,7 @@ class ScheduledSlackChatPlatformAdapterTest {
         val adapter = ScheduledSlackChatPlatformAdapter(client, "C123", "USIDEKICK")
 
         // Act
-        adapter.resultHandler.postReply(ChatReply("scheduled result"))
+        adapter.delivery.deliver(AgentResponse("scheduled result"))
 
         // Assert
         assertEquals("C123", requests.single().channel)

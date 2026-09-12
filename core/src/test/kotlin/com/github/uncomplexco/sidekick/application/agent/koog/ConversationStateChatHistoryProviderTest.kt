@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.application.turn.koog
+package com.github.uncomplexco.sidekick.application.agent.koog
 
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart

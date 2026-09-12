@@ -200,11 +200,11 @@ Rejected because stale suspended work should not spontaneously produce a reply. 
 
 ## Relevant implementation
 
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnExecutor.kt` - current turn orchestration and completion/failure handling.
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/koog/SidekickAgent.kt` - current Koog graph and agent construction.
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/koog/ConversationStateChatHistoryProvider.kt` - durable Koog chat history for completed turns.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnCoordinator.kt` - current turn orchestration and completion/failure handling.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/koog/SidekickAgent.kt` - current Koog graph and agent construction.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/koog/ConversationStateChatHistoryProvider.kt` - durable Koog chat history for completed turns.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/conversation/Models.kt` - current session and turn statistics state.
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/chat/InboundQueue.kt` - current in-memory session message scheduling.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/chat/IncomingMessageQueue.kt` - current in-memory session message scheduling.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/mcp/McpOAuth.kt` - current global MCP OAuth state.
 - `app/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/mcp/McpOAuthController.kt` - current OAuth callback adapter.
 - [Koog agent persistence](https://docs.koog.ai/features/agent-persistence/) - checkpoint and restoration behavior.

@@ -14,11 +14,11 @@ Slack can deliver more than one event for the same user message. A channel menti
 
 App mentions are always explicit turns. Plain message events are only allowed through when they are not Sidekick's own message and do not contain a Sidekick mention, because mentions are handled through the `app_mention` path.
 
-The Slack adapter maps Slack events into `ChatConversationId`, `InboundMessage`, and `ChatPlatformAdapter`. `InboundMessageFilter` owns the decision to handle or ignore the message.
+The Slack adapter maps Slack events into `ChatConversationId`, `IncomingMessage`, and `ChatPlatformAdapter`. The queue groups messages from one chat conversation into an `IncomingBatch`; `TurnAdmission` owns the decision to handle or ignore that batch.
 
 ## Session subscription
 
-Sessions are subscribed by default. When an explicit mention matches a deterministic unsubscribe command, `ReplyDecisionService.shouldReply()` returns a decision that does not run Sidekick, marks the current user message skipped with reason `UNSUBSCRIBE_COMMAND`, sets the current session unsubscribed, and posts the out-of-band acknowledgement `Unsubscribed. Mention me to resume.`
+Sessions are subscribed by default. When an explicit mention matches a deterministic unsubscribe command, `TurnParticipation` returns `Unsubscribe`, which does not run Sidekick, marks the current user message skipped with reason `UNSUBSCRIBE_COMMAND`, sets the current session unsubscribed, and delivers the out-of-band acknowledgement `Unsubscribed. Mention me to resume.`
 
 The unsubscribe command patterns are deterministic:
 
@@ -27,7 +27,7 @@ The unsubscribe command patterns are deterministic:
 - `(mute|leave) this thread`
 - `don't (reply|participate|watch)`
 
-Unsubscribed sessions drop passive Slack thread messages in `InboundMessageFilter.shouldTriggerTurn()` before they become turns. Explicit mentions are still admitted and resubscribe the session unless the mention is itself an unsubscribe command.
+Unsubscribed sessions drop passive Slack thread messages in `TurnAdmission.admit()` before they become turns. Explicit mentions are still admitted and resubscribe the session unless the mention is itself an unsubscribe command.
 
 ```text
 Slack event
@@ -42,7 +42,7 @@ Slack event
   |
   +-- Slack assistant chat ------------> trigger=ASSISTANT_MESSAGE
   |
-  +-- InboundMessageFilter -------> Ignore or Handle
+  +-- TurnAdmission -------------> Ignore or Admit
 ```
 
 ## Session identity
@@ -88,7 +88,7 @@ Direct message
 
 Sidekick's persisted session state is the source of continuity after a session exists locally. Slack thread history is only bootstrap material.
 
-Future-us: `seedHistory` is the current mechanical flag on `TurnTriggerDecision.ShouldHandle`. The deeper domain concept may be whether Sidekick is joining a session or continuing one; rename this when that language hardens enough to pay rent.
+Future-us: `seedHistory` is the current mechanical flag on `TurnAdmissionDecision.Admitted`. The deeper domain concept may be whether Sidekick is joining a session or continuing one; rename this when that language hardens enough to pay rent.
 
 The seeding rule is:
 
@@ -96,7 +96,7 @@ The seeding rule is:
 Seed from Slack only when the trigger decision allows seeding, local session history is empty, and the incoming conversation is thread-scoped.
 ```
 
-In practice, the adapter passes a history loader on every interaction, but the loader returns Slack history only when Slack provides a `thread_ts`. `InboundMessageFilter` decides whether the turn may seed history; `SessionManager` decides whether local history is empty before calling the loader.
+In practice, the adapter passes a history loader on every interaction, but the loader returns Slack history only when Slack provides a `thread_ts`. `TurnAdmission` decides whether the turn may seed history; `SessionManager` decides whether local history is empty before calling the loader.
 
 This keeps the model stable:
 
@@ -107,13 +107,13 @@ This keeps the model stable:
 ```text
 Incoming turn
   |
-  +-- InboundMessageFilter
+  +-- TurnAdmission
         |
         +-- Ignore ----------------------------> stop
         |
-        +-- Handle(seedHistory=false) ---------> use local history only
+        +-- Admit(seedHistory=false) ----------> use local history only
         |
-        +-- Handle(seedHistory=true) ----------> SessionManager checks local state
+        +-- Admit(seedHistory=true) -----------> SessionManager checks local state
                                                   |
                                                   +-- has messages ------------> use local history
                                                   |
@@ -167,5 +167,5 @@ Seeded human messages may have weaker author data than live incoming messages de
 
 ## Key files
 
-- [InboundMessageFilter.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnTrigger.kt) – Trigger decisions for app mentions, passive messages, and assistant messages.
-- [HandleIncomingChatMessageUsecase.kt](../../app/src/main/kotlin/com/github/uncomplexco/sidekick/usecases/HandleIncomingChatMessageUsecase.kt) – Conversation use case that records incoming messages, runs Sidekick, posts replies, and records assistant output.
+- [TurnAdmission.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnAdmission.kt) – Batch admission and session selection for app mentions, passive messages, and assistant messages.
+- [ReceiveChatMessageUsecase.kt](../../app/src/main/kotlin/com/github/uncomplexco/sidekick/usecases/ReceiveChatMessageUsecase.kt) – Queued and immediate incoming-message entry points.

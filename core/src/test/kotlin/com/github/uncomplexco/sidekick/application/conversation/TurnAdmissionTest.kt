@@ -5,12 +5,13 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationKind
-import com.github.uncomplexco.sidekick.application.chat.ChatMessageType
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
-import com.github.uncomplexco.sidekick.application.chat.InboundMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingBatch
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
-import com.github.uncomplexco.sidekick.application.turn.InboundMessageFilter
-import com.github.uncomplexco.sidekick.application.turn.TurnTriggerDecision
+import com.github.uncomplexco.sidekick.application.turn.TurnAdmission
+import com.github.uncomplexco.sidekick.application.turn.TurnAdmissionDecision
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -20,21 +21,21 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 
-class InboundMessageFilterTest {
+class TurnAdmissionTest {
     @TempDir lateinit var dir: Path
 
     @Test
     fun `app mention in channel root creates session from message id`() {
         // Arrange
         val policy = policy()
-        val message = message(ChatMessageType.EXPLICIT_MENTION, id = "1700000000.001")
+        val message = message(IncomingMessageType.EXPLICIT_MENTION, id = "1700000000.001")
         val conversationId = ChatConversationId(channelId = "C123")
 
         // Act
         val decision = trigger(policy, conversationId, message)
 
         // Assert
-        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+        val handle = assertIs<TurnAdmissionDecision.Admitted>(decision)
         assertEquals(ConversationId("C123", "1700000000.001"), handle.conversationId)
         assertEquals(false, handle.seedHistory)
         assertEquals(true, handle.explicitMention)
@@ -44,14 +45,14 @@ class InboundMessageFilterTest {
     fun `app mention in thread continues thread session and seeds history`() {
         // Arrange
         val policy = policy()
-        val message = message(ChatMessageType.EXPLICIT_MENTION)
+        val message = message(IncomingMessageType.EXPLICIT_MENTION)
         val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
 
         // Act
         val decision = trigger(policy, conversationId, message)
 
         // Assert
-        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+        val handle = assertIs<TurnAdmissionDecision.Admitted>(decision)
         assertEquals(ConversationId("C123", "1700000000.000"), handle.conversationId)
         assertEquals(true, handle.seedHistory)
         assertEquals(true, handle.explicitMention)
@@ -61,28 +62,28 @@ class InboundMessageFilterTest {
     fun `passive channel root message is ignored`() {
         // Arrange
         val policy = policy()
-        val message = message(ChatMessageType.PASSIVE_MESSAGE)
+        val message = message(IncomingMessageType.PASSIVE_MESSAGE)
         val conversationId = ChatConversationId(channelId = "C123")
 
         // Act
         val decision = trigger(policy, conversationId, message)
 
         // Assert
-        assertSame(TurnTriggerDecision.Ignore, decision)
+        assertSame(TurnAdmissionDecision.Ignore, decision)
     }
 
     @Test
     fun `passive thread message without existing session is ignored`() {
         // Arrange
         val policy = policy()
-        val message = message(ChatMessageType.PASSIVE_MESSAGE)
+        val message = message(IncomingMessageType.PASSIVE_MESSAGE)
         val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
 
         // Act
         val decision = trigger(policy, conversationId, message)
 
         // Assert
-        assertSame(TurnTriggerDecision.Ignore, decision)
+        assertSame(TurnAdmissionDecision.Ignore, decision)
     }
 
     @Test
@@ -90,32 +91,30 @@ class InboundMessageFilterTest {
         // Arrange
         val agentSessions = agentSessions()
         val sessionId = ConversationId("C123", "1700000000.000")
-        agentSessions.recordIncomingMessages(
+        agentSessions.recordIncomingMessage(
             conversationId = sessionId,
             seedHistory = false,
             historyLoader = { emptyList() },
-            messages =
-                listOf(
-                    SessionMessage(
+            message =
+                SessionMessage(
                         id = "seed",
                         role = SessionMessageRole.USER,
                         author = author(),
                         text = "existing",
                         fileIds = emptyList(),
                         createdAtMs = 1,
-                    )
-                ),
+                    ),
             files = emptyList(),
         )
-        val policy = InboundMessageFilter(agentSessions)
-        val message = message(ChatMessageType.PASSIVE_MESSAGE)
+        val policy = TurnAdmission(agentSessions)
+        val message = message(IncomingMessageType.PASSIVE_MESSAGE)
         val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
 
         // Act
-        val decision = policy.shouldTriggerTurn(conversationId, message.type, message.id)
+        val decision = trigger(policy, conversationId, message)
 
         // Assert
-        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+        val handle = assertIs<TurnAdmissionDecision.Admitted>(decision)
         assertEquals(sessionId, handle.conversationId)
         assertEquals(false, handle.seedHistory)
         assertEquals(false, handle.explicitMention)
@@ -126,33 +125,31 @@ class InboundMessageFilterTest {
         // Arrange
         val agentSessions = agentSessions()
         val sessionId = ConversationId("C123", "1700000000.000")
-        agentSessions.recordIncomingMessages(
+        agentSessions.recordIncomingMessage(
             conversationId = sessionId,
             seedHistory = false,
             historyLoader = { emptyList() },
-            messages =
-                listOf(
-                    SessionMessage(
+            message =
+                SessionMessage(
                         id = "seed",
                         role = SessionMessageRole.USER,
                         author = author(),
                         text = "existing",
                         fileIds = emptyList(),
                         createdAtMs = 1,
-                    )
-                ),
+                    ),
             files = emptyList(),
         )
         agentSessions.setSubscribed(sessionId, false)
-        val policy = InboundMessageFilter(agentSessions)
-        val message = message(ChatMessageType.PASSIVE_MESSAGE)
+        val policy = TurnAdmission(agentSessions)
+        val message = message(IncomingMessageType.PASSIVE_MESSAGE)
         val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
 
         // Act
-        val decision = policy.shouldTriggerTurn(conversationId, message.type, message.id)
+        val decision = trigger(policy, conversationId, message)
 
         // Assert
-        assertSame(TurnTriggerDecision.Ignore, decision)
+        assertSame(TurnAdmissionDecision.Ignore, decision)
     }
 
     @Test
@@ -161,33 +158,31 @@ class InboundMessageFilterTest {
             // Arrange
             val agentSessions = agentSessions()
             val sessionId = ConversationId("C123", "1700000000.000")
-            agentSessions.recordIncomingMessages(
+            agentSessions.recordIncomingMessage(
                 conversationId = sessionId,
                 seedHistory = false,
                 historyLoader = { emptyList() },
-                messages =
-                    listOf(
-                        SessionMessage(
+                message =
+                    SessionMessage(
                             id = "seed",
                             role = SessionMessageRole.USER,
                             author = author(),
                             text = "existing",
                             fileIds = emptyList(),
                             createdAtMs = 1,
-                        )
-                    ),
+                        ),
                 files = emptyList(),
             )
             agentSessions.setSubscribed(sessionId, false)
-            val policy = InboundMessageFilter(agentSessions)
-            val message = message(ChatMessageType.EXPLICIT_MENTION)
+            val policy = TurnAdmission(agentSessions)
+            val message = message(IncomingMessageType.EXPLICIT_MENTION)
             val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
 
             // Act
-            val decision = policy.shouldTriggerTurn(conversationId, message.type, message.id)
+            val decision = trigger(policy, conversationId, message)
 
             // Assert
-            val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+            val handle = assertIs<TurnAdmissionDecision.Admitted>(decision)
             assertEquals(sessionId, handle.conversationId)
             assertEquals(true, handle.explicitMention)
             assertEquals(false, agentSessions.isSubscribed(sessionId))
@@ -197,14 +192,14 @@ class InboundMessageFilterTest {
     fun `assistant message continues thread session and seeds history`() {
         // Arrange
         val policy = policy()
-        val message = message(ChatMessageType.ASSISTANT_MESSAGE)
+        val message = message(IncomingMessageType.ASSISTANT_MESSAGE)
         val conversationId = ChatConversationId(channelId = "D123", threadId = "1700000000.000")
 
         // Act
         val decision = trigger(policy, conversationId, message)
 
         // Assert
-        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+        val handle = assertIs<TurnAdmissionDecision.Admitted>(decision)
         assertEquals(ConversationId("D123", "1700000000.000"), handle.conversationId)
         assertEquals(true, handle.seedHistory)
         assertEquals(false, handle.explicitMention)
@@ -213,12 +208,12 @@ class InboundMessageFilterTest {
     @Test
     fun `unthreaded slack assistant message keeps history seeding semantics`() {
         val policy = policy()
-        val message = message(ChatMessageType.ASSISTANT_MESSAGE)
+        val message = message(IncomingMessageType.ASSISTANT_MESSAGE)
         val conversationId = ChatConversationId(channelId = "D123")
 
         val decision = trigger(policy, conversationId, message)
 
-        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+        val handle = assertIs<TurnAdmissionDecision.Admitted>(decision)
         assertEquals(ConversationId("D123", ""), handle.conversationId)
         assertEquals(true, handle.seedHistory)
     }
@@ -226,7 +221,7 @@ class InboundMessageFilterTest {
     @Test
     fun `discord direct message uses real channel as session and requests history seeding`() {
         val policy = policy()
-        val message = message(ChatMessageType.ASSISTANT_MESSAGE)
+        val message = message(IncomingMessageType.ASSISTANT_MESSAGE)
         val conversationId =
             ChatConversationId(
                 channelId = "123456789012345678",
@@ -236,7 +231,7 @@ class InboundMessageFilterTest {
 
         val decision = trigger(policy, conversationId, message)
 
-        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+        val handle = assertIs<TurnAdmissionDecision.Admitted>(decision)
         assertEquals(ConversationId("123456789012345678", ""), handle.conversationId)
         assertEquals(true, handle.seedHistory)
         assertEquals(false, handle.explicitMention)
@@ -247,13 +242,13 @@ class InboundMessageFilterTest {
         // Arrange
         val policy = policy()
         val conversationId = ChatConversationId(channelId = "C123")
-        val messages = emptyList<InboundMessage>()
+        val messages = emptyList<IncomingMessage>()
 
         // Act
         val decision = trigger(policy, conversationId, messages)
 
         // Assert
-        assertSame(TurnTriggerDecision.Ignore, decision)
+        assertSame(TurnAdmissionDecision.Ignore, decision)
     }
 
     @Test
@@ -263,15 +258,15 @@ class InboundMessageFilterTest {
         val conversationId = ChatConversationId(channelId = "C123")
         val messages =
             listOf(
-                message(ChatMessageType.PASSIVE_MESSAGE, id = "1700000000.001"),
-                message(ChatMessageType.PASSIVE_MESSAGE, id = "1700000000.002"),
+                message(IncomingMessageType.PASSIVE_MESSAGE, id = "1700000000.001"),
+                message(IncomingMessageType.PASSIVE_MESSAGE, id = "1700000000.002"),
             )
 
         // Act
         val decision = trigger(policy, conversationId, messages)
 
         // Assert
-        assertSame(TurnTriggerDecision.Ignore, decision)
+        assertSame(TurnAdmissionDecision.Ignore, decision)
     }
 
     @Test
@@ -280,37 +275,35 @@ class InboundMessageFilterTest {
             // Arrange
             val agentSessions = agentSessions()
             val conversationId = ConversationId("C123", "1700000000.000")
-            agentSessions.recordIncomingMessages(
+            agentSessions.recordIncomingMessage(
                 conversationId = conversationId,
                 seedHistory = false,
                 historyLoader = { emptyList() },
-                messages =
-                    listOf(
-                        SessionMessage(
+                message =
+                    SessionMessage(
                             id = "seed",
                             role = SessionMessageRole.USER,
                             author = author(),
                             text = "existing",
                             fileIds = emptyList(),
                             createdAtMs = 1,
-                        )
-                    ),
+                        ),
                 files = emptyList(),
             )
-            val policy = InboundMessageFilter(agentSessions)
+            val policy = TurnAdmission(agentSessions)
             val chatConversationId =
                 ChatConversationId(channelId = "C123", threadId = "1700000000.000")
             val messages =
                 listOf(
-                    message(ChatMessageType.PASSIVE_MESSAGE, id = "1700000000.001"),
-                    message(ChatMessageType.PASSIVE_MESSAGE, id = "1700000000.002"),
+                    message(IncomingMessageType.PASSIVE_MESSAGE, id = "1700000000.001"),
+                    message(IncomingMessageType.PASSIVE_MESSAGE, id = "1700000000.002"),
                 )
 
             // Act
-            val decision = policy.shouldTriggerTurn(chatConversationId, messages)
+            val decision = trigger(policy, chatConversationId, messages)
 
             // Assert
-            val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+            val handle = assertIs<TurnAdmissionDecision.Admitted>(decision)
             assertEquals(conversationId, handle.conversationId)
             assertEquals(false, handle.seedHistory)
             assertEquals(false, handle.explicitMention)
@@ -323,15 +316,15 @@ class InboundMessageFilterTest {
         val conversationId = ChatConversationId(channelId = "C123", threadId = "1700000000.000")
         val messages =
             listOf(
-                message(ChatMessageType.PASSIVE_MESSAGE, id = "1700000000.001"),
-                message(ChatMessageType.EXPLICIT_MENTION, id = "1700000000.002"),
+                message(IncomingMessageType.PASSIVE_MESSAGE, id = "1700000000.001"),
+                message(IncomingMessageType.EXPLICIT_MENTION, id = "1700000000.002"),
             )
 
         // Act
         val decision = trigger(policy, conversationId, messages)
 
         // Assert
-        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+        val handle = assertIs<TurnAdmissionDecision.Admitted>(decision)
         assertEquals(ConversationId("C123", "1700000000.000"), handle.conversationId)
         assertEquals(true, handle.seedHistory)
         assertEquals(true, handle.explicitMention)
@@ -344,15 +337,15 @@ class InboundMessageFilterTest {
         val conversationId = ChatConversationId(channelId = "C123")
         val messages =
             listOf(
-                message(ChatMessageType.PASSIVE_MESSAGE, id = "1700000000.001"),
-                message(ChatMessageType.EXPLICIT_MENTION, id = "1700000000.002"),
+                message(IncomingMessageType.PASSIVE_MESSAGE, id = "1700000000.001"),
+                message(IncomingMessageType.EXPLICIT_MENTION, id = "1700000000.002"),
             )
 
         // Act
         val decision = trigger(policy, conversationId, messages)
 
         // Assert
-        val handle = assertIs<TurnTriggerDecision.ShouldHandle>(decision)
+        val handle = assertIs<TurnAdmissionDecision.Admitted>(decision)
         assertEquals(ConversationId("C123", "1700000000.002"), handle.conversationId)
         assertEquals(false, handle.seedHistory)
         assertEquals(true, handle.explicitMention)
@@ -365,36 +358,38 @@ class InboundMessageFilterTest {
         val conversationId = ChatConversationId(channelId = "C123")
         val messages =
             listOf(
-                message(ChatMessageType.EXPLICIT_MENTION, id = "1700000000.001"),
-                message(ChatMessageType.EXPLICIT_MENTION, id = "1700000000.002"),
+                message(IncomingMessageType.EXPLICIT_MENTION, id = "1700000000.001"),
+                message(IncomingMessageType.EXPLICIT_MENTION, id = "1700000000.002"),
             )
 
         // Act / Assert
         assertFailsWith<IllegalArgumentException> { trigger(policy, conversationId, messages) }
     }
 
-    private fun policy(): InboundMessageFilter = InboundMessageFilter(agentSessions())
+    private fun policy(): TurnAdmission = TurnAdmission(agentSessions())
 
     private fun trigger(
-        policy: InboundMessageFilter,
+        policy: TurnAdmission,
         conversationId: ChatConversationId,
-        message: InboundMessage,
-    ): TurnTriggerDecision = policy.shouldTriggerTurn(conversationId, message.type, message.id)
+        message: IncomingMessage,
+    ): TurnAdmissionDecision =
+        policy.admit(IncomingBatch(conversationId, listOf(message)))
 
     private fun trigger(
-        policy: InboundMessageFilter,
+        policy: TurnAdmission,
         conversationId: ChatConversationId,
-        messages: List<InboundMessage>,
-    ): TurnTriggerDecision = policy.shouldTriggerTurn(conversationId, messages)
+        messages: List<IncomingMessage>,
+    ): TurnAdmissionDecision =
+        policy.admit(IncomingBatch(conversationId, messages))
 
-    private fun agentSessions(): ConversationManager {
+    private fun agentSessions(): SessionManager {
         val config =
             AgentConfig(
                 "Sidekick",
                 dir.resolve("state").toString(),
                 dir.resolve("workspace").toString(),
             )
-        return ConversationManager(
+        return SessionManager(
             FilesystemConversationStateStore(config, ChatPlatform.SLACK),
             VirtualPathsFactory(config, ChatPlatform.SLACK),
             SessionContextCompactor(
@@ -404,10 +399,10 @@ class InboundMessageFilterTest {
     }
 
     private fun message(
-        trigger: ChatMessageType,
+        trigger: IncomingMessageType,
         id: String = "1700000000.002",
-    ): InboundMessage =
-        InboundMessage(
+    ): IncomingMessage =
+        IncomingMessage(
             id = id,
             createdAtMs = 2,
             sender = author(),

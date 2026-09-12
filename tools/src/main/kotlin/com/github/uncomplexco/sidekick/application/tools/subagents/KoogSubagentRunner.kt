@@ -13,7 +13,7 @@ import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import com.github.uncomplexco.sidekick.application.turn.koog.AgentUsageStats
+import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import java.util.UUID
 import org.springframework.stereotype.Component
 

@@ -1,13 +1,12 @@
 package com.github.uncomplexco.sidekick.application.turn
 
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
-import com.github.uncomplexco.sidekick.application.turn.koog.ConnectedMcpServer
+import com.github.uncomplexco.sidekick.application.agent.koog.ConnectedMcpServer
 
 data class ConversationContext(
     val conversationId: ConversationId,
@@ -19,13 +18,15 @@ data class ConversationContext(
 data class TurnContext(
     val conversation: ConversationContext,
     val turnId: String,
-    val currentMessageIds: List<String>,
-    val currentFiles: List<IncomingChatFile>,
+    val currentMessageId: String,
     val sessionFiles: List<SessionFileRef>,
     val aiModelProfile: AiModelProfile,
-) {
-    val currentMessageId = currentMessageIds.last()
-}
+)
+
+data class RecordedTurn(
+    val context: TurnContext,
+    val message: SessionMessage,
+)
 
 data class ConversationHistory(
     val compactions: List<SessionCompaction>,

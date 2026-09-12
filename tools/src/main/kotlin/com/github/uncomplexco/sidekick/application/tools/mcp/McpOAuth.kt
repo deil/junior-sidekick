@@ -2,7 +2,18 @@ package com.github.uncomplexco.sidekick.application.tools.mcp
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
-import com.github.uncomplexco.sidekick.application.chat.ChatReply
+import com.github.uncomplexco.sidekick.application.agent.AgentResponse
+import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Component
 import java.net.URI
 import java.net.URLEncoder
 import java.net.http.HttpClient
@@ -18,17 +29,6 @@ import java.util.Base64
 import kotlin.io.path.exists
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toJavaDuration
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import org.slf4j.LoggerFactory
-import org.springframework.stereotype.Component
 
 @Component
 class McpOAuthService(
@@ -36,16 +36,18 @@ class McpOAuthService(
     private val config: McpToolsConfig,
 ) {
     private val http = HttpClient.newHttpClient()
-    private val json = Json {
-        ignoreUnknownKeys = true
-        prettyPrint = true
-    }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            prettyPrint = true
+        }
     private val refreshSkew = 5.minutes.toJavaDuration()
 
     fun accessToken(server: McpServerConfig): String? {
         val token = loadToken(server.id) ?: return null
-        if (Instant.parse(token.expiresAt).isAfter(Instant.now().plus(refreshSkew)))
+        if (Instant.parse(token.expiresAt).isAfter(Instant.now().plus(refreshSkew))) {
             return token.accessToken
+        }
         val refreshToken = token.refreshToken ?: return null
 
         val client = loadClient(server.id) ?: return null
@@ -62,19 +64,17 @@ class McpOAuthService(
                 }
 
         return runCatching {
-                val refreshed = refreshToken(pending.tokenEndpoint, client, refreshToken)
-                saveToken(server.id, refreshed)
-                refreshed.accessToken
-            }
-            .onFailure {
-                log.warn("Failed to refresh MCP OAuth token for server {}", server.id, it)
-            }
-            .getOrNull()
+            val refreshed = refreshToken(pending.tokenEndpoint, client, refreshToken)
+            saveToken(server.id, refreshed)
+            refreshed.accessToken
+        }.onFailure {
+            log.warn("Failed to refresh MCP OAuth token for server {}", server.id, it)
+        }.getOrNull()
     }
 
     suspend fun connect(
         server: McpServerConfig,
-        chat: ChatPlatformAdapter,
+        responseDelivery: ResponseDelivery,
     ): ConnectMcpResult {
         if (server.auth != "oauth") {
             return ConnectMcpResult(
@@ -101,7 +101,7 @@ class McpOAuthService(
                         authorizationEndpoint = metadata.authorizationEndpoint,
                         tokenEndpoint = metadata.tokenEndpoint,
                         createdAt = Instant.now().toString(),
-                    )
+                    ),
             )
         saveClient(server.id, updatedClient)
 
@@ -116,8 +116,8 @@ class McpOAuthService(
                     "code_challenge_method" to "S256",
                     "state" to state,
                 )
-        chat.resultHandler.postReply(
-            ChatReply("Connect ${server.id} MCP server: $authorizationUrl")
+        responseDelivery.deliver(
+            AgentResponse("Connect ${server.id} MCP server: $authorizationUrl"),
         )
 
         return ConnectMcpResult(
@@ -150,20 +150,20 @@ class McpOAuthService(
         val origin = "${serverUri.scheme}://${serverUri.authority}"
         val protectedResource =
             runCatching {
-                    val request =
-                        HttpRequest.newBuilder(
-                                URI.create("$origin/.well-known/oauth-protected-resource")
-                            )
-                            .GET()
-                            .build()
-                    val response = http.send(request, HttpResponse.BodyHandlers.ofString())
-                    if (response.statusCode() !in 200..299)
-                        error(
-                            "OAuth HTTP ${response.statusCode()} from ${request.uri()}: ${response.body()}"
-                        )
-                    json.parseToJsonElement(response.body()).jsonObject
+                val request =
+                    HttpRequest
+                        .newBuilder(
+                            URI.create("$origin/.well-known/oauth-protected-resource"),
+                        ).GET()
+                        .build()
+                val response = http.send(request, HttpResponse.BodyHandlers.ofString())
+                if (response.statusCode() !in 200..299) {
+                    error(
+                        "OAuth HTTP ${response.statusCode()} from ${request.uri()}: ${response.body()}",
+                    )
                 }
-                .getOrNull()
+                json.parseToJsonElement(response.body()).jsonObject
+            }.getOrNull()
         val authorizationServer =
             protectedResource
                 ?.get("authorization_servers")
@@ -177,7 +177,7 @@ class McpOAuthService(
         val metadataResponse = http.send(metadataRequest, HttpResponse.BodyHandlers.ofString())
         if (metadataResponse.statusCode() !in 200..299) {
             error(
-                "OAuth HTTP ${metadataResponse.statusCode()} from $metadataUrl: ${metadataResponse.body()}"
+                "OAuth HTTP ${metadataResponse.statusCode()} from $metadataUrl: ${metadataResponse.body()}",
             )
         }
         val metadata = json.parseToJsonElement(metadataResponse.body()).jsonObject
@@ -210,42 +210,42 @@ class McpOAuthService(
                             listOf(
                                 JsonPrimitive("authorization_code"),
                                 JsonPrimitive("refresh_token"),
-                            )
+                            ),
                         ),
                     "response_types" to
                         kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("code"))),
                     "token_endpoint_auth_method" to JsonPrimitive("client_secret_post"),
-                )
+                ),
             )
         val request =
-            HttpRequest.newBuilder(URI.create(metadata.registrationEndpoint))
+            HttpRequest
+                .newBuilder(URI.create(metadata.registrationEndpoint))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
                 .build()
         val httpResponse = http.send(request, HttpResponse.BodyHandlers.ofString())
         if (httpResponse.statusCode() !in 200..299) {
             error(
-                "OAuth HTTP ${httpResponse.statusCode()} from ${metadata.registrationEndpoint}: ${httpResponse.body()}"
+                "OAuth HTTP ${httpResponse.statusCode()} from ${metadata.registrationEndpoint}: ${httpResponse.body()}",
             )
         }
         val response = httpResponse.body()
         val registered = json.parseToJsonElement(response).jsonObject
         return OAuthClientState(
-                serverId = server.id,
-                redirectUrl = redirectUrl,
-                clientId =
-                    registered["client_id"]?.jsonPrimitive?.contentOrNull
-                        ?: error("Missing OAuth client registration field: client_id"),
-                clientSecret = registered["client_secret"]?.jsonPrimitive?.contentOrNull,
-                clientIdIssuedAt =
-                    registered["client_id_issued_at"]?.jsonPrimitive?.contentOrNull?.toLongOrNull(),
-                clientSecretExpiresAt =
-                    registered["client_secret_expires_at"]
-                        ?.jsonPrimitive
-                        ?.contentOrNull
-                        ?.toLongOrNull(),
-            )
-            .also { saveClient(server.id, it) }
+            serverId = server.id,
+            redirectUrl = redirectUrl,
+            clientId =
+                registered["client_id"]?.jsonPrimitive?.contentOrNull
+                    ?: error("Missing OAuth client registration field: client_id"),
+            clientSecret = registered["client_secret"]?.jsonPrimitive?.contentOrNull,
+            clientIdIssuedAt =
+                registered["client_id_issued_at"]?.jsonPrimitive?.contentOrNull?.toLongOrNull(),
+            clientSecretExpiresAt =
+                registered["client_secret_expires_at"]
+                    ?.jsonPrimitive
+                    ?.contentOrNull
+                    ?.toLongOrNull(),
+        ).also { saveClient(server.id, it) }
     }
 
     private fun exchangeCode(
@@ -284,14 +284,15 @@ class McpOAuthService(
         client.clientSecret?.let { requestFields += "client_secret" to it }
         requestFields += fields
         val request =
-            HttpRequest.newBuilder(URI.create(tokenEndpoint))
+            HttpRequest
+                .newBuilder(URI.create(tokenEndpoint))
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(form(*requestFields.toTypedArray())))
                 .build()
         val httpResponse = http.send(request, HttpResponse.BodyHandlers.ofString())
         if (httpResponse.statusCode() !in 200..299) {
             error(
-                "OAuth HTTP ${httpResponse.statusCode()} from $tokenEndpoint: ${httpResponse.body()}"
+                "OAuth HTTP ${httpResponse.statusCode()} from $tokenEndpoint: ${httpResponse.body()}",
             )
         }
         val response = httpResponse.body()
@@ -325,11 +326,10 @@ class McpOAuthService(
     private fun saveClient(
         serverId: String,
         client: OAuthClientState,
-    ) =
-        Files.writeString(
-            mcpDir(serverId).resolve("oauth-client.json"),
-            json.encodeToString(client),
-        )
+    ) = Files.writeString(
+        mcpDir(serverId).resolve("oauth-client.json"),
+        json.encodeToString(client),
+    )
 
     private fun loadToken(serverId: String): OAuthTokenState? {
         val path = mcpDir(serverId).resolve("oauth-token.json")
@@ -342,13 +342,12 @@ class McpOAuthService(
         token: OAuthTokenState,
     ) = Files.writeString(mcpDir(serverId).resolve("oauth-token.json"), json.encodeToString(token))
 
-    private fun form(vararg fields: Pair<String, String>): String {
-        return fields.joinToString("&") { (name, value) ->
+    private fun form(vararg fields: Pair<String, String>): String =
+        fields.joinToString("&") { (name, value) ->
             val encodedName = URLEncoder.encode(name, StandardCharsets.UTF_8)
             val encodedValue = URLEncoder.encode(value, StandardCharsets.UTF_8)
             "$encodedName=$encodedValue"
         }
-    }
 
     private fun randomUrlSafe(bytes: Int): String {
         val data = ByteArray(bytes)
@@ -358,7 +357,8 @@ class McpOAuthService(
 
     private fun codeChallenge(verifier: String): String {
         val digest =
-            MessageDigest.getInstance("SHA-256")
+            MessageDigest
+                .getInstance("SHA-256")
                 .digest(verifier.toByteArray(StandardCharsets.US_ASCII))
         return Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
     }
