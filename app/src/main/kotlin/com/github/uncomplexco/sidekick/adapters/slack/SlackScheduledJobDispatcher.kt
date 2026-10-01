@@ -25,24 +25,14 @@ class SlackScheduledJobDispatcher(
     private val runScheduledJob: RunScheduledJobUsecase,
 ) : ScheduledJobDispatcher {
     override suspend fun dispatch(run: ScheduledJobRun) {
-        val botUserId = botUserId()
         runScheduledJob.run(
             scheduledRun = run,
-            chat = ScheduledSlackChatPlatformAdapter(app.client(), run.channelId, botUserId),
+            chat =
+                ScheduledSlackChatPlatformAdapter(
+                    app.client(),
+                    run.channelId,
+                    agentConfig.botUsername!!,
+                ),
         )
-    }
-
-    private fun botUserId(): String {
-        agentConfig.botUsername
-            ?.takeIf { it.isNotBlank() }
-            ?.let {
-                return it
-            }
-
-        val response = app.client().authTest { it }
-        check(response.isOk && !response.userId.isNullOrBlank()) {
-            "Slack auth.test failed: ${response.error ?: "missing user_id"}"
-        }
-        return response.userId.also { agentConfig.botUsername = it }
     }
 }

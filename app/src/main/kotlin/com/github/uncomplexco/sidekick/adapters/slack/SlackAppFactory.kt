@@ -49,6 +49,9 @@ class SlackAppFactory {
         slackFileIngestor: SlackFileIngestor,
     ): App {
         val app = App(slackAdapterConfig)
+        val auth = app.client.authTest { it }
+        agentConfig.botUsername = auth.userId
+
         sharedContext.slackClient = app.client()
 
         app.assistant(buildSlackAssistant(app, eventDeduper, receiveChatMessage, slackFileIngestor))

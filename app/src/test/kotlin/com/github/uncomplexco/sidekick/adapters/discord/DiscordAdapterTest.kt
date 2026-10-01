@@ -452,6 +452,7 @@ class DiscordAdapterTest {
                     dir.resolve("state").toString(),
                     dir.resolve("workspace").toString(),
                 )
+            config.botUsername = "999"
             val store = FilesystemConversationStateStore(config, ChatPlatform.DISCORD)
             val manager =
                 SessionManager(
@@ -486,7 +487,6 @@ class DiscordAdapterTest {
             val scope = SidekickCoroutineScope()
             val usecase =
                 ReceiveChatMessageUsecase(
-                    config,
                     IncomingMessageQueue(scope, coordinator),
                     coordinator,
                 )
@@ -521,6 +521,7 @@ class DiscordAdapterTest {
                     dir.resolve("state").toString(),
                     dir.resolve("workspace").toString(),
                 )
+            config.botUsername = "999"
             val store = FilesystemConversationStateStore(config, ChatPlatform.DISCORD)
             val manager =
                 SessionManager(
@@ -555,7 +556,6 @@ class DiscordAdapterTest {
             val scope = SidekickCoroutineScope()
             val usecase =
                 ReceiveChatMessageUsecase(
-                    config,
                     IncomingMessageQueue(scope, coordinator),
                     coordinator,
                 )

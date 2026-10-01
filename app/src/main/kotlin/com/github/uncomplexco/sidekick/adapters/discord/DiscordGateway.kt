@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.discord
 
+import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationKind
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
@@ -194,6 +195,7 @@ class DiscordConfiguration {
     @Bean(destroyMethod = "shutdownNow")
     fun discordGateway(
         @Value("\${adapters.discord.bot.token}") token: String,
+        agentConfig: AgentConfig,
         selectedChatPlatform: ChatPlatform,
         incoming: ReceiveChatMessageUsecase,
         scope: SidekickCoroutineScope,
@@ -284,9 +286,10 @@ class DiscordConfiguration {
                     GatewayIntent.GUILD_MESSAGES,
                     GatewayIntent.MESSAGE_CONTENT,
                 )
-                .addEventListeners(listener)
                 .build()
                 .awaitReady()
+        agentConfig.botUsername = jda.selfUser.id
+        jda.addEventListener(listener)
         return jda
     }
 
