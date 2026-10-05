@@ -20,12 +20,17 @@ import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
-data class ParticipationClassifierInput(
+data class ParticipationClassifierMessage(
     val text: String,
+    val author: MessageAuthor,
+    val isExplicitMention: Boolean = false,
+)
+
+data class ParticipationClassifierInput(
+    val messages: List<ParticipationClassifierMessage>,
     val botUser: MessageAuthor,
     val messageHistory: List<SessionMessage>,
     val hasAssistantHistory: Boolean,
-    val isExplicitMention: Boolean = false,
     val isPrivateMessage: Boolean = false,
     val conversationId: ConversationId? = null,
 )
@@ -86,24 +91,30 @@ class TurnParticipation(
         val history = turn.context.conversation.history.messages
         val classifierInput =
             ParticipationClassifierInput(
-                text = message.text,
+                messages =
+                    listOf(
+                        ParticipationClassifierMessage(
+                            text = message.text,
+                            author = message.sender,
+                            isExplicitMention = input.explicitMention,
+                        )
+                    ),
                 botUser = botUser,
                 messageHistory = history,
-                isExplicitMention = input.explicitMention,
                 isPrivateMessage = message.type == IncomingMessageType.ASSISTANT_MESSAGE,
                 conversationId = turn.context.conversation.conversationId,
                 hasAssistantHistory = history.any { it.role == SessionMessageRole.ASSISTANT },
             )
 
-        return deterministicClassifier.classify(listOf(classifierInput))
+        return deterministicClassifier.classify(classifierInput)
             ?: llmClassifier.classify(classifierInput)
     }
 }
 
 @Component
 class DeterministicParticipationClassifier {
-    fun classify(inputs: List<ParticipationClassifierInput>): TurnParticipationDecision? {
-        val decisions = inputs.map(::classifyMessage)
+    fun classify(input: ParticipationClassifierInput): TurnParticipationDecision? {
+        val decisions = input.messages.map { classifyMessage(it, input) }
         val subscriptionDecision = decisions.lastOrNull {
             it is TurnParticipationDecision.Unsubscribe ||
                 (it is TurnParticipationDecision.Respond &&
@@ -119,14 +130,17 @@ class DeterministicParticipationClassifier {
         return decisions.firstOrNull()
     }
 
-    private fun classifyMessage(input: ParticipationClassifierInput): TurnParticipationDecision? {
-        val text = input.text
+    private fun classifyMessage(
+        message: ParticipationClassifierMessage,
+        input: ParticipationClassifierInput,
+    ): TurnParticipationDecision? {
+        val text = message.text
         val otherParty = leadingSlackUserMention(text)
 
         return when {
             isUnsubscribeCommand(text) ->
                 TurnParticipationDecision.Unsubscribe(TurnParticipationReason.UNSUBSCRIBE_COMMAND)
-            input.isExplicitMention || explicitMention(text, input.botUser.username) ->
+            message.isExplicitMention || explicitMention(text, input.botUser.username) ->
                 TurnParticipationDecision.Respond(TurnParticipationReason.EXPLICIT_MENTION)
             text.isBlank() -> TurnParticipationDecision.Skip(TurnParticipationReason.EMPTY_MESSAGE)
             otherParty != null ->
@@ -236,7 +250,7 @@ class LlmParticipationClassifier(
                         )
                         user(
                             buildRouterPrompt(
-                                input.text,
+                                input.messages,
                                 historyText,
                                 input.messageHistory.lastOrNull {
                                     it.role == SessionMessageRole.ASSISTANT
@@ -285,37 +299,55 @@ class LlmParticipationClassifier(
     ): String =
         """
         You are a message router for a Slack assistant named $agentName (user $botUsername) in a subscribed Slack thread.
-        Decide whether $agentName should reply to the latest message.
+        Decide whether $agentName should reply to the entire batch in <current_messages>.
+        Each <message> identifies its author. Read the messages in order and consider them together, not only the last message.
         If there are several human participants in a subscribed thread, such subscribed threads are passive by default.
-        When only $agentName and one human are active - latest message can be shouldReply=true.
-        Reply true only when the latest message is aimed at $agentName.
+        When only $agentName and one human are active, the batch can be shouldReply=true.
+        Reply true when at least one message in the batch is aimed at $agentName.
+        Later clarifications and corrections update earlier requests. A later acknowledgment does not erase an earlier request.
         Use who currently has the conversation floor, not just topic overlap.
         If $agentName was the last speaker terse clarifications, follow-ups, direct reference to $agentName's prior answer should count as an implicit follow-up.
         If $agentName's last message was a question or request for confirmation - acknowledgment and clarification to it should count as follow-up.
-        If human's latest message contains a request, new task, even if on a different subject, or references prior work - that should count as a follow-up.
+        If a human message in the batch contains a request, new task, even if on a different subject, or references prior work, that should count as a follow-up.
         If several humans spoke after $agentName, require a direct and clear reference to $agentName. Topic overlap is not enough.
-        Acknowledgments, status chatter, and human-to-human coordination should be shouldReply=false.
+        A batch containing only acknowledgments, status chatter, and human-to-human coordination should be shouldReply=false.
         When uncertain, prefer shouldReply=false with low confidence.
         Keep the decision reason short.
         """
             .trimIndent()
 
     private fun buildRouterPrompt(
-        rawText: String,
+        messages: List<ParticipationClassifierMessage>,
         historyText: String,
         lastBotMessage: SessionMessage?,
-    ): String =
-        listOf(
-                "<latest-message>${rawText.trim()}</latest-message>",
-                "<context>${xmlTag(
-                "last-assistant-message",
-                lastBotMessage?.let { "[${it.role.name}]: " + escapeXml(it.text) } ?: "[none]",
-            )}</context>",
-                "<recent-thread>",
-                historyText,
-                "</recent-thread>",
+    ): String = buildString {
+        appendLine(
+            xmlTag(
+                "current_messages",
+                messages.joinToString("\n") { message ->
+                    val authorId = escapeXml(message.author.username)
+                    val authorName = escapeXml(message.author.fullName.orEmpty())
+                    "<message author_id=\"$authorId\" author_name=\"$authorName\">\n" +
+                        escapeXml(message.text.trim()) +
+                        "\n</message>"
+                },
             )
-            .joinToString("\n")
+        )
+        appendLine(
+            xmlTag(
+                "context",
+                listOf(
+                        xmlTag(
+                            "last_assistant_message",
+                            lastBotMessage?.let { "[${it.role.name}]: " + escapeXml(it.text) }
+                                ?: "[none]",
+                        ),
+                        xmlTag("recent_thread", historyText),
+                    )
+                    .joinToString("\n"),
+            )
+        )
+    }
 
     @Serializable
     data class ParticipationClassifierResult(

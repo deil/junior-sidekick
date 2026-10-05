@@ -172,9 +172,9 @@ class TurnCoordinator(
                     participationDecision.reason,
                     participationDecision.detail,
                 )
-                sessions.markMessageSkipped(
+                sessions.markMessagesSkipped(
                     conversationId = decision.conversationId,
-                    messageId = message.id,
+                    messageIds = listOf(message.id),
                     reason = participationDecision.reason.toString(),
                 )
                 sessions.setSubscribed(decision.conversationId, false)
@@ -188,9 +188,9 @@ class TurnCoordinator(
                     participationDecision.reason,
                     participationDecision.detail,
                 )
-                sessions.markMessageSkipped(
+                sessions.markMessagesSkipped(
                     conversationId = decision.conversationId,
-                    messageId = message.id,
+                    messageIds = listOf(message.id),
                     reason = participationDecision.reason.toString(),
                 )
             }
@@ -216,9 +216,9 @@ class TurnCoordinator(
                     error.message,
                     error,
                 )
-                sessions.markMessageSkipped(
+                sessions.markMessagesSkipped(
                     conversationId = conversationId,
-                    messageId = turn.messages.single().id,
+                    messageIds = turn.messages.map { it.id },
                     reason = AGENT_FAILURE_REASON,
                 )
                 runCatching { chat.delivery.deliverRuntimeFailure(error) }
@@ -249,7 +249,7 @@ class TurnCoordinator(
             text = agentReply.text,
             replyId = replyMessageId.messageId,
             createdAtMs = replyMessageId.timestamp,
-            originalMessageId = turn.messages.single().id,
+            originalMessageIds = turn.messages.map { it.id },
             inputTokensConsumed = agentResult.stats.usage.inputTokenCount,
             outputTokensConsumed = agentResult.stats.usage.outputTokenCount,
         )

@@ -112,6 +112,25 @@ flowchart TD
 
 **Change:** make `TurnParticipationInput` batch-aware.
 
+### Classifier input: `ParticipationClassifierInput`
+
+Both classifiers receive one batch input. Per-message data is separate from shared conversation context:
+
+```text
+ParticipationClassifierInput
+    ├── messages: ordered list of ParticipationClassifierMessage
+    │       ├── text
+    │       ├── author
+    │       └── isExplicitMention
+    ├── botUser
+    ├── conversationId
+    ├── messageHistory
+    ├── hasAssistantHistory
+    └── isPrivateMessage
+```
+
+`isPrivateMessage` is shared by the batch and used by the deterministic classifier. The LLM classifier does not use it. During rollout, the message list contains one item.
+
 ### Deterministic checks: `DeterministicParticipationClassifier`
 
 Apply deterministic checks to each message individually. After resolving explicit mentions and unsubscribe requests with the precedence above:
@@ -122,7 +141,7 @@ Apply deterministic checks to each message individually. After resolving explici
 
 A deterministic skip for one message does not discard another message's request. Do not apply single-message checks to concatenated batch text.
 
-**Changes:** accept ordered message inputs, compare subscription signals by message order, remove the mention requirement for unsubscribe, and apply deterministic checks per message.
+**Changes:** accept one batch input, compare subscription signals by message order, remove the mention requirement for unsubscribe, and apply deterministic checks per message using the shared context.
 
 ### LLM classification: `LlmParticipationClassifier`
 
@@ -139,9 +158,11 @@ Ordered inputs: [m1, m2, m3]
                     └── One model call → one batch decision
 ```
 
-**Contract:** `classify` accepts an ordered list of message inputs.
+**Contract:** `classify` accepts one `ParticipationClassifierInput` containing ordered messages and shared context.
 
 **Prompt:** replace the latest-message-only input with the complete ordered batch. Update the system instructions to ask about the batch rather than only its last message. Preserve message boundaries and authors. Prior conversation context is shared by the batch and appears once.
+
+The current batch is rendered inside `<current_messages>`. Each `<message>` has `author_id` and `author_name` attributes and contains the escaped message text. Shared history appears once under `<context>`.
 
 The existing confidence threshold and classifier-failure handling apply to the single returned batch decision.
 
@@ -190,11 +211,18 @@ RecordedTurn.messages: [m1, m2, m3]
 
 **Change:** include the complete batch, including when Koog history already exists.
 
-## Response delivery and session completion
+## Response delivery and turn completion
 
 `ResponseDelivery` continues to receive one response. Count execution usage once.
 
-### Completion: `SessionManager`
+### Turn completion: `SessionManager`
+
+| Operation | Batch contract |
+|---|---|
+| `recordAssistantReply` | `originalMessageIds: List<String>` identifies all messages answered by the one reply |
+| `markMessagesSkipped` | `messageIds: List<String>` identifies all messages receiving the same skip or failure reason |
+
+Each operation updates the targeted messages under one session lock and saves once. Messages outside the supplied IDs retain their outcomes.
 
 ```text
 Batch outcome
@@ -204,7 +232,7 @@ Batch outcome
     └── Agent fails → record failure for m1, m2, m3; notify once
 ```
 
-**Changes:** make session completion operations batch-aware. Update the coordinator's completion and failure paths.
+**Changes:** make turn-completion persistence operations batch-aware. Update the coordinator's completion and failure paths.
 
 ## Implementation sequence
 

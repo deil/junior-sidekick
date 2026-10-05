@@ -88,16 +88,17 @@ class SessionManager(
             )
         }
 
-    suspend fun markMessageSkipped(
+    suspend fun markMessagesSkipped(
         conversationId: ConversationId,
-        messageId: String,
+        messageIds: List<String>,
         reason: String,
     ) =
         store.withSessionLock(conversationId) {
             val state = store.load(conversationId)
+            val ids = messageIds.toSet()
             state.messages
-                .find { it.id == messageId }
-                ?.let {
+                .filter { it.id in ids }
+                .forEach {
                     it.replied = false
                     it.skippedReason = reason
                 }
@@ -109,14 +110,15 @@ class SessionManager(
         text: String,
         replyId: String,
         createdAtMs: Long,
-        originalMessageId: String,
+        originalMessageIds: List<String>,
         inputTokensConsumed: Long,
         outputTokensConsumed: Long,
     ) =
         store.withSessionLock(conversationId) {
             val state = store.load(conversationId)
 
-            state.messages.find { it.id == originalMessageId }?.replied = true
+            val ids = originalMessageIds.toSet()
+            state.messages.filter { it.id in ids }.forEach { it.replied = true }
 
             upsertMessage(
                 state.messages,
