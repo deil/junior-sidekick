@@ -18,14 +18,14 @@ data class ConversationContext(
 data class TurnContext(
     val conversation: ConversationContext,
     val turnId: String,
-    val currentMessageId: String,
+    val lastMessageId: String,
     val sessionFiles: List<SessionFileRef>,
     val aiModelProfile: AiModelProfile,
 )
 
 data class RecordedTurn(
     val context: TurnContext,
-    val message: SessionMessage,
+    val messages: List<SessionMessage>,
 )
 
 data class ConversationHistory(

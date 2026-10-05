@@ -74,7 +74,7 @@ class SlackFileToolsTest {
                                     mcpServers = emptyList(),
                                 ),
                             turnId = "turn",
-                            currentMessageId = "m1",
+                            lastMessageId = "m1",
                             sessionFiles = listOf(file),
                             aiModelProfile = AiModelProfile.NORMAL,
                         ),

@@ -24,15 +24,17 @@ class SessionManagerSkillInvocationTest {
         val manager = manager(store)
 
         // Act
-        manager.recordIncomingMessage(
+        manager.recordIncomingMessages(
             conversationId = conversationId,
             seedHistory = false,
             historyLoader = { emptyList() },
-            message =
-                message(
-                    id = "current",
-                    text = "please /code-review this",
-                    explicitSkillInvocation = ExplicitSkillInvocation("code-review"),
+            messages =
+                listOf(
+                    message(
+                        id = "current",
+                        text = "please /code-review this",
+                        explicitSkillInvocation = ExplicitSkillInvocation("code-review"),
+                    )
                 ),
             files = emptyList(),
         )
@@ -50,7 +52,7 @@ class SessionManagerSkillInvocationTest {
         val manager = manager(store)
 
         // Act
-        manager.recordIncomingMessage(
+        manager.recordIncomingMessages(
             conversationId = conversationId,
             seedHistory = true,
             historyLoader = {
@@ -65,7 +67,8 @@ class SessionManagerSkillInvocationTest {
                     )
                 )
             },
-            message = message(id = "current", text = "please review this", createdAtMs = 2),
+            messages =
+                listOf(message(id = "current", text = "please review this", createdAtMs = 2)),
             files = emptyList(),
         )
 

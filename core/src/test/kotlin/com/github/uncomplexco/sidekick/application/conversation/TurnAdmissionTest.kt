@@ -91,18 +91,20 @@ class TurnAdmissionTest {
         // Arrange
         val agentSessions = agentSessions()
         val sessionId = ConversationId("C123", "1700000000.000")
-        agentSessions.recordIncomingMessage(
+        agentSessions.recordIncomingMessages(
             conversationId = sessionId,
             seedHistory = false,
             historyLoader = { emptyList() },
-            message =
-                SessionMessage(
-                    id = "seed",
-                    role = SessionMessageRole.USER,
-                    author = author(),
-                    text = "existing",
-                    fileIds = emptyList(),
-                    createdAtMs = 1,
+            messages =
+                listOf(
+                    SessionMessage(
+                        id = "seed",
+                        role = SessionMessageRole.USER,
+                        author = author(),
+                        text = "existing",
+                        fileIds = emptyList(),
+                        createdAtMs = 1,
+                    )
                 ),
             files = emptyList(),
         )
@@ -125,18 +127,20 @@ class TurnAdmissionTest {
         // Arrange
         val agentSessions = agentSessions()
         val sessionId = ConversationId("C123", "1700000000.000")
-        agentSessions.recordIncomingMessage(
+        agentSessions.recordIncomingMessages(
             conversationId = sessionId,
             seedHistory = false,
             historyLoader = { emptyList() },
-            message =
-                SessionMessage(
-                    id = "seed",
-                    role = SessionMessageRole.USER,
-                    author = author(),
-                    text = "existing",
-                    fileIds = emptyList(),
-                    createdAtMs = 1,
+            messages =
+                listOf(
+                    SessionMessage(
+                        id = "seed",
+                        role = SessionMessageRole.USER,
+                        author = author(),
+                        text = "existing",
+                        fileIds = emptyList(),
+                        createdAtMs = 1,
+                    )
                 ),
             files = emptyList(),
         )
@@ -158,18 +162,20 @@ class TurnAdmissionTest {
             // Arrange
             val agentSessions = agentSessions()
             val sessionId = ConversationId("C123", "1700000000.000")
-            agentSessions.recordIncomingMessage(
+            agentSessions.recordIncomingMessages(
                 conversationId = sessionId,
                 seedHistory = false,
                 historyLoader = { emptyList() },
-                message =
-                    SessionMessage(
-                        id = "seed",
-                        role = SessionMessageRole.USER,
-                        author = author(),
-                        text = "existing",
-                        fileIds = emptyList(),
-                        createdAtMs = 1,
+                messages =
+                    listOf(
+                        SessionMessage(
+                            id = "seed",
+                            role = SessionMessageRole.USER,
+                            author = author(),
+                            text = "existing",
+                            fileIds = emptyList(),
+                            createdAtMs = 1,
+                        )
                     ),
                 files = emptyList(),
             )
@@ -275,18 +281,20 @@ class TurnAdmissionTest {
             // Arrange
             val agentSessions = agentSessions()
             val conversationId = ConversationId("C123", "1700000000.000")
-            agentSessions.recordIncomingMessage(
+            agentSessions.recordIncomingMessages(
                 conversationId = conversationId,
                 seedHistory = false,
                 historyLoader = { emptyList() },
-                message =
-                    SessionMessage(
-                        id = "seed",
-                        role = SessionMessageRole.USER,
-                        author = author(),
-                        text = "existing",
-                        fileIds = emptyList(),
-                        createdAtMs = 1,
+                messages =
+                    listOf(
+                        SessionMessage(
+                            id = "seed",
+                            role = SessionMessageRole.USER,
+                            author = author(),
+                            text = "existing",
+                            fileIds = emptyList(),
+                            createdAtMs = 1,
+                        )
                     ),
                 files = emptyList(),
             )

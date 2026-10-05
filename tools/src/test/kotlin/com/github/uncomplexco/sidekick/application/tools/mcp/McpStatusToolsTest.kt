@@ -41,7 +41,7 @@ class McpStatusToolsTest {
                             mcpServers = listOf(TestConnectedMcpServer("grafana")),
                         ),
                     turnId = "turn",
-                    currentMessageId = "m1",
+                    lastMessageId = "m1",
                     sessionFiles = emptyList(),
                     aiModelProfile = AiModelProfile.NORMAL,
                 )

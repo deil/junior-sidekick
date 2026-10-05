@@ -95,51 +95,56 @@ class TurnParticipation(
                 hasAssistantHistory = history.any { it.role == SessionMessageRole.ASSISTANT },
             )
 
-        return deterministicClassifier.classify(classifierInput)
+        return deterministicClassifier.classify(listOf(classifierInput))
             ?: llmClassifier.classify(classifierInput)
     }
 }
 
 @Component
 class DeterministicParticipationClassifier {
-    fun classify(input: ParticipationClassifierInput): TurnParticipationDecision? {
-        if (input.isExplicitMention && isUnsubscribeCommand(input.text)) {
-            return TurnParticipationDecision.Unsubscribe(
-                TurnParticipationReason.UNSUBSCRIBE_COMMAND
-            )
+    fun classify(inputs: List<ParticipationClassifierInput>): TurnParticipationDecision? {
+        val decisions = inputs.map(::classifyMessage)
+        val subscriptionDecision = decisions.lastOrNull {
+            it is TurnParticipationDecision.Unsubscribe ||
+                (it is TurnParticipationDecision.Respond &&
+                    it.reason == TurnParticipationReason.EXPLICIT_MENTION)
         }
+        if (subscriptionDecision != null) return subscriptionDecision
 
-        if (input.isExplicitMention || explicitMention(input.text, input.botUser.username)) {
-            return TurnParticipationDecision.Respond(TurnParticipationReason.EXPLICIT_MENTION)
+        decisions.filterIsInstance<TurnParticipationDecision.Respond>().firstOrNull()?.let {
+            return it
         }
+        if (decisions.any { it == null }) return null
 
+        return decisions.firstOrNull()
+    }
+
+    private fun classifyMessage(input: ParticipationClassifierInput): TurnParticipationDecision? {
         val text = input.text
+        val otherParty = leadingSlackUserMention(text)
 
-        if (text.isBlank()) {
-            return TurnParticipationDecision.Skip(TurnParticipationReason.EMPTY_MESSAGE)
+        return when {
+            isUnsubscribeCommand(text) ->
+                TurnParticipationDecision.Unsubscribe(TurnParticipationReason.UNSUBSCRIBE_COMMAND)
+            input.isExplicitMention || explicitMention(text, input.botUser.username) ->
+                TurnParticipationDecision.Respond(TurnParticipationReason.EXPLICIT_MENTION)
+            text.isBlank() -> TurnParticipationDecision.Skip(TurnParticipationReason.EMPTY_MESSAGE)
+            otherParty != null ->
+                TurnParticipationDecision.Skip(
+                    TurnParticipationReason.DIRECTED_TO_OTHER_PARTY,
+                    otherParty,
+                )
+            isAcknowledgmentOnly(text) ->
+                TurnParticipationDecision.Skip(TurnParticipationReason.ACKNOWLEDGMENT)
+            input.isPrivateMessage ->
+                TurnParticipationDecision.Respond(TurnParticipationReason.PRIVATE_MESSAGE)
+            !input.hasAssistantHistory ->
+                TurnParticipationDecision.Skip(
+                    TurnParticipationReason.SIDE_CONVERSATION,
+                    "not_subscribed_to_thread",
+                )
+            else -> null
         }
-
-        leadingSlackUserMention(text)?.let {
-            return TurnParticipationDecision.Skip(
-                TurnParticipationReason.DIRECTED_TO_OTHER_PARTY,
-                it,
-            )
-        }
-
-        if (isAcknowledgmentOnly(text)) {
-            return TurnParticipationDecision.Skip(TurnParticipationReason.ACKNOWLEDGMENT)
-        }
-
-        if (input.isPrivateMessage) {
-            return TurnParticipationDecision.Respond(TurnParticipationReason.PRIVATE_MESSAGE)
-        } else if (!input.hasAssistantHistory) {
-            return TurnParticipationDecision.Skip(
-                TurnParticipationReason.SIDE_CONVERSATION,
-                "not_subscribed_to_thread",
-            )
-        }
-
-        return null
     }
 
     private fun isAcknowledgmentOnly(text: String): Boolean = ACKNOWLEDGMENT_ONLY_RE.matches(text)

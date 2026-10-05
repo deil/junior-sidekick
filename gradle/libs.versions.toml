@@ -45,6 +45,7 @@ ktor-server-test-host = { module = "io.ktor:ktor-server-test-host-jvm" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 mcp-client = { module = "io.modelcontextprotocol:kotlin-sdk-client", version.ref = "mcp" }
 mcp-core = { module = "io.modelcontextprotocol:kotlin-sdk-core", version.ref = "mcp" }
+mockito-core = { module = "org.mockito:mockito-core" }
 slack-api-client = { module = "com.slack.api:slack-api-client", version.ref = "slack" }
 slack-bolt-servlet = { module = "com.slack.api:bolt-jakarta-servlet", version.ref = "slack" }
 spring-boot = { module = "org.springframework.boot:spring-boot" }

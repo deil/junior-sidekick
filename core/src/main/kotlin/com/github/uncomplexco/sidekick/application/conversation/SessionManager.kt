@@ -47,18 +47,19 @@ class SessionManager(
         }
     }
 
-    suspend fun recordIncomingMessage(
+    suspend fun recordIncomingMessages(
         conversationId: ConversationId,
         seedHistory: Boolean,
         historyLoader: suspend (ConversationId) -> List<ChatMessage>,
-        message: SessionMessage,
+        messages: List<SessionMessage>,
         files: List<IncomingChatFile>,
     ): RecordedTurn =
         store.withSessionLock(conversationId) {
+            val orderedMessages = messages.sortedBy { it.createdAtMs }
             val turnId = generateTurnId()
             val state = loadOrSeedState(conversationId, seedHistory, historyLoader)
             upsertFiles(state.files, files.map { it.toSessionFileRef() })
-            upsertMessage(state.messages, message)
+            orderedMessages.forEach { upsertMessage(state.messages, it) }
             store.save(conversationId, state)
 
             val conversation =
@@ -68,7 +69,7 @@ class SessionManager(
                     history =
                         ConversationHistory(
                             compactions = state.compactions,
-                            messages = filterOutRecentMessages(state.messages, listOf(message)),
+                            messages = filterOutRecentMessages(state.messages, orderedMessages),
                             hasKoogMessages = state.koogMessages.isNotEmpty(),
                         ),
                     mcpServers = emptyList(),
@@ -79,11 +80,11 @@ class SessionManager(
                     TurnContext(
                         conversation = conversation,
                         turnId = turnId,
-                        currentMessageId = message.id,
+                        lastMessageId = orderedMessages.last().id,
                         sessionFiles = state.files,
                         aiModelProfile = state.aiModel,
                     ),
-                message = message,
+                messages = orderedMessages,
             )
         }
 

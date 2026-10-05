@@ -30,13 +30,13 @@ class ConversationIntelligenceLevelTools(
         if (intelligenceLevel == AiModelProfile.NORMAL) {
             slackClient.reactionsAdd { req ->
                 req.channel(ctx.conversation.conversationId.channelId)
-                req.timestamp(ctx.currentMessageId)
+                req.timestamp(ctx.lastMessageId)
                 req.name("teddy_bear")
             }
         } else {
             slackClient.reactionsAdd { req ->
                 req.channel(ctx.conversation.conversationId.channelId)
-                req.timestamp(ctx.currentMessageId)
+                req.timestamp(ctx.lastMessageId)
                 req.name("student")
             }
         }

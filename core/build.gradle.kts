@@ -33,6 +33,7 @@ dependencies {
     testImplementation(libs.spring.web)
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.junit.jupiter.params)
+    testImplementation(libs.mockito.core)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

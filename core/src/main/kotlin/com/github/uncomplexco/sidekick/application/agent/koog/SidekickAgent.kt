@@ -84,7 +84,7 @@ class SidekickAgent(
         chat: ChatPlatformAdapter,
     ): TurnExecutionResult {
         val ctx = turn.context
-        val message = turn.message
+        val message = turn.messages.single()
         var usage = AgentUsageStats()
 
         val mcpServers =

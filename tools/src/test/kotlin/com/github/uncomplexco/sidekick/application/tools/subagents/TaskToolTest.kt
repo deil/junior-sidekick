@@ -180,7 +180,7 @@ private fun turnContext(tempDir: Path): TurnContext =
                 mcpServers = emptyList(),
             ),
         turnId = "turn-1",
-        currentMessageId = "message-1",
+        lastMessageId = "message-1",
         sessionFiles = emptyList(),
         aiModelProfile = AiModelProfile.NORMAL,
     )

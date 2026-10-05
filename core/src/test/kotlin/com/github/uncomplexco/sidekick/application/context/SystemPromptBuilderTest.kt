@@ -159,7 +159,7 @@ class TurnPromptBuilderTest {
                     mcpServers = emptyList(),
                 ),
             turnId = "turn",
-            currentMessageId = "m1",
+            lastMessageId = "m1",
             sessionFiles = listOfNotNull(file),
             aiModelProfile = AiModelProfile.NORMAL,
         )

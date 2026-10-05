@@ -269,7 +269,7 @@ class Loop(
                     mcpServers = emptyList(),
                 ),
             turnId = "loop_${Uuid.generateV7()}",
-            currentMessageId = messageId,
+            lastMessageId = messageId,
             sessionFiles = emptyList(),
             aiModelProfile = AiModelProfile.NORMAL,
         )

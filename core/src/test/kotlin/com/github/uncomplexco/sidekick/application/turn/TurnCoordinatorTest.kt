@@ -54,7 +54,7 @@ class TurnCoordinatorTest {
                 agent =
                     AgentTurnExecutor { turn, _ ->
                         seenConversationIds += turn.context.conversation.conversationId
-                        assertEquals("Run the report", turn.message.text)
+                        assertEquals("Run the report", turn.messages.single().text)
                         TurnExecutionResult(
                             AgentResponse("done"),
                             AgentStats("normal", AgentUsageStats()),

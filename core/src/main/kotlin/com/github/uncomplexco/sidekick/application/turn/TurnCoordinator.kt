@@ -66,11 +66,11 @@ class TurnCoordinator(
         trigger.chat.lifecycle.begin()
         try {
             val turn =
-                sessions.recordIncomingMessage(
+                sessions.recordIncomingMessages(
                     conversationId = trigger.conversationId,
                     seedHistory = false,
                     historyLoader = { emptyList() },
-                    message = currentMessage,
+                    messages = listOf(currentMessage),
                     files = emptyList(),
                 )
             executeAgentTurn(trigger.conversationId, turn, trigger.chat, turnStartedAt)
@@ -122,11 +122,11 @@ class TurnCoordinator(
         }
 
         val turn =
-            sessions.recordIncomingMessage(
+            sessions.recordIncomingMessages(
                 conversationId = decision.conversationId,
                 seedHistory = decision.seedHistory,
                 historyLoader = chat::loadHistory,
-                message = currentMessage,
+                messages = listOf(currentMessage),
                 files = attachedFiles,
             )
         val participationDecision =
@@ -212,13 +212,13 @@ class TurnCoordinator(
                 log.warn(
                     "{} failed to generate reply for message id={}: {}",
                     conversationId.lockKey(),
-                    turn.message.id,
+                    turn.messages.single().id,
                     error.message,
                     error,
                 )
                 sessions.markMessageSkipped(
                     conversationId = conversationId,
-                    messageId = turn.message.id,
+                    messageId = turn.messages.single().id,
                     reason = AGENT_FAILURE_REASON,
                 )
                 runCatching { chat.delivery.deliverRuntimeFailure(error) }
@@ -249,7 +249,7 @@ class TurnCoordinator(
             text = agentReply.text,
             replyId = replyMessageId.messageId,
             createdAtMs = replyMessageId.timestamp,
-            originalMessageId = turn.message.id,
+            originalMessageId = turn.messages.single().id,
             inputTokensConsumed = agentResult.stats.usage.inputTokenCount,
             outputTokensConsumed = agentResult.stats.usage.outputTokenCount,
         )
