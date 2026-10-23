@@ -29,7 +29,7 @@ internal data class DiscordSentMessage(
 
 internal class DiscordChatPlatformAdapter(
     override val botUsername: String,
-    updateReaction: suspend (String, Boolean) -> Unit = { _, _ -> },
+    updateReaction: suspend (String, String, Boolean) -> Unit = { _, _, _ -> },
     startTyping: () -> AutoCloseable,
     private val loadChannelHistory: suspend (Int, String?) -> DiscordChannelHistoryPage,
     private val loadThreadHistory: suspend (String, Int, String?) -> DiscordThreadHistoryPage,
@@ -63,7 +63,7 @@ internal class DiscordChatPlatformAdapter(
 }
 
 internal class DiscordTurnOutput(
-    private val updateReaction: suspend (String, Boolean) -> Unit = { _, _ -> },
+    private val updateReaction: suspend (String, String, Boolean) -> Unit = { _, _, _ -> },
     private val startTyping: () -> AutoCloseable = { AutoCloseable {} },
     private val send: suspend (String) -> DiscordSentMessage,
 ) : TurnLifecycle, ResponseDelivery {
@@ -87,24 +87,25 @@ internal class DiscordTurnOutput(
     }
 
     override suspend fun markProcessing(message: IncomingMessage) {
-        updateReaction(PROCESSING_REACTION, add = true)
+        updateReaction(message.id, PROCESSING_REACTION, add = true)
         progress()
     }
 
     override suspend fun markCompleted(message: IncomingMessage) {
-        updateReaction(PROCESSING_REACTION, add = false)
-        updateReaction(COMPLETED_REACTION, add = true)
+        updateReaction(message.id, PROCESSING_REACTION, add = false)
+        updateReaction(message.id, COMPLETED_REACTION, add = true)
     }
 
     override suspend fun markFailed(message: IncomingMessage) {
-        updateReaction(PROCESSING_REACTION, add = false)
+        updateReaction(message.id, PROCESSING_REACTION, add = false)
     }
 
     private suspend fun updateReaction(
+        messageId: String,
         emoji: String,
         add: Boolean,
     ) {
-        runCatching { updateReaction.invoke(emoji, add) }
+        runCatching { updateReaction.invoke(messageId, emoji, add) }
             .onFailure { log.warn("Discord processing reaction update failed", it) }
     }
 

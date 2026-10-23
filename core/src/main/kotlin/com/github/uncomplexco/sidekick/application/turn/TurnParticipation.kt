@@ -69,9 +69,8 @@ sealed interface TurnParticipationDecision {
 }
 
 data class TurnParticipationInput(
-    val message: IncomingMessage,
+    val messages: List<IncomingMessage>,
     val turn: RecordedTurn,
-    val explicitMention: Boolean,
 )
 
 @Component
@@ -81,7 +80,6 @@ class TurnParticipation(
     private val llmClassifier: LlmParticipationClassifier,
 ) {
     suspend fun decide(input: TurnParticipationInput): TurnParticipationDecision {
-        val message = input.message
         val turn = input.turn
         val botUser =
             MessageAuthor(
@@ -92,16 +90,18 @@ class TurnParticipation(
         val classifierInput =
             ParticipationClassifierInput(
                 messages =
-                    listOf(
+                    input.messages.map { message ->
                         ParticipationClassifierMessage(
                             text = message.text,
                             author = message.sender,
-                            isExplicitMention = input.explicitMention,
+                            isExplicitMention =
+                                message.type == IncomingMessageType.EXPLICIT_MENTION,
                         )
-                    ),
+                    },
                 botUser = botUser,
                 messageHistory = history,
-                isPrivateMessage = message.type == IncomingMessageType.ASSISTANT_MESSAGE,
+                isPrivateMessage =
+                    input.messages.first().type == IncomingMessageType.ASSISTANT_MESSAGE,
                 conversationId = turn.context.conversation.conversationId,
                 hasAssistantHistory = history.any { it.role == SessionMessageRole.ASSISTANT },
             )

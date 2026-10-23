@@ -14,11 +14,11 @@ Slack can deliver more than one event for the same user message. A channel menti
 
 App mentions are always explicit turns. Plain message events are only allowed through when they are not Sidekick's own message and do not contain a Sidekick mention, because mentions are handled through the `app_mention` path.
 
-The Slack adapter maps Slack events into `ChatConversationId`, `IncomingMessage`, and `ChatPlatformAdapter`. The queue groups messages from one chat conversation into an `IncomingBatch`; `TurnAdmission` owns the decision to handle or ignore that batch.
+The Slack adapter maps Slack events into `ChatConversationId`, `IncomingMessage`, and `ChatPlatformAdapter`. The queue groups messages from one chat conversation into an `IncomingBatch`; `TurnAdmission` owns the decision to handle or ignore that batch. After an active turn finishes, all messages queued for the same conversation become one next turn. Messages arriving during that turn wait for the following batch.
 
 ## Session subscription
 
-Sessions are subscribed by default. When an explicit mention matches a deterministic unsubscribe command, `TurnParticipation` returns `Unsubscribe`, which does not run Sidekick, marks the current user message skipped with reason `UNSUBSCRIBE_COMMAND`, sets the current session unsubscribed, and delivers the out-of-band acknowledgement `Unsubscribed. Mention me to resume.`
+Sessions are subscribed by default. A deterministic unsubscribe command does not require an explicit mention. Within a batch, the latest unsubscribe request or explicit mention determines whether Sidekick unsubscribes or responds. A mention that itself requests unsubscribe is an unsubscribe request. `Unsubscribe` marks all batch messages skipped with reason `UNSUBSCRIBE_COMMAND`, sets the session unsubscribed, and delivers one out-of-band acknowledgement `Unsubscribed. Mention me to resume.`
 
 The unsubscribe command patterns are deterministic:
 
@@ -132,7 +132,7 @@ Seeding covers two cases:
 
 When seeding runs, Slack thread replies are loaded, the current triggering message is excluded, messages are sorted by Slack timestamp, converted into `SessionMessage`, and inserted before the current message is upserted.
 
-The triggering message is recorded through the normal turn path. That keeps the turn boundary clean: seeded messages become context, the triggering message becomes the current turn.
+The live batch is recorded through the normal turn path, replacing any seeded copies with matching IDs. Every current batch message is excluded from prior history in the turn context. Seeded messages become context; live batch messages become current turn input.
 
 ## Channel metadata in prompt context
 
@@ -161,7 +161,7 @@ Channel message events never invite Sidekick. They may only continue an already-
 
 Slack event identity is `channel + ts`, not message text. Text parsing is not a reliable deduplication strategy.
 
-The Slack history loader excludes the triggering message using `currentTs`. If that exclusion breaks, prompt history can contain the same user message both as transcript and current message.
+The Slack history loader excludes its originating event using `currentTs`. `SessionManager.recordIncomingMessages` also excludes every batch message ID from prior turn history, preventing duplicate transcript and current input.
 
 Seeded human messages may have weaker author data than live incoming messages depending on what the Slack history loader resolves. Prompt rendering must tolerate missing authors.
 

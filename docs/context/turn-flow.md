@@ -2,7 +2,7 @@
 
 Sidekick processing is easiest to reason about as durable `Session` state plus a series of `Turn`s.
 
-A chat message can start a new session or continue an existing one. If admitted, it triggers one turn. The turn records the incoming message, builds context from session state, decides whether Sidekick should reply, runs Koog when needed, delivers the reply, and records the outcome.
+A chat message can start a new session or continue an existing one. The queue drains messages for the same conversation into a batch. If admitted, the batch triggers one turn: record all inputs, decide participation once, run Koog when needed, deliver one reply, and record the outcome for every input.
 
 ## Core model
 
@@ -19,9 +19,9 @@ A chat message can start a new session or continue an existing one. If admitted,
 - Triggered by one or more admitted `IncomingMessage` values in an `IncomingBatch`.
 - Belongs to exactly one session.
 - Starts after `TurnAdmission` returns `TurnAdmissionDecision.Admitted`.
-- Has `TurnContext`: conversation id, turn id, current message id, session files, prior session history, and compactions.
+- Has `TurnContext`: conversation id, turn id, `lastMessageId`, session files, prior session history, and compactions.
 - Carries the session intelligence level for this turn: `normal` by default, or `ultrathink` after the conversation has opted in.
-- Ends when Sidekick records an assistant reply or marks the incoming message skipped.
+- Ends when Sidekick records one assistant reply for all batch messages or marks them skipped.
 
 ## Processing stages
 
@@ -48,15 +48,15 @@ Turn processing
   |
   +-- explicit skill invocation preprocessing
   |     |
-  |     | detect user-invocable skill request from current message text
+   |     | detect user-invocable skill request on each batch message
   |     | materialize SessionMessage.explicitSkillInvocation before persistence
   |     v
   |
-  +-- SessionManager.recordIncomingMessage
+   +-- SessionManager.recordIncomingMessages
   |     |
   |     | load or create ConversationState
   |     | seed Slack history if allowed and local state is empty
-  |     | record current user message
+   |     | record all current batch messages
   |     | compact context if needed
   |     | save ConversationState
   |     v
@@ -72,7 +72,7 @@ Turn processing
   +-- Skip or Unsubscribe
   |     |
   |     v
-  |   SessionManager.markMessageSkipped
+   |   SessionManager.markMessagesSkipped
   |     |
   |     v
   |   turn complete
@@ -99,7 +99,7 @@ Turn processing
             post temporary failure reply
               |
               v
-            SessionManager.markMessageSkipped(reason=AGENT_FAILURE)
+             SessionManager.markMessagesSkipped(reason=AGENT_FAILURE)
               |
               v
       turn complete
@@ -135,19 +135,19 @@ Admission also selects the session. A root app mention creates a session from th
 
 ### Session recording
 
-Explicit skill invocation preprocessing runs before session recording. It detects deterministic user-invocable skill syntax only on the current inbound message and stores the result on `SessionMessage.explicitSkillInvocation`. Seeded history is not preprocessed for skill invocation.
+Explicit skill invocation preprocessing runs on each live batch message before session recording and stores the result on `SessionMessage.explicitSkillInvocation`. Seeded history is not preprocessed for skill invocation. The five-file limit applies separately to each live message.
 
-`SessionManager.recordIncomingMessage` is the persistence boundary after preprocessing.
+`SessionManager.recordIncomingMessages` is the persistence boundary after preprocessing.
 
-It locks the session, loads or creates `ConversationState`, optionally seeds Slack history, records the current user message, compacts context if needed, saves session state, and returns a `RecordedTurn` containing `TurnContext` and the current session message.
+The coordinator compacts prior context once. Recording locks the session, loads or creates `ConversationState`, optionally seeds Slack history, upserts every batch message and its files, and saves once. It returns a `RecordedTurn` containing the ordered messages and one `TurnContext`, with all current input IDs excluded from prior history.
 
-Seeded messages are context. The triggering message is the current turn input.
+Seeded messages are context. The batch is current turn input. `lastMessageId` identifies its latest message.
 
 ### Turn participation
 
 `TurnParticipation` decides whether Sidekick should respond during an admitted turn. It returns `Respond`, `Skip`, or `Unsubscribe`.
 
-Deterministic decisions happen first:
+The latest unsubscribe request or explicit mention determines subscription and response precedence. Unsubscribe does not require a mention. Other deterministic checks apply per message:
 
 - Explicit mentions reply.
 - Empty messages skip.
@@ -157,15 +157,15 @@ Deterministic decisions happen first:
 
 Private assistant messages do not require prior assistant history. They are allowed to proceed even when the session has no assistant messages yet.
 
-Ambiguous passive turns go to `LlmParticipationClassifier`.
+Any deterministic `Respond` makes the batch respond; all deterministic skips make it skip. Otherwise, `LlmParticipationClassifier` receives every batch message and author with shared prior history, and makes one model call.
 
 ### Agent turn
 
 `AgentExecutor.execute` receives a `RecordedTurn` and the chat adapter.
 
-It builds the prompt, selects the configured Koog model profile from `TurnContext.aiModelProfile`, runs Koog, executes tools as needed, and returns reply text. This is the point where Sidekick generates the actual answer.
+Each batch message becomes a separate Koog user message with its author, attachments, and skill invocation. All are appended before one model request. Shared context appears only in the first user message. A single-author batch includes requester metadata there; multi-author batches omit it and use a null MCP execution identity. One agent run processes the full batch.
 
-The OpenRouter client is wrapped with Koog `RetryingLLMClient` using `RetryConfig.PRODUCTION`, so transient provider failures such as 429s and temporary unavailability are retried before the turn sees an error. If agent execution still fails after retries, `TurnCoordinator` posts a compact temporary-failure reply and marks the triggering message skipped with `AGENT_FAILURE`; it does not record an assistant reply in session history.
+The OpenRouter client is wrapped with Koog `RetryingLLMClient` using `RetryConfig.PRODUCTION`, so transient provider failures such as 429s and temporary unavailability are retried before the turn sees an error. If execution still fails, `TurnCoordinator` posts one compact temporary-failure reply and marks all batch messages skipped with `AGENT_FAILURE`; it does not record an assistant reply in session history.
 
 Session intelligence level is per conversation and defaults to `normal`. The `enableTokenmaxxin` system tool switches the current conversation between `normal` and `ultrathink`; the selected intelligence level applies when future turns initialize Koog.
 
@@ -173,11 +173,11 @@ Session intelligence level is per conversation and defaults to `normal`. The `en
 
 When Sidekick responds, `ResponseDelivery` delivers the response and returns the chat message id/timestamp. Runtime-failure and unsubscribe notifications, status lines, and platform-specific message formatting are owned by its adapter implementation.
 
-After turn participation returns `Respond`, the Slack adapter adds `:eyes:` to the triggering message. Successful final delivery and persistence replace it with `:white_check_mark:`. Agent or delivery failure removes `:eyes:` without adding a completion reaction. Ignored, skipped, and unsubscribe messages do not receive processing reactions.
+After participation returns `Respond`, lifecycle reactions add `eyes` to every batch message. Successful delivery and persistence replace them with completion reactions. Agent or delivery failure removes processing reactions without adding completion reactions. Ignored, skipped, and unsubscribe batches do not receive processing reactions.
 
-`SessionManager.recordAssistantReply` then marks the user message as replied, stores the assistant message, updates inflight state, saves the session, and completes the turn.
+`SessionManager.recordAssistantReply` marks all batch inputs replied, stores one assistant message, counts execution usage once, saves the session, and completes the turn.
 
-When turn participation returns `Skip`, `SessionManager.markMessageSkipped` records the reason and completes the turn without calling Koog or delivering a response. Agent/model failures are different: Sidekick delivers a temporary-failure response first, then marks the triggering message skipped with `AGENT_FAILURE`.
+When participation returns `Skip`, `SessionManager.markMessagesSkipped` records the reason on every input and completes the turn without calling Koog or delivering a response. Agent/model failures also mark every input skipped with `AGENT_FAILURE` and deliver one temporary-failure notification.
 
 ## Boundaries
 
@@ -186,8 +186,8 @@ A session is durable continuity. A turn is a single work unit.
 The turn boundary starts after `TurnAdmission` returns `TurnAdmissionDecision.Admitted`. It ends after one of:
 
 - `SessionManager.recordAssistantReply`
-- `SessionManager.markMessageSkipped`
-- `SessionManager.markMessageSkipped` after an agent/model failure fallback reply
+- `SessionManager.markMessagesSkipped`
+- `SessionManager.markMessagesSkipped` with an agent/model failure fallback reply
 - an unhandled error before completion
 
 `TurnContext` is not durable session state. It is the turn-local working set derived from session state for one run.

@@ -15,6 +15,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.IncomingBatch
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessageQueue
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
@@ -23,6 +24,7 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
+import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.stats.AgentStats
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
@@ -31,12 +33,417 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class TurnCoordinatorTest {
     @TempDir lateinit var dir: Path
+
+    @Nested
+    inner class BatchLifecycle {
+        @ParameterizedTest
+        @ValueSource(booleans = [true, false])
+        fun `each responding input receives processing and its own completion or failure reaction`(
+            fails: Boolean
+        ) = runBlocking {
+            // Arrange
+            val config = config()
+            val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+            val sessions = conversationManager(config, store)
+            val events = mutableListOf<Pair<String, String>>()
+            val seen = mutableListOf<List<String>>()
+            val coordinator =
+                TurnCoordinator(
+                    TurnAdmission(sessions),
+                    sessions,
+                    participation(config),
+                    AgentTurnExecutor { turn, _ ->
+                        seen += turn.messages.map { it.id }
+                        if (fails) error("model unavailable")
+                        TurnExecutionResult(
+                            AgentResponse("done"),
+                            AgentStats("normal", AgentUsageStats()),
+                        )
+                    },
+                    { SkillCatalog(emptyList()) },
+                )
+            val messages =
+                (1..2).map { index ->
+                    IncomingMessage(
+                        "m$index",
+                        index.toLong(),
+                        MessageAuthor("U123", "User"),
+                        "help",
+                        IncomingMessageType.EXPLICIT_MENTION,
+                    )
+                }
+
+            // Act
+            coordinator.run(
+                TurnTrigger.Incoming(
+                    IncomingBatch(ChatConversationId("C123", "thread"), messages),
+                    chat(mutableListOf(), mutableListOf(), messageLifecycle = events),
+                )
+            )
+
+            // Assert
+            val outcome = if (fails) "failed" else "completed"
+            assertEquals(
+                listOf(
+                    "m1" to "processing",
+                    "m2" to "processing",
+                    "m1" to outcome,
+                    "m2" to outcome,
+                ),
+                events,
+            )
+            assertEquals(listOf(listOf("m1", "m2")), seen)
+        }
+    }
+
+    @Nested
+    inner class BatchOutcomes {
+        @Test
+        fun `file limit applies per message while one agent execution receives both sets of attachments`() =
+            runBlocking {
+                // Arrange
+                val config = config()
+                val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+                val sessions = conversationManager(config, store)
+                val observed = mutableListOf<RecordedTurn>()
+                val coordinator =
+                    TurnCoordinator(
+                        TurnAdmission(sessions),
+                        sessions,
+                        participation(config),
+                        AgentTurnExecutor { turn, _ ->
+                            observed += turn
+                            successfulResult()
+                        },
+                        { SkillCatalog(emptyList()) },
+                    )
+                val messages =
+                    (1..2).map { index ->
+                        incoming(index)
+                            .copy(
+                                files =
+                                    (1..6).map { number ->
+                                        IncomingChatFile(
+                                            "f$index-$number",
+                                            "file.txt",
+                                            "text/plain",
+                                            "txt",
+                                            "https://files.example/file",
+                                            "https://chat.example/file",
+                                            "/data/session/$index-$number.txt",
+                                        )
+                                    }
+                            )
+                    }
+
+                // Act
+                coordinator.run(
+                    TurnTrigger.Incoming(
+                        IncomingBatch(ChatConversationId("C123", "thread"), messages),
+                        chat(mutableListOf(), mutableListOf()),
+                    )
+                )
+
+                // Assert
+                val turn = observed.single()
+                assertEquals(listOf("m1", "m2"), turn.messages.map { it.id })
+                assertEquals((1..5).map { "f1-$it" }, turn.messages[0].fileIds)
+                assertEquals((1..5).map { "f2-$it" }, turn.messages[1].fileIds)
+                assertEquals(10, turn.context.sessionFiles.size)
+                assertEquals("m2", turn.context.lastMessageId)
+                assertEquals(
+                    2,
+                    store.load(ConversationId("C123", "thread")).messages.count {
+                        it.role == SessionMessageRole.USER && it.replied == true
+                    },
+                )
+            }
+
+        @ParameterizedTest
+        @ValueSource(booleans = [true, false])
+        fun `latest mention or unsubscribe determines one outcome for every batch input`(
+            unsubscribeLast: Boolean
+        ) = runBlocking {
+            // Arrange
+            val config = config()
+            val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+            val sessions = conversationManager(config, store)
+            val replies = mutableListOf<String>()
+            val events = mutableListOf<Pair<String, String>>()
+            val runs = mutableListOf<List<String>>()
+            val coordinator =
+                TurnCoordinator(
+                    TurnAdmission(sessions),
+                    sessions,
+                    participation(config),
+                    AgentTurnExecutor { turn, _ ->
+                        runs += turn.messages.map { it.id }
+                        TurnExecutionResult(
+                            AgentResponse("done"),
+                            AgentStats("normal", AgentUsageStats()),
+                        )
+                    },
+                    { SkillCatalog(emptyList()) },
+                )
+            val mention = incoming(if (unsubscribeLast) 1 else 2)
+            val unsubscribe =
+                incoming(
+                    if (unsubscribeLast) 2 else 1,
+                    "unsubscribe",
+                    IncomingMessageType.PASSIVE_MESSAGE,
+                )
+
+            // Act
+            coordinator.run(
+                TurnTrigger.Incoming(
+                    IncomingBatch(
+                        ChatConversationId("C123", "thread"),
+                        listOf(mention, unsubscribe),
+                    ),
+                    chat(replies, mutableListOf(), messageLifecycle = events),
+                )
+            )
+
+            // Assert
+            val saved = store.load(ConversationId("C123", "thread"))
+            val users = saved.messages.filter { it.role == SessionMessageRole.USER }
+            assertEquals(listOf("m1", "m2"), users.map { it.id })
+            assertEquals(listOf(mention.id), users.filter { it.explicitMention }.map { it.id })
+            assertEquals(!unsubscribeLast, saved.subscribed)
+            assertEquals(listOf(!unsubscribeLast, !unsubscribeLast), users.map { it.replied })
+            assertEquals(1, replies.size)
+            assertEquals(if (unsubscribeLast) 0 else 1, runs.size)
+            if (unsubscribeLast) {
+                assertEquals(
+                    listOf("UNSUBSCRIBE_COMMAND", "UNSUBSCRIBE_COMMAND"),
+                    users.map { it.skippedReason },
+                )
+                assertEquals(emptyList(), events)
+                assertEquals(0, saved.messages.count { it.role == SessionMessageRole.ASSISTANT })
+            } else {
+                assertEquals(listOf(listOf("m1", "m2")), runs)
+                assertEquals(1, saved.messages.count { it.role == SessionMessageRole.ASSISTANT })
+            }
+        }
+
+        @Test
+        fun `all acknowledgment batch is recorded and skipped without a reply or reactions`() =
+            runBlocking {
+                // Arrange
+                val config = config()
+                val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+                val sessions = conversationManager(config, store)
+                val conversation = ConversationId("C123", "thread")
+                sessions.recordIncomingMessages(
+                    conversation,
+                    false,
+                    { emptyList() },
+                    listOf(
+                        com.github.uncomplexco.sidekick.application.conversation.SessionMessage(
+                            "old",
+                            SessionMessageRole.USER,
+                            MessageAuthor("U123", "User"),
+                            "existing",
+                            createdAtMs = 0,
+                        )
+                    ),
+                    emptyList(),
+                )
+                val replies = mutableListOf<String>()
+                val events = mutableListOf<String>()
+                val coordinator =
+                    TurnCoordinator(
+                        TurnAdmission(sessions),
+                        sessions,
+                        participation(config),
+                        AgentTurnExecutor { _, _ -> error("Skipped batch must not execute") },
+                        { SkillCatalog(emptyList()) },
+                    )
+
+                // Act
+                coordinator.run(
+                    TurnTrigger.Incoming(
+                        IncomingBatch(
+                            ChatConversationId("C123", "thread"),
+                            listOf(
+                                incoming(1, "thanks", IncomingMessageType.PASSIVE_MESSAGE),
+                                incoming(2, "got it", IncomingMessageType.PASSIVE_MESSAGE),
+                            ),
+                        ),
+                        chat(replies, events),
+                    )
+                )
+
+                // Assert
+                val users = store.load(conversation).messages.filter { it.id != "old" }
+                assertEquals(listOf(false, false), users.map { it.replied })
+                assertEquals(
+                    listOf("ACKNOWLEDGMENT", "ACKNOWLEDGMENT"),
+                    users.map { it.skippedReason },
+                )
+                assertEquals(emptyList(), replies)
+                assertEquals(emptyList(), events)
+            }
+    }
+
+    @Nested
+    inner class QueueBatching {
+        @Test
+        fun `blocked conversation does not prevent another conversation from completing`() =
+            runBlocking {
+                withTimeout(10_000) {
+                    // Arrange
+                    val config = config()
+                    val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+                    val sessions = conversationManager(config, store)
+                    val started = CompletableDeferred<Unit>()
+                    val release = CompletableDeferred<Unit>()
+                    val otherCompleted = CompletableDeferred<Unit>()
+                    val blockedCompleted = CompletableDeferred<Unit>()
+                    val coordinator =
+                        TurnCoordinator(
+                            TurnAdmission(sessions),
+                            sessions,
+                            participation(config),
+                            AgentTurnExecutor { turn, _ ->
+                                if (
+                                    turn.context.conversation.conversationId.threadId == "blocked"
+                                ) {
+                                    started.complete(Unit)
+                                    release.await()
+                                }
+                                successfulResult()
+                            },
+                            { SkillCatalog(emptyList()) },
+                        )
+                    SidekickCoroutineScope().use { scope ->
+                        val queue = IncomingMessageQueue(scope, coordinator)
+                        val blocked =
+                            chat(
+                                mutableListOf(),
+                                mutableListOf(),
+                                onCompleted = { blockedCompleted.complete(Unit) },
+                            )
+                        val other =
+                            chat(
+                                mutableListOf(),
+                                mutableListOf(),
+                                onCompleted = { otherCompleted.complete(Unit) },
+                            )
+
+                        // Act
+                        queue.enqueue(ChatConversationId("C123", "blocked"), incoming(1), blocked)
+                        started.await()
+                        queue.enqueue(ChatConversationId("C123", "other"), incoming(2), other)
+                        otherCompleted.await()
+
+                        // Assert
+                        assertEquals(
+                            true,
+                            store
+                                .load(ConversationId("C123", "other"))
+                                .messages
+                                .first { it.id == "m2" }
+                                .replied,
+                        )
+                        assertEquals(
+                            null,
+                            store.load(ConversationId("C123", "blocked")).messages.single().replied,
+                        )
+                        release.complete(Unit)
+                        blockedCompleted.await()
+                    }
+                }
+            }
+
+        @Test
+        fun `queued messages form one next turn and messages arriving during it wait for the following turn`() =
+            runBlocking {
+                withTimeout(10_000) {
+                    // Arrange
+                    val config = config()
+                    val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+                    val sessions = conversationManager(config, store)
+                    val observed = Channel<List<String>>(Channel.UNLIMITED)
+                    val proceed = Channel<Unit>(Channel.UNLIMITED)
+                    val completed = CompletableDeferred<Unit>()
+                    val replies = mutableListOf<String>()
+                    val coordinator =
+                        TurnCoordinator(
+                            TurnAdmission(sessions),
+                            sessions,
+                            participation(config),
+                            AgentTurnExecutor { turn, _ ->
+                                observed.send(turn.messages.map { it.id })
+                                proceed.receive()
+                                successfulResult()
+                            },
+                            { SkillCatalog(emptyList()) },
+                        )
+                    val chat =
+                        chat(
+                            replies,
+                            mutableListOf(),
+                            onCompleted = { if (it.id == "m4") completed.complete(Unit) },
+                        )
+                    val conversation = ChatConversationId("C123", "thread")
+                    SidekickCoroutineScope().use { scope ->
+                        val queue = IncomingMessageQueue(scope, coordinator)
+
+                        // Act / Assert
+                        queue.enqueue(conversation, incoming(1), chat)
+                        assertEquals(listOf("m1"), observed.receive())
+                        queue.enqueue(conversation, incoming(2), chat)
+                        queue.enqueue(conversation, incoming(3), chat)
+                        proceed.send(Unit)
+                        assertEquals(listOf("m2", "m3"), observed.receive())
+                        queue.enqueue(conversation, incoming(4), chat)
+                        proceed.send(Unit)
+                        assertEquals(listOf("m4"), observed.receive())
+                        proceed.send(Unit)
+                        completed.await()
+                    }
+                    val saved = store.load(ConversationId("C123", "thread"))
+                    assertEquals(3, replies.size)
+                    assertEquals(
+                        3,
+                        saved.messages.count { it.role == SessionMessageRole.ASSISTANT },
+                    )
+                    assertEquals(
+                        listOf(true, true, true, true),
+                        saved.messages
+                            .filter { it.role == SessionMessageRole.USER }
+                            .map { it.replied },
+                    )
+                    assertEquals(33L, saved.stats.consumedInputTokens)
+                    assertEquals(21L, saved.stats.consumedOutputTokens)
+                }
+            }
+    }
+
+    private fun incoming(
+        index: Int,
+        text: String = "help",
+        type: IncomingMessageType = IncomingMessageType.EXPLICIT_MENTION,
+    ) = IncomingMessage("m$index", index.toLong(), MessageAuthor("U123", "User"), text, type)
+
+    private fun successfulResult() =
+        TurnExecutionResult(
+            AgentResponse("done"),
+            AgentStats("normal", AgentUsageStats(inputTokenCount = 11, outputTokenCount = 7)),
+        )
 
     @Test
     fun `scheduled turn runs directly in isolated session`() = runBlocking {
@@ -369,6 +776,8 @@ class TurnCoordinatorTest {
         replies: MutableList<String>,
         lifecycle: MutableList<String>,
         statusLines: MutableList<String?> = mutableListOf(),
+        messageLifecycle: MutableList<Pair<String, String>> = mutableListOf(),
+        onCompleted: (IncomingMessage) -> Unit = {},
     ): ChatPlatformAdapter =
         object : ChatPlatformAdapter {
             override val botUsername = "USIDEKICK"
@@ -382,6 +791,7 @@ class TurnCoordinatorTest {
 
                     override suspend fun markProcessing(message: IncomingMessage) {
                         lifecycle += "processing"
+                        messageLifecycle += message.id to "processing"
                     }
 
                     override suspend fun deliver(
@@ -400,10 +810,13 @@ class TurnCoordinatorTest {
 
                     override suspend fun markCompleted(message: IncomingMessage) {
                         lifecycle += "completed"
+                        messageLifecycle += message.id to "completed"
+                        onCompleted(message)
                     }
 
                     override suspend fun markFailed(message: IncomingMessage) {
                         lifecycle += "failed"
+                        messageLifecycle += message.id to "failed"
                     }
                 }
             override val lifecycle: TurnLifecycle = output

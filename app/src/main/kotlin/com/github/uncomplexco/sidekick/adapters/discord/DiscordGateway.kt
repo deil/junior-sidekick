@@ -82,7 +82,7 @@ internal class DiscordIngress(
             message = message,
             botUsername = botUsername,
             send = send,
-            updateReaction = { _, _ -> },
+            updateReaction = { _, _, _ -> },
             startTyping = { AutoCloseable {} },
             loadChannelHistory = { _, _ ->
                 DiscordChannelHistoryPage(message.channelId, emptyList(), null)
@@ -96,7 +96,7 @@ internal class DiscordIngress(
         message: DiscordIncomingMessage,
         botUsername: String,
         send: suspend (String) -> DiscordSentMessage,
-        updateReaction: suspend (String, Boolean) -> Unit,
+        updateReaction: suspend (String, String, Boolean) -> Unit,
         startTyping: () -> AutoCloseable,
         loadChannelHistory: suspend (Int, String?) -> DiscordChannelHistoryPage,
         loadThreadHistory: suspend (String, Int, String?) -> DiscordThreadHistoryPage,
@@ -237,16 +237,17 @@ class DiscordConfiguration {
                             },
                         )
                     }
-                    val updateReaction: suspend (String, Boolean) -> Unit = { emoji, add ->
-                        withContext(Dispatchers.IO) {
-                            val reaction = Emoji.fromUnicode(emoji)
-                            if (add) {
-                                event.message.addReaction(reaction).complete()
-                            } else {
-                                event.message.removeReaction(reaction).complete()
+                    val updateReaction: suspend (String, String, Boolean) -> Unit =
+                        { messageId, emoji, add ->
+                            withContext(Dispatchers.IO) {
+                                val reaction = Emoji.fromUnicode(emoji)
+                                if (add) {
+                                    event.channel.addReactionById(messageId, reaction).complete()
+                                } else {
+                                    event.channel.removeReactionById(messageId, reaction).complete()
+                                }
                             }
                         }
-                    }
                     val loadChannelHistory: suspend (Int, String?) -> DiscordChannelHistoryPage =
                         { limit, cursor ->
                             historyChannel.loadDiscordHistoryPage(historyChannel.id, limit, cursor)

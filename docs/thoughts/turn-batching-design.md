@@ -1,6 +1,6 @@
 # Turn batching design
 
-Status: draft.
+Status: implemented.
 
 ## Problem and goal
 
@@ -27,7 +27,7 @@ flowchart TD
     C -->|Admit| D[Prepare and record batch as one turn]
     D --> E[One participation decision]
     E -->|Respond| F[Processing reactions on every message]
-    F --> G[One Koog user message and agent execution]
+    F --> G[One Koog user message per batch message, one agent execution]
     G --> H[One response delivery]
     H --> I[Record batch completion]
     I --> J[Completion reactions on every message]
@@ -40,14 +40,14 @@ flowchart TD
 
 Successful turn completion includes delivery and persistence. The existing queue keys stay unchanged. Separate unthreaded Slack DM conversations remain separate.
 
-The queue already drains a batch and waits for `TurnCoordinator.run()` to return. The coordinator currently splits the batch into individual turns:
+The queue drains a batch and waits for `TurnCoordinator.run()` to return. The coordinator processes that batch as one turn:
 
 ```text
-Current:  drain [m1, m2, m3] → turn(m1) → turn(m2) → turn(m3)
-Target:   drain [m1, m2, m3] → turn([m1, m2, m3])
+Before: drain [m1, m2, m3] → turn(m1) → turn(m2) → turn(m3)
+Now:    drain [m1, m2, m3] → turn([m1, m2, m3])
 ```
 
-**Change:** replace the per-message turn loop in `TurnCoordinator`. The queue's drain mechanism already supports this flow.
+`TurnCoordinator` calls `processIncoming` once with the drained message list. Queue keys and the drain mechanism remain unchanged.
 
 ## Admission: `TurnAdmission`
 
@@ -129,7 +129,7 @@ ParticipationClassifierInput
     └── isPrivateMessage
 ```
 
-`isPrivateMessage` is shared by the batch and used by the deterministic classifier. The LLM classifier does not use it. During rollout, the message list contains one item.
+`isPrivateMessage` is shared by the batch and used by the deterministic classifier. The LLM classifier does not use it.
 
 ### Deterministic checks: `DeterministicParticipationClassifier`
 
@@ -194,22 +194,25 @@ Distinct batch authors
 
 Calls that require an identity may fail for multi-author batches. That is accepted behavior. Do not substitute the last message's author. Each message still includes its own author in the prompt.
 
-### Koog user message: `TurnPromptBuilder`
+### Koog user messages: `TurnPromptBuilder`
 
-All batch messages go into one Koog user message:
+Each batch message becomes a separate Koog user message. All user messages are appended in order before the first model request, within one agent execution:
 
 ```text
 RecordedTurn.messages: [m1, m2, m3]
     │
     └── TurnPromptBuilder
             │
-            └── One Koog user message
-                    m1: author, text, files, skill invocation
-                    m2: author, text, files, skill invocation
-                    m3: author, text, files, skill invocation
+            ├── User message 1: shared context, requester if present, m1
+            ├── User message 2: m2
+            └── User message 3: m3
+                    │
+                    └── One model request starts the agent loop
 ```
 
-**Change:** include the complete batch, including when Koog history already exists.
+Each user message retains its author, current instruction, attachments, and explicit skill invocation. Requester metadata appears only in the first user message when the batch has one author. Multi-author batches omit requester metadata from every message. Prior history, skipped-message context, and the skills catalog appear only in the first message when applicable.
+
+`SidekickAgent` passes the prepared message list to the strategy. The strategy appends every user message before requesting a model response. The complete batch is included whether or not Koog history already exists.
 
 ## Response delivery and turn completion
 
@@ -253,7 +256,7 @@ First adjust interfaces and contracts to accept lists of messages wherever neede
            → turn([m1, m2, m3])
 ```
 
-The coordinator's per-message loop remains until the batch behavior is implemented and verified. List-based contracts alone do not enable production batching.
+The final coordinator passes each drained batch as one list through preparation, recording, participation, execution, and completion. Scheduled turns continue to supply singleton lists.
 
 ## Implementation map
 
@@ -287,7 +290,8 @@ Hold turn A open
 | All deterministic skips | Batch skips |
 | LLM delegation | `TurnParticipation` calls the LLM classifier |
 | Classifier prompt | Every batch message appears in order and in the expected format |
-| Koog input | One user message contains the full batch, including files and skill invocations |
+| Koog input | Consecutive user messages preserve batch order, authors, files, and skill invocations before one model request |
+| Requester metadata | Present only in the first user message for a single-author batch, omitted for multi-author batches |
 | History seeding | Current batch messages do not also appear in prior history |
 | Completion or agent failure | Every batch message receives the outcome |
 | Lifecycle reactions | Every batch message receives the appropriate reaction change |

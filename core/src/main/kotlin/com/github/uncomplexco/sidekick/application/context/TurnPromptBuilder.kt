@@ -12,11 +12,13 @@ import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.T
 import com.github.uncomplexco.sidekick.application.context.prompts.Prompts
 import com.github.uncomplexco.sidekick.application.context.prompts.skillsSection
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.application.turn.resolveRequester
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.timestamp
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
@@ -28,11 +30,25 @@ class TurnPromptBuilder(
     private val config: AgentConfig,
     private val skills: SkillCatalogProvider,
 ) {
+    fun buildSessionTurnPrompts(messages: List<SessionMessage>, ctx: TurnContext): List<String> {
+        val requester = resolveRequester(messages)
+        return messages.mapIndexed { index, message ->
+            buildSessionTurnPrompt(
+                message,
+                ctx,
+                requester = requester.takeIf { index == 0 },
+                includeContext = index == 0,
+            )
+        }
+    }
+
     fun buildSessionTurnPrompt(
         message: SessionMessage,
         ctx: TurnContext,
+        requester: MessageAuthor? = message.author,
+        includeContext: Boolean = true,
     ): String = buildString {
-        if (!ctx.conversation.history.hasKoogMessages) {
+        if (includeContext && !ctx.conversation.history.hasKoogMessages) {
             appendLine(
                 buildThreadContext(
                     ctx.conversation.conversationId,
@@ -45,7 +61,7 @@ class TurnPromptBuilder(
             skillsSection(skills.catalog(), ctx.conversation.virtualPaths)?.also { appendLine(it) }
         }
 
-        val skippedMessages = pendingSkippedMessages(ctx)
+        val skippedMessages = if (includeContext) pendingSkippedMessages(ctx) else emptyList()
         if (skippedMessages.isNotEmpty()) {
             appendLine(
                 xmlTag(
@@ -68,25 +84,27 @@ class TurnPromptBuilder(
             )
         }
 
-        appendLine(
-            xmlTag(
-                REQUESTER_TAG,
-                buildString {
-                    appendLine("user_id: ${message.author!!.username}")
-                    append("full_name: ${message.author.fullName}")
-                },
+        if (requester != null) {
+            appendLine(
+                xmlTag(
+                    REQUESTER_TAG,
+                    "user_id: ${escapeXml(requester.username)}\nfull_name: ${escapeXml(requester.fullName.orEmpty())}",
+                )
             )
-        )
+        }
 
         appendLine()
 
-        message.explicitSkillInvocation?.also { invocation ->
-            appendLine(renderExplicitSkillInvocation(invocation.skillName))
+        message.explicitSkillInvocation?.let {
+            appendLine(renderExplicitSkillInvocation(it.skillName))
             appendLine()
         }
 
         appendLine(
-            xmlTag(CURRENT_INSTRUCTION_TAG, "[${message.author!!.username}] ${message.text}")
+            xmlTag(
+                CURRENT_INSTRUCTION_TAG,
+                "[${escapeXml(message.author!!.username)}] ${escapeXml(message.text)}",
+            )
         )
 
         if (message.fileIds.isNotEmpty()) {

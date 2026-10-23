@@ -56,7 +56,7 @@ class DefaultMcpServersRegistry(
 ) : McpServersRegistry {
     override suspend fun connect(
         conversationId: ConversationId,
-        userId: String,
+        userId: String?,
         workRoot: Path,
     ): List<ConnectedMcpServer> =
         config.servers.mapNotNull { server ->

@@ -26,6 +26,37 @@ import org.junit.jupiter.api.Test
 
 class SidekickStrategyTest {
     @Test
+    fun `batch appends consecutive user messages before one model request`() = runBlocking {
+        // Arrange
+        val executor = QueuedPromptExecutor(Message.Assistant("Finished.", ResponseMetaInfo.Empty))
+        val agent =
+            AIAgent(
+                strategy = sidekickStrategy(),
+                promptExecutor = executor,
+                agentConfig =
+                    AIAgentConfig(
+                        prompt = prompt("test") { system("System instructions") },
+                        model =
+                            LLModel(LLMProvider.OpenRouter, "test", listOf(LLMCapability.Tools)),
+                        maxAgentIterations = 10,
+                    ),
+                toolRegistry = ToolRegistry.EMPTY,
+            )
+
+        // Act
+        val result =
+            agent.run(listOf("Check production", "Actually, staging", "Only the API service"), null)
+
+        // Assert
+        val sent = executor.prompts.single()
+        assertEquals(
+            listOf("Check production", "Actually, staging", "Only the API service"),
+            sent.messages.filterIsInstance<Message.User>().map { it.textContent() },
+        )
+        assertEquals("Finished.", result)
+    }
+
+    @Test
     fun `executes tool call from mixed follow-up response before finishing`() = runBlocking {
         val toolCalls = mutableListOf<String>()
         val tool = RecordingTool(toolCalls)
@@ -59,7 +90,7 @@ class SidekickStrategyTest {
                 toolRegistry = ToolRegistry { tool(tool) },
             )
 
-        val result = agent.run("Start", null)
+        val result = agent.run(listOf("Start"), null)
 
         assertEquals(listOf("first", "second"), toolCalls)
         assertEquals("Finished.", result)
@@ -82,12 +113,16 @@ private class RecordingTool(private val calls: MutableList<String>) :
 
 private class QueuedPromptExecutor(vararg responses: Message.Assistant) : PromptExecutor() {
     private val responses = ArrayDeque(responses.toList())
+    val prompts = mutableListOf<Prompt>()
 
     override suspend fun execute(
         prompt: Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>,
-    ): Message.Assistant = responses.removeFirst()
+    ): Message.Assistant {
+        prompts += prompt
+        return responses.removeFirst()
+    }
 
     override fun executeStreaming(
         prompt: Prompt,

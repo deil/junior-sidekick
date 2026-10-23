@@ -82,7 +82,7 @@ Session state should store normalized Sidekick concepts, not raw platform payloa
 
 ### Turns are the unit of agent work
 
-A turn starts from a user message and ends when Sidekick replies, declines to reply, or completes another requested action. Design agent execution, prompts, logging, and tests around this unit.
+A turn starts from an admitted batch of user messages and ends when Sidekick replies, declines to reply, or completes another requested action. The batch receives one participation decision and at most one agent execution and response. Design agent execution, prompts, logging, and tests around this unit.
 
 Avoid leaking transport events into turn logic. Slack may deliver multiple events for the same user message; Sidekick should still see one logical turn.
 

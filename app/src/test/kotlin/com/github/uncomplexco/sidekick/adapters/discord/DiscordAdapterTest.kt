@@ -222,11 +222,50 @@ class DiscordAdapterTest {
     }
 
     @Test
+    fun `reaction updates target each batch message rather than the adapter originating message`() =
+        runBlocking {
+            // Arrange
+            val reactions = mutableListOf<Triple<String, String, Boolean>>()
+            val handler =
+                DiscordTurnOutput(
+                    updateReaction = { id, emoji, add -> reactions += Triple(id, emoji, add) },
+                    send = ::sent,
+                )
+            val messages =
+                (1..2).map {
+                    IncomingMessage(
+                        "m$it",
+                        it.toLong(),
+                        MessageAuthor("user", "User"),
+                        "hello",
+                        IncomingMessageType.EXPLICIT_MENTION,
+                    )
+                }
+
+            // Act
+            messages.forEach { handler.markProcessing(it) }
+            messages.forEach { handler.markCompleted(it) }
+
+            // Assert
+            assertEquals(
+                listOf(
+                    Triple("m1", "👀", true),
+                    Triple("m2", "👀", true),
+                    Triple("m1", "👀", false),
+                    Triple("m1", "✅", true),
+                    Triple("m2", "👀", false),
+                    Triple("m2", "✅", true),
+                ),
+                reactions,
+            )
+        }
+
+    @Test
     fun `turn reactions move from processing to completed`() = runBlocking {
         val reactions = mutableListOf<Pair<String, Boolean>>()
         val handler =
             DiscordTurnOutput(
-                updateReaction = { emoji, add -> reactions += emoji to add },
+                updateReaction = { _, emoji, add -> reactions += emoji to add },
                 send = ::sent,
             )
         val message =
@@ -249,7 +288,7 @@ class DiscordAdapterTest {
         val reactions = mutableListOf<Pair<String, Boolean>>()
         val handler =
             DiscordTurnOutput(
-                updateReaction = { emoji, add -> reactions += emoji to add },
+                updateReaction = { _, emoji, add -> reactions += emoji to add },
                 send = ::sent,
             )
         val message =

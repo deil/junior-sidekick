@@ -4,9 +4,9 @@ import ai.koog.agents.chatMemory.feature.ChatHistoryProvider
 import ai.koog.agents.chatMemory.feature.ChatMemory
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
+import ai.koog.agents.core.dsl.builder.node
 import ai.koog.agents.core.dsl.builder.strategy
 import ai.koog.agents.core.dsl.extension.nodeExecuteTools
-import ai.koog.agents.core.dsl.extension.nodeLLMRequest
 import ai.koog.agents.core.dsl.extension.nodeLLMSendToolResults
 import ai.koog.agents.core.dsl.extension.onTextMessage
 import ai.koog.agents.core.dsl.extension.onToolCalls
@@ -16,6 +16,7 @@ import ai.koog.agents.snapshot.feature.Persistence
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.message.Message
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
@@ -32,6 +33,7 @@ import com.github.uncomplexco.sidekick.application.turn.RecordedTurn
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
+import com.github.uncomplexco.sidekick.application.turn.resolveRequester
 import java.nio.file.Path
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -56,7 +58,7 @@ interface ToolRegistryFactory {
 interface McpServersRegistry {
     suspend fun connect(
         conversationId: ConversationId,
-        userId: String,
+        userId: String?,
         workRoot: Path,
     ): List<ConnectedMcpServer>
 }
@@ -84,13 +86,13 @@ class SidekickAgent(
         chat: ChatPlatformAdapter,
     ): TurnExecutionResult {
         val ctx = turn.context
-        val message = turn.messages.single()
+        val requester = resolveRequester(turn.messages)
         var usage = AgentUsageStats()
 
         val mcpServers =
             mcpServersRegistry.connect(
                 ctx.conversation.conversationId,
-                message.author?.username.orEmpty(),
+                requester?.username,
                 ctx.conversation.virtualPaths.workRoot,
             )
         val ctxWithMcp = ctx.copy(conversation = ctx.conversation.copy(mcpServers = mcpServers))
@@ -189,7 +191,7 @@ class SidekickAgent(
                     }
                 }
 
-            val input = turnPromptBuilder.buildSessionTurnPrompt(message, ctxWithMcp)
+            val input = turnPromptBuilder.buildSessionTurnPrompts(turn.messages, ctxWithMcp)
             val response =
                 AgentResponse(
                     agent.run(input, ctx.conversation.conversationId.lockKey()),
@@ -213,8 +215,14 @@ class SidekickAgent(
 }
 
 internal fun sidekickStrategy() =
-    strategy<String, String>("sidekick") {
-        val requestModelResponse by nodeLLMRequest("requestModelResponse")
+    strategy<List<String>, String>("sidekick") {
+        val requestModelResponse by
+            node<List<String>, Message.Assistant>("requestModelResponse") { messages ->
+                llm.writeSession {
+                    appendPrompt { messages.forEach { user(it) } }
+                    requestLLM()
+                }
+            }
         val executeToolCalls by nodeExecuteTools("executeToolCalls")
         val requestModelResponseWithToolResults by
             nodeLLMSendToolResults("requestModelResponseWithToolResults")

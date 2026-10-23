@@ -24,16 +24,166 @@ import com.github.uncomplexco.sidekick.application.turn.TurnParticipationInput
 import com.github.uncomplexco.sidekick.application.turn.TurnParticipationReason
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
+import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.Mockito.`when`
 
 class TurnParticipationTest {
     @TempDir lateinit var dir: Path
+
+    @Nested
+    inner class BatchParticipation {
+        @Test
+        fun `ambiguous batch delegates all messages including skipped inputs with authors and shared history`() =
+            runBlocking {
+                // Arrange
+                val config = config()
+                val llm = mock(LlmParticipationClassifier::class.java)
+                val participation =
+                    TurnParticipation(config, DeterministicParticipationClassifier(), llm)
+                val messages =
+                    listOf(
+                        incoming("m1", "thanks", "alice"),
+                        incoming("m2", "what do you mean?", "bob"),
+                        incoming("m3", "", "alice"),
+                    )
+                val turn = recordedBatch(config, messages)
+                val expectedInput =
+                    ParticipationClassifierInput(
+                        messages =
+                            messages.map { ParticipationClassifierMessage(it.text, it.sender) },
+                        botUser = MessageAuthor("sidekick", "Sidekick"),
+                        messageHistory = turn.context.conversation.history.messages,
+                        hasAssistantHistory = true,
+                        conversationId = turn.context.conversation.conversationId,
+                    )
+                val expectedDecision =
+                    TurnParticipationDecision.Respond(TurnParticipationReason.CLASSIFIER)
+                `when`(llm.classify(expectedInput)).thenReturn(expectedDecision)
+
+                // Act
+                val decision = participation.decide(TurnParticipationInput(messages, turn))
+
+                // Assert
+                verify(llm).classify(expectedInput)
+                assertEquals(expectedDecision, decision)
+            }
+
+        @Test
+        fun `earlier explicit mention responds even when last message is an acknowledgment`() =
+            runBlocking {
+                // Arrange
+                val config = config()
+                val llm = mock(LlmParticipationClassifier::class.java)
+                val participation =
+                    TurnParticipation(config, DeterministicParticipationClassifier(), llm)
+                val messages =
+                    listOf(
+                        incoming("m1", "help", type = IncomingMessageType.EXPLICIT_MENTION),
+                        incoming("m2", "thanks"),
+                    )
+
+                // Act
+                val decision =
+                    participation.decide(
+                        TurnParticipationInput(messages, recordedBatch(config, messages))
+                    )
+
+                // Assert
+                assertEquals(
+                    TurnParticipationDecision.Respond(TurnParticipationReason.EXPLICIT_MENTION),
+                    decision,
+                )
+                verifyNoInteractions(llm)
+            }
+
+        @Test
+        fun `later unsubscribe is not turned into an explicit mention by another message`() =
+            runBlocking {
+                // Arrange
+                val config = config()
+                val llm = mock(LlmParticipationClassifier::class.java)
+                val participation =
+                    TurnParticipation(config, DeterministicParticipationClassifier(), llm)
+                val messages =
+                    listOf(
+                        incoming("m1", "help", type = IncomingMessageType.EXPLICIT_MENTION),
+                        incoming("m2", "unsubscribe"),
+                    )
+
+                // Act
+                val decision =
+                    participation.decide(
+                        TurnParticipationInput(messages, recordedBatch(config, messages))
+                    )
+
+                // Assert
+                assertIs<TurnParticipationDecision.Unsubscribe>(decision)
+                verifyNoInteractions(llm)
+            }
+
+        @Test
+        fun `private batch responds using shared private conversation context`() = runBlocking {
+            // Arrange
+            val config = config()
+            val llm = mock(LlmParticipationClassifier::class.java)
+            val participation =
+                TurnParticipation(config, DeterministicParticipationClassifier(), llm)
+            val messages =
+                listOf(
+                    incoming("m1", "thanks", type = IncomingMessageType.ASSISTANT_MESSAGE),
+                    incoming("m2", "help with this", type = IncomingMessageType.ASSISTANT_MESSAGE),
+                )
+
+            // Act
+            val decision =
+                participation.decide(
+                    TurnParticipationInput(messages, recordedBatch(config, messages))
+                )
+
+            // Assert
+            assertEquals(
+                TurnParticipationDecision.Respond(TurnParticipationReason.PRIVATE_MESSAGE),
+                decision,
+            )
+            verifyNoInteractions(llm)
+        }
+    }
+
+    private fun config() =
+        AgentConfig("Sidekick", dir.resolve("state").toString(), dir.toString()).also {
+            it.botUsername = "sidekick"
+        }
+
+    private fun incoming(
+        id: String,
+        text: String,
+        author: String = "alice",
+        type: IncomingMessageType = IncomingMessageType.PASSIVE_MESSAGE,
+    ) = IncomingMessage(id, 2, MessageAuthor(author, author), text, type)
+
+    private fun recordedBatch(config: AgentConfig, messages: List<IncomingMessage>): RecordedTurn =
+        recordedTurn(config, ConversationId("C123", "thread1"), messages.first()).let { turn ->
+            turn.copy(
+                context = turn.context.copy(lastMessageId = messages.last().id),
+                messages =
+                    messages.map {
+                        SessionMessage(
+                            it.id,
+                            SessionMessageRole.USER,
+                            it.sender,
+                            it.text,
+                            createdAtMs = it.createdAtMs,
+                        )
+                    },
+            )
+        }
 
     @Nested
     inner class LlmDelegation {
@@ -75,7 +225,7 @@ class TurnParticipationTest {
                 `when`(llmClassifier.classify(classifierInput)).thenReturn(expectedDecision)
 
                 // Act
-                val decision = participation.decide(TurnParticipationInput(message, turn, false))
+                val decision = participation.decide(TurnParticipationInput(listOf(message), turn))
 
                 // Assert
                 verify(llmClassifier).classify(classifierInput)

@@ -4,6 +4,7 @@ import com.github.uncomplexco.sidekick.application.agent.koog.ConnectedMcpServer
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
@@ -27,6 +28,9 @@ data class RecordedTurn(
     val context: TurnContext,
     val messages: List<SessionMessage>,
 )
+
+fun resolveRequester(messages: List<SessionMessage>): MessageAuthor? =
+    messages.map { it.author }.distinctBy { it?.username }.singleOrNull()
 
 data class ConversationHistory(
     val compactions: List<SessionCompaction>,
