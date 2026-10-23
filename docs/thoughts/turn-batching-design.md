@@ -47,7 +47,29 @@ Before: drain [m1, m2, m3] → turn(m1) → turn(m2) → turn(m3)
 Now:    drain [m1, m2, m3] → turn([m1, m2, m3])
 ```
 
-`TurnCoordinator` calls `processIncoming` once with the drained message list. Queue keys and the drain mechanism remain unchanged.
+`TurnCoordinator` calls `processIncoming` once with the drained message list. Queue keys remain unchanged.
+
+### Consumer ownership: `IncomingMessageQueue`
+
+`IncomingMessageQueue` owns serialization directly. Each queue entry holds pending messages and the original delivery context. The batch handler is supplied once at construction; production delegates to `TurnCoordinator`, while tests use a gated handler. An empty backlog does not imply an idle key.
+
+```text
+Absent -- enqueue --> Owned(backlog)
+Owned  -- dispatch --> Owned(active batch, empty backlog)
+Owned  -- enqueue --> append backlog
+Owned  -- steering drain --> take backlog; retain owner and active batch
+Owned  -- handler returns --> dispatch next batch, or release if empty
+```
+
+Enqueue, steering drains, batch-handle expiration, and empty-backlog ownership release use the same lock. Releasing ownership and observing an empty backlog are one atomic transition. A subsequent enqueue either reaches the existing consumer or acquires a new owner; it cannot fall between those operations.
+
+Each handler receives a `SteeringInbox` valid only for that invocation. Its `drain()` takes pending messages in enqueue order and never releases ownership. A local active flag is cleared in the handler's `finally` block under the queue lock, so an expired inbox cannot consume later input. Consumer completion removes only its own entry, never a replacement consumer's entry.
+
+Ordinary handler failures expire the inbox and continue with pending input; consumed input is not replayed. Scope shutdown expires inboxes and releases ownership. The queue remains in-memory, without durable message recovery.
+
+Production currently ignores the steering inbox: messages still wait for the next turn. Koog steering is not wired yet. Its agreed semantics are to consume new input after the complete tool batch, keep requester identity unchanged throughout the turn, and leave messages arriving after the final drain for the next turn. Steering does not cancel tools or undo side effects. Subscription-command semantics remain undecided.
+
+`IncomingMessageQueueDrainTest` exercises the queue directly, without the Sidekick agent pipeline: empty drains, ordered/exactly-once consumption, key isolation, expired inboxes, delivery context across ownership changes, handler failure, scope cancellation, concurrent producers, and enqueue racing with turn completion.
 
 ## Admission: `TurnAdmission`
 
