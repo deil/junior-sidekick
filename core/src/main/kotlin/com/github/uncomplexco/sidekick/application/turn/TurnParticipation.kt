@@ -225,7 +225,7 @@ class LlmParticipationClassifier(
                         "[none]"
                     } else {
                         input.messageHistory
-                            .take(5)
+                            .takeLast(5)
                             .map {
                                 val author =
                                     if (it.role == SessionMessageRole.ASSISTANT) input.botUser
