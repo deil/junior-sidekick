@@ -36,6 +36,43 @@ class SessionManagerRecordingTest {
     }
 
     @Nested
+    inner class Steering {
+        @Test
+        fun `appending input preserves turn identity history and profile while updating messages files and target`() =
+            runBlocking {
+                // Arrange
+                record(listOf(message("old", 0)))
+                val initial = record(listOf(message("m1", 1)), files = listOf(file("f1")))
+                val second =
+                    message(
+                        "m2",
+                        2,
+                        author = MessageAuthor("bob", "Bob"),
+                        fileIds = listOf("f2"),
+                        invocation = ExplicitSkillInvocation("review"),
+                    )
+
+                // Act
+                val updated =
+                    manager.appendIncomingMessages(initial, listOf(second), listOf(file("f2")))
+
+                // Assert
+                assertEquals(initial.context.turnId, updated.context.turnId)
+                assertEquals(initial.context.aiModelProfile, updated.context.aiModelProfile)
+                assertEquals(listOf("m1", "m2"), updated.messages.map { it.id })
+                assertEquals("m2", updated.context.lastMessageId)
+                assertEquals(
+                    listOf("old"),
+                    updated.context.conversation.history.messages.map { it.id },
+                )
+                assertEquals(listOf("f1", "f2"), updated.context.sessionFiles.map { it.id })
+                assertMessage(second, reload().messages.last())
+                assertEquals(listOf("old", "m1", "m2"), reload().messages.map { it.id })
+                assertEquals("m1", initial.context.lastMessageId)
+            }
+    }
+
+    @Nested
     inner class PersistingInput {
         @Test
         fun `records every message with its own author mention files and skill invocation`() =

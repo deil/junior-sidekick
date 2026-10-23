@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
 /** Valid only during its batch handler. An empty drain never releases consumer ownership. */
-internal fun interface SteeringInbox {
+fun interface SteeringInbox {
     fun drain(): List<IncomingMessage>
 }
 
@@ -24,7 +24,10 @@ internal constructor(
     constructor(
         scope: SidekickCoroutineScope,
         turnCoordinator: TurnCoordinator,
-    ) : this(scope, { batch, chat, _ -> turnCoordinator.run(TurnTrigger.Incoming(batch, chat)) })
+    ) : this(
+        scope,
+        { batch, chat, inbox -> turnCoordinator.run(TurnTrigger.Incoming(batch, chat), inbox) },
+    )
 
     private val queue = mutableMapOf<BatchKey, Entry>()
 

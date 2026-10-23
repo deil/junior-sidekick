@@ -8,7 +8,9 @@ import com.github.uncomplexco.sidekick.application.chat.IncomingBatch
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
+import com.github.uncomplexco.sidekick.application.chat.SteeringInbox
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionManager
@@ -30,14 +32,18 @@ class TurnCoordinator(
     private val agent: AgentTurnExecutor,
     private val skills: SkillCatalogProvider,
 ) {
-    suspend fun run(trigger: TurnTrigger) {
+    suspend fun run(trigger: TurnTrigger, inbox: SteeringInbox? = null) {
         when (trigger) {
-            is TurnTrigger.Incoming -> runIncoming(trigger.batch, trigger.chat)
+            is TurnTrigger.Incoming -> runIncoming(trigger.batch, trigger.chat, inbox)
             is TurnTrigger.Scheduled -> runScheduled(trigger)
         }
     }
 
-    private suspend fun runIncoming(batch: IncomingBatch, chat: ChatPlatformAdapter) {
+    private suspend fun runIncoming(
+        batch: IncomingBatch,
+        chat: ChatPlatformAdapter,
+        inbox: SteeringInbox?,
+    ) {
         try {
             when (val decision = admission.admit(batch)) {
                 TurnAdmissionDecision.Ignore -> {
@@ -51,7 +57,7 @@ class TurnCoordinator(
 
                 is TurnAdmissionDecision.Admitted -> {
                     chat.lifecycle.begin()
-                    processIncoming(batch.messages, decision, chat)
+                    processIncoming(batch.messages, decision, chat, inbox)
                 }
             }
         } finally {
@@ -83,39 +89,12 @@ class TurnCoordinator(
         incomingMessages: List<IncomingMessage>,
         decision: TurnAdmissionDecision.Admitted,
         chat: ChatPlatformAdapter,
+        inbox: SteeringInbox?,
     ) {
         val turnStartedAt = TimeSource.Monotonic.markNow()
-        val messages =
-            incomingMessages
-                .sortedBy { it.createdAtMs }
-                .map {
-                    it.copy(files = it.files.take(MAX_INCOMING_FILES))
-                }
-        val attachedFiles = mutableListOf<IncomingChatFile>()
-        val currentMessages = messages.map { message ->
-            if (message.files.isNotEmpty()) {
-                val files =
-                    message.files.map { file ->
-                        "File: ${file.name} ${file.filetype} ${file.mimetype}"
-                    }
-                log.debug("Attached files: ${files.joinToString(", ")}")
-            }
-            val files = chat.ingestFiles(decision.conversationId, message.files)
-            attachedFiles += files
-            SessionMessage(
-                id = message.id,
-                role = SessionMessageRole.USER,
-                author = message.sender,
-                text = message.text,
-                fileIds = files.map { it.id },
-                createdAtMs = message.createdAtMs,
-                explicitMention = message.type == IncomingMessageType.EXPLICIT_MENTION,
-                explicitSkillInvocation =
-                    detectUserSkillInvocation(message.text, skills.catalog())?.let {
-                        ExplicitSkillInvocation(it.skill.name)
-                    },
-            )
-        }
+        val messages = incomingMessages.sortedBy { it.createdAtMs }
+        val (currentMessages, attachedFiles) =
+            prepareMessages(messages, decision.conversationId, chat)
 
         sessions.compactIfNeeded(decision.conversationId) { hook ->
             when (hook) {
@@ -144,7 +123,7 @@ class TurnCoordinator(
         when (participationDecision) {
             is TurnParticipationDecision.Respond -> {
                 sessions.setSubscribed(decision.conversationId, true)
-                respondToIncoming(messages, turn, chat, turnStartedAt)
+                respondToIncoming(messages, turn, chat, turnStartedAt, inbox)
             }
 
             is TurnParticipationDecision.Unsubscribe -> {
@@ -184,8 +163,10 @@ class TurnCoordinator(
         turn: RecordedTurn,
         chat: ChatPlatformAdapter,
         turnStartedAt: TimeMark,
+        inbox: SteeringInbox?,
     ) {
-        messages.forEach { chat.lifecycle.markProcessing(it) }
+        val respondingMessages = messages.toMutableList()
+        respondingMessages.forEach { chat.lifecycle.markProcessing(it) }
 
         try {
             val completed =
@@ -194,43 +175,62 @@ class TurnCoordinator(
                     turn,
                     chat,
                     turnStartedAt,
-                )
+                ) { currentTurn ->
+                    val pending = inbox?.drain().orEmpty().sortedBy { it.createdAtMs }
+                    if (pending.isEmpty()) null
+                    else {
+                        val (recorded, files) =
+                            prepareMessages(pending, turn.context.conversation.conversationId, chat)
+                        val updated = sessions.appendIncomingMessages(currentTurn, recorded, files)
+                        respondingMessages += pending
+                        pending.forEach { chat.lifecycle.markProcessing(it) }
+                        log.info(
+                            "{} steered turn={} messages={}",
+                            turn.context.conversation.conversationId.lockKey(),
+                            turn.context.turnId,
+                            pending.map { it.id },
+                        )
+                        updated
+                    }
+                }
             if (completed) {
-                messages.forEach { chat.lifecycle.markCompleted(it) }
+                respondingMessages.forEach { chat.lifecycle.markCompleted(it) }
             } else {
-                messages.forEach { chat.lifecycle.markFailed(it) }
+                respondingMessages.forEach { chat.lifecycle.markFailed(it) }
             }
         } catch (error: CancellationException) {
-            messages.forEach { chat.lifecycle.markFailed(it) }
+            respondingMessages.forEach { chat.lifecycle.markFailed(it) }
             throw error
         } catch (error: Exception) {
-            messages.forEach { chat.lifecycle.markFailed(it) }
+            respondingMessages.forEach { chat.lifecycle.markFailed(it) }
             throw error
         }
     }
 
     private suspend fun executeAgentTurn(
-        conversationId: com.github.uncomplexco.sidekick.application.conversation.ConversationId,
+        conversationId: ConversationId,
         turn: RecordedTurn,
         chat: ChatPlatformAdapter,
         turnStartedAt: TimeMark,
+        steer: suspend (RecordedTurn) -> RecordedTurn? = { null },
     ): Boolean {
+        var currentTurn = turn
         val agentResult =
             try {
-                agent.execute(turn, chat)
+                agent.execute(turn, chat) { steer(currentTurn)?.also { currentTurn = it } }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
                 log.warn(
                     "{} failed to generate reply for message id={}: {}",
                     conversationId.lockKey(),
-                    turn.context.lastMessageId,
+                    currentTurn.context.lastMessageId,
                     error.message,
                     error,
                 )
                 sessions.markMessagesSkipped(
                     conversationId = conversationId,
-                    messageIds = turn.messages.map { it.id },
+                    messageIds = currentTurn.messages.map { it.id },
                     reason = AGENT_FAILURE_REASON,
                 )
                 runCatching { chat.delivery.deliverRuntimeFailure(error) }
@@ -261,11 +261,37 @@ class TurnCoordinator(
             text = agentReply.text,
             replyId = replyMessageId.messageId,
             createdAtMs = replyMessageId.timestamp,
-            originalMessageIds = turn.messages.map { it.id },
+            originalMessageIds = currentTurn.messages.map { it.id },
             inputTokensConsumed = agentResult.stats.usage.inputTokenCount,
             outputTokensConsumed = agentResult.stats.usage.outputTokenCount,
         )
         return true
+    }
+
+    private suspend fun prepareMessages(
+        messages: List<IncomingMessage>,
+        conversationId: ConversationId,
+        chat: ChatPlatformAdapter,
+    ): Pair<List<SessionMessage>, List<IncomingChatFile>> {
+        val attachedFiles = mutableListOf<IncomingChatFile>()
+        val recorded = messages.map { message ->
+            val files = chat.ingestFiles(conversationId, message.files.take(MAX_INCOMING_FILES))
+            attachedFiles += files
+            SessionMessage(
+                id = message.id,
+                role = SessionMessageRole.USER,
+                author = message.sender,
+                text = message.text,
+                fileIds = files.map { it.id },
+                createdAtMs = message.createdAtMs,
+                explicitMention = message.type == IncomingMessageType.EXPLICIT_MENTION,
+                explicitSkillInvocation =
+                    detectUserSkillInvocation(message.text, skills.catalog())?.let {
+                        ExplicitSkillInvocation(it.skill.name)
+                    },
+            )
+        }
+        return recorded to attachedFiles
     }
 
     private fun scheduledMessage(job: ScheduledJob, startedAtMs: Long): SessionMessage =

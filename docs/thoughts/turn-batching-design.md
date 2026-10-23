@@ -17,7 +17,7 @@ Target:  one turn considers all three messages and produces one response
 
 ## Queue and turn boundary
 
-After a turn finishes, process all queued messages for the same conversation as one batch. Messages arriving during that batch wait for the next turn.
+After a turn finishes, process remaining queued messages for the same conversation as one batch. During execution, steering can consume pending messages into the active turn after a complete tool batch. Messages arriving after the final steering drain wait for the next turn.
 
 ```mermaid
 flowchart TD
@@ -67,7 +67,11 @@ Each handler receives a `SteeringInbox` valid only for that invocation. Its `dra
 
 Ordinary handler failures expire the inbox and continue with pending input; consumed input is not replayed. Scope shutdown expires inboxes and releases ownership. The queue remains in-memory, without durable message recovery.
 
-Production currently ignores the steering inbox: messages still wait for the next turn. Koog steering is not wired yet. Its agreed semantics are to consume new input after the complete tool batch, keep requester identity unchanged throughout the turn, and leave messages arriving after the final drain for the next turn. Steering does not cancel tools or undo side effects. Subscription-command semantics remain undecided.
+Production passes the inbox through `TurnCoordinator` to `SidekickAgent`. After a complete tool batch, Koog appends every tool result, consumes pending input, appends each new input as a separate user message, and makes the next model request. Initial and final-text responses do not trigger drains. Steering does not cancel tools or undo side effects. Subscription-command semantics remain undecided; steered input bypasses both deterministic and LLM participation classification.
+
+`TurnCoordinator` reuses per-message file ingestion and skill detection, then calls `SessionManager.appendIncomingMessages` with the current recorded turn. Appending preserves the turn ID, original model profile, and prior-history context, while updating the current message list, session files, and latest message target. Completion and failure outcomes cover all consumed inputs, including those added by successive steering drains. One response and one usage accounting operation remain the turn boundary.
+
+Requester and MCP execution identity are resolved from the initial batch only and remain fixed throughout the turn. Steering prompts contain the new author's instruction, attachments, and explicit skill invocation, without repeating shared context or requester metadata. Tools retain their `TurnContext` object; the agent refreshes its `lastMessageId` and `sessionFiles` before the next model request.
 
 `IncomingMessageQueueDrainTest` exercises the queue directly, without the Sidekick agent pipeline: empty drains, ordered/exactly-once consumption, key isolation, expired inboxes, delivery context across ownership changes, handler failure, scope cancellation, concurrent producers, and enqueue racing with turn completion.
 

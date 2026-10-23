@@ -88,6 +88,44 @@ class SessionManager(
             )
         }
 
+    suspend fun appendIncomingMessages(
+        turn: RecordedTurn,
+        messages: List<SessionMessage>,
+        files: List<IncomingChatFile>,
+    ): RecordedTurn {
+        val conversationId = turn.context.conversation.conversationId
+        return store.withSessionLock(conversationId) {
+            val state = store.load(conversationId)
+            val allMessages = turn.messages.toMutableList()
+            upsertFiles(state.files, files.map { it.toSessionFileRef() })
+            messages.forEach {
+                upsertMessage(state.messages, it)
+                upsertMessage(allMessages, it)
+            }
+            store.save(conversationId, state)
+
+            turn.copy(
+                messages = allMessages,
+                context =
+                    turn.context.copy(
+                        lastMessageId = allMessages.last().id,
+                        sessionFiles = state.files,
+                        conversation =
+                            turn.context.conversation.copy(
+                                history =
+                                    turn.context.conversation.history.copy(
+                                        messages =
+                                            filterOutRecentMessages(
+                                                turn.context.conversation.history.messages,
+                                                allMessages,
+                                            )
+                                    )
+                            ),
+                    ),
+            )
+        }
+    }
+
     suspend fun markMessagesSkipped(
         conversationId: ConversationId,
         messageIds: List<String>,

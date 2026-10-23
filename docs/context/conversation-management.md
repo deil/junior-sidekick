@@ -14,7 +14,7 @@ Slack can deliver more than one event for the same user message. A channel menti
 
 App mentions are always explicit turns. Plain message events are only allowed through when they are not Sidekick's own message and do not contain a Sidekick mention, because mentions are handled through the `app_mention` path.
 
-The Slack adapter maps Slack events into `ChatConversationId`, `IncomingMessage`, and `ChatPlatformAdapter`. The queue groups messages from one chat conversation into an `IncomingBatch`; `TurnAdmission` owns the decision to handle or ignore that batch. After an active turn finishes, all messages queued for the same conversation become one next turn. Messages arriving during that turn wait for the following batch.
+The Slack adapter maps Slack events into `ChatConversationId`, `IncomingMessage`, and `ChatPlatformAdapter`. The queue groups messages from one chat conversation into an `IncomingBatch`; `TurnAdmission` owns the decision to handle or ignore that batch. During an active turn, pending input can join it through steering after a complete tool batch, without another participation decision. After the turn finishes, remaining queued messages become one next turn. Messages arriving after the final steering drain wait for that next batch.
 
 ## Session subscription
 

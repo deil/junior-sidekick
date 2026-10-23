@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
+import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
@@ -18,6 +19,7 @@ import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageQueue
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
+import com.github.uncomplexco.sidekick.application.chat.SteeringInbox
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
@@ -32,6 +34,7 @@ import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
@@ -42,9 +45,281 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verifyNoInteractions
 
 class TurnCoordinatorTest {
     @TempDir lateinit var dir: Path
+
+    @Nested
+    inner class Steering {
+        @ParameterizedTest
+        @ValueSource(booleans = [false, true])
+        fun `steered inputs share the active turn outcome while input after the final drain starts another turn`(
+            fails: Boolean
+        ) = runBlocking {
+            withTimeout(10_000) {
+                // Arrange
+                val config = config()
+                val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+                val sessions = conversationManager(config, store)
+                val started = Channel<RecordedTurn>(Channel.UNLIMITED)
+                val updated = Channel<RecordedTurn>(Channel.UNLIMITED)
+                val drain = CompletableDeferred<Unit>()
+                val finish = CompletableDeferred<Unit>()
+                val completed = CompletableDeferred<Unit>()
+                val replies = mutableListOf<String>()
+                val events = mutableListOf<Pair<String, String>>()
+                val classifier = mock(LlmParticipationClassifier::class.java)
+                val coordinator =
+                    TurnCoordinator(
+                        TurnAdmission(sessions),
+                        sessions,
+                        TurnParticipation(
+                            config,
+                            DeterministicParticipationClassifier(),
+                            classifier,
+                        ),
+                        AgentTurnExecutor { turn, _, steer ->
+                            started.send(turn)
+                            if (turn.messages.first().id == "m1") {
+                                drain.await()
+                                updated.send(checkNotNull(steer()))
+                                finish.await()
+                                if (fails) error("model failed after steering")
+                            }
+                            successfulResult()
+                        },
+                        { reviewSkills() },
+                    )
+                val chat =
+                    chat(
+                        replies,
+                        mutableListOf(),
+                        messageLifecycle = events,
+                        onCompleted = { if (it.id == "m4") completed.complete(Unit) },
+                    )
+                SidekickCoroutineScope().use { scope ->
+                    val queue = IncomingMessageQueue(scope, coordinator)
+                    val conversation = ChatConversationId("C123", "thread")
+
+                    // Act
+                    queue.enqueue(conversation, incoming(1), chat)
+                    val initial = started.receive()
+                    steeringMessages().forEach { queue.enqueue(conversation, it, chat) }
+                    drain.complete(Unit)
+                    val steered = updated.receive()
+                    assertSteeredInput(initial, steered)
+                    queue.enqueue(conversation, incoming(4), chat)
+                    finish.complete(Unit)
+                    assertEquals(listOf("m4"), started.receive().messages.map { it.id })
+                    completed.await()
+                }
+
+                // Assert
+                assertSteeredOutcome(store, replies, events, fails)
+                verifyNoInteractions(classifier)
+            }
+        }
+
+        @Test
+        fun `delivery failure removes processing reactions from initial and steered inputs`() =
+            runBlocking {
+                // Arrange
+                val config = config()
+                val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+                val sessions = conversationManager(config, store)
+                val events = mutableListOf<Pair<String, String>>()
+                val base = chat(mutableListOf(), mutableListOf(), messageLifecycle = events)
+                val chat =
+                    object : ChatPlatformAdapter by base {
+                        override val delivery =
+                            object : ResponseDelivery {
+                                override suspend fun deliver(
+                                    response: AgentResponse,
+                                    metadata: ResponseMetadata,
+                                ): PublishedMessage = error("delivery failed")
+                            }
+                    }
+                val coordinator =
+                    TurnCoordinator(
+                        TurnAdmission(sessions),
+                        sessions,
+                        participation(config),
+                        AgentTurnExecutor { _, _, steer ->
+                            steer()
+                            successfulResult()
+                        },
+                        { SkillCatalog(emptyList()) },
+                    )
+
+                // Act
+                assertFailsWith<IllegalStateException> {
+                    coordinator.run(
+                        TurnTrigger.Incoming(
+                            IncomingBatch(
+                                ChatConversationId("C123", "thread"),
+                                listOf(incoming(1)),
+                            ),
+                            chat,
+                        ),
+                        SteeringInbox { listOf(incoming(2)) },
+                    )
+                }
+
+                // Assert
+                assertEquals(
+                    listOf(
+                        "m1" to "processing",
+                        "m2" to "processing",
+                        "m1" to "failed",
+                        "m2" to "failed",
+                    ),
+                    events,
+                )
+                val saved = store.load(ConversationId("C123", "thread"))
+                assertEquals(listOf("m1", "m2"), saved.messages.map { it.id })
+                assertEquals(listOf(null, null), saved.messages.map { it.replied })
+            }
+
+        @Test
+        fun `successive steering drains extend the same turn and complete every input once`() =
+            runBlocking {
+                // Arrange
+                val config = config()
+                val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+                val sessions = conversationManager(config, store)
+                val pending =
+                    ArrayDeque(listOf(listOf(incoming(2)), listOf(incoming(3)), emptyList()))
+                val turns = mutableListOf<RecordedTurn>()
+                val replies = mutableListOf<String>()
+                val coordinator =
+                    TurnCoordinator(
+                        TurnAdmission(sessions),
+                        sessions,
+                        participation(config),
+                        AgentTurnExecutor { initial, _, steer ->
+                            turns += initial
+                            repeat(3) { steer()?.let { turns += it } }
+                            successfulResult()
+                        },
+                        { SkillCatalog(emptyList()) },
+                    )
+
+                // Act
+                coordinator.run(
+                    TurnTrigger.Incoming(
+                        IncomingBatch(ChatConversationId("C123", "thread"), listOf(incoming(1))),
+                        chat(replies, mutableListOf()),
+                    ),
+                    SteeringInbox { pending.removeFirst() },
+                )
+
+                // Assert
+                assertEquals(
+                    listOf(listOf("m1"), listOf("m1", "m2"), listOf("m1", "m2", "m3")),
+                    turns.map { it.messages.map { message -> message.id } },
+                )
+                assertEquals(1, turns.map { it.context.turnId }.distinct().size)
+                assertEquals(1, replies.size)
+                assertEquals(
+                    listOf(true, true, true),
+                    store
+                        .load(ConversationId("C123", "thread"))
+                        .messages
+                        .filter { it.role == SessionMessageRole.USER }
+                        .map { it.replied },
+                )
+            }
+    }
+
+    private fun assertSteeredOutcome(
+        store: FilesystemConversationStateStore,
+        replies: List<String>,
+        events: List<Pair<String, String>>,
+        fails: Boolean,
+    ) {
+        val saved = store.load(ConversationId("C123", "thread"))
+        val users = saved.messages.filter { it.role == SessionMessageRole.USER }
+        assertEquals(listOf("m1", "m2", "m3", "m4"), users.map { it.id })
+        assertEquals(listOf(!fails, !fails, !fails, true), users.map { it.replied })
+        assertEquals(
+            if (fails) listOf("AGENT_FAILURE", "AGENT_FAILURE", "AGENT_FAILURE", null)
+            else List(4) { null },
+            users.map { it.skippedReason },
+        )
+        val outcome = if (fails) "failed" else "completed"
+        assertEquals(
+            listOf(
+                "m1" to "processing",
+                "m2" to "processing",
+                "m3" to "processing",
+                "m1" to outcome,
+                "m2" to outcome,
+                "m3" to outcome,
+                "m4" to "processing",
+                "m4" to "completed",
+            ),
+            events,
+        )
+        assertEquals(2, replies.size)
+        assertEquals(
+            if (fails) 1 else 2,
+            saved.messages.count { it.role == SessionMessageRole.ASSISTANT },
+        )
+        assertEquals(if (fails) 11L else 22L, saved.stats.consumedInputTokens)
+        assertEquals(if (fails) 7L else 14L, saved.stats.consumedOutputTokens)
+    }
+
+    private fun reviewSkills() =
+        SkillCatalog(
+            listOf(
+                Skill(
+                    "review",
+                    "Review changes",
+                    dir.resolve("review"),
+                    disableModelInvocation = false,
+                    userInvocable = true,
+                )
+            )
+        )
+
+    private fun steeringMessages() =
+        (2..3).map { index ->
+            incoming(
+                    index,
+                    "/review ${if (index == 2) "What about latency?" else "Actually, staging"}",
+                    IncomingMessageType.PASSIVE_MESSAGE,
+                )
+                .copy(
+                    sender = MessageAuthor(if (index == 2) "U123" else "bob", "User"),
+                    files =
+                        (1..6).map { number ->
+                            IncomingChatFile(
+                                "f$index-$number",
+                                "report.txt",
+                                "text/plain",
+                                "txt",
+                                "https://files/report",
+                                "https://chat/report",
+                                "/data/$index-$number.txt",
+                            )
+                        },
+                )
+        }
+
+    private fun assertSteeredInput(initial: RecordedTurn, steered: RecordedTurn) {
+        assertEquals(initial.context.turnId, steered.context.turnId)
+        assertEquals(listOf("m1", "m2", "m3"), steered.messages.map { it.id })
+        assertEquals("m3", steered.context.lastMessageId)
+        assertEquals(
+            listOf("review", "review"),
+            steered.messages.drop(1).map { it.explicitSkillInvocation?.skillName },
+        )
+        assertEquals(listOf(5, 5), steered.messages.drop(1).map { it.fileIds.size })
+        assertEquals(10, steered.context.sessionFiles.size)
+        assertEquals("bob", steered.messages.last().author?.username)
+    }
 
     @Nested
     inner class BatchLifecycle {
@@ -64,7 +339,7 @@ class TurnCoordinatorTest {
                     TurnAdmission(sessions),
                     sessions,
                     participation(config),
-                    AgentTurnExecutor { turn, _ ->
+                    AgentTurnExecutor { turn, _, _ ->
                         seen += turn.messages.map { it.id }
                         if (fails) error("model unavailable")
                         TurnExecutionResult(
@@ -123,7 +398,7 @@ class TurnCoordinatorTest {
                         TurnAdmission(sessions),
                         sessions,
                         participation(config),
-                        AgentTurnExecutor { turn, _ ->
+                        AgentTurnExecutor { turn, _, _ ->
                             observed += turn
                             successfulResult()
                         },
@@ -188,7 +463,7 @@ class TurnCoordinatorTest {
                     TurnAdmission(sessions),
                     sessions,
                     participation(config),
-                    AgentTurnExecutor { turn, _ ->
+                    AgentTurnExecutor { turn, _, _ ->
                         runs += turn.messages.map { it.id }
                         TurnExecutionResult(
                             AgentResponse("done"),
@@ -268,7 +543,7 @@ class TurnCoordinatorTest {
                         TurnAdmission(sessions),
                         sessions,
                         participation(config),
-                        AgentTurnExecutor { _, _ -> error("Skipped batch must not execute") },
+                        AgentTurnExecutor { _, _, _ -> error("Skipped batch must not execute") },
                         { SkillCatalog(emptyList()) },
                     )
 
@@ -317,7 +592,7 @@ class TurnCoordinatorTest {
                             TurnAdmission(sessions),
                             sessions,
                             participation(config),
-                            AgentTurnExecutor { turn, _ ->
+                            AgentTurnExecutor { turn, _, _ ->
                                 if (
                                     turn.context.conversation.conversationId.threadId == "blocked"
                                 ) {
@@ -385,7 +660,7 @@ class TurnCoordinatorTest {
                             TurnAdmission(sessions),
                             sessions,
                             participation(config),
-                            AgentTurnExecutor { turn, _ ->
+                            AgentTurnExecutor { turn, _, _ ->
                                 observed.send(turn.messages.map { it.id })
                                 proceed.receive()
                                 successfulResult()
@@ -459,7 +734,7 @@ class TurnCoordinatorTest {
                 sessions = manager,
                 participation = participation(config),
                 agent =
-                    AgentTurnExecutor { turn, _ ->
+                    AgentTurnExecutor { turn, _, _ ->
                         seenConversationIds += turn.context.conversation.conversationId
                         assertEquals("Run the report", turn.messages.single().text)
                         TurnExecutionResult(
@@ -522,7 +797,7 @@ class TurnCoordinatorTest {
                 sessions = manager,
                 participation = participation(config),
                 agent =
-                    AgentTurnExecutor { _, _ ->
+                    AgentTurnExecutor { _, _, _ ->
                         error("OpenRouter API error: 429 Too Many Requests")
                     },
                 skills = { SkillCatalog(emptyList()) },
@@ -572,7 +847,7 @@ class TurnCoordinatorTest {
                 sessions = manager,
                 participation = participation(config),
                 agent =
-                    AgentTurnExecutor { _, _ ->
+                    AgentTurnExecutor { _, _, _ ->
                         TurnExecutionResult(
                             response = AgentResponse("Attached the report.", listOf(attachment)),
                             stats =
@@ -671,7 +946,7 @@ class TurnCoordinatorTest {
                 admission = TurnAdmission(manager),
                 sessions = manager,
                 participation = participation(config),
-                agent = AgentTurnExecutor { _, _ -> error("agent should not run") },
+                agent = AgentTurnExecutor { _, _, _ -> error("agent should not run") },
                 skills = { SkillCatalog(emptyList()) },
             )
         val message =
@@ -707,7 +982,7 @@ class TurnCoordinatorTest {
                 admission = TurnAdmission(manager),
                 sessions = manager,
                 participation = participation(config),
-                agent = AgentTurnExecutor { _, _ -> error("agent should not run") },
+                agent = AgentTurnExecutor { _, _, _ -> error("agent should not run") },
                 skills = { SkillCatalog(emptyList()) },
             )
         val message =

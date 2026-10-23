@@ -3,23 +3,16 @@ package com.github.uncomplexco.sidekick.application.agent.koog
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.tools.SimpleTool
-import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolRegistry
-import ai.koog.prompt.Prompt
-import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.dsl.prompt
-import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
-import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.serialization.typeToken
 import kotlin.test.assertEquals
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import org.junit.jupiter.api.Test
@@ -29,9 +22,14 @@ class SidekickStrategyTest {
     fun `batch appends consecutive user messages before one model request`() = runBlocking {
         // Arrange
         val executor = QueuedPromptExecutor(Message.Assistant("Finished.", ResponseMetaInfo.Empty))
+        var drains = 0
         val agent =
             AIAgent(
-                strategy = sidekickStrategy(),
+                strategy =
+                    sidekickStrategy {
+                        drains++
+                        emptyList()
+                    },
                 promptExecutor = executor,
                 agentConfig =
                     AIAgentConfig(
@@ -54,7 +52,71 @@ class SidekickStrategyTest {
             sent.messages.filterIsInstance<Message.User>().map { it.textContent() },
         )
         assertEquals("Finished.", result)
+        assertEquals(0, drains, "A final response must not drain input for a new turn")
     }
+
+    @Test
+    fun `steering follows every complete tool batch and appends separate users after all results`() =
+        runBlocking {
+            // Arrange
+            val calls = mutableListOf<String>()
+            val tool = RecordingTool(calls)
+            val executor =
+                QueuedPromptExecutor(
+                    Message.Assistant(
+                        parts =
+                            listOf(
+                                MessagePart.Tool.Call("call-1", tool.name, """{"value":"first"}"""),
+                                MessagePart.Tool.Call(
+                                    "call-2",
+                                    tool.name,
+                                    """{"value":"second"}""",
+                                ),
+                            ),
+                        metaInfo = ResponseMetaInfo.Empty,
+                    ),
+                    Message.Assistant(
+                        MessagePart.Tool.Call("call-3", tool.name, """{"value":"third"}"""),
+                        ResponseMetaInfo.Empty,
+                    ),
+                    Message.Assistant("Finished.", ResponseMetaInfo.Empty),
+                )
+            val callsAtDrain = mutableListOf<List<String>>()
+            val agent =
+                testAgent(executor, tool) {
+                    callsAtDrain += calls.toList()
+                    if (callsAtDrain.size == 1) listOf("Actually, staging", "Only the API service")
+                    else emptyList()
+                }
+
+            // Act
+            val result = agent.run(listOf("Start"), null)
+
+            // Assert
+            assertEquals("Finished.", result)
+            assertEquals(
+                listOf(listOf("first", "second"), listOf("first", "second", "third")),
+                callsAtDrain,
+            )
+            val followUp = executor.prompts[1].messages.takeLast(3)
+            assertEquals(
+                listOf("call-1", "call-2"),
+                followUp[0].parts.filterIsInstance<MessagePart.Tool.Result>().map { it.id },
+            )
+            assertEquals(
+                listOf("Actually, staging", "Only the API service"),
+                followUp.drop(1).map { (it as Message.User).textContent() },
+            )
+            assertEquals(
+                listOf("call-3"),
+                executor.prompts[2]
+                    .messages
+                    .last()
+                    .parts
+                    .filterIsInstance<MessagePart.Tool.Result>()
+                    .map { it.id },
+            )
+        }
 
     @Test
     fun `executes tool call from mixed follow-up response before finishing`() = runBlocking {
@@ -97,6 +159,23 @@ class SidekickStrategyTest {
     }
 }
 
+private fun testAgent(
+    executor: QueuedPromptExecutor,
+    tool: RecordingTool,
+    steer: suspend () -> List<String>,
+) =
+    AIAgent(
+        strategy = sidekickStrategy(steer),
+        promptExecutor = executor,
+        agentConfig =
+            AIAgentConfig(
+                prompt = prompt("test") {},
+                model = LLModel(LLMProvider.OpenRouter, "test", listOf(LLMCapability.Tools)),
+                maxAgentIterations = 10,
+            ),
+        toolRegistry = ToolRegistry { tool(tool) },
+    )
+
 private class RecordingTool(private val calls: MutableList<String>) :
     SimpleTool<RecordingTool.Args>(
         argsType = typeToken<Args>(),
@@ -109,31 +188,4 @@ private class RecordingTool(private val calls: MutableList<String>) :
         calls += args.value
         return args.value
     }
-}
-
-private class QueuedPromptExecutor(vararg responses: Message.Assistant) : PromptExecutor() {
-    private val responses = ArrayDeque(responses.toList())
-    val prompts = mutableListOf<Prompt>()
-
-    override suspend fun execute(
-        prompt: Prompt,
-        model: LLModel,
-        tools: List<ToolDescriptor>,
-    ): Message.Assistant {
-        prompts += prompt
-        return responses.removeFirst()
-    }
-
-    override fun executeStreaming(
-        prompt: Prompt,
-        model: LLModel,
-        tools: List<ToolDescriptor>,
-    ): Flow<StreamFrame> = emptyFlow()
-
-    override suspend fun moderate(
-        prompt: Prompt,
-        model: LLModel,
-    ): ModerationResult = error("Moderation is not used")
-
-    override fun close() = Unit
 }

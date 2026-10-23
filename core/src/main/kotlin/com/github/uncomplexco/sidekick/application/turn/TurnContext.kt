@@ -19,8 +19,9 @@ data class ConversationContext(
 data class TurnContext(
     val conversation: ConversationContext,
     val turnId: String,
-    val lastMessageId: String,
-    val sessionFiles: List<SessionFileRef>,
+    // Tools retain this context; steering refreshes these fields between tool batches.
+    var lastMessageId: String,
+    var sessionFiles: List<SessionFileRef>,
     val aiModelProfile: AiModelProfile,
 )
 

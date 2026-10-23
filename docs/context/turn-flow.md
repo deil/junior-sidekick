@@ -165,6 +165,14 @@ Any deterministic `Respond` makes the batch respond; all deterministic skips mak
 
 Each batch message becomes a separate Koog user message with its author, attachments, and skill invocation. All are appended before one model request. Shared context appears only in the first user message. A single-author batch includes requester metadata there; multi-author batches omit it and use a null MCP execution identity. One agent run processes the full batch.
 
+### Steering during execution
+
+After a complete tool batch, the strategy appends all tool results, drains pending input through the active queue inbox, appends new user messages, and requests the next model response. Draining an empty inbox never releases queue ownership. The inbox expires when the turn handler exits. Initial model requests and final-text responses do not drain input; messages arriving after the final drain remain for the next turn.
+
+`TurnCoordinator` prepares each steering message's files and skill invocation, records it through `SessionManager.appendIncomingMessages` under the existing turn ID, and adds processing reactions. Steering bypasses participation classification, including deterministic checks; subscription-command semantics are not separately implemented for steering.
+
+The requester identity and MCP connections remain those of the initial batch. New user prompts omit shared context and requester metadata. Tools keep the same `TurnContext` instance, with its live `lastMessageId` and `sessionFiles` refreshed before the next model request. Successful reply recording and agent-failure outcomes include every consumed input, and lifecycle reactions cover them all. Usage is still counted once per completed turn.
+
 The OpenRouter client is wrapped with Koog `RetryingLLMClient` using `RetryConfig.PRODUCTION`, so transient provider failures such as 429s and temporary unavailability are retried before the turn sees an error. If execution still fails, `TurnCoordinator` posts one compact temporary-failure reply and marks all batch messages skipped with `AGENT_FAILURE`; it does not record an assistant reply in session history.
 
 Session intelligence level is per conversation and defaults to `normal`. The `enableTokenmaxxin` system tool switches the current conversation between `normal` and `ultrathink`; the selected intelligence level applies when future turns initialize Koog.

@@ -8,9 +8,14 @@ import java.nio.file.Files
 import kotlin.collections.forEach
 
 fun interface AgentTurnExecutor {
+    /**
+     * [steer] consumes pending input after a complete tool batch, returning the full updated turn
+     * or null.
+     */
     suspend fun execute(
         turn: RecordedTurn,
         chat: ChatPlatformAdapter,
+        steer: suspend () -> RecordedTurn?,
     ): TurnExecutionResult
 }
 

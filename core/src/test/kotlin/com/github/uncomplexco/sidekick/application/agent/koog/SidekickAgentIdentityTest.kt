@@ -83,7 +83,7 @@ class SidekickAgentIdentityTest {
         // Act
         val failure =
             assertFailsWith<IllegalStateException> {
-                agent.execute(turn, mock(ChatPlatformAdapter::class.java))
+                agent.execute(turn, mock(ChatPlatformAdapter::class.java)) { null }
             }
 
         // Assert

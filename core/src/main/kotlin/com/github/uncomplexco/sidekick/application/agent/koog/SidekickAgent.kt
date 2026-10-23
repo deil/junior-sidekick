@@ -6,8 +6,8 @@ import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.dsl.builder.node
 import ai.koog.agents.core.dsl.builder.strategy
+import ai.koog.agents.core.dsl.extension.ReceivedToolResults
 import ai.koog.agents.core.dsl.extension.nodeExecuteTools
-import ai.koog.agents.core.dsl.extension.nodeLLMSendToolResults
 import ai.koog.agents.core.dsl.extension.onTextMessage
 import ai.koog.agents.core.dsl.extension.onToolCalls
 import ai.koog.agents.core.tools.ToolRegistry
@@ -84,6 +84,7 @@ class SidekickAgent(
     override suspend fun execute(
         turn: RecordedTurn,
         chat: ChatPlatformAdapter,
+        steer: suspend () -> RecordedTurn?,
     ): TurnExecutionResult {
         val ctx = turn.context
         val requester = resolveRequester(turn.messages)
@@ -115,9 +116,28 @@ class SidekickAgent(
                     )
             val aiModelProfile = koogConfig.profile(ctx.aiModelProfile)
 
+            val seenMessages = turn.messages.map { it.id }.toMutableSet()
             val agent =
                 AIAgent(
-                    strategy = sidekickStrategy(),
+                    strategy =
+                        sidekickStrategy {
+                            val updated = steer()
+                            if (updated == null) emptyList()
+                            else {
+                                ctxWithMcp.lastMessageId = updated.context.lastMessageId
+                                ctxWithMcp.sessionFiles = updated.context.sessionFiles
+                                updated.messages
+                                    .filter { seenMessages.add(it.id) }
+                                    .map {
+                                        turnPromptBuilder.buildSessionTurnPrompt(
+                                            it,
+                                            ctxWithMcp,
+                                            requester = null,
+                                            includeContext = false,
+                                        )
+                                    }
+                            }
+                        },
                     promptExecutor = koogConfig.openRouterExecutor(),
                     agentConfig =
                         AIAgentConfig(
@@ -214,7 +234,7 @@ class SidekickAgent(
     }
 }
 
-internal fun sidekickStrategy() =
+internal fun sidekickStrategy(steer: suspend () -> List<String> = { emptyList() }) =
     strategy<List<String>, String>("sidekick") {
         val requestModelResponse by
             node<List<String>, Message.Assistant>("requestModelResponse") { messages ->
@@ -225,7 +245,17 @@ internal fun sidekickStrategy() =
             }
         val executeToolCalls by nodeExecuteTools("executeToolCalls")
         val requestModelResponseWithToolResults by
-            nodeLLMSendToolResults("requestModelResponseWithToolResults")
+            node<ReceivedToolResults, Message.Assistant>("requestModelResponseWithToolResults") {
+                results ->
+                llm.writeSession {
+                    appendPrompt {
+                        user { results.toolResults.forEach { toolResult(it.toMessagePart()) } }
+                    }
+                    val messages = steer()
+                    appendPrompt { messages.forEach { user(it) } }
+                    requestLLM()
+                }
+            }
 
         edge(nodeStart forwardTo requestModelResponse)
         edge(requestModelResponse forwardTo executeToolCalls onToolCalls { true })
