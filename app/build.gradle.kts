@@ -26,6 +26,7 @@ dependencies {
     testImplementation(platform(libs.spring.boot.bom))
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.kotlin.test.junit5)
+    testImplementation(libs.kotlinx.coroutines.test)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

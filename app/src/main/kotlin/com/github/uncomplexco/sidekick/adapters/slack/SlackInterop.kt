@@ -13,6 +13,7 @@ import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformA
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
 import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
@@ -36,6 +37,9 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import kotlin.time.Clock
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 private fun attachmentUploadFailure(
     name: String,
@@ -50,9 +54,10 @@ class SlackChatPlatformAdapter(
     threadId: ChatThreadId,
     private val historyLoader: suspend (ConversationId) -> List<ChatMessage>,
     private val fileIngestor: SlackFileIngestor,
+    scope: SidekickCoroutineScope,
 ) : SlackBackedChatPlatformAdapter {
     override val botUsername: String = ctx.botUserId
-    private val output = SlackTurnOutput(ctx.client(), ctx.channelId, threadId)
+    private val output = SlackTurnOutput(ctx.client(), ctx.channelId, threadId, scope)
     override val lifecycle: TurnLifecycle = output
     override val delivery: ResponseDelivery = output
 
@@ -69,24 +74,63 @@ internal class SlackTurnOutput(
     private val client: MethodsClient,
     private val channelId: String,
     private val threadId: ChatThreadId?,
+    private val scope: SidekickCoroutineScope,
 ) : TurnLifecycle, ResponseDelivery {
-    private var turnActive = false
+    private class Activity(var loadingMessages: List<String>, var renewal: Job? = null)
+
+    private val statusLock = Any()
+    private var activity: Activity? = null
 
     override fun begin() {
-        turnActive = true
+        synchronized(statusLock) {
+            activity?.let { stopActivity(it) }
+            activity = Activity(LOADING_MESSAGES)
+        }
     }
 
     override fun progress(text: String?) {
-        setStatus(
-            status = STATUS_THINKING,
-            emoji = ":face_in_clouds:",
-            loadingMessages = text?.let(::listOf) ?: LOADING_MESSAGES,
-        )
+        synchronized(statusLock) {
+            val current = activity ?: return
+            if (threadId == null) return
+
+            current.loadingMessages = text?.let(::listOf) ?: LOADING_MESSAGES
+            if (current.renewal == null) {
+                val job = scope.launch {
+                    while (isActive) {
+                        delay(STATUS_RENEWAL_INTERVAL_MS)
+                        synchronized(statusLock) {
+                            if (activity === current && isActive) publishActivity(current)
+                        }
+                    }
+                }
+                current.renewal = job
+                job.invokeOnCompletion {
+                    synchronized(statusLock) {
+                        if (activity === current) stopActivity(current)
+                    }
+                }
+            }
+
+            if (activity === current && current.renewal?.isActive == true) {
+                publishActivity(current)
+            }
+        }
     }
 
     override fun end() {
-        turnActive = false
+        synchronized(statusLock) {
+            activity?.let { stopActivity(it) }
+        }
+    }
+
+    private fun stopActivity(current: Activity) {
+        activity = null
+        current.renewal?.cancel()
         setStatus("")
+    }
+
+    private fun publishActivity(current: Activity) {
+        setStatus(STATUS_THINKING, ":face_in_clouds:", current.loadingMessages)
     }
 
     override suspend fun markProcessing(message: IncomingMessage) {
@@ -169,15 +213,6 @@ internal class SlackTurnOutput(
         updateReaction(message, PROCESSING_REACTION, add = false)
     }
 
-    private fun replyBlocks(
-        text: String,
-        statusLine: String?,
-    ): List<LayoutBlock> =
-        asBlocks(markdown { it.text(text) }) +
-            statusLine
-                ?.let { asBlocks(context { block -> block.elements(listOf(markdownText(it))) }) }
-                .orEmpty()
-
     private fun setStatus(
         status: String,
         emoji: String? = null,
@@ -185,6 +220,12 @@ internal class SlackTurnOutput(
     ) {
         val targetThread = threadId ?: return
         runCatching {
+                Loggers.SLACK.info(
+                    "Updating Slack assistant status in {} thread {}: {}",
+                    channelId,
+                    targetThread.threadTs,
+                    status,
+                )
                 val response = client.assistantThreadsSetStatus { req ->
                     req.channelId(channelId)
                     req.threadTs(targetThread.threadTs)
@@ -236,6 +277,7 @@ internal class SlackTurnOutput(
     }
 
     private companion object {
+        const val STATUS_RENEWAL_INTERVAL_MS = 8_000L
         const val STATUS_THINKING = "thinking..."
         val LOADING_MESSAGES =
             listOf(
@@ -256,11 +298,21 @@ internal class SlackTurnOutput(
 private const val PROCESSING_REACTION = "eyes"
 private const val COMPLETED_REACTION = "white_check_mark"
 
+private fun replyBlocks(
+    text: String,
+    statusLine: String?,
+): List<LayoutBlock> =
+    asBlocks(markdown { it.text(text) }) +
+        statusLine
+            ?.let { asBlocks(context { block -> block.elements(listOf(markdownText(it))) }) }
+            .orEmpty()
+
 fun slackChatPlatformAdapter(
     ctx: EventContext,
     threadId: ChatThreadId,
     currentMessageTs: String,
     fileIngestor: SlackFileIngestor,
+    scope: SidekickCoroutineScope,
 ): SlackChatPlatformAdapter =
     SlackChatPlatformAdapter(
         ctx = ctx,
@@ -273,6 +325,7 @@ fun slackChatPlatformAdapter(
             }
         },
         fileIngestor = fileIngestor,
+        scope = scope,
     )
 
 internal fun incomingChatFiles(

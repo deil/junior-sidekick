@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobDispatcher
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobRun
 import com.github.uncomplexco.sidekick.usecases.RunScheduledJobUsecase
@@ -23,6 +24,7 @@ class SlackScheduledJobDispatcher(
     private val app: App,
     private val agentConfig: AgentConfig,
     private val runScheduledJob: RunScheduledJobUsecase,
+    private val scope: SidekickCoroutineScope,
 ) : ScheduledJobDispatcher {
     override suspend fun dispatch(run: ScheduledJobRun) {
         runScheduledJob.run(
@@ -32,6 +34,7 @@ class SlackScheduledJobDispatcher(
                     app.client(),
                     run.channelId,
                     agentConfig.botUsername!!,
+                    scope,
                 ),
         )
     }

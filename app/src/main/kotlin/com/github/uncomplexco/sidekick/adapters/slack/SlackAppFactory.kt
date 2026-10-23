@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
+import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
 import com.slack.api.bolt.App
@@ -47,6 +48,7 @@ class SlackAppFactory {
         eventDeduper: HandledEventsDeduper,
         receiveChatMessage: ReceiveChatMessageUsecase,
         slackFileIngestor: SlackFileIngestor,
+        scope: SidekickCoroutineScope,
     ): App {
         val app = App(slackAdapterConfig)
         val auth = app.client.authTest { it }
@@ -54,7 +56,9 @@ class SlackAppFactory {
 
         sharedContext.slackClient = app.client()
 
-        app.assistant(buildSlackAssistant(app, eventDeduper, receiveChatMessage, slackFileIngestor))
+        app.assistant(
+            buildSlackAssistant(app, eventDeduper, receiveChatMessage, slackFileIngestor, scope)
+        )
 
         app.event(MessageChangedEvent::class.java) { payload, ctx -> ctx.ack() }
 
@@ -101,6 +105,7 @@ class SlackAppFactory {
                             threadId = ChatThreadId(responseThreadTs, event.threadTs != null),
                             currentMessageTs = event.ts,
                             fileIngestor = slackFileIngestor,
+                            scope = scope,
                         ),
                     )
                 }
@@ -138,6 +143,7 @@ class SlackAppFactory {
                                 threadId = ChatThreadId(responseThreadTs, event.threadTs != null),
                                 currentMessageTs = event.ts,
                                 fileIngestor = slackFileIngestor,
+                                scope = scope,
                             ),
                         )
                     }
@@ -180,6 +186,7 @@ class SlackAppFactory {
                                 threadId = ChatThreadId(responseThreadTs, event.threadTs != null),
                                 currentMessageTs = event.ts,
                                 fileIngestor = slackFileIngestor,
+                                scope = scope,
                             ),
                         )
                     }
@@ -250,6 +257,7 @@ internal fun buildSlackAssistant(
     deduper: HandledEventsDeduper,
     receiveChatMessage: ReceiveChatMessageUsecase,
     slackFileIngestor: SlackFileIngestor,
+    scope: SidekickCoroutineScope,
 ): Assistant {
     val assistant = Assistant(app.executorService())
 
@@ -276,6 +284,7 @@ internal fun buildSlackAssistant(
                     threadId = ChatThreadId(responseThreadTs, req.event.threadTs != null),
                     currentMessageTs = req.event.ts,
                     fileIngestor = slackFileIngestor,
+                    scope = scope,
                 ),
             )
         }
@@ -304,6 +313,7 @@ internal fun buildSlackAssistant(
                     threadId = ChatThreadId(responseThreadTs, req.event.threadTs != null),
                     currentMessageTs = req.event.ts,
                     fileIngestor = slackFileIngestor,
+                    scope = scope,
                 ),
             )
         }

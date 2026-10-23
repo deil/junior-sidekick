@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
+import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.slack.api.RequestConfigurator
 import com.slack.api.methods.MethodsClient
 import com.slack.api.methods.request.chat.ChatPostMessageRequest
@@ -8,16 +9,22 @@ import com.slack.api.methods.response.chat.ChatPostMessageResponse
 import java.lang.reflect.Proxy
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
 class ScheduledSlackChatPlatformAdapterTest {
     @Test
-    fun `posts scheduled reply to channel root`() = runBlocking {
+    fun `posts scheduled reply to channel root`() = runTest {
         // Arrange
         val requests = mutableListOf<ChatPostMessageRequest>()
         val client = methodsClient(requests)
-        val adapter = ScheduledSlackChatPlatformAdapter(client, "C123", "USIDEKICK")
+        val adapter =
+            ScheduledSlackChatPlatformAdapter(
+                client,
+                "C123",
+                "USIDEKICK",
+                SidekickCoroutineScope(backgroundScope),
+            )
 
         // Act
         adapter.delivery.deliver(AgentResponse("scheduled result"))
