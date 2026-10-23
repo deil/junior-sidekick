@@ -5,6 +5,8 @@ import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
 import com.github.uncomplexco.sidekick.application.turn.TurnTrigger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -63,6 +65,7 @@ internal constructor(
         scope
             .launch(Dispatchers.Default) {
                 while (true) {
+                    currentCoroutineContext().ensureActive()
                     val messages =
                         synchronized(queue) {
                             if (entry.pending.isEmpty()) {
@@ -84,6 +87,7 @@ internal constructor(
                     }
 
                     try {
+                        currentCoroutineContext().ensureActive()
                         handleBatch(IncomingBatch(key.conversationId, messages), entry.chat, inbox)
                     } catch (error: CancellationException) {
                         throw error

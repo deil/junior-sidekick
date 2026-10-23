@@ -11,12 +11,14 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.RepeatedTest
@@ -264,6 +266,54 @@ class IncomingMessageQueueDrainTest {
 
     @Nested
     inner class FailureAndCancellation {
+        @Test
+        fun `handler returning normally after cancellation does not dispatch pending input`() =
+            runBlocking {
+                withTimeout(15_000) {
+                    // Arrange
+                    val job = SupervisorJob()
+                    val started = Channel<List<String>>(Channel.UNLIMITED)
+                    val finish = CompletableDeferred<Unit>()
+                    val chat = mock(ChatPlatformAdapter::class.java)
+                    val queue =
+                        IncomingMessageQueue(SidekickCoroutineScope(CoroutineScope(job))) {
+                            batch,
+                            _,
+                            _ ->
+                            started.trySend(batch.messages.map { it.id }).getOrThrow()
+                            withContext(NonCancellable) { finish.await() }
+                        }
+                    val conversationId = ChatConversationId("C123", "thread")
+                    val first =
+                        IncomingMessage(
+                            "first",
+                            1,
+                            MessageAuthor("user", "User"),
+                            "hello",
+                            IncomingMessageType.PASSIVE_MESSAGE,
+                        )
+                    try {
+                        queue.enqueue(conversationId, first, chat)
+                        assertEquals(listOf("first"), started.receive())
+                        queue.enqueue(conversationId, first.copy(id = "pending"), chat)
+
+                        // Act
+                        job.cancel()
+                        finish.complete(Unit)
+                        job.join()
+
+                        // Assert
+                        assertTrue(
+                            started.tryReceive().isFailure,
+                            "Pending input must not start another handler during shutdown",
+                        )
+                    } finally {
+                        finish.complete(Unit)
+                        job.cancelAndJoin()
+                    }
+                }
+            }
+
         @Test
         fun `handler failure expires its inbox and continues queued input without replay`() =
             queueTest {
