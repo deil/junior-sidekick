@@ -27,13 +27,16 @@ import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
 import com.github.uncomplexco.sidekick.application.turn.TurnParticipation
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
 import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
+import com.slack.api.app_backend.events.payload.AgentSessionStoppedPayload
 import com.slack.api.bolt.context.builtin.EventContext
+import com.slack.api.model.event.AgentSessionStoppedEvent
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -46,6 +49,38 @@ import org.junit.jupiter.api.io.TempDir
 @OptIn(ExperimentalCoroutinesApi::class)
 class SlackActivityTest {
     @TempDir lateinit var dir: Path
+
+    @Test
+    fun `native stop event acknowledges immediately but notifies user only after work stops`() =
+        runTest {
+            // Arrange
+            Fixture(this, dir).use { fixture ->
+                fixture.receive(1)
+                awaitExternal(fixture.agentStarted)
+                runCurrent()
+                fixture.receive(2)
+
+                // Act
+                val ack = fixture.requestStop()
+                fixture.receive(3)
+
+                // Assert
+                assertEquals(200, ack.statusCode)
+                assertEquals(emptyList(), fixture.slack.replies)
+                assertEquals("processing", fixture.activity())
+                advanceTimeBy(8_000)
+                runCurrent()
+                assertEquals("processing", fixture.slack.calls.last().request.status)
+                fixture.finishAgent.complete(Unit)
+                awaitExternal(fixture.slack.replied)
+                awaitExternal(fixture.slack.cleared)
+                assertNull(fixture.activity())
+                assertEquals(
+                    listOf("🫡 Stop received. Tools down."),
+                    fixture.slack.replies.map { it.text },
+                )
+            }
+        }
 
     @Test
     fun `activity remains visible beyond Slack timeout without new messages or tool completions`() =
@@ -61,21 +96,18 @@ class SlackActivityTest {
                 advanceTimeBy(7_999)
                 runCurrent()
                 assertEquals(listOf(0L), fixture.slack.calls.map { it.time })
-                advanceTimeBy(113_001)
+                advanceTimeBy(3_593_001)
                 runCurrent()
 
                 // Assert
                 assertEquals(
-                    (0L..120_000L step 8_000L).toList(),
+                    (0L..3_600_000L step 8_000L).toList(),
                     fixture.slack.calls.map { it.time },
                 )
-                val initial = fixture.slack.calls.first().request
                 fixture.slack.calls.forEach {
                     assertEquals(CHANNEL, it.request.channelId)
                     assertEquals(THREAD, it.request.threadTs)
-                    assertEquals("thinking...", it.request.status)
-                    assertEquals(":face_in_clouds:", it.request.iconEmoji)
-                    assertEquals(initial.loadingMessages, it.request.loadingMessages)
+                    assertEquals("processing", it.request.status)
                 }
                 assertNotNull(
                     fixture.activity(),
@@ -120,7 +152,10 @@ class SlackActivityTest {
 
             // Assert
             assertNull(fixture.activity())
-            assertEquals(listOf("thinking...", ""), fixture.slack.calls.map { it.request.status })
+            assertEquals(
+                listOf("processing", "active"),
+                fixture.slack.calls.map { it.request.status },
+            )
         }
     }
 
@@ -140,7 +175,7 @@ class SlackActivityTest {
 
             // Assert
             assertNull(fixture.activity())
-            assertEquals("", fixture.slack.calls.last().request.status)
+            assertEquals("active", fixture.slack.calls.last().request.status)
         }
     }
 
@@ -161,11 +196,14 @@ class SlackActivityTest {
 
             // Assert
             assertNull(fixture.activity())
-            assertEquals(listOf("thinking...", ""), fixture.slack.calls.map { it.request.status })
+            assertEquals(
+                listOf("processing", "active"),
+                fixture.slack.calls.map { it.request.status },
+            )
         }
     }
 
-    private class Fixture(test: TestScope, dir: Path) : AutoCloseable {
+    private class Fixture(private val test: TestScope, dir: Path) : AutoCloseable {
         val slack = SlackActivityApi { test.testScheduler.currentTime }
         val agentStarted = CompletableDeferred<Unit>()
         val finishAgent = CompletableDeferred<Unit>()
@@ -192,18 +230,22 @@ class SlackActivityTest {
                         error("No classification expected")
                     },
                 ),
-                AgentTurnExecutor { _, _, _ ->
+                AgentTurnExecutor { _, _, steer ->
                     agentStarted.complete(Unit)
                     finishAgent.await()
-                    TurnExecutionResult(
-                        AgentResponse("Finished"),
-                        AgentStats("normal", AgentUsageStats()),
-                    )
+                    if (steer.stopRequested())
+                        TurnExecutionResult.Stopped(AgentStats("normal", AgentUsageStats()))
+                    else
+                        TurnExecutionResult.Completed(
+                            AgentResponse("Finished"),
+                            AgentStats("normal", AgentUsageStats()),
+                        )
                 },
                 { SkillCatalog(emptyList()) },
             )
-        private val incoming =
-            ReceiveChatMessageUsecase(IncomingMessageQueue(scope, coordinator), coordinator)
+        private val queue = IncomingMessageQueue(scope, coordinator)
+        private val incoming = ReceiveChatMessageUsecase(queue, coordinator)
+        private val stopHandler = slackStopHandler(queue, HandledEventsDeduper())
         private val fileIngestor =
             SlackFileIngestor(
                 "unused",
@@ -242,10 +284,27 @@ class SlackActivityTest {
             )
         }
 
+        fun requestStop() =
+            stopHandler.apply(
+                AgentSessionStoppedPayload().also { payload ->
+                    payload.event =
+                        AgentSessionStoppedEvent().also {
+                            it.channel = CHANNEL
+                            it.threadTs = THREAD
+                            it.eventTs = "1700000000.001"
+                            it.user = "user"
+                        }
+                },
+                EventContext(),
+            )
+
         fun activity(): String? = slack.visibleStatus(CHANNEL, THREAD)
 
         override fun close() {
+            val workers = test.backgroundScope.coroutineContext[Job]!!.children.toList()
             scope.close()
+            test.testScheduler.runCurrent()
+            runBlocking { withTimeout(5_000) { workers.forEach { it.join() } } }
         }
     }
 

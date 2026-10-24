@@ -76,7 +76,7 @@ internal class SlackTurnOutput(
     private val threadId: ChatThreadId?,
     private val scope: SidekickCoroutineScope,
 ) : TurnLifecycle, ResponseDelivery {
-    private class Activity(var loadingMessages: List<String>, var renewal: Job? = null)
+    private class Activity(var renewal: Job? = null)
 
     private val statusLock = Any()
     private var activity: Activity? = null
@@ -84,7 +84,7 @@ internal class SlackTurnOutput(
     override fun begin() {
         synchronized(statusLock) {
             activity?.let { stopActivity(it) }
-            activity = Activity(LOADING_MESSAGES)
+            activity = Activity()
         }
     }
 
@@ -93,13 +93,12 @@ internal class SlackTurnOutput(
             val current = activity ?: return
             if (threadId == null) return
 
-            current.loadingMessages = text?.let(::listOf) ?: LOADING_MESSAGES
             if (current.renewal == null) {
                 val job = scope.launch {
                     while (isActive) {
                         delay(STATUS_RENEWAL_INTERVAL_MS)
                         synchronized(statusLock) {
-                            if (activity === current && isActive) publishActivity(current)
+                            if (activity === current && isActive) publishActivity()
                         }
                     }
                 }
@@ -112,7 +111,7 @@ internal class SlackTurnOutput(
             }
 
             if (activity === current && current.renewal?.isActive == true) {
-                publishActivity(current)
+                publishActivity()
             }
         }
     }
@@ -126,11 +125,11 @@ internal class SlackTurnOutput(
     private fun stopActivity(current: Activity) {
         activity = null
         current.renewal?.cancel()
-        setStatus("")
+        setStatus("active")
     }
 
-    private fun publishActivity(current: Activity) {
-        setStatus(STATUS_THINKING, ":face_in_clouds:", current.loadingMessages)
+    private fun publishActivity() {
+        setStatus("processing")
     }
 
     override suspend fun markProcessing(message: IncomingMessage) {
@@ -213,36 +212,29 @@ internal class SlackTurnOutput(
         updateReaction(message, PROCESSING_REACTION, add = false)
     }
 
-    private fun setStatus(
-        status: String,
-        emoji: String? = null,
-        loadingMessages: List<String>? = null,
-    ) {
+    private fun setStatus(status: String) {
         val targetThread = threadId ?: return
         runCatching {
                 Loggers.SLACK.info(
-                    "Updating Slack assistant status in {} thread {}: {}",
+                    "Updating Slack agent session status in {} thread {}: {}",
                     channelId,
                     targetThread.threadTs,
                     status,
                 )
-                val response = client.assistantThreadsSetStatus { req ->
+                val response = client.agentsSessionsSetStatus { req ->
                     req.channelId(channelId)
                     req.threadTs(targetThread.threadTs)
                     req.status(status)
-                    if (loadingMessages != null) {
-                        req.loadingMessages(loadingMessages)
-                    }
-
-                    emoji?.also { req.iconEmoji(it) }
-
                     req
                 }
                 if (!response.isOk) {
-                    Loggers.SLACK.warn("Slack assistant status update failed: {}", response.error)
+                    Loggers.SLACK.warn(
+                        "Slack agent session status update failed: {}",
+                        response.error,
+                    )
                 }
             }
-            .onFailure { Loggers.SLACK.warn("Slack assistant status update failed", it) }
+            .onFailure { Loggers.SLACK.warn("Slack agent session status update failed", it) }
     }
 
     private fun updateReaction(
@@ -278,20 +270,6 @@ internal class SlackTurnOutput(
 
     private companion object {
         const val STATUS_RENEWAL_INTERVAL_MS = 8_000L
-        const val STATUS_THINKING = "thinking..."
-        val LOADING_MESSAGES =
-            listOf(
-                "prodding the web for clues...",
-                "negotiating with the documentation...",
-                "looking for the mildly sensible route...",
-                "acting like this was the plan...",
-                "asking the APIs to cooperate...",
-                "following the breadcrumbs optimistically...",
-                "checking what the docs meant to say...",
-                "rearranging tokens with confidence...",
-                "consulting several tabs at once...",
-                "making it look intentional...",
-            )
     }
 }
 

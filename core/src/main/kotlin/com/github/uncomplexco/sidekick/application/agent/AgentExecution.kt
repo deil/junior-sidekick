@@ -15,8 +15,14 @@ fun interface AgentTurnExecutor {
     suspend fun execute(
         turn: RecordedTurn,
         chat: ChatPlatformAdapter,
-        steer: suspend () -> RecordedTurn?,
+        steer: AgentSteering,
     ): TurnExecutionResult
+}
+
+fun interface AgentSteering {
+    suspend fun drain(): RecordedTurn?
+
+    fun stopRequested(): Boolean = false
 }
 
 data class AgentResponse(
@@ -28,7 +34,11 @@ data class AgentResponse(
     }
 }
 
-data class TurnExecutionResult(
-    val response: AgentResponse,
-    val stats: AgentStats,
-)
+sealed interface TurnExecutionResult {
+    val stats: AgentStats
+
+    data class Completed(val response: AgentResponse, override val stats: AgentStats) :
+        TurnExecutionResult
+
+    data class Stopped(override val stats: AgentStats) : TurnExecutionResult
+}

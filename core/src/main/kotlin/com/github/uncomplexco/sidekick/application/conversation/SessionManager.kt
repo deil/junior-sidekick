@@ -130,6 +130,8 @@ class SessionManager(
         conversationId: ConversationId,
         messageIds: List<String>,
         reason: String,
+        inputTokensConsumed: Long = 0,
+        outputTokensConsumed: Long = 0,
     ) =
         store.withSessionLock(conversationId) {
             val state = store.load(conversationId)
@@ -140,6 +142,11 @@ class SessionManager(
                     it.replied = false
                     it.skippedReason = reason
                 }
+            state.stats =
+                state.stats.copy(
+                    consumedInputTokens = state.stats.consumedInputTokens + inputTokensConsumed,
+                    consumedOutputTokens = state.stats.consumedOutputTokens + outputTokensConsumed,
+                )
             store.save(conversationId, state)
         }
 

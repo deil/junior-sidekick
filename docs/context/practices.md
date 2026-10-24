@@ -6,12 +6,14 @@ Project-level architectural practices for `sidekick`. This file records how the 
 
 ### Philosophy
 
-_Opinionated. Not everyone will agree — that's fine._
+*Opinionated. Not everyone will agree — that's fine.*
 
 - Code is liability — less code means less complexity, fewer things that can break, and fewer things to maintain
 - Prefer pragmatic simplicity — keep things small enough to fit in a context window (yours or the AI's)
 - Optimize code for future maintainability — by humans or AI agents alike
 - Make things and intent explicit — do not sugar-coat ugly truth behind clever abstractions or roundabout misdirection
+
+
 
 ### Code style
 
@@ -99,4 +101,3 @@ When wiring starts carrying business meaning, move that meaning into a named mod
 - Tool argument validation must use Koog `validate(condition, message)` or `validateNotNull(argument, message)`.
 - Tool failures must use Koog `fail(message)`.
 - Tool response shapes must use `snake_case` field names.
-- Tool results must not blindly duplicate input arguments unless that duplication is explicitly expected by the tool's visible intent or behavior.

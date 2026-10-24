@@ -11,9 +11,17 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
+sealed interface SteeringInput {
+    data class Messages(val messages: List<IncomingMessage>) : SteeringInput
+
+    data object StopRequested : SteeringInput
+}
+
 /** Valid only during its batch handler. An empty drain never releases consumer ownership. */
 fun interface SteeringInbox {
-    fun drain(): List<IncomingMessage>
+    fun drain(): SteeringInput
+
+    fun stopRequested(): Boolean = false
 }
 
 @Component
@@ -48,6 +56,17 @@ internal constructor(
         val key = batchKeyFor(conversationId, message)
 
         synchronized(queue) {
+            if (
+                queue.any { (owned, entry) ->
+                    entry.stopRequested &&
+                        owned.matches(
+                            key.conversationId.channelId,
+                            key.conversationId.platform,
+                            key.threadId,
+                        )
+                }
+            )
+                return
             if (queue.containsKey(key)) {
                 queue[key]!!.pending.add(message)
             } else {
@@ -55,6 +74,24 @@ internal constructor(
                 queue[key] = entry
                 startQueueConsumer(key, entry)
             }
+        }
+    }
+
+    fun requestStop(conversationId: ChatConversationId) {
+        synchronized(queue) {
+            queue
+                .filterKeys {
+                    it.matches(
+                        conversationId.channelId,
+                        conversationId.platform,
+                        conversationId.threadId,
+                    )
+                }
+                .forEach { (key, entry) ->
+                    entry.stopRequested = true
+                    entry.pending.clear()
+                    log.info("{} stop requested", key.conversationId.logLabel())
+                }
         }
     }
 
@@ -79,12 +116,21 @@ internal constructor(
                             takePending(entry)
                         }
                     var active = true
-                    val inbox = SteeringInbox {
-                        synchronized(queue) {
-                            check(active) { "Steering inbox is no longer active" }
-                            takePending(entry)
+                    val inbox =
+                        object : SteeringInbox {
+                            override fun stopRequested(): Boolean =
+                                synchronized(queue) {
+                                    check(active) { "Steering inbox is no longer active" }
+                                    entry.stopRequested
+                                }
+
+                            override fun drain(): SteeringInput =
+                                synchronized(queue) {
+                                    check(active) { "Steering inbox is no longer active" }
+                                    if (entry.stopRequested) SteeringInput.StopRequested
+                                    else SteeringInput.Messages(takePending(entry))
+                                }
                         }
-                    }
 
                     try {
                         currentCoroutineContext().ensureActive()
@@ -114,8 +160,18 @@ internal constructor(
     private fun takePending(entry: Entry): List<IncomingMessage> =
         entry.pending.toList().also { entry.pending.clear() }
 
+    private fun BatchKey.matches(
+        channelId: String,
+        platform: ChatPlatform,
+        threadId: String?,
+    ): Boolean =
+        conversationId.platform == platform &&
+            conversationId.channelId == channelId &&
+            this.threadId == threadId
+
     private class Entry(val chat: ChatPlatformAdapter, message: IncomingMessage) {
         val pending = mutableListOf(message)
+        var stopRequested = false
     }
 
     companion object {

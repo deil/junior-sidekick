@@ -516,7 +516,7 @@ class DiscordAdapterTest {
                     agent =
                         AgentTurnExecutor { turn, _, _ ->
                             assertEquals("hello", turn.messages.single().text)
-                            TurnExecutionResult(
+                            TurnExecutionResult.Completed(
                                 AgentResponse("hello from Sidekick"),
                                 AgentStats("normal", AgentUsageStats()),
                             )
@@ -585,7 +585,7 @@ class DiscordAdapterTest {
                     agent =
                         AgentTurnExecutor { turn, _, _ ->
                             assertEquals("hello <@999>", turn.messages.single().text)
-                            TurnExecutionResult(
+                            TurnExecutionResult.Completed(
                                 AgentResponse("guild reply"),
                                 AgentStats("normal", AgentUsageStats()),
                             )

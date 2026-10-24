@@ -34,9 +34,12 @@ interface ResponseDelivery {
         deliver(AgentResponse(UNSUBSCRIBE_ACK))
     }
 
-    private companion object {
-        const val UNSUBSCRIBE_ACK = "Unsubscribed. Mention me to resume"
-        const val TEMPORARY_FAILURE_REPLY =
+    suspend fun deliverStoppedAck(): PublishedMessage = deliver(AgentResponse(STOP_ACK))
+
+    companion object {
+        private const val UNSUBSCRIBE_ACK = "Unsubscribed. Mention me to resume"
+        internal const val STOP_ACK = "🫡 Stop received. Tools down."
+        private const val TEMPORARY_FAILURE_REPLY =
             ":warning: I hit a temporary model/provider error while processing this. Please retry"
     }
 }

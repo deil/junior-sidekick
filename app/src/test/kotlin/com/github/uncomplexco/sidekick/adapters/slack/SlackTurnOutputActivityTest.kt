@@ -40,48 +40,41 @@ class SlackTurnOutputActivityTest {
     }
 
     @Test
-    fun `custom progress survives renewal and repeated progress does not reset or duplicate timer`() =
-        runTest {
-            // Arrange
-            val api = SlackActivityApi { testScheduler.currentTime }
-            val output =
-                SlackTurnOutput(
-                    api.client,
-                    CHANNEL,
-                    ChatThreadId(THREAD, true),
-                    SidekickCoroutineScope(backgroundScope),
-                )
-            output.begin()
-            output.progress()
-            val defaults = api.calls.single().request.loadingMessages
-            runCurrent()
-
-            // Act
-            advanceTimeBy(2_000)
-            output.progress("Compacting conversation...")
-            advanceTimeBy(5_999)
-            runCurrent()
-            assertEquals(listOf(0L, 2_000L), api.calls.map { it.time })
-            advanceTimeBy(1)
-            runCurrent()
-            advanceTimeBy(8_000)
-            runCurrent()
-            output.progress()
-            advanceTimeBy(8_000)
-            runCurrent()
-
-            // Assert
-            assertEquals(
-                listOf(0L, 2_000L, 8_000L, 16_000L, 16_000L, 24_000L),
-                api.calls.map { it.time },
+    fun `repeated progress keeps processing without resetting or duplicating renewal`() = runTest {
+        // Arrange
+        val api = SlackActivityApi { testScheduler.currentTime }
+        val output =
+            SlackTurnOutput(
+                api.client,
+                CHANNEL,
+                ChatThreadId(THREAD, true),
+                SidekickCoroutineScope(backgroundScope),
             )
-            assertTrue(
-                api.calls.subList(1, 4).all {
-                    it.request.loadingMessages == listOf("Compacting conversation...")
-                }
-            )
-            assertTrue(api.calls.takeLast(2).all { it.request.loadingMessages == defaults })
-        }
+        output.begin()
+        output.progress()
+        runCurrent()
+
+        // Act
+        advanceTimeBy(2_000)
+        output.progress("Compacting conversation...")
+        advanceTimeBy(5_999)
+        runCurrent()
+        assertEquals(listOf(0L, 2_000L), api.calls.map { it.time })
+        advanceTimeBy(1)
+        runCurrent()
+        advanceTimeBy(8_000)
+        runCurrent()
+        output.progress()
+        advanceTimeBy(8_000)
+        runCurrent()
+
+        // Assert
+        assertEquals(
+            listOf(0L, 2_000L, 8_000L, 16_000L, 16_000L, 24_000L),
+            api.calls.map { it.time },
+        )
+        assertTrue(api.calls.all { it.request.status == "processing" })
+    }
 
     @Test
     fun `rejected and throwing renewals do not prevent later attempts`() = runTest {
@@ -111,12 +104,12 @@ class SlackTurnOutputActivityTest {
 
         // Assert
         assertEquals((0L..120_000L step 8_000L).toList(), api.calls.map { it.time })
-        assertEquals("thinking...", api.visibleStatus(CHANNEL, THREAD))
-        assertTrue(api.calls.all { it.request.loadingMessages == listOf("Still working") })
+        assertEquals("processing", api.visibleStatus(CHANNEL, THREAD))
+        assertTrue(api.calls.all { it.request.status == "processing" })
     }
 
     @Test
-    fun `end rejects late progress and a new turn resets loading messages`() = runTest {
+    fun `end rejects late progress and a new turn starts processing again`() = runTest {
         // Arrange
         val api = SlackActivityApi { testScheduler.currentTime }
         val output =
@@ -135,7 +128,7 @@ class SlackTurnOutputActivityTest {
         output.progress("Too late")
         advanceTimeBy(60_000)
         runCurrent()
-        assertEquals(listOf("thinking...", ""), api.calls.map { it.request.status })
+        assertEquals(listOf("processing", "active"), api.calls.map { it.request.status })
         output.begin()
         output.progress()
         runCurrent()
@@ -144,8 +137,7 @@ class SlackTurnOutputActivityTest {
 
         // Assert
         assertEquals(listOf(0L, 0L, 60_000L, 68_000L), api.calls.map { it.time })
-        assertTrue(api.calls.last().request.loadingMessages.size > 1)
-        assertEquals(api.calls[2].request.loadingMessages, api.calls.last().request.loadingMessages)
+        assertEquals("processing", api.calls.last().request.status)
     }
 
     @Test
@@ -172,12 +164,11 @@ class SlackTurnOutputActivityTest {
         runCurrent()
 
         // Assert
-        assertEquals("thinking...", api.visibleStatus(CHANNEL, THREAD))
+        assertEquals("processing", api.visibleStatus(CHANNEL, THREAD))
         assertEquals(
-            listOf("thinking...", "", "thinking...", "thinking..."),
+            listOf("processing", "active", "processing", "processing"),
             api.calls.map { it.request.status },
         )
-        assertTrue(api.calls.takeLast(2).all { it.request.loadingMessages == listOf("New work") })
     }
 
     @Test
@@ -202,8 +193,8 @@ class SlackTurnOutputActivityTest {
 
         // Assert
         assertNull(api.visibleStatus(CHANNEL, THREAD))
-        assertEquals(1, api.calls.count { it.request.status.isNotEmpty() })
-        assertEquals("", api.calls.last().request.status)
+        assertEquals(1, api.calls.count { it.request.status == "processing" })
+        assertEquals("active", api.calls.last().request.status)
     }
 
     @Test
@@ -223,7 +214,7 @@ class SlackTurnOutputActivityTest {
 
         // Assert
         assertNull(api.visibleStatus(CHANNEL, THREAD))
-        assertTrue(api.calls.all { it.request.status.isEmpty() })
+        assertTrue(api.calls.all { it.request.status == "active" })
     }
 
     @Test
@@ -245,7 +236,7 @@ class SlackTurnOutputActivityTest {
         output.progress("Old work")
         runCurrent()
         api.beforeStatus = { request ->
-            if (request.status.isNotEmpty()) {
+            if (request.status == "processing") {
                 refreshing.countDown()
                 check(release.await(5, TimeUnit.SECONDS)) { "Renewal release timed out" }
             }
@@ -287,10 +278,9 @@ class SlackTurnOutputActivityTest {
 
         // Assert
         assertEquals(
-            listOf("thinking...", "thinking...", "", "thinking...", "thinking...", "thinking..."),
+            listOf("processing", "processing", "active", "processing", "processing", "processing"),
             api.calls.map { it.request.status },
         )
-        assertTrue(api.calls.takeLast(3).all { it.request.loadingMessages == listOf("New work") })
     }
 
     companion object {

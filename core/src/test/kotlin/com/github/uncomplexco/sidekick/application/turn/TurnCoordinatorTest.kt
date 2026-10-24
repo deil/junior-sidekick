@@ -20,11 +20,13 @@ import com.github.uncomplexco.sidekick.application.chat.IncomingMessageQueue
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.SteeringInbox
+import com.github.uncomplexco.sidekick.application.chat.SteeringInput
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionManager
+import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
@@ -37,6 +39,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -50,6 +53,158 @@ import org.mockito.Mockito.verifyNoInteractions
 
 class TurnCoordinatorTest {
     @TempDir lateinit var dir: Path
+
+    @Nested
+    inner class CooperativeStop {
+        @Test
+        fun `user is notified of stopping only after running work finishes and activity ends`() =
+            runBlocking {
+                withTimeout(10_000) {
+                    // Arrange
+                    val config = config()
+                    val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+                    val sessions = conversationManager(config, store)
+                    val started = CompletableDeferred<Unit>()
+                    val finish = CompletableDeferred<Unit>()
+                    val replies = mutableListOf<String>()
+                    val events = mutableListOf<String>()
+                    val chat = chat(replies, mutableListOf(), outputEvents = events)
+                    val coordinator =
+                        TurnCoordinator(
+                            TurnAdmission(sessions),
+                            sessions,
+                            participation(config),
+                            AgentTurnExecutor { _, _, _ ->
+                                started.complete(Unit)
+                                finish.await()
+                                events += "work finished"
+                                TurnExecutionResult.Stopped(AgentStats("normal", AgentUsageStats()))
+                            },
+                            { SkillCatalog(emptyList()) },
+                        )
+                    val execution = async {
+                        coordinator.runIncoming(
+                            ChatConversationId("C123", "thread"),
+                            incoming(1),
+                            chat,
+                        )
+                    }
+                    started.await()
+
+                    // Act
+                    assertEquals(
+                        emptyList(),
+                        replies,
+                        "Stop must not be announced while work is still running",
+                    )
+                    finish.complete(Unit)
+                    execution.await()
+
+                    // Assert
+                    assertEquals(listOf("🫡 Stop received. Tools down."), replies)
+                    assertEquals(
+                        listOf(
+                            "work finished",
+                            "activity ended",
+                            "notification: 🫡 Stop received. Tools down.",
+                        ),
+                        events,
+                    )
+                    val conversation = ConversationId("C123", "thread")
+                    assertEquals(true, sessions.isSubscribed(conversation))
+                    assertStoppedMessages(store.load(conversation).messages)
+                }
+            }
+
+        @Test
+        fun `stop returned by steering drain ends work without a normal reply`() = runBlocking {
+            // Arrange
+            val config = config()
+            val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+            val sessions = conversationManager(config, store)
+            val replies = mutableListOf<String>()
+            val coordinator =
+                TurnCoordinator(
+                    TurnAdmission(sessions),
+                    sessions,
+                    participation(config),
+                    AgentTurnExecutor { _, _, steer ->
+                        steer.drain()
+                        if (steer.stopRequested())
+                            TurnExecutionResult.Stopped(AgentStats("normal", AgentUsageStats()))
+                        else successfulResult()
+                    },
+                    { SkillCatalog(emptyList()) },
+                )
+
+            // Act
+            coordinator.run(
+                TurnTrigger.Incoming(
+                    IncomingBatch(ChatConversationId("C123", "thread"), listOf(incoming(1))),
+                    chat(replies, mutableListOf()),
+                ),
+                SteeringInbox { SteeringInput.StopRequested },
+            )
+
+            // Assert
+            assertEquals(listOf("🫡 Stop received. Tools down."), replies)
+            assertStoppedMessages(store.load(ConversationId("C123", "thread")).messages)
+        }
+
+        @Test
+        fun `completed answer is delivered without a stopped notification even when stop was requested`() =
+            runBlocking {
+                // Arrange
+                val config = config()
+                val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+                val sessions = conversationManager(config, store)
+                val replies = mutableListOf<String>()
+                val coordinator =
+                    TurnCoordinator(
+                        TurnAdmission(sessions),
+                        sessions,
+                        participation(config),
+                        AgentTurnExecutor { _, _, _ -> successfulResult() },
+                        { SkillCatalog(emptyList()) },
+                    )
+                val inbox =
+                    object : SteeringInbox {
+                        override fun stopRequested() = true
+
+                        override fun drain(): SteeringInput =
+                            error("A final answer must not drain steering input")
+                    }
+
+                // Act
+                coordinator.run(
+                    TurnTrigger.Incoming(
+                        IncomingBatch(ChatConversationId("C123", "thread"), listOf(incoming(1))),
+                        chat(replies, mutableListOf()),
+                    ),
+                    inbox,
+                )
+
+                // Assert
+                assertEquals(listOf("done"), replies)
+                assertEquals(
+                    true,
+                    store
+                        .load(ConversationId("C123", "thread"))
+                        .messages
+                        .first { it.id == "m1" }
+                        .replied,
+                )
+            }
+    }
+
+    private fun assertStoppedMessages(messages: List<SessionMessage>) {
+        assertEquals(
+            "USER_STOPPED",
+            messages.single { it.role == SessionMessageRole.USER }.skippedReason,
+        )
+        assertEquals(SessionMessageRole.ASSISTANT, messages.last().role)
+        assertEquals("🫡 Stop received. Tools down.", messages.last().text)
+    }
 
     @Nested
     inner class Steering {
@@ -84,7 +239,7 @@ class TurnCoordinatorTest {
                             started.send(turn)
                             if (turn.messages.first().id == "m1") {
                                 drain.await()
-                                updated.send(checkNotNull(steer()))
+                                updated.send(checkNotNull(steer.drain()))
                                 finish.await()
                                 if (fails) error("model failed after steering")
                             }
@@ -147,7 +302,7 @@ class TurnCoordinatorTest {
                         sessions,
                         participation(config),
                         AgentTurnExecutor { _, _, steer ->
-                            steer()
+                            steer.drain()
                             successfulResult()
                         },
                         { SkillCatalog(emptyList()) },
@@ -163,7 +318,7 @@ class TurnCoordinatorTest {
                             ),
                             chat,
                         ),
-                        SteeringInbox { listOf(incoming(2)) },
+                        SteeringInbox { SteeringInput.Messages(listOf(incoming(2))) },
                     )
                 }
 
@@ -200,7 +355,7 @@ class TurnCoordinatorTest {
                         participation(config),
                         AgentTurnExecutor { initial, _, steer ->
                             turns += initial
-                            repeat(3) { steer()?.let { turns += it } }
+                            repeat(3) { steer.drain()?.let { turns += it } }
                             successfulResult()
                         },
                         { SkillCatalog(emptyList()) },
@@ -212,7 +367,7 @@ class TurnCoordinatorTest {
                         IncomingBatch(ChatConversationId("C123", "thread"), listOf(incoming(1))),
                         chat(replies, mutableListOf()),
                     ),
-                    SteeringInbox { pending.removeFirst() },
+                    SteeringInbox { SteeringInput.Messages(pending.removeFirst()) },
                 )
 
                 // Assert
@@ -342,7 +497,7 @@ class TurnCoordinatorTest {
                     AgentTurnExecutor { turn, _, _ ->
                         seen += turn.messages.map { it.id }
                         if (fails) error("model unavailable")
-                        TurnExecutionResult(
+                        TurnExecutionResult.Completed(
                             AgentResponse("done"),
                             AgentStats("normal", AgentUsageStats()),
                         )
@@ -465,7 +620,7 @@ class TurnCoordinatorTest {
                     participation(config),
                     AgentTurnExecutor { turn, _, _ ->
                         runs += turn.messages.map { it.id }
-                        TurnExecutionResult(
+                        TurnExecutionResult.Completed(
                             AgentResponse("done"),
                             AgentStats("normal", AgentUsageStats()),
                         )
@@ -715,7 +870,7 @@ class TurnCoordinatorTest {
     ) = IncomingMessage("m$index", index.toLong(), MessageAuthor("U123", "User"), text, type)
 
     private fun successfulResult() =
-        TurnExecutionResult(
+        TurnExecutionResult.Completed(
             AgentResponse("done"),
             AgentStats("normal", AgentUsageStats(inputTokenCount = 11, outputTokenCount = 7)),
         )
@@ -737,7 +892,7 @@ class TurnCoordinatorTest {
                     AgentTurnExecutor { turn, _, _ ->
                         seenConversationIds += turn.context.conversation.conversationId
                         assertEquals("Run the report", turn.messages.single().text)
-                        TurnExecutionResult(
+                        TurnExecutionResult.Completed(
                             AgentResponse("done"),
                             AgentStats("normal", AgentUsageStats()),
                         )
@@ -848,7 +1003,7 @@ class TurnCoordinatorTest {
                 participation = participation(config),
                 agent =
                     AgentTurnExecutor { _, _, _ ->
-                        TurnExecutionResult(
+                        TurnExecutionResult.Completed(
                             response = AgentResponse("Attached the report.", listOf(attachment)),
                             stats =
                                 AgentStats(
@@ -1053,6 +1208,7 @@ class TurnCoordinatorTest {
         statusLines: MutableList<String?> = mutableListOf(),
         messageLifecycle: MutableList<Pair<String, String>> = mutableListOf(),
         onCompleted: (IncomingMessage) -> Unit = {},
+        outputEvents: MutableList<String>? = null,
     ): ChatPlatformAdapter =
         object : ChatPlatformAdapter {
             override val botUsername = "USIDEKICK"
@@ -1062,7 +1218,9 @@ class TurnCoordinatorTest {
 
                     override fun progress(text: String?) = Unit
 
-                    override fun end() = Unit
+                    override fun end() {
+                        outputEvents?.add("activity ended")
+                    }
 
                     override suspend fun markProcessing(message: IncomingMessage) {
                         lifecycle += "processing"
@@ -1073,6 +1231,7 @@ class TurnCoordinatorTest {
                         response: AgentResponse,
                         metadata: ResponseMetadata,
                     ): PublishedMessage {
+                        outputEvents?.add("notification: ${response.text}")
                         replies += response.text
                         statusLines +=
                             if (metadata == ResponseMetadata.RuntimeFailure) {

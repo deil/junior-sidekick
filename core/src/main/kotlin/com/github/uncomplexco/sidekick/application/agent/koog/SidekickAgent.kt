@@ -6,8 +6,7 @@ import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.dsl.builder.node
 import ai.koog.agents.core.dsl.builder.strategy
-import ai.koog.agents.core.dsl.extension.ReceivedToolResults
-import ai.koog.agents.core.dsl.extension.nodeExecuteTools
+import ai.koog.agents.core.dsl.extension.ToolCalls
 import ai.koog.agents.core.dsl.extension.onTextMessage
 import ai.koog.agents.core.dsl.extension.onToolCalls
 import ai.koog.agents.core.tools.ToolRegistry
@@ -17,8 +16,10 @@ import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.Message
+import ai.koog.prompt.message.MessagePart
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
+import com.github.uncomplexco.sidekick.application.agent.AgentSteering
 import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
@@ -84,7 +85,7 @@ class SidekickAgent(
     override suspend fun execute(
         turn: RecordedTurn,
         chat: ChatPlatformAdapter,
-        steer: suspend () -> RecordedTurn?,
+        steer: AgentSteering,
     ): TurnExecutionResult {
         val ctx = turn.context
         val requester = resolveRequester(turn.messages)
@@ -120,8 +121,8 @@ class SidekickAgent(
             val agent =
                 AIAgent(
                     strategy =
-                        sidekickStrategy {
-                            val updated = steer()
+                        sidekickStrategy(stopRequested = steer::stopRequested) {
+                            val updated = steer.drain()
                             if (updated == null) emptyList()
                             else {
                                 ctxWithMcp.lastMessageId = updated.context.lastMessageId
@@ -212,18 +213,18 @@ class SidekickAgent(
                 }
 
             val input = turnPromptBuilder.buildSessionTurnPrompts(turn.messages, ctxWithMcp)
-            val response =
+            val outcome = agent.run(input, ctx.conversation.conversationId.lockKey())
+            val stats = AgentStats(profileName = ctx.aiModelProfile.name.lowercase(), usage = usage)
+            if (outcome == AgentOutcome.Stopped) {
+                replyAttachments.clear()
+                return TurnExecutionResult.Stopped(stats)
+            }
+            return TurnExecutionResult.Completed(
                 AgentResponse(
-                    agent.run(input, ctx.conversation.conversationId.lockKey()),
+                    (outcome as AgentOutcome.Completed).text,
                     replyAttachments.collected(),
-                )
-            return TurnExecutionResult(
-                response = response,
-                stats =
-                    AgentStats(
-                        profileName = ctx.aiModelProfile.name.lowercase(),
-                        usage = usage,
-                    ),
+                ),
+                stats,
             )
         } catch (error: Exception) {
             replyAttachments.clear()
@@ -234,8 +235,17 @@ class SidekickAgent(
     }
 }
 
-internal fun sidekickStrategy(steer: suspend () -> List<String> = { emptyList() }) =
-    strategy<List<String>, String>("sidekick") {
+internal sealed interface AgentOutcome {
+    data class Completed(val text: String) : AgentOutcome
+
+    data object Stopped : AgentOutcome
+}
+
+internal fun sidekickStrategy(
+    stopRequested: () -> Boolean = { false },
+    steer: suspend () -> List<String> = { emptyList() },
+) =
+    strategy<List<String>, AgentOutcome>("sidekick") {
         val requestModelResponse by
             node<List<String>, Message.Assistant>("requestModelResponse") { messages ->
                 llm.writeSession {
@@ -243,24 +253,50 @@ internal fun sidekickStrategy(steer: suspend () -> List<String> = { emptyList() 
                     requestLLM()
                 }
             }
-        val executeToolCalls by nodeExecuteTools("executeToolCalls")
-        val requestModelResponseWithToolResults by
-            node<ReceivedToolResults, Message.Assistant>("requestModelResponseWithToolResults") {
-                results ->
+        val executeToolBatch by
+            node<ToolCalls, List<String>?>("executeToolBatch") { batch ->
+                val results =
+                    if (stopRequested()) null
+                    else
+                        batch.toolCalls.map {
+                            environment.executeTool(it).toMessagePart()
+                        }
+                val messages = if (results == null) emptyList() else steer()
+                val stopped = results == null || stopRequested()
+                val recordedResults =
+                    if (stopped)
+                        batch.toolCalls.map {
+                            MessagePart.Tool.Result(
+                                it.id,
+                                it.tool,
+                                "Tool execution was interrupted by the user.",
+                                isError = true,
+                            )
+                        }
+                    else checkNotNull(results)
                 llm.writeSession {
                     appendPrompt {
-                        user { results.toolResults.forEach { toolResult(it.toMessagePart()) } }
+                        user { recordedResults.forEach { toolResult(it) } }
                     }
-                    val messages = steer()
-                    appendPrompt { messages.forEach { user(it) } }
-                    requestLLM()
                 }
+                if (stopped) null else messages
             }
 
         edge(nodeStart forwardTo requestModelResponse)
-        edge(requestModelResponse forwardTo executeToolCalls onToolCalls { true })
-        edge(requestModelResponse forwardTo nodeFinish onTextMessage { true })
-        edge(executeToolCalls forwardTo requestModelResponseWithToolResults)
-        edge(requestModelResponseWithToolResults forwardTo executeToolCalls onToolCalls { true })
-        edge(requestModelResponseWithToolResults forwardTo nodeFinish onTextMessage { true })
+        edge(requestModelResponse forwardTo executeToolBatch onToolCalls { true })
+        edge(
+            (requestModelResponse forwardTo nodeFinish)
+                .onTextMessage { true }
+                .transformed { AgentOutcome.Completed(it) }
+        )
+        edge(
+            (executeToolBatch forwardTo nodeFinish)
+                .onCondition { it == null }
+                .transformed { AgentOutcome.Stopped }
+        )
+        edge(
+            (executeToolBatch forwardTo requestModelResponse)
+                .onCondition { it != null }
+                .transformed { checkNotNull(it) }
+        )
     }

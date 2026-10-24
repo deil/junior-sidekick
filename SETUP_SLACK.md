@@ -12,6 +12,7 @@ Add these bot event subscriptions:
 
 ```text
 app_mention
+agent_session_stopped
 message.channels
 message.groups
 message.im
@@ -24,6 +25,7 @@ Grant these bot token scopes for development:
 
 ```text
 app_mentions:read
+assistant:write
 chat:write
 channels:history
 channels:read
@@ -36,6 +38,18 @@ mpim:history
 mpim:read
 users:read
 ```
+
+Declare the app as an agent in Slack's app settings. Reinstall the app if its granted scopes change.
+
+## Native Stop button
+
+Slack shows Stop for processing agent sessions when the app subscribes to `agent_session_stopped`. Sidekick uses `agents.sessions.setStatus` and explicitly sets `active` when work finishes. Custom loading text is not supported.
+
+Stop discards pending input and blocks new tool batches. Sidekick lets running tools finish before confirming it stopped. Final model answers are delivered normally.
+
+Verify Stop in the target workspace. If migrating from `assistant_view` to `agent_view`, note that Slack does not allow reverting that UI change. See [Slack's migration guide](https://docs.slack.dev/ai/migrating-to-agent-messaging).
+
+## Optional scopes
 
 Optional Slack tools require more scopes:
 

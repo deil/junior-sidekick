@@ -63,6 +63,16 @@ Duplicate cases seen in practice:
 | --- | --- | --- |
 | Channel message mentioning Sidekick | `app_mention` and `message.*` | `app_mention` |
 
+## Agent sessions and Stop
+
+Sidekick uses `agents.sessions.setStatus`: `processing` while working, renewed every eight seconds, and `active` on completion or stop. The API has a one-hour processing timeout and no custom loading text. Posting a reply does not clear processing automatically. The legacy custom-status API did not enable Stop in the target workspace.
+
+The `agent_session_stopped` handler acknowledges Slack immediately and requests a cooperative stop for the channel/thread, including work started by a root mention. The queue discards pending input and ignores input until that handler finishes. Other conversations are unaffected.
+
+The agent checks for Stop before starting a tool batch and after draining steering input at the end of a batch. Running tools finish; their results are not sent to another model request after Stop. A final model answer is delivered normally. For a stopped turn, Sidekick records `USER_STOPPED`, clears processing reactions and activity, then sends `STOP_ACK`. The conversation remains subscribed.
+
+Enable the bot event subscription and agent scopes described in [Set up Slack](../../SETUP_SLACK.md). App UI migration is a separate workspace configuration change.
+
 ## Channel Lookup
 
 `SlackChannelTools.slackChannelsList` lists Slack public/private channels visible to Sidekick via `conversations.list`.

@@ -4,6 +4,7 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingMessageQueue
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
@@ -11,11 +12,13 @@ import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
 import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
+import com.slack.api.bolt.handler.BoltEventHandler
 import com.slack.api.bolt.middleware.builtin.Assistant
 import com.slack.api.methods.response.views.ViewsPublishResponse
 import com.slack.api.model.block.HeaderBlock
 import com.slack.api.model.block.LayoutBlock
 import com.slack.api.model.block.SectionBlock
+import com.slack.api.model.event.AgentSessionStoppedEvent
 import com.slack.api.model.event.AppHomeOpenedEvent
 import com.slack.api.model.event.AppMentionEvent
 import com.slack.api.model.event.MessageChangedEvent
@@ -28,6 +31,18 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+
+internal fun slackStopHandler(
+    incomingMessages: IncomingMessageQueue,
+    eventDeduper: HandledEventsDeduper,
+): BoltEventHandler<AgentSessionStoppedEvent> = BoltEventHandler { payload, ctx ->
+    val ack = ctx.ack()
+    val event = payload.event
+    if (eventDeduper.put(event.channel, event.eventTs)) {
+        incomingMessages.requestStop(ChatConversationId(event.channel, event.threadTs))
+    }
+    ack
+}
 
 @Configuration
 @ConditionalOnProperty(
@@ -49,6 +64,7 @@ class SlackAppFactory {
         receiveChatMessage: ReceiveChatMessageUsecase,
         slackFileIngestor: SlackFileIngestor,
         scope: SidekickCoroutineScope,
+        incomingMessages: IncomingMessageQueue,
     ): App {
         val app = App(slackAdapterConfig)
         val auth = app.client.authTest { it }
@@ -61,6 +77,11 @@ class SlackAppFactory {
         )
 
         app.event(MessageChangedEvent::class.java) { payload, ctx -> ctx.ack() }
+
+        app.event(
+            AgentSessionStoppedEvent::class.java,
+            slackStopHandler(incomingMessages, eventDeduper),
+        )
 
         app.event(AppHomeOpenedEvent::class.java) { payload, ctx ->
             val ack = ctx.ack()

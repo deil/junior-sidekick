@@ -11,7 +11,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
 /** Model-edge test double shared by strategy and agent tests. */
-internal class QueuedPromptExecutor(vararg responses: Message.Assistant) : PromptExecutor() {
+internal class QueuedPromptExecutor(
+    vararg responses: Message.Assistant,
+    private val beforeResponse: suspend (Int) -> Unit = {},
+) : PromptExecutor() {
     private val responses = ArrayDeque(responses.toList())
     val prompts = mutableListOf<Prompt>()
 
@@ -21,6 +24,7 @@ internal class QueuedPromptExecutor(vararg responses: Message.Assistant) : Promp
         tools: List<ToolDescriptor>,
     ): Message.Assistant {
         prompts += prompt
+        beforeResponse(prompts.size)
         return responses.removeFirst()
     }
 

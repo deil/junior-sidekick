@@ -167,7 +167,13 @@ Each batch message becomes a separate Koog user message with its author, attachm
 
 ### Steering during execution
 
-After a complete tool batch, the strategy appends all tool results, drains pending input through the active queue inbox, appends new user messages, and requests the next model response. Draining an empty inbox never releases queue ownership. The inbox expires when the turn handler exits. Initial model requests and final-text responses do not drain input; messages arriving after the final drain remain for the next turn.
+After a complete tool batch, the strategy drains pending input through the active queue inbox, appends all tool results followed by new user messages, and requests the next model response. Draining an empty inbox never releases queue ownership. The inbox expires when the turn handler exits. Initial model requests and final-text responses do not drain input; messages arriving after the final drain remain for the next turn.
+
+`SteeringInbox.stopRequested()` is checked before starting a tool batch. After a batch finishes, `drain()` returns `SteeringInput.Messages` or `SteeringInput.StopRequested`. Stop takes precedence over queued input: the queue clears pending messages and ignores further input until the active handler exits. Tools already in the batch finish, but their results do not trigger another model request after Stop. A final model answer completes normally even if Stop was requested.
+
+A stopped agent returns `TurnExecutionResult.Stopped`. The coordinator marks consumed inputs skipped with `USER_STOPPED`, records token usage, removes processing reactions, and ends activity before delivering `STOP_ACK`. Stop leaves the conversation subscribed. Messages arriving after the handler finishes can start a new turn.
+
+For each requested tool in the stopped batch, Koog records an interruption error result without another model request. No synthetic user or assistant text is added. The coordinator stores the delivered acknowledgement in session history so stopped inputs are not reintroduced as pending skipped messages on the next turn.
 
 `TurnCoordinator` prepares each steering message's files and skill invocation, records it through `SessionManager.appendIncomingMessages` under the existing turn ID, and adds processing reactions. Steering bypasses participation classification, including deterministic checks; subscription-command semantics are not separately implemented for steering.
 

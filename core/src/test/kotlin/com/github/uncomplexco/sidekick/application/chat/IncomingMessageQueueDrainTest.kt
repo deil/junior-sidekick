@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
@@ -27,6 +28,101 @@ import org.mockito.Mockito.mock
 
 class IncomingMessageQueueDrainTest {
     @Nested
+    inner class CooperativeStop {
+        @Test
+        fun `requesting stop leaves the running handler alive until it reaches a boundary`() =
+            queueTest {
+                // Arrange
+                enqueue("first")
+                val first = next()
+
+                // Act
+                requestStop()
+
+                // Assert
+                assertTrue(first.inbox.stopRequested())
+                assertTrue(
+                    first.inbox.stopRequested(),
+                    "Reading a stop request must not consume it",
+                )
+                assertFalse(first.finish.isCompleted)
+                first.finish.complete(Unit)
+                first.returnedNormally.await()
+            }
+
+        @Test
+        fun `stop targets the response thread created by a root message`() = queueTest {
+            // Arrange
+            enqueue("root", key = null)
+            val first = next()
+
+            // Act
+            requestStop("root")
+            enqueue("thread-reply", key = "root")
+
+            // Assert
+            assertTrue(first.inbox.stopRequested())
+            assertEquals(SteeringInput.StopRequested, first.inbox.drain())
+            first.finish.complete(Unit)
+            job.children.toList().forEach { it.join() }
+            assertTrue(started.tryReceive().isFailure)
+        }
+
+        @Test
+        fun `stop discards waiting and subsequent input but a message after completion starts fresh`() =
+            queueTest {
+                // Arrange
+                enqueue("first")
+                val first = next()
+                enqueue("waiting")
+
+                // Act
+                requestStop()
+                enqueue("after-stop")
+
+                // Assert
+                assertEquals(SteeringInput.StopRequested, first.inbox.drain())
+                assertEquals(SteeringInput.StopRequested, first.inbox.drain())
+                first.finish.complete(Unit)
+                job.children.toList().forEach { it.join() }
+                assertTrue(
+                    started.tryReceive().isFailure,
+                    "Discarded input must not start another turn",
+                )
+
+                enqueue("fresh")
+                val fresh = next()
+                assertEquals(listOf("fresh"), fresh.messages)
+                assertFalse(fresh.inbox.stopRequested())
+                fresh.finish.complete(Unit)
+            }
+
+        @Test
+        fun `stopping one conversation leaves another conversation and its pending input alone`() =
+            queueTest {
+                // Arrange
+                enqueue("first", "a")
+                val first = next()
+                enqueue("other", "b")
+                val other = next()
+                enqueue("other-pending", "b")
+
+                // Act
+                requestStop("a")
+
+                // Assert
+                assertTrue(first.inbox.stopRequested())
+                assertFalse(other.inbox.stopRequested())
+                other.finish.complete(Unit)
+                val nextOther = next()
+                assertEquals("b", nextOther.key)
+                assertEquals(listOf("other-pending"), nextOther.messages)
+                nextOther.finish.complete(Unit)
+                first.finish.complete(Unit)
+            }
+    }
+
+    @Nested
     inner class Ownership {
         @Test
         fun `empty steering drains retain the consumer and its handler`() = queueTest {
@@ -35,7 +131,7 @@ class IncomingMessageQueueDrainTest {
             val first = next()
 
             // Act
-            repeat(100) { assertEquals(emptyList(), first.inbox.drain()) }
+            repeat(100) { assertEquals(SteeringInput.Messages(emptyList()), first.inbox.drain()) }
             enqueue("second")
             enqueue("third")
 
@@ -148,7 +244,7 @@ class IncomingMessageQueueDrainTest {
                 assertEquals(listOf("first"), first.messages)
                 assertEquals(listOf("second", "third"), firstDrain)
                 assertEquals(listOf("fourth"), secondDrain)
-                assertEquals(emptyList(), emptyDrain)
+                assertEquals(SteeringInput.Messages(emptyList()), emptyDrain)
                 assertEquals(listOf("fifth"), second.messages)
                 second.finish.complete(Unit)
             }
@@ -372,13 +468,14 @@ class IncomingMessageQueueDrainTest {
         private val queue =
             IncomingMessageQueue(SidekickCoroutineScope(CoroutineScope(job))) { batch, chat, inbox
                 ->
-                val key = batch.conversationId.threadId!!
+                val key = batch.conversationId.threadId ?: batch.messages.single().id
                 val count = active.computeIfAbsent(key) { AtomicInteger() }
                 if (count.incrementAndGet() != 1) overlaps.incrementAndGet()
                 val invocation = Invocation(key, batch.messages.map { it.id }, chat, inbox)
                 try {
                     started.send(invocation)
                     invocation.finish.await()
+                    invocation.returnedNormally.complete(Unit)
                 } finally {
                     count.decrementAndGet()
                 }
@@ -386,7 +483,7 @@ class IncomingMessageQueueDrainTest {
 
         suspend fun enqueue(
             value: String,
-            key: String = "key",
+            key: String? = "key",
             chat: ChatPlatformAdapter = this.chat,
         ) {
             queue.enqueue(
@@ -403,6 +500,10 @@ class IncomingMessageQueueDrainTest {
         }
 
         suspend fun next(): Invocation = started.receive()
+
+        fun requestStop(key: String = "key") {
+            queue.requestStop(ChatConversationId("C123", key))
+        }
     }
 
     private class Invocation(
@@ -412,9 +513,11 @@ class IncomingMessageQueueDrainTest {
         val inbox: SteeringInbox,
     ) {
         val finish = CompletableDeferred<Unit>()
+        val returnedNormally = CompletableDeferred<Unit>()
     }
 
     companion object {
-        private fun SteeringInbox.drainIds(): List<String> = drain().map { it.id }
+        private fun SteeringInbox.drainIds(): List<String> =
+            (drain() as SteeringInput.Messages).messages.map { it.id }
     }
 }
