@@ -21,8 +21,8 @@ data class ConversationUsage(
 
 @Component
 class WeeklyStatsService(private val conversations: ConversationStateStore) {
-    fun gather(executedAt: Instant): WeeklyStats {
-        val periodStartMs = executedAt.minus(REPORTING_PERIOD).toEpochMilli()
+    fun gather(executedAt: Instant, period: Duration = REPORTING_PERIOD): WeeklyStats {
+        val periodStartMs = executedAt.minus(period).toEpochMilli()
         val periodEndMs = executedAt.toEpochMilli()
         val selected = conversations.loadUsageStartedBetween(periodStartMs, periodEndMs)
 

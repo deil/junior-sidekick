@@ -1,0 +1,69 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
+@if (profile.profile(); as agent) {
+  <aside id="workspace-sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <a class="brand" routerLink="/app/overview" [attr.aria-label]="agent.name + ' home'">
+        <span class="brand-mark"><sk-icon name="spark" /></span>
+        <span class="brand-name">{{ agent.name }}</span>
+      </a>
+      <button
+        class="sidebar-toggle"
+        type="button"
+        aria-controls="workspace-sidebar"
+        [attr.aria-expanded]="!sidebarCollapsed()"
+        [attr.aria-label]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+        [title]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+        (click)="sidebarCollapsed.set(!sidebarCollapsed())"
+      >
+        <sk-icon name="sidebar" />
+      </button>
+    </div>
+    <p class="nav-label">WORKSPACE</p>
+    <nav aria-label="Main navigation">
+      <a
+        routerLink="/app/overview"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        aria-label="Overview"
+        title="Overview"
+        ><sk-icon name="overview" /><span class="nav-text">Overview</span
+        ><span class="nav-dot"></span
+      ></a>
+      <a
+        routerLink="/admin"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        aria-label="Administration"
+        title="Administration"
+        ><sk-icon name="settings" /><span class="nav-text">Administration</span
+        ><sk-icon class="nav-end" name="arrow"
+      /></a>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="tiny-bot">{{ agent.name.charAt(0) }}.</span>
+      <div>{{ agent.name }}<small>Workspace companion</small></div>
+      <span class="version">v0.1</span>
+    </div>
+  </aside>
+  <div class="app-body">
+    @if (showBreadcrumbs()) {
+      <header class="topbar">
+        <span
+          >Workspace <span class="breadcrumb-divider">/</span>
+          <strong>{{ agent.name }}</strong></span
+        >
+      </header>
+    }
+    <main id="main-content" tabindex="-1"><router-outlet /></main>
+  </div>
+} @else {
+  <main id="main-content" class="connection-state" tabindex="-1">
+    @if (profile.loading()) {
+      <h1>Loading your workspace…</h1>
+    } @else {
+      <h1>Couldn’t load the workspace.</h1>
+      <p>The profile API is unavailable. Check that the backend is running and try again.</p>
+      <button type="button" (click)="profile.load()">Try again</button>
+    }
+  </main>
+}

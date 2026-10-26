@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "@angular/common/http",
+            "importNames": ["HttpClient", "httpResource"],
+            "message": "HTTP calls belong in ApiService. Use its typed, Zod-validated methods."
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/app/api/api.service.ts"],
+      "rules": { "no-restricted-imports": "off" }
+    }
+  ],
+  "env": {
+    "builtin": true
+  }
+}

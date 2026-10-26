@@ -23,6 +23,7 @@ annotation class EnableSidekick
             "com.github.uncomplexco.sidekick.adapters.chat",
             "com.github.uncomplexco.sidekick.adapters.discord",
             "com.github.uncomplexco.sidekick.adapters.git",
+            "com.github.uncomplexco.sidekick.adapters.http.webui",
             "com.github.uncomplexco.sidekick.adapters.jgit",
             "com.github.uncomplexco.sidekick.adapters.koog",
             "com.github.uncomplexco.sidekick.adapters.mcp",

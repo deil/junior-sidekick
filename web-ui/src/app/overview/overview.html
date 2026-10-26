@@ -1,0 +1,61 @@
+<sk-agent-intro />
+
+<section class="activity" aria-labelledby="activity-title">
+  <div class="activity-heading">
+    <h2 id="activity-title">A little of what I’ve been up to.</h2>
+    <div class="period-control">
+      <label class="sr-only" for="period">Show activity for</label>
+      <select id="period" [value]="period()" (change)="changePeriod($event)">
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+      </select>
+    </div>
+  </div>
+  <div class="activity-results" aria-live="polite" [attr.aria-busy]="stats.isLoading()">
+    @if (stats.hasValue()) {
+      <dl class="stats">
+        <div class="stat">
+          <dt>teammates</dt>
+          <dd>{{ stats.value().users | number }}</dd>
+        </div>
+        <div class="stat">
+          <dt>threads</dt>
+          <dd>{{ stats.value().conversations | number }}</dd>
+        </div>
+        <div class="stat token-stat">
+          <dt>burned tokens</dt>
+          <dd
+            [attr.title]="stats.value().tokens_consumed | number"
+            [attr.aria-label]="stats.value().tokens_consumed + ' tokens'"
+          >
+            {{ tokenFormatter.format(stats.value().tokens_consumed) }}
+          </dd>
+        </div>
+      </dl>
+    } @else if (stats.error()) {
+      <p class="activity-status">
+        Couldn’t load activity. <button type="button" (click)="stats.reload()">Try again</button>
+      </p>
+    } @else {
+      <p class="activity-status" role="status">Loading activity…</p>
+    }
+  </div>
+</section>
+
+<section class="about" aria-labelledby="about-title">
+  <h2 id="about-title">Here to help.</h2>
+  <div class="capabilities">
+    <article>
+      <h3>Talk where you work.</h3>
+      <p>Mention me in a channel or thread where your team is already working.</p>
+    </article>
+    <article>
+      <h3>Bring the whole team.</h3>
+      <p>Ask together. I keep the context as the conversation grows.</p>
+    </article>
+    <article>
+      <h3>Go beyond answers.</h3>
+      <p>I can work with files, use Git, and run commands in a sandbox.</p>
+    </article>
+  </div>
+</section>

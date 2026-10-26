@@ -1,0 +1,106 @@
+@if (profile.profile(); as agent) {
+  <section class="intro" aria-labelledby="intro-title">
+    <div class="portrait" aria-hidden="true">
+      <svg viewBox="0 0 160 160" fill="none">
+        <circle cx="80" cy="80" r="79" fill="#edf1e7" />
+        <path d="M80 37V25" stroke="#354a31" stroke-width="3" stroke-linecap="round" />
+        <circle cx="80" cy="21" r="5" fill="#e8ca7f" stroke="#354a31" stroke-width="2" />
+        <rect
+          x="28"
+          y="68"
+          width="13"
+          height="28"
+          rx="6"
+          fill="#a7ba97"
+          stroke="#354a31"
+          stroke-width="2"
+        />
+        <rect
+          x="119"
+          y="68"
+          width="13"
+          height="28"
+          rx="6"
+          fill="#a7ba97"
+          stroke="#354a31"
+          stroke-width="2"
+        />
+        <rect
+          x="36"
+          y="39"
+          width="88"
+          height="82"
+          rx="27"
+          fill="#d5e1c9"
+          stroke="#354a31"
+          stroke-width="2.2"
+        />
+        <rect x="47" y="55" width="66" height="43" rx="17" fill="#354a31" />
+        <path
+          d="M60 73q3-5 6 0 M94 73q3-5 6 0"
+          stroke="#edf1e7"
+          stroke-width="3.5"
+          stroke-linecap="round"
+        />
+        <path d="M73 84q7 7 14 0" stroke="#edf1e7" stroke-width="2.5" stroke-linecap="round" />
+        <path d="M70 109h20" stroke="#96ab83" stroke-width="2" stroke-linecap="round" />
+        <path d="M53 143c0-14 11-22 27-22s27 8 27 22" fill="#d5e1c9" />
+      </svg>
+    </div>
+    <p class="intro-label">Multiplayer AI, where work happens. In Slack.</p>
+    <h1 id="intro-title">
+      Hi, I’m <span>{{ agent.name }}</span
+      >.
+    </h1>
+    <p class="intro-description">
+      I’m here for the whole team.<br class="desktop-break" />
+      Bring me into a channel or thread. Let’s work on it together.
+    </p>
+    @if (agent.slack; as slack) {
+      <figure class="slack-identity" aria-label="Example Slack conversation">
+        <figcaption class="conversation-header">
+          <span class="channel-name"><span aria-hidden="true">#</span> team-integrations</span>
+        </figcaption>
+        <div class="conversation-messages">
+          <div class="slack-message">
+            <span class="message-avatar teammate-avatar" aria-hidden="true">M</span>
+            <div class="message-content">
+              <strong class="message-author">Maya</strong>
+              <p>
+                <span class="slack-handle">@{{ slack.username }}</span
+                >, do the setup docs still match the repo?
+              </p>
+            </div>
+          </div>
+          <div class="slack-message thread-reply">
+            <span class="message-avatar bot-avatar" aria-hidden="true">{{
+              agent.name.charAt(0)
+            }}</span>
+            <div class="message-content">
+              <div class="message-byline">
+                <strong class="message-author">{{ agent.name }}</strong
+                ><span class="app-label">APP</span><span class="thread-label">in thread</span>
+              </div>
+              <p>
+                I’ll check the Node and pnpm versions, then try the setup steps in a clean
+                workspace.
+              </p>
+            </div>
+          </div>
+          <div class="slack-message thread-reply">
+            <span class="message-avatar teammate-avatar" aria-hidden="true">L</span>
+            <div class="message-content">
+              <div class="message-byline">
+                <strong class="message-author">Leo</strong
+                ><span class="thread-label">in thread</span>
+              </div>
+              <p>Check mise too. Let’s keep one setup path for everyone.</p>
+            </div>
+          </div>
+        </div>
+      </figure>
+    } @else {
+      <p class="slack-unavailable">Slack isn’t connected yet.</p>
+    }
+  </section>
+}

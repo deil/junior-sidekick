@@ -31,6 +31,35 @@ class WeeklyStatsServiceTest {
         assertEquals(3, stats.users)
     }
 
+    @Test
+    fun `supports thirty days with the same aggregation and period boundaries`() {
+        val now = Instant.parse("2026-08-14T09:00:00Z")
+        val store = TestConversationStateStore()
+        store.add(now.minus(Duration.ofDays(1)), usage("C1", 1, 2, "U1"))
+        store.add(now.minus(Duration.ofDays(20)), usage("C2", 10, 20, "U2", "U3"))
+        store.add(now.minus(Duration.ofDays(31)), usage("C3", 100, 200, "U4"))
+        store.add(now, usage("C4", 1000, 2000, "U5"))
+        val service = WeeklyStatsService(store)
+
+        val weekly = service.gather(now)
+        val monthly = service.gather(now, Duration.ofDays(30))
+
+        assertEquals(1, weekly.conversations)
+        assertEquals(2, monthly.conversations)
+        assertEquals(3, monthly.users)
+        assertEquals(2, monthly.channels)
+        assertEquals(33, monthly.tokensConsumed)
+    }
+
+    @Test
+    fun `returns zero counts when no sessions started in the period`() {
+        val stats = WeeklyStatsService(TestConversationStateStore()).gather(Instant.now())
+
+        assertEquals(0, stats.users)
+        assertEquals(0, stats.conversations)
+        assertEquals(0, stats.tokensConsumed)
+    }
+
     private fun usage(
         channelId: String,
         inputTokens: Long,

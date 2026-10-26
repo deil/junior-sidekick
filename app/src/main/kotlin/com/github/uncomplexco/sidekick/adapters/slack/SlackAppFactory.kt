@@ -60,6 +60,7 @@ class SlackAppFactory {
         agentConfig: AgentConfig,
         slackAdapterConfig: AppConfig,
         sharedContext: SharedContext,
+        slackBotProfile: SlackBotProfile,
         eventDeduper: HandledEventsDeduper,
         receiveChatMessage: ReceiveChatMessageUsecase,
         slackFileIngestor: SlackFileIngestor,
@@ -69,6 +70,21 @@ class SlackAppFactory {
         val app = App(slackAdapterConfig)
         val auth = app.client.authTest { it }
         agentConfig.botUsername = auth.userId
+        val userInfo = app.client.usersInfo { it.user(auth.userId) }
+        val username =
+            if (userInfo.isOk) {
+                slackBotDisplayName(userInfo.user)
+            } else {
+                Loggers.SLACK.warn("Could not resolve Slack bot display name: {}", userInfo.error)
+                auth.user
+            }
+        slackBotProfile.identity = SlackBotIdentity(username, auth.userId, auth.teamId)
+        Loggers.SLACK.info(
+            "Resolved Slack bot identity username={} userId={} teamId={}",
+            username,
+            auth.userId,
+            auth.teamId,
+        )
 
         sharedContext.slackClient = app.client()
 
