@@ -6,6 +6,8 @@ import { $ZodError } from 'zod/v4/core';
 import { environment } from '../../environments/environment';
 import { testStats } from '../testing/stats-api';
 import { ApiService } from './api.service';
+import { TransferState } from '@angular/core';
+import { API_BASE_URL_STATE } from './api-base-url';
 
 describe('ApiService', () => {
   beforeEach(() =>
@@ -14,6 +16,23 @@ describe('ApiService', () => {
     }),
   );
   afterEach(() => TestBed.inject(HttpTestingController).verify());
+
+  it('uses the runtime URL for profile and statistics requests', async () => {
+    TestBed.inject(TransferState).set(API_BASE_URL_STATE, 'https://api.example.com');
+    const api = TestBed.inject(ApiService);
+    const profile = firstValueFrom(api.getProfile());
+    const stats = firstValueFrom(api.getStatistics('30'));
+
+    TestBed.inject(HttpTestingController)
+      .expectOne('https://api.example.com/api/web/user/profile')
+      .flush({ name: 'Juniper', slack: null });
+    TestBed.inject(HttpTestingController)
+      .expectOne('https://api.example.com/api/web/user/stats?days=30')
+      .flush({ ...testStats, period_days: 30 });
+
+    expect(await profile).toEqual({ name: 'Juniper', slack: null });
+    expect((await stats).period_days).toBe(30);
+  });
 
   it('returns a validated profile with the configured identity', async () => {
     const response = firstValueFrom(TestBed.inject(ApiService).getProfile());

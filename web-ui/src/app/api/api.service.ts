@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { map, Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
+import { API_BASE_URL } from './api-base-url';
 import {
   AgentProfile,
   AgentProfileSchema,
@@ -14,16 +14,17 @@ import {
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
+  private readonly baseUrl = inject(API_BASE_URL);
 
   getProfile(): Observable<AgentProfile> {
     return this.http
-      .get<unknown>(`${environment.apiBaseUrl}/api/web/user/profile`)
+      .get<unknown>(`${this.baseUrl}/api/web/user/profile`)
       .pipe(map((response) => AgentProfileSchema.parse(response)));
   }
 
   getStatistics(days: ReportingPeriod): Observable<UsageStats> {
     return this.http
-      .get<unknown>(`${environment.apiBaseUrl}/api/web/user/stats`, { params: { days } })
+      .get<unknown>(`${this.baseUrl}/api/web/user/stats`, { params: { days } })
       .pipe(map((response) => UsageStatsSchema.parse(response)));
   }
 }

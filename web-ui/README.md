@@ -32,13 +32,22 @@ mise exec -- pnpm test --watch=false
 
 ```bash
 mise exec -- pnpm build
-mise exec -- pnpm run serve:ssr:web-ui
+API_BASE_URL=https://api.example.com mise exec -- pnpm run serve:ssr:web-ui
 ```
 
 Open <http://localhost:4000/>. Set `PORT` to change the port. Build output is in `dist/web-ui/`.
 
 All routes use `RenderMode.Server` in `src/app/app.routes.server.ts`.
-For deployment, add the frontend hostname to `security.allowedHosts` in `angular.json`.
+Deploy the same build to each environment; no source edits or rebuilds are needed to change these settings:
+
+| Environment variable | Default                 | Purpose                                                                            |
+| -------------------- | ----------------------- | ---------------------------------------------------------------------------------- |
+| `API_BASE_URL`       | `http://localhost:7070` | Absolute HTTP(S) backend URL reachable by both the SSR server and users' browsers. |
+| `PORT`               | `4000`                  | SSR server port.                                                                   |
+
+Set these on the running Node process, not on the build command. Restart the process after changing them.
+Serve the frontend and backend over HTTPS in production. SSR accepts any hostname;
+host restrictions belong at the deployment's ingress or reverse proxy.
 
 ### Backend profile API
 
@@ -48,12 +57,15 @@ connection's `auth.test` and `users.info` results. The visible handle preserves 
 Slack profile display name, including punctuation. No credentials are returned. All visible branding
 and page titles use the API name; there is no frontend name setting or fallback name.
 
-Set the backend base URL in `src/environments/environment.ts`. Both the browser and
-SSR call that backend directly; no API proxy is used. Profile data is transferred
+Set `API_BASE_URL` on the SSR server. `src/environments/environment.ts` only supplies
+the local default. SSR transfers the configured URL to the browser through Angular
+`TransferState`. Both call that backend directly; no API proxy is used. Profile data is transferred
 into the HTML for hydration, avoiding a duplicate browser request.
 
 The backend allows the UI origin `http://localhost:4200` for `/api/web/**` by default.
 Set the Spring property `webui.allowed-origin` to the deployed UI origin.
+For example, set `WEBUI_ALLOWED_ORIGIN=https://app.example.com` on the backend.
+This remains separate from the frontend's runtime settings.
 
 ## Lint and format
 

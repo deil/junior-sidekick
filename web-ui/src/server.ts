@@ -10,7 +10,10 @@ import { join } from 'node:path';
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
-const angularApp = new AngularNodeAppEngine();
+const angularApp = new AngularNodeAppEngine({
+  // Host restrictions belong at the deployment's ingress, not in the app build.
+  allowedHosts: ['*'],
+});
 
 /**
  * Example Express Rest API endpoints can be defined here.
