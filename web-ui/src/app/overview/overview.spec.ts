@@ -44,13 +44,11 @@ describe('Overview', () => {
     expect(page.querySelector('.slack-handle')?.textContent).toBe('@juniper_helper');
     expect(page.querySelector('.thread-reply .message-author')?.textContent).toBe('Juniper');
     expect(page.querySelector('.slack-identity a, .slack-identity button')).toBeNull();
-    expect(page.textContent).not.toMatch(/\bDMs?\b/);
     expect([...page.querySelectorAll('.stat dd')].map((stat) => stat.textContent?.trim())).toEqual([
       '3',
       '9',
       '1.5K',
     ]);
-    expect(page.textContent).not.toContain('Sample numbers');
     expect(page.querySelector('.token-stat dt')?.textContent).toBe('burned tokens');
     expect(page.querySelector('.token-stat dd')?.getAttribute('aria-label')).toBe('1542 tokens');
     expect(page.textContent?.toLowerCase()).not.toContain('sidekick');

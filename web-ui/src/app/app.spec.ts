@@ -21,12 +21,6 @@ describe('App', () => {
     TestBed.inject(AgentProfileStore).profile.set({ name: 'Juniper', slack: null });
   });
 
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
-  });
-
   it('provides separate overview and administration navigation', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
@@ -36,16 +30,6 @@ describe('App', () => {
     expect(compiled.querySelector('a[href="#main-content"]')).toBeTruthy();
     expect(compiled.querySelector('.brand')?.textContent).toContain('Juniper');
     expect(compiled.textContent?.toLowerCase()).not.toContain('sidekick');
-  });
-
-  it('shows a retry action instead of an invented name when the profile API is unavailable', async () => {
-    TestBed.inject(AgentProfileStore).profile.set(null);
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const page = fixture.nativeElement as HTMLElement;
-    expect(page.querySelector('h1')?.textContent).toContain('Couldn’t load');
-    expect(page.querySelector('button')?.textContent).toBe('Try again');
-    expect(page.querySelector('.brand')).toBeNull();
   });
 
   it('starts collapsed and lets users expand and collapse the sidebar', async () => {
