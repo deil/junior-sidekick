@@ -7,6 +7,8 @@ import { routes } from './app.routes';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { statsApiStub } from './testing/stats-api';
 import { AgentProfileStore } from './agent-profile';
+import { API_BASE_URL } from './api/api-base-url';
+import { environment } from '../environments/environment';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -15,6 +17,7 @@ describe('App', () => {
       providers: [
         provideRouter(routes),
         provideHttpClient(withInterceptors([statsApiStub])),
+        { provide: API_BASE_URL, useValue: environment.apiBaseUrl },
         { provide: TitleStrategy, useClass: AgentTitleStrategy },
       ],
     }).compileComponents();

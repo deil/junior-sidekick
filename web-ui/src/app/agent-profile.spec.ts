@@ -3,11 +3,16 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { AgentProfileStore } from './agent-profile';
 import { environment } from '../environments/environment';
+import { API_BASE_URL } from './api/api-base-url';
 
 describe('AgentProfileStore', () => {
   beforeEach(() =>
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: API_BASE_URL, useValue: environment.apiBaseUrl },
+      ],
     }),
   );
   afterEach(() => TestBed.inject(HttpTestingController).verify());

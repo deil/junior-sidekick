@@ -6,11 +6,16 @@ import { $ZodError } from 'zod/v4/core';
 import { environment } from '../../environments/environment';
 import { testStats } from '../testing/stats-api';
 import { ApiService } from './api.service';
+import { API_BASE_URL } from './api-base-url';
 
 describe('ApiService', () => {
   beforeEach(() =>
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: API_BASE_URL, useValue: environment.apiBaseUrl },
+      ],
     }),
   );
   afterEach(() => TestBed.inject(HttpTestingController).verify());

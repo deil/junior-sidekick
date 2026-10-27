@@ -40,12 +40,14 @@ Open <http://localhost:4000/>. Set `PORT` to change the port. Build output is in
 All routes use `RenderMode.Server` in `src/app/app.routes.server.ts`.
 Deploy the same build to each environment; no source edits or rebuilds are needed to change these settings:
 
-| Environment variable | Default                 | Purpose                                                                            |
-| -------------------- | ----------------------- | ---------------------------------------------------------------------------------- |
-| `API_BASE_URL`       | `http://localhost:7070` | Absolute HTTP(S) backend URL reachable by both the SSR server and users' browsers. |
-| `PORT`               | `4000`                  | SSR server port.                                                                   |
+| Environment variable | Default                | Purpose                                                                            |
+| -------------------- | ---------------------- | ---------------------------------------------------------------------------------- |
+| `API_BASE_URL`       | Required in production | Absolute HTTP(S) backend URL reachable by both the SSR server and users' browsers. |
+| `PORT`               | `4000`                 | SSR server port.                                                                   |
 
 Set these on the running Node process, not on the build command. Restart the process after changing them.
+The production server refuses to start if `API_BASE_URL` is missing, blank, or not an absolute HTTP(S) URL.
+It logs the configured backend URL at startup. Building does not require this variable or a running backend.
 Serve the frontend and backend over HTTPS in production. SSR accepts any hostname;
 host restrictions belong at the deployment's ingress or reverse proxy.
 
@@ -58,9 +60,12 @@ Slack profile display name, including punctuation. No credentials are returned. 
 and page titles use the API name; there is no frontend name setting or fallback name.
 
 Set `API_BASE_URL` on the SSR server. `src/environments/environment.ts` only supplies
-the local default. SSR transfers the configured URL to the browser through Angular
+the default for `pnpm start` (development SSR). SSR transfers the configured URL to the browser through Angular
 `TransferState`. Both call that backend directly; no API proxy is used. Profile data is transferred
 into the HTML for hydration, avoiding a duplicate browser request.
+The browser requires transferred configuration. If it is missing, startup shows a configuration error
+without making backend requests. It never falls back to localhost. Serve application pages through the
+SSR server, not directly from `dist/web-ui/browser/`.
 
 The backend allows the UI origin `http://localhost:4200` for `/api/web/**` by default.
 Set the Spring property `webui.allowed-origin` to the deployed UI origin.

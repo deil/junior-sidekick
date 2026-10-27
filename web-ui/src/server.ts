@@ -6,6 +6,7 @@ import {
 } from '@angular/ssr/node';
 import express from 'express';
 import { join } from 'node:path';
+import { readServerApiBaseUrl } from './app/api/api-base-url.server';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
@@ -53,13 +54,24 @@ app.use((req, res, next) => {
  * The server listens on the port defined by the `PORT` environment variable, or defaults to 4000.
  */
 if (isMainModule(import.meta.url) || process.env['pm_id']) {
+  let apiBaseUrl: string;
+  try {
+    apiBaseUrl = readServerApiBaseUrl();
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
   const port = process.env['PORT'] || 4000;
-  app.listen(port, (error) => {
+  const server = app.listen(port, (error) => {
     if (error) {
       throw error;
     }
 
-    console.log(`Node Express server listening on http://localhost:${port}`);
+    const address = server.address();
+    console.log(
+      `Node Express server listening on http://localhost:${typeof address === 'object' && address ? address.port : port}`,
+    );
+    console.log(`Backend API: ${apiBaseUrl}`);
   });
 }
 

@@ -5,11 +5,16 @@ import { AgentProfileStore } from '../agent-profile';
 import { testStats } from '../testing/stats-api';
 import { environment } from '../../environments/environment';
 import { Overview } from './overview';
+import { API_BASE_URL } from '../api/api-base-url';
 
 describe('Overview', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: API_BASE_URL, useValue: environment.apiBaseUrl },
+      ],
     });
     TestBed.inject(AgentProfileStore).profile.set({
       name: 'Juniper',
