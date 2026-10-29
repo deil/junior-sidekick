@@ -168,4 +168,4 @@ Seeded human messages may have weaker author data than live incoming messages de
 ## Key files
 
 - [TurnAdmission.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnAdmission.kt) – Batch admission and session selection for app mentions, passive messages, and assistant messages.
-- [ReceiveChatMessageUsecase.kt](../../app/src/main/kotlin/com/github/uncomplexco/sidekick/usecases/ReceiveChatMessageUsecase.kt) – Queued and immediate incoming-message entry points.
+- [ReceiveChatMessageUsecase.kt](../../interfaces/src/main/kotlin/com/github/uncomplexco/sidekick/usecases/ReceiveChatMessageUsecase.kt) – Queued and immediate incoming-message entry points.

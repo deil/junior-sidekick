@@ -206,5 +206,5 @@ Rejected because stale suspended work should not spontaneously produce a reply. 
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/conversation/Models.kt` - current session and turn statistics state.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/chat/IncomingMessageQueue.kt` - current in-memory session message scheduling.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/mcp/McpOAuth.kt` - current global MCP OAuth state.
-- `app/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/mcp/McpOAuthController.kt` - current OAuth callback adapter.
+- `interfaces/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/mcp/McpOAuthController.kt` - current OAuth callback adapter.
 - [Koog agent persistence](https://docs.koog.ai/features/agent-persistence/) - checkpoint and restoration behavior.

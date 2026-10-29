@@ -201,4 +201,4 @@ scheduler tick -> ScheduledJobService.claim -> RunScheduledJobUsecase
 
 - `core`: scheduled-job model, service, store port, filesystem store, and scheduled Turn execution boundary.
 - `tools`: `ScheduledJobTools`, `StatsTools`, and registration in the normal tool registry.
-- `app`: Spring Scheduling adapter, run use case, and Slack dispatcher/root-message delivery adapter.
+- `interfaces`: Spring Scheduling adapter, run use case, and Slack dispatcher/root-message delivery adapter.

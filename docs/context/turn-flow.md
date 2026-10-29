@@ -208,8 +208,8 @@ The turn boundary starts after `TurnAdmission` returns `TurnAdmissionDecision.Ad
 
 ## Key files
 
-- `app/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/slack/SlackAppFactory.kt` - Slack event intake and mapping.
-- `app/src/main/kotlin/com/github/uncomplexco/sidekick/usecases/ReceiveChatMessageUsecase.kt` - Queued and immediate incoming-message entry points.
+- `interfaces/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/slack/SlackAppFactory.kt` - Slack event intake and mapping.
+- `interfaces/src/main/kotlin/com/github/uncomplexco/sidekick/usecases/ReceiveChatMessageUsecase.kt` - Queued and immediate incoming-message entry points.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnCoordinator.kt` - Turn orchestration and completion/failure handling.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnAdmission.kt` - Batch admission and session selection.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/turn/TurnParticipation.kt` - Per-turn participation decision.
