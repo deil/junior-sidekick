@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.http.webui
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.github.uncomplexco.sidekick.application.stats.WeeklyStatsService
 import java.time.Clock
 import java.time.Duration
@@ -11,32 +12,35 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 
 data class WebUsageStats(
-    val period_days: Int,
+    @get:JsonProperty("period_days") val periodDays: Int,
     val users: Int,
     val conversations: Int,
     val channels: Int,
-    val tokens_consumed: Long,
+    @get:JsonProperty("tokens_consumed") val tokensConsumed: Long,
 )
 
 @RestController
 @RequestMapping("/api/web/user")
-class UserStatsController(
+class SidekickStatsController(
     private val stats: WeeklyStatsService,
     private val clock: Clock = Clock.systemUTC(),
 ) {
     @GetMapping("/stats")
-    fun statistics(@RequestParam(defaultValue = "7") days: Int): WebUsageStats {
-        if (days != 7 && days != 30) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "days must be 7 or 30")
+    fun statistics(@RequestParam(defaultValue = "$WEEK") days: Int): WebUsageStats {
+        if (days != WEEK && days != MONTH) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "days must be $WEEK or $MONTH")
         }
 
         val gathered = stats.gather(clock.instant(), Duration.ofDays(days.toLong()))
         return WebUsageStats(
-            period_days = days,
+            periodDays = days,
             users = gathered.users,
             conversations = gathered.conversations,
             channels = gathered.channels,
-            tokens_consumed = gathered.tokensConsumed,
+            tokensConsumed = gathered.tokensConsumed,
         )
     }
 }
+
+private const val WEEK = 7
+private const val MONTH = 30

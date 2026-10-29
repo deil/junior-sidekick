@@ -7,14 +7,15 @@ import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
-class UserProfileControllerTest {
+class SidekickProfileControllerTest {
     @Test
-    fun `returns configured name and Slack identity through the dedicated user API`() {
+    fun `returns configured Sidekick name and Slack identity`() {
         val slack =
             SlackBotProfile().apply {
                 identity = SlackBotIdentity("juniper_helper", "UBOT", "TTEAM")
             }
-        val controller = UserProfileController(AgentConfig("Juniper", "unused", "unused"), slack)
+        val controller =
+            SidekickProfileController(AgentConfig("Juniper", "unused", "unused"), slack)
         val mvc = MockMvcBuilders.standaloneSetup(controller).build()
 
         mvc.get("/api/web/user/profile").andExpect {
@@ -29,7 +30,7 @@ class UserProfileControllerTest {
     @Test
     fun `returns null Slack identity when Slack is not connected`() {
         val controller =
-            UserProfileController(AgentConfig("Fern", "unused", "unused"), SlackBotProfile())
+            SidekickProfileController(AgentConfig("Fern", "unused", "unused"), SlackBotProfile())
         val mvc = MockMvcBuilders.standaloneSetup(controller).build()
 
         mvc.get("/api/web/user/profile").andExpect {

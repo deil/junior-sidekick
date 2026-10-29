@@ -1,6 +1,6 @@
 package com.github.uncomplexco.sidekick
 
-import com.github.uncomplexco.sidekick.adapters.http.webui.UserProfileController
+import com.github.uncomplexco.sidekick.adapters.http.webui.SidekickProfileController
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -17,7 +17,7 @@ import org.springframework.web.context.WebApplicationContext
 @SpringBootTest(classes = [SidekickTestApplication::class])
 class EnableSidekickTest {
     @Autowired lateinit var selectedChatPlatform: ChatPlatform
-    @Autowired lateinit var userProfileController: UserProfileController
+    @Autowired lateinit var sidekickProfileController: SidekickProfileController
     @Autowired lateinit var webContext: WebApplicationContext
 
     @Test

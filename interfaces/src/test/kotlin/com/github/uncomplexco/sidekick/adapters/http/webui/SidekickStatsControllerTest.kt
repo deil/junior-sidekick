@@ -17,7 +17,7 @@ import org.junit.jupiter.api.io.TempDir
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
-class UserStatsControllerTest {
+class SidekickStatsControllerTest {
     @TempDir lateinit var dir: Path
 
     private fun store() =
@@ -57,7 +57,9 @@ class UserStatsControllerTest {
         }
         val clock = Clock.fixed(Instant.now().plusSeconds(1), ZoneOffset.UTC)
         val mvc =
-            MockMvcBuilders.standaloneSetup(UserStatsController(WeeklyStatsService(store), clock))
+            MockMvcBuilders.standaloneSetup(
+                    SidekickStatsController(WeeklyStatsService(store), clock)
+                )
                 .build()
 
         for (days in listOf(7, 30)) {
@@ -76,7 +78,7 @@ class UserStatsControllerTest {
     @Test
     fun `defaults to seven days and returns zero for an empty installation`() {
         val mvc =
-            MockMvcBuilders.standaloneSetup(UserStatsController(WeeklyStatsService(store())))
+            MockMvcBuilders.standaloneSetup(SidekickStatsController(WeeklyStatsService(store())))
                 .build()
 
         mvc.get("/api/web/user/stats").andExpect {
@@ -90,7 +92,7 @@ class UserStatsControllerTest {
     @Test
     fun `rejects unsupported or malformed periods`() {
         val mvc =
-            MockMvcBuilders.standaloneSetup(UserStatsController(WeeklyStatsService(store())))
+            MockMvcBuilders.standaloneSetup(SidekickStatsController(WeeklyStatsService(store())))
                 .build()
 
         for (days in listOf("0", "-1", "14", "365", "abc")) {
