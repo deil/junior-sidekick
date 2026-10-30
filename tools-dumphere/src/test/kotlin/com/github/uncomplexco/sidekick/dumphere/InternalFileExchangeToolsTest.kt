@@ -51,7 +51,7 @@ class InternalFileExchangeToolsTest {
 
     @Test
     fun `reads published file contents through publisher`() {
-        val result = tools().readInternalSnippet("page1", 2, 5)
+        val result = InternalFileReadTools(fakePublisher()).readInternalSnippet("page1", 2, 5)
 
         assertEquals("contents page1 2 5", result)
     }

@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools.subagents
 
 import ai.koog.agents.core.tools.ToolException
+import ai.koog.agents.core.tools.ToolRegistry
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
@@ -108,6 +109,7 @@ class TaskToolTest {
             activityReporter = chat.lifecycle,
             availableSubagents = listOf(Subagent("general", "General-purpose subagent", "Prompt")),
             onSubagentCompleted = {},
+            bindTools = { ToolRegistry.EMPTY },
         )
 }
 
@@ -119,6 +121,7 @@ private class RecordingSubagentRunner(private val result: String) : SubagentRunn
         ctx: TurnContext,
         subagentType: String,
         prompt: String,
+        tools: ToolRegistry,
     ): SubagentRunResult {
         subagentTypes += subagentType
         prompts += prompt
@@ -131,6 +134,7 @@ private class FailingSubagentRunner : SubagentRunner {
         ctx: TurnContext,
         subagentType: String,
         prompt: String,
+        tools: ToolRegistry,
     ): SubagentRunResult = error("boom")
 }
 

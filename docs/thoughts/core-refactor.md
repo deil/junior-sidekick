@@ -42,3 +42,21 @@ The runtime interface, tool classifications, recovery semantics for interrupted 
 Support CLI, HTTP API, and exposing the agent through MCP, in addition to chat interfaces.
 
 The agent stays in `core/`. Interface adapters live in a separate module and invoke the core agent without coupling it to their transport or delivery mechanism.
+
+## Waiting for external events
+
+Sidekick should be able to wait for external events, either by polling or by suspending execution until a webhook arrives, then continue with the event's findings.
+
+Example: "Build this feature and do not bother me until completion."
+
+1. Implement the change and create a PR.
+2. Wait for CI/CD builds, tests, and reviews to produce results.
+3. Resume with those findings, address them, and update the PR.
+4. Wait for the next results and repeat until the completion conditions are met.
+5. Report completion to the user rather than requesting their intervention between iterations.
+
+### Assistant notes
+
+- Waiting state and pending polling work need to survive restart, just like active execution and queued input.
+- Polling and webhooks should be alternative ways of satisfying a persisted wait, with results associated with the correct execution and PR revision.
+- A suspended execution should release live resources. It should not require a coroutine or process to stay asleep until the event arrives.

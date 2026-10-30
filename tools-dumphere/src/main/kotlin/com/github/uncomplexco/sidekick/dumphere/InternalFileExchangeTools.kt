@@ -124,25 +124,6 @@ internal class InternalFileExchangeTools(
     @Tool
     @LLMDescription(
         """
-        Read a published HTML or Markdown file. If the page does not exist, an error is returned.
-
-        Usage:
-        - By default, this tool returns up to 2000 lines from the start of the file.
-        - The offset parameter is the line number to start reading from (1-indexed).
-        - To read later sections, call this tool again with a larger offset.
-        - Contents are returned with each line prefixed by its line number as `<line>: <content>`.
-        - Any line longer than 2000 characters is truncated.
-        """
-    )
-    fun readInternalSnippet(
-        @LLMDescription("Published page id") id: String,
-        @LLMDescription("The line number to start reading from (1-indexed)") offset: Int?,
-        @LLMDescription("The maximum number of lines to read (defaults to 2000)") limit: Int?,
-    ): String = filePublisher.readFileContents(id, offset, limit)
-
-    @Tool
-    @LLMDescription(
-        """
         Performs exact string replacements in a published HTML or Markdown file.
 
         Usage:
@@ -161,6 +142,27 @@ internal class InternalFileExchangeTools(
         @LLMDescription("Replace all occurrences of oldString (default false)")
         replaceAll: Boolean?,
     ): String = filePublisher.editFileContents(id, oldString, newString, replaceAll ?: false)
+}
+
+internal class InternalFileReadTools(private val filePublisher: FilePublisher) : ToolSet {
+    @Tool
+    @LLMDescription(
+        """
+        Read a published HTML or Markdown file. If the page does not exist, an error is returned.
+
+        Usage:
+        - By default, this tool returns up to 2000 lines from the start of the file.
+        - The offset parameter is the line number to start reading from (1-indexed).
+        - To read later sections, call this tool again with a larger offset.
+        - Contents are returned with each line prefixed by its line number as `<line>: <content>`.
+        - Any line longer than 2000 characters is truncated.
+        """
+    )
+    fun readInternalSnippet(
+        @LLMDescription("Published page id") id: String,
+        @LLMDescription("The line number to start reading from (1-indexed)") offset: Int?,
+        @LLMDescription("The maximum number of lines to read (defaults to 2000)") limit: Int?,
+    ): String = filePublisher.readFileContents(id, offset, limit)
 }
 
 @Serializable

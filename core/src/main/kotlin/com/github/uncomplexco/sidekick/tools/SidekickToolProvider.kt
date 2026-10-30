@@ -1,10 +1,10 @@
 package com.github.uncomplexco.sidekick.tools
 
-import ai.koog.agents.core.tools.reflect.ToolSet
+import com.github.uncomplexco.sidekick.application.agent.tools.ToolRegistration
 import java.nio.file.Path
 
 fun interface SidekickToolProvider {
-    fun toolSet(context: SidekickToolContext): ToolSet
+    fun registrations(): List<ToolRegistration<SidekickToolContext>>
 }
 
 fun interface SidekickToolContext {

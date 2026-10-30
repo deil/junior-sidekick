@@ -1,9 +1,10 @@
 package com.github.uncomplexco.sidekick.application.tools.mcp
 
-import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.mcp.DefaultMcpToolDescriptorParser
 import com.github.uncomplexco.sidekick.application.agent.koog.ConnectedMcpServer
 import com.github.uncomplexco.sidekick.application.agent.koog.McpServersRegistry
+import com.github.uncomplexco.sidekick.application.agent.tools.ToolAccess
+import com.github.uncomplexco.sidekick.application.agent.tools.ToolRegistration
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import io.ktor.client.*
@@ -45,7 +46,11 @@ data class McpServerConfig(
     var timeoutSeconds: Long = 30,
     var auth: String = "",
     var authHeader: McpAuthHeaderConfig = McpAuthHeaderConfig(),
-)
+    var defaultToolAccess: ToolAccess = ToolAccess.ORCHESTRATOR_ONLY,
+    var toolAccess: Map<String, ToolAccess> = emptyMap(),
+) {
+    fun accessFor(toolName: String): ToolAccess = toolAccess[toolName] ?: defaultToolAccess
+}
 
 data class McpAuthHeaderConfig(var value: String = "")
 
@@ -60,46 +65,42 @@ class DefaultMcpServersRegistry(
         workRoot: Path,
     ): List<ConnectedMcpServer> =
         config.servers.mapNotNull { server ->
-            runCatching { connect(server, workRoot) }
+            runCatching { connect(server) }
                 .onFailure { log.warn("Failed to connect MCP server {}", server.id, it) }
                 .getOrNull()
         }
 
-    private suspend fun connect(
-        server: McpServerConfig,
-        workRoot: Path,
-    ): ConnectedMcpServer =
+    private suspend fun connect(server: McpServerConfig): ConnectedMcpServer =
         when (server.auth) {
             "oauth" -> {
                 val accessToken =
                     oauth.accessToken(server) ?: error("MCP server ${server.id} requires OAuth")
-                connect(server, workRoot, authHeaderValue = "Bearer $accessToken")
+                connect(server, authHeaderValue = "Bearer $accessToken")
             }
 
             "header" -> {
                 val authHeaderValue =
                     server.authHeader.value.takeIf { it.isNotBlank() }
                         ?: error("MCP server ${server.id} requires auth-header.value")
-                connect(server, workRoot, authHeaderValue)
+                connect(server, authHeaderValue)
             }
 
             else -> {
-                connect(server, workRoot, authHeaderValue = null)
+                connect(server, authHeaderValue = null)
             }
         }
 
     private suspend fun connect(
         server: McpServerConfig,
-        workRoot: Path,
         authHeaderValue: String?,
     ): ConnectedMcpServer =
         when (server.transport) {
             "stdio" -> {
-                stdioServer(server, workRoot)
+                stdioServer(server)
             }
 
             "sse" -> {
-                httpServer(server, workRoot, authHeaderValue) { client ->
+                httpServer(server, authHeaderValue) { client ->
                     SseClientTransport(client, server.url)
                 }
             }
@@ -107,7 +108,6 @@ class DefaultMcpServersRegistry(
             "streamable-http" -> {
                 httpServer(
                     server,
-                    workRoot,
                     authHeaderValue,
                 ) { client ->
                     client.mcpStreamableHttpTransport(server.url)
@@ -119,10 +119,7 @@ class DefaultMcpServersRegistry(
             }
         }
 
-    private suspend fun stdioServer(
-        server: McpServerConfig,
-        workRoot: Path,
-    ): ConnectedMcpServer {
+    private suspend fun stdioServer(server: McpServerConfig): ConnectedMcpServer {
         val processBuilder = ProcessBuilder(listOf(server.command) + server.args)
         processBuilder.environment().putAll(server.env)
         val process = processBuilder.start()
@@ -131,12 +128,11 @@ class DefaultMcpServersRegistry(
                 input = process.inputStream.asSource().buffered(),
                 output = process.outputStream.asSink().buffered(),
             )
-        return connectedServer(server, transport, workRoot, process)
+        return connectedServer(server, transport, process)
     }
 
     private suspend fun httpServer(
         server: McpServerConfig,
-        workRoot: Path,
         authHeaderValue: String?,
         transportFactory: (HttpClient) -> Transport,
     ): ConnectedMcpServer {
@@ -144,7 +140,7 @@ class DefaultMcpServersRegistry(
         val transport = transportFactory(httpClient)
         transport.onClose { httpClient.close() }
         try {
-            return connectedServer(server, transport, workRoot)
+            return connectedServer(server, transport)
         } catch (error: Throwable) {
             if (server.transport == "sse") {
                 logSseErrorResponse(server, authHeaderValue)
@@ -192,7 +188,6 @@ class DefaultMcpServersRegistry(
     private suspend fun connectedServer(
         server: McpServerConfig,
         transport: Transport,
-        workRoot: Path,
         process: Process? = null,
     ): ConnectedMcpServer {
         val client =
@@ -205,35 +200,37 @@ class DefaultMcpServersRegistry(
                     options = ClientOptions().apply { timeout = server.timeoutSeconds.seconds },
                 )
                 .apply { connect(transport) }
-        val registry = toolRegistry(server, client, workRoot)
+        val tools = toolRegistrations(server, client)
         return DefaultConnectedMcpServer(
             id = server.id,
-            toolRegistry = registry,
+            tools = tools,
             transport = transport,
             process = process,
         )
     }
 
-    private suspend fun toolRegistry(
+    private suspend fun toolRegistrations(
         server: McpServerConfig,
         client: Client,
-        workRoot: Path,
-    ): ToolRegistry {
+    ): List<ToolRegistration<Path>> {
         val tools = client.listTools().tools
-        return ToolRegistry {
-            tools.forEach { tool ->
-                if (shouldExcludeMcpTool(server.id, tool.name)) {
-                    log.warn("Excluding MCP tool {} from server {}", tool.name, server.id)
-                    return@forEach
-                }
+        return tools.mapNotNull { tool ->
+            if (shouldExcludeMcpTool(server.id, tool.name)) {
+                log.warn("Excluding MCP tool {} from server {}", tool.name, server.id)
+                return@mapNotNull null
+            }
 
-                runCatching {
-                        val descriptor =
-                            prepareMcpToolDescriptor(
-                                tool.name,
-                                DefaultMcpToolDescriptorParser.parse(tool),
-                            )
-                        tool(
+            runCatching {
+                    val descriptor =
+                        prepareMcpToolDescriptor(
+                            tool.name,
+                            DefaultMcpToolDescriptorParser.parse(tool),
+                        )
+                    ToolRegistration<Path>(
+                        id = "mcp__${server.id}__${descriptor.name}",
+                        access = server.accessFor(tool.name),
+                    ) { workRoot ->
+                        listOf(
                             McpServerTool(
                                 client = client,
                                 originalToolName = tool.name,
@@ -243,15 +240,16 @@ class DefaultMcpServersRegistry(
                             )
                         )
                     }
-                    .onFailure {
-                        log.warn(
-                            "Ignoring invalid MCP tool {} from server {}",
-                            tool.name,
-                            server.id,
-                            it,
-                        )
-                    }
-            }
+                }
+                .onFailure {
+                    log.warn(
+                        "Ignoring invalid MCP tool {} from server {}",
+                        tool.name,
+                        server.id,
+                        it,
+                    )
+                }
+                .getOrNull()
         }
     }
 
@@ -277,7 +275,7 @@ class DefaultMcpServersRegistry(
 
 private class DefaultConnectedMcpServer(
     override val id: String,
-    override val toolRegistry: ToolRegistry,
+    override val tools: List<ToolRegistration<Path>>,
     private val transport: Transport,
     private val process: Process? = null,
 ) : ConnectedMcpServer {

@@ -53,17 +53,24 @@ Current built-in agent:
 
 Subagents use the configured normal/default Koog model profile and the global max agent iteration setting. They do not inherit Sidekick chat memory or session history; the `prompt` argument is the only user message.
 
-The subagent tool registry contains only read/search/web tools:
+Task and Loop receive the global catalog's fixed shared selection. Callers cannot narrow or
+override it. Shared tools include workspace files, configured sandbox/bash, git, web, skills,
+time utilities, stats, platform history/user/channel/file reads, and MCP/extension tools
+classified as shared. Workspace and sandbox operations are not restricted to reads.
 
-- `Read`
-- `Glob`
-- `Grep`
-- `webFetch`
+User-facing status, attachments, canvases, reactions, interactive authentication, session
+settings, scheduling, and delegation tools are orchestrator-only. Delegates return results
+to their caller without independently communicating with the requester.
 
-The file tools use the parent turn's same virtual paths.
+Each Task has its own execution context and tool instances, using the parent's virtual paths
+and current attachment context. Each Loop validation/iteration also binds fresh tools.
+MCP connections remain owned by the parent turn; delegates bind fresh wrappers from those
+execution-local sources. Tools and live connections are never global singletons.
 
 ## Key Files
 
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/subagents/Subagents.kt` - built-in and extension subagent loading and frontmatter stripping.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/subagents/TaskTool.kt` - Koog `Task` tool descriptor, validation, status updates, and runner call.
-- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/subagents/KoogSubagentRunner.kt` - isolated Koog agent construction and subagent tool registry.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/subagents/KoogSubagentRunner.kt` - isolated Koog agent construction using catalog-bound tools.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/tools/AgentToolCatalog.kt` - registration, access policy, and execution binding contracts.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/DefaultAgentToolCatalog.kt` - built-in and extension registrations, MCP source binding, and fixed role selections.

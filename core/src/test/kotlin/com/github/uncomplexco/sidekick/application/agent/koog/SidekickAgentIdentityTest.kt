@@ -5,6 +5,7 @@ import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStat
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
+import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
@@ -74,7 +75,7 @@ class SidekickAgentIdentityTest {
                 mock(KoogConfig::class.java),
                 SystemPromptBuilder(config, ChatPlatform.SLACK),
                 TurnPromptBuilder(config) { SkillCatalog(emptyList()) },
-                mock(ToolRegistryFactory::class.java),
+                mock(AgentToolCatalog::class.java),
                 registry,
                 mock(ChatHistoryProvider::class.java),
                 TurnCheckpointPersistence(store),

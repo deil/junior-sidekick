@@ -10,10 +10,7 @@ import kotlin.time.Instant
 import kotlinx.serialization.Serializable
 
 @LLMDescription("General system/runtime tools")
-class SystemTools(
-    private val clock: Clock = Clock.System,
-    private val activityReporter: TurnLifecycle,
-) : ToolSet {
+class ActivityTools(private val activityReporter: TurnLifecycle) : ToolSet {
     @Tool(TOOL_REPORT_ASSISTANT_ACTIVITY)
     @LLMDescription(
         "Report current activity to the user as a short status message. Use at the start of each work phase or a tool call. Use again when the current task, phase, or investigation direction changes. Use for status updates during multi-step work such as researching, diagnosing, searching files, running bash commands, running tests, building, deploying, etc. Messages should be short sentence-case fragments that describe what is happening now and start with a present-participle verb, for example: 'investigating the failure', 'searching files', or 'running tests', and so on."
@@ -26,6 +23,12 @@ class SystemTools(
         return ReportAssistantActivityResult(ok = true)
     }
 
+    companion object {
+        const val TOOL_REPORT_ASSISTANT_ACTIVITY = "assistant_report_status"
+    }
+}
+
+class SystemTools(private val clock: Clock = Clock.System) : ToolSet {
     @Tool
     @LLMDescription(
         "Return current system time in UTC. Use when the user asks for current time/date context. Do not use as a substitute for historical or timezone-conversion research."
@@ -71,10 +74,6 @@ class SystemTools(
             interpreted_as = unit.value,
             iso_utc = instant.toString(),
         )
-    }
-
-    companion object {
-        const val TOOL_REPORT_ASSISTANT_ACTIVITY = "assistant_report_status"
     }
 }
 
