@@ -60,3 +60,25 @@ Example: "Build this feature and do not bother me until completion."
 - Waiting state and pending polling work need to survive restart, just like active execution and queued input.
 - Polling and webhooks should be alternative ways of satisfying a persisted wait, with results associated with the correct execution and PR revision.
 - A suspended execution should release live resources. It should not require a coroutine or process to stay asleep until the event arrives.
+
+## Further decisions: checkpoints and tool recovery
+
+### Independent agent checkpoints
+
+Every low-level agent primitive supports checkpointing out of the box through an injected persistence interface. The primitive saves its own execution state without depending on a particular storage mechanism.
+
+Each agent is persisted independently under an identifier. A parent's checkpoint contains references to child snapshots, never embedded child state. Persistence does not need to understand or enforce the dependency graph. The orchestrator supplies persistence to its children.
+
+The exact recovery/resume contract, including how child references resolve to a resume point, remains open.
+
+### Interrupted tool calls
+
+Keep initial recovery simple. Preserve completed tool results. For any incomplete tool call, supply an error result on resume instead of automatically re-running it. Tell the model that execution was interrupted and the operation may have taken effect; let it verify the outcome and decide how to recover.
+
+Persist the tool-call request and an execution-started marker. More specific recovery behavior based on that marker is future work. Do not attempt exactly-once execution or add machinery to guarantee whether an interrupted external operation succeeded.
+
+### Future tool metadata and approvals
+
+Built-in, extension, and MCP tools should eventually carry behavior metadata such as `readonly`, `mutating`, `destructive`, and `idempotent`. This metadata will inform tool approvals and may also inform recovery.
+
+The tagging scheme remains open. These properties need not be mutually exclusive; a mutating or destructive operation can also be idempotent. Metadata-driven approval and recovery are future work, separate from the initial interrupted-call error behavior.
