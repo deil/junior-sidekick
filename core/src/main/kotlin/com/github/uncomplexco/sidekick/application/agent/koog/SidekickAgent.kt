@@ -24,7 +24,6 @@ import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
-import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolRole
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolRegistration
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
@@ -89,9 +88,8 @@ class SidekickAgent(
 
         try {
             val toolRegistry =
-                toolCatalog.bind(
-                    AgentToolRole.SIDEKICK,
-                    ToolExecutionContext(ctxWithMcp, chat, replyAttachments) { usage += it },
+                toolCatalog.bindOrchestrator(
+                    ToolExecutionContext(ctxWithMcp, chat, replyAttachments) { usage += it }
                 )
             val aiModelProfile = koogConfig.profile(ctx.aiModelProfile)
 

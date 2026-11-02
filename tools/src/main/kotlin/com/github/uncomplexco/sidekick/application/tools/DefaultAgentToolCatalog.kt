@@ -6,7 +6,6 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
 import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
-import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolRole
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolAccess
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolRegistration
@@ -124,7 +123,7 @@ class DefaultAgentToolCatalog(
                         subagents.catalog().subagents,
                         execution.onSubagentCompleted,
                         bindTools = { child ->
-                            bind(AgentToolRole.TASK, execution.copy(turn = child))
+                            bindDelegate(execution.copy(turn = child))
                         },
                     )
                 )
@@ -135,7 +134,7 @@ class DefaultAgentToolCatalog(
                         chat = execution.chat,
                         ctx = execution.turn,
                         bindTools = { child ->
-                            bind(AgentToolRole.LOOP, execution.copy(turn = child))
+                            bindDelegate(execution.copy(turn = child))
                         },
                     )
                     .asTools()
@@ -190,7 +189,13 @@ class DefaultAgentToolCatalog(
                 }
             }
 
-    override suspend fun bind(role: AgentToolRole, context: ToolExecutionContext): ToolRegistry {
+    override suspend fun bindOrchestrator(context: ToolExecutionContext): ToolRegistry =
+        bind(context, orchestrator = true)
+
+    override suspend fun bindDelegate(context: ToolExecutionContext): ToolRegistry =
+        bind(context, orchestrator = false)
+
+    private fun bind(context: ToolExecutionContext, orchestrator: Boolean): ToolRegistry {
         val mcpRegistrations =
             context.turn.conversation.mcpServers.flatMap { server ->
                 server.tools.map { registration ->
@@ -201,10 +206,15 @@ class DefaultAgentToolCatalog(
             }
         val tools =
             (registrations + mcpRegistrations)
-                .filter { it.access.permits(role) }
+                .filter { orchestrator || it.access == ToolAccess.SHARED }
                 .flatMap { it.bind(context) }
         val registry = ToolRegistry { tools(tools) }
-        log.info("Bound {} tools for {} execution {}", tools.size, role, context.turn.turnId)
+        log.info(
+            "Bound {} tools for {} execution {}",
+            tools.size,
+            if (orchestrator) "orchestrator" else "delegate",
+            context.turn.turnId,
+        )
         return registry
     }
 

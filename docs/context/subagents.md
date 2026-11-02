@@ -73,4 +73,4 @@ execution-local sources. Tools and live connections are never global singletons.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/subagents/TaskTool.kt` - Koog `Task` tool descriptor, validation, status updates, and runner call.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/subagents/KoogSubagentRunner.kt` - isolated Koog agent construction using catalog-bound tools.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/tools/AgentToolCatalog.kt` - registration, access policy, and execution binding contracts.
-- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/DefaultAgentToolCatalog.kt` - built-in and extension registrations, MCP source binding, and fixed role selections.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/DefaultAgentToolCatalog.kt` - built-in and extension registrations, MCP source binding, and fixed orchestrator/delegate binding methods.

@@ -7,20 +7,11 @@ import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 
-enum class AgentToolRole {
-    SIDEKICK,
-    TASK,
-    LOOP,
-}
-
 enum class ToolAccess {
     SHARED,
-    ORCHESTRATOR_ONLY;
-
-    fun permits(role: AgentToolRole): Boolean = this == SHARED || role == AgentToolRole.SIDEKICK
+    ORCHESTRATOR_ONLY,
 }
 
-/** A tool or group of tools with the same access policy. Binding creates execution-local tools. */
 data class ToolRegistration<C>(
     val id: String,
     val access: ToolAccess,
@@ -34,6 +25,8 @@ data class ToolExecutionContext(
     val onSubagentCompleted: (AgentUsageStats) -> Unit,
 )
 
-fun interface AgentToolCatalog {
-    suspend fun bind(role: AgentToolRole, context: ToolExecutionContext): ToolRegistry
+interface AgentToolCatalog {
+    suspend fun bindOrchestrator(context: ToolExecutionContext): ToolRegistry
+
+    suspend fun bindDelegate(context: ToolExecutionContext): ToolRegistry
 }

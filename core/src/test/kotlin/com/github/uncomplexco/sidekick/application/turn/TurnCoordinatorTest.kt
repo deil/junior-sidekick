@@ -4,7 +4,6 @@ import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStat
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
-import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
@@ -1181,25 +1180,9 @@ class TurnCoordinatorTest {
         TurnParticipation(
             config,
             DeterministicParticipationClassifier(),
-            LlmParticipationClassifier(koogConfig()) { _, _ -> error("classifier should not run") },
-        )
-
-    private fun koogConfig(): KoogConfig =
-        KoogConfig(
-            openRouterApiKey = "test-key",
-            openRouterAppTitle = "Sidekick",
-            openRouterAppUrl = "",
-            fastModel = "openai/gpt-5.4-mini",
-            fastProvider = "azure",
-            fastReasoningEffort = "low",
-            defaultModel = "z-ai/glm-5.2",
-            defaultProvider = "azure",
-            defaultReasoningEffort = "medium",
-            ultrathinkModel = "openai/gpt-5.5",
-            ultrathinkProvider = "azure",
-            ultrathinkReasoningEffort = "high",
-            imageModel = "image-model",
-            maxAgentIterations = 50,
+            mock(LlmParticipationClassifier::class.java) {
+                error("classifier should not run")
+            },
         )
 
     private fun chat(

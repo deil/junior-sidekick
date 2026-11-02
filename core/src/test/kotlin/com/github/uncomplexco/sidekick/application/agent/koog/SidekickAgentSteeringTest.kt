@@ -19,7 +19,6 @@ import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
-import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolRole
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
@@ -347,10 +346,13 @@ class SidekickAgentSteeringTest {
         private val targets: MutableList<Pair<String, List<String>>>,
         private val onInspected: () -> Unit = {},
     ) : AgentToolCatalog {
-        override suspend fun bind(role: AgentToolRole, context: ToolExecutionContext) =
-            ToolRegistry {
-                tool(InspectTool(context.turn, targets, onInspected))
-            }
+        override suspend fun bindOrchestrator(context: ToolExecutionContext) = bind(context)
+
+        override suspend fun bindDelegate(context: ToolExecutionContext) = bind(context)
+
+        private fun bind(context: ToolExecutionContext) = ToolRegistry {
+            tool(InspectTool(context.turn, targets, onInspected))
+        }
     }
 
     private class InspectTool(

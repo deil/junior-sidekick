@@ -2,7 +2,6 @@ package com.github.uncomplexco.sidekick.application.tools
 
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.serialization.JSONObject
-import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolRole
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolAccess
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolRegistration
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpServerConfig
@@ -35,9 +34,8 @@ class DefaultAgentToolCatalogTest {
             val fixture = ToolCatalogFixture(root)
             val context = fixture.execution()
 
-            val sidekick = fixture.catalog.bind(AgentToolRole.SIDEKICK, context).names()
-            val task = fixture.catalog.bind(AgentToolRole.TASK, context).names()
-            val loop = fixture.catalog.bind(AgentToolRole.LOOP, context).names()
+            val sidekick = fixture.catalog.bindOrchestrator(context).names()
+            val delegate = fixture.catalog.bindDelegate(context).names()
 
             val shared =
                 setOf(
@@ -73,20 +71,19 @@ class DefaultAgentToolCatalogTest {
                     "scheduled_jobs__update",
                     "scheduled_jobs__delete",
                 )
-            assertTrue(task.containsAll(shared), "Missing shared tools: ${shared - task}")
-            assertEquals(task, loop)
+            assertTrue(delegate.containsAll(shared), "Missing shared tools: ${shared - delegate}")
             assertTrue(
-                sidekick.containsAll(task + orchestrator),
+                sidekick.containsAll(delegate + orchestrator),
                 "Missing Sidekick tools: ${orchestrator - sidekick}",
             )
-            assertTrue((task intersect orchestrator).isEmpty())
+            assertTrue((delegate intersect orchestrator).isEmpty())
         }
 
     @Test
-    fun `disabled integrations are absent for every role`() = runBlocking {
+    fun `disabled integrations are absent for orchestrators and delegates`() = runBlocking {
         val fixture = ToolCatalogFixture(root, bashEnabled = false)
-        for (role in AgentToolRole.entries) {
-            val names = fixture.catalog.bind(role, fixture.execution(chat = CatalogChat())).names()
+        for (bind in listOf(fixture.catalog::bindOrchestrator, fixture.catalog::bindDelegate)) {
+            val names = bind(fixture.execution(chat = CatalogChat())).names()
             assertFalse("bash" in names)
             assertFalse(names.any { it.startsWith("slack") || it.startsWith("discord") })
             assertFalse("attachFile" in names)
@@ -97,9 +94,8 @@ class DefaultAgentToolCatalogTest {
     @Test
     fun `discord reads are shared without leaking Slack tools`() = runBlocking {
         val fixture = ToolCatalogFixture(root)
-        for (role in AgentToolRole.entries) {
-            val names =
-                fixture.catalog.bind(role, fixture.execution(chat = CatalogDiscordChat())).names()
+        for (bind in listOf(fixture.catalog::bindOrchestrator, fixture.catalog::bindDelegate)) {
+            val names = bind(fixture.execution(chat = CatalogDiscordChat())).names()
             assertContains(names, "discordChannelHistory")
             assertContains(names, "discordThreadHistory")
             assertFalse(names.any { it.startsWith("slack") })
@@ -130,8 +126,8 @@ class DefaultAgentToolCatalogTest {
         val first = fixture.execution("first")
         val second = fixture.execution("second")
 
-        val firstTools = fixture.catalog.bind(AgentToolRole.TASK, first)
-        val secondTools = fixture.catalog.bind(AgentToolRole.LOOP, second)
+        val firstTools = fixture.catalog.bindDelegate(first)
+        val secondTools = fixture.catalog.bindDelegate(second)
 
         assertEquals(0, publicationBindings)
         assertEquals(
@@ -143,7 +139,7 @@ class DefaultAgentToolCatalogTest {
             secondTools.getTool<ContextProbeTool>().execute(JSONObject(emptyMap())),
         )
         assertNotSame(firstTools.getTool("Read"), secondTools.getTool("Read"))
-        fixture.catalog.bind(AgentToolRole.SIDEKICK, first)
+        fixture.catalog.bindOrchestrator(first)
         assertEquals(1, publicationBindings)
     }
 
@@ -165,9 +161,9 @@ class DefaultAgentToolCatalogTest {
             val first = fixture.execution("first", servers = listOf(source))
             val second = fixture.execution("second", servers = listOf(source))
 
-            val task = fixture.catalog.bind(AgentToolRole.TASK, first)
-            val loop = fixture.catalog.bind(AgentToolRole.LOOP, second)
-            val sidekick = fixture.catalog.bind(AgentToolRole.SIDEKICK, first)
+            val task = fixture.catalog.bindDelegate(first)
+            val loop = fixture.catalog.bindDelegate(second)
+            val sidekick = fixture.catalog.bindOrchestrator(first)
 
             assertContains(sidekick.names(), "mcpMessage")
             assertFalse("mcpMessage" in task.names())
@@ -201,18 +197,20 @@ class DefaultAgentToolCatalogTest {
         runBlocking {
             val mcp = McpToolsConfig().apply { servers = listOf(McpServerConfig(id = "test")) }
             val fixture = ToolCatalogFixture(root, mcp = mcp)
-            for (role in AgentToolRole.entries) {
-                val names = fixture.catalog.bind(role, fixture.execution()).names()
-                assertContains(names, "get_mcp_status_test")
-                assertEquals(role == AgentToolRole.SIDEKICK, "connect_mcp_test" in names)
-            }
+            val orchestrator = fixture.catalog.bindOrchestrator(fixture.execution()).names()
+            val delegate = fixture.catalog.bindDelegate(fixture.execution()).names()
+
+            assertContains(orchestrator, "get_mcp_status_test")
+            assertContains(orchestrator, "connect_mcp_test")
+            assertContains(delegate, "get_mcp_status_test")
+            assertFalse("connect_mcp_test" in delegate)
         }
 
     @Test
     fun `Task starts a separately bound execution with fixed shared access`() = runBlocking {
         val fixture = ToolCatalogFixture(root)
         val parent = fixture.execution()
-        val registry = fixture.catalog.bind(AgentToolRole.SIDEKICK, parent)
+        val registry = fixture.catalog.bindOrchestrator(parent)
         val task = registry.getTool<TaskTool>()
 
         assertEquals(

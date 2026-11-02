@@ -4,7 +4,6 @@ import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStat
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
-import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
@@ -44,6 +43,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.mockito.Mockito.mock
 
 class DiscordAdapterTest {
     @TempDir lateinit var dir: Path
@@ -509,7 +509,7 @@ class DiscordAdapterTest {
                         TurnParticipation(
                             config,
                             DeterministicParticipationClassifier(),
-                            LlmParticipationClassifier(koogConfig()) { _, _ ->
+                            mock(LlmParticipationClassifier::class.java) {
                                 error("classifier should not run for a DM")
                             },
                         ),
@@ -578,7 +578,7 @@ class DiscordAdapterTest {
                         TurnParticipation(
                             config,
                             DeterministicParticipationClassifier(),
-                            LlmParticipationClassifier(koogConfig()) { _, _ ->
+                            mock(LlmParticipationClassifier::class.java) {
                                 error("classifier should not run for a mention")
                             },
                         ),
@@ -657,23 +657,5 @@ class DiscordAdapterTest {
             false,
             "message $id",
             null,
-        )
-
-    private fun koogConfig() =
-        KoogConfig(
-            openRouterApiKey = "test-key",
-            openRouterAppTitle = "Sidekick",
-            openRouterAppUrl = "",
-            fastModel = "openai/gpt-5.4-mini",
-            fastProvider = "azure",
-            fastReasoningEffort = "low",
-            defaultModel = "z-ai/glm-5.2",
-            defaultProvider = "azure",
-            defaultReasoningEffort = "medium",
-            ultrathinkModel = "openai/gpt-5.5",
-            ultrathinkProvider = "azure",
-            ultrathinkReasoningEffort = "high",
-            imageModel = "image-model",
-            maxAgentIterations = 50,
         )
 }

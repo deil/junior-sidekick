@@ -4,7 +4,6 @@ import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStat
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
-import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
@@ -45,6 +44,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.mockito.Mockito.mock
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SlackActivityTest {
@@ -226,7 +226,7 @@ class SlackActivityTest {
                 TurnParticipation(
                     config,
                     DeterministicParticipationClassifier(),
-                    LlmParticipationClassifier(koogConfig()) { _, _ ->
+                    mock(LlmParticipationClassifier::class.java) {
                         error("No classification expected")
                     },
                 ),
@@ -316,23 +316,5 @@ class SlackActivityTest {
         private fun awaitExternal(signal: CompletableDeferred<Unit>) = runBlocking {
             withTimeout(5_000) { signal.await() }
         }
-
-        private fun koogConfig() =
-            KoogConfig(
-                openRouterApiKey = "unused",
-                openRouterAppTitle = "Sidekick",
-                openRouterAppUrl = "",
-                fastModel = "test",
-                fastProvider = "test",
-                fastReasoningEffort = "low",
-                defaultModel = "test",
-                defaultProvider = "test",
-                defaultReasoningEffort = "medium",
-                ultrathinkModel = "test",
-                ultrathinkProvider = "test",
-                ultrathinkReasoningEffort = "high",
-                imageModel = "test",
-                maxAgentIterations = 10,
-            )
     }
 }

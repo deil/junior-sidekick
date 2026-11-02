@@ -1,6 +1,5 @@
 package com.github.uncomplexco.sidekick.dumphere
 
-import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolRole
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolAccess
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
 import java.nio.file.Path
@@ -33,16 +32,6 @@ class DumpHereToolProviderTest {
             setOf("publishFileInternally", "publishSnippetInternally", "editInternalSnippet"),
             orchestratorNames,
         )
-        for (role in listOf(AgentToolRole.TASK, AgentToolRole.LOOP)) {
-            assertEquals(
-                sharedNames,
-                registrations
-                    .filter { it.access.permits(role) }
-                    .flatMap { it.bind(context) }
-                    .map { it.name }
-                    .toSet(),
-            )
-        }
         val shared = registrations.single { it.access == ToolAccess.SHARED }
         assertNotSame(shared.bind(context).single(), shared.bind(context).single())
     }

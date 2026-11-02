@@ -1,13 +1,9 @@
 package com.github.uncomplexco.sidekick.application.turn
 
-import ai.koog.prompt.Prompt
-import ai.koog.prompt.dsl.prompt
-import ai.koog.prompt.executor.model.executeStructured
-import ai.koog.prompt.llm.LLMProvider
-import ai.koog.prompt.llm.LLModel
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
-import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
+import com.github.uncomplexco.sidekick.application.agent.koog.KoogAgent
+import com.github.uncomplexco.sidekick.application.agent.koog.RunId
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
@@ -16,6 +12,7 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
+import java.util.UUID
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -197,29 +194,9 @@ class DeterministicParticipationClassifier {
 }
 
 @Component
-class LlmParticipationClassifier(
-    private val config: KoogConfig,
-    private val executeClassifier: suspend (Prompt, LLModel) -> ParticipationClassifierResult =
-        { prompt, model ->
-            config.openRouterExecutor().use { executor ->
-                executor
-                    .executeStructured<ParticipationClassifierResult>(prompt, model)
-                    .getOrThrow()
-                    .data
-            }
-        },
-) {
+class LlmParticipationClassifier(private val config: KoogConfig) {
     suspend fun classify(input: ParticipationClassifierInput): TurnParticipationDecision {
         return runCatching {
-                val aiModelProfile = config.fastProfile
-                val model =
-                    LLModel(
-                        provider = LLMProvider.OpenRouter,
-                        id = aiModelProfile.model,
-                        capabilities = config.modelCapabilities(),
-                        contextLength = 128_000,
-                    )
-
                 val historyText =
                     if (input.messageHistory.isEmpty()) {
                         "[none]"
@@ -237,29 +214,28 @@ class LlmParticipationClassifier(
                             .joinToString("\n")
                     }
 
-                val prompt =
-                    prompt(
-                        id = "sidekick-reply-decision",
-                        params = config.openRouterParams(aiModelProfile, input.conversationId),
-                    ) {
-                        system(
-                            buildRouterSystemPrompt(
-                                input.botUser.fullName!!,
-                                input.botUser.username,
-                            )
+                val result =
+                    KoogAgent(config, "sidekick-should-reply-classifier")
+                        .runSimple<ParticipationClassifierResult>(
+                            runId = RunId(input.conversationId, UUID.randomUUID().toString()),
+                            model = config.fastProfile,
+                            systemPrompt = {
+                                buildRouterSystemPrompt(
+                                    input.botUser.fullName!!,
+                                    input.botUser.username,
+                                )
+                            },
+                            input = {
+                                buildRouterPrompt(
+                                    input.messages,
+                                    historyText,
+                                    input.messageHistory.lastOrNull {
+                                        it.role == SessionMessageRole.ASSISTANT
+                                    },
+                                )
+                            },
                         )
-                        user(
-                            buildRouterPrompt(
-                                input.messages,
-                                historyText,
-                                input.messageHistory.lastOrNull {
-                                    it.role == SessionMessageRole.ASSISTANT
-                                },
-                            )
-                        )
-                    }
 
-                val result = executeClassifier(prompt, model)
                 if (!result.shouldReply) {
                     return TurnParticipationDecision.Skip(
                         reason =
