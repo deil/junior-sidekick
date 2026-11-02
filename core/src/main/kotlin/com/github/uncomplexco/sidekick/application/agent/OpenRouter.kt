@@ -22,7 +22,7 @@ fun KoogConfig.openRouterExecutor(): PromptExecutor =
                             openRouterAppUrl,
                         ),
                 )
-                .toRetryingClient(RetryConfig.PRODUCTION)
+                .toRetryingClient(RetryConfig.PRODUCTION.copy(maxAttempts = 5))
     )
 
 internal class OpenRouterHttpClientFactory(
