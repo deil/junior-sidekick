@@ -12,6 +12,7 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertSame
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
@@ -21,6 +22,34 @@ import org.mockito.Mockito.spy
 import org.mockito.Mockito.verify
 
 class KoogAgentTest {
+    @Test
+    fun `string output is raw text and omitted system prompt adds no message`() = runBlocking {
+        val config = config()
+        val executor =
+            spy(QueuedPromptExecutor(Message.Assistant("  Plain text\n", ResponseMetaInfo.Empty)))
+
+        val result =
+            mockStatic(
+                    Class.forName("com.github.uncomplexco.sidekick.application.agent.OpenRouterKt")
+                )
+                .use { model ->
+                    model
+                        .`when`<PromptExecutor> { config.openRouterExecutor() }
+                        .thenReturn(executor)
+                    KoogAgent(config, "summary")
+                        .runSimple<String>(
+                            runId = RunId(ConversationId("C123", "thread"), "run-1"),
+                            model = config.fastProfile,
+                            input = { "Summarize this" },
+                        )
+                }
+
+        assertEquals("  Plain text\n", result)
+        val message = executor.prompts.single().messages.single()
+        assertEquals("Summarize this", assertIs<Message.User>(message).textContent())
+        verify(executor).close()
+    }
+
     @Test
     fun `simple run sends caller prompts without tools and returns structured result`() =
         runBlocking {

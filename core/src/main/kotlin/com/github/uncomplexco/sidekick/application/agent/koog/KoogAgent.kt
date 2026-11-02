@@ -11,6 +11,7 @@ import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.LlmProfile
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import org.slf4j.LoggerFactory
 
 data class RunId(
     val conversationId: ConversationId?,
@@ -24,7 +25,7 @@ class KoogAgent(
     suspend inline fun <reified T> runSimple(
         runId: RunId,
         model: LlmProfile,
-        crossinline systemPrompt: () -> String,
+        crossinline systemPrompt: () -> String? = { null },
         crossinline input: () -> String,
     ): T {
         val prompt =
@@ -32,7 +33,7 @@ class KoogAgent(
                 id = "${runId.conversationId}-$agentId",
                 params = koogConfig.openRouterParams(model, runId.conversationId),
             ) {
-                system(systemPrompt())
+                systemPrompt()?.let { system(it) }
                 user(input())
             }
         val llm =
@@ -43,7 +44,18 @@ class KoogAgent(
             )
 
         return koogConfig.openRouterExecutor().use { executor ->
-            executor.executeStructured<T>(prompt, llm).getOrThrow().data
+            log.info(
+                "Executing simple agent {} run {} for conversation {} with model {}",
+                agentId,
+                runId.runId,
+                runId.conversationId,
+                model.model,
+            )
+            if (T::class == String::class) {
+                executor.execute(prompt, llm).textContent() as T
+            } else {
+                executor.executeStructured<T>(prompt, llm).getOrThrow().data
+            }
         }
     }
 
@@ -82,5 +94,9 @@ class KoogAgent(
             )
 
         return koog.run(input(), "${runId.conversationId?.lockKey()}-$agentId")
+    }
+
+    companion object {
+        @PublishedApi internal val log = LoggerFactory.getLogger(KoogAgent::class.java)
     }
 }
