@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.discord
 
+import com.github.uncomplexco.sidekick.adapters.ChatFileIngestor
 import com.github.uncomplexco.sidekick.adapters.statusLine
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
@@ -13,11 +14,14 @@ import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
+import com.github.uncomplexco.sidekick.application.turn.ReplyAttachment
 import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
 import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
+import java.io.IOException
 import kotlin.time.Clock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import net.dv8tion.jda.api.exceptions.ErrorResponseException
 import org.slf4j.LoggerFactory
 
 private val log = LoggerFactory.getLogger(DiscordTurnOutput::class.java)
@@ -33,9 +37,11 @@ internal class DiscordChatPlatformAdapter(
     startTyping: () -> AutoCloseable,
     private val loadChannelHistory: suspend (Int, String?) -> DiscordChannelHistoryPage,
     private val loadThreadHistory: suspend (String, Int, String?) -> DiscordThreadHistoryPage,
+    private val fileIngestor: ChatFileIngestor,
+    upload: suspend (ReplyAttachment) -> DiscordSentMessage,
     send: suspend (String) -> DiscordSentMessage,
 ) : DiscordBackedChatPlatformAdapter {
-    private val output = DiscordTurnOutput(updateReaction, startTyping, send)
+    private val output = DiscordTurnOutput(updateReaction, startTyping, upload, send)
     override val lifecycle: TurnLifecycle = output
     override val delivery: ResponseDelivery = output
 
@@ -56,15 +62,15 @@ internal class DiscordChatPlatformAdapter(
     override suspend fun ingestFiles(
         conversationId: ConversationId,
         files: List<IncomingChatFile>,
-    ): List<IncomingChatFile> {
-        require(files.isEmpty()) { "Discord attachments must be rejected at ingress" }
-        return emptyList()
-    }
+    ): List<IncomingChatFile> = fileIngestor.ingest(conversationId, files)
 }
 
 internal class DiscordTurnOutput(
     private val updateReaction: suspend (String, String, Boolean) -> Unit = { _, _, _ -> },
     private val startTyping: () -> AutoCloseable = { AutoCloseable {} },
+    private val upload: suspend (ReplyAttachment) -> DiscordSentMessage = {
+        error("File upload is not configured")
+    },
     private val send: suspend (String) -> DiscordSentMessage,
 ) : TurnLifecycle, ResponseDelivery {
     private var turnActive = false
@@ -113,24 +119,37 @@ internal class DiscordTurnOutput(
         response: AgentResponse,
         metadata: ResponseMetadata,
     ): PublishedMessage {
-        val attachmentNotice =
-            response.attachments
-                .takeIf { it.isNotEmpty() }
-                ?.joinToString(
-                    prefix = "\n\nGenerated attachments are not supported on Discord: "
-                ) {
-                    it.name
+        val uploaded =
+            response.attachments.mapNotNull { attachment ->
+                try {
+                    log.info("Uploading Discord reply attachment name={}", attachment.name)
+                    upload(attachment)
+                } catch (error: IOException) {
+                    log.warn(
+                        "Discord reply attachment upload failed for {}",
+                        attachment.name,
+                        error,
+                    )
+                    null
+                } catch (error: ErrorResponseException) {
+                    log.warn(
+                        "Discord reply attachment upload failed for {}",
+                        attachment.name,
+                        error,
+                    )
+                    null
                 }
-                .orEmpty()
+            }
         val replyText =
             response.text.takeUnless {
                 it.isBlank() || it.contains(SystemPromptBuilder.NO_REPLY_MARKER)
             }
-        val text = replyText.orEmpty() + attachmentNotice
+        val text = replyText.orEmpty()
 
         if (text.isBlank()) {
             val timestamp = Clock.System.now().toEpochMilliseconds()
-            return PublishedMessage("no_reply:$timestamp", timestamp)
+            return uploaded.lastOrNull()?.let { PublishedMessage(it.id, it.createdAtMs) }
+                ?: PublishedMessage("no_reply:$timestamp", timestamp)
         }
 
         val statusSubtext =

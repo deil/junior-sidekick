@@ -1,8 +1,9 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
+import com.github.uncomplexco.sidekick.adapters.ChatFileIngestor
+import com.github.uncomplexco.sidekick.adapters.MAX_MESSAGE_FILES
 import com.github.uncomplexco.sidekick.adapters.statusLine
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
@@ -29,12 +30,7 @@ import com.slack.api.model.block.Blocks.markdown
 import com.slack.api.model.block.LayoutBlock
 import com.slack.api.model.block.composition.BlockCompositions.markdownText
 import java.io.IOException
-import java.net.URI
 import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.nio.file.Files
-import java.nio.file.Path
 import java.time.Duration
 import kotlin.time.Clock
 import kotlinx.coroutines.Job
@@ -317,74 +313,23 @@ internal fun incomingChatFiles(
 }
 
 class SlackFileIngestor(
-    private val slackBotToken: String,
-    private val virtualPathsFactory: VirtualPathsFactory,
-    private val imageSummarizer: ImageSummarizer,
-    private val httpClient: HttpClient =
+    slackBotToken: String,
+    virtualPathsFactory: VirtualPathsFactory,
+    imageSummarizer: ImageSummarizer,
+    httpClient: HttpClient =
         HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build(),
 ) {
+    private val delegate =
+        ChatFileIngestor(virtualPathsFactory, imageSummarizer, httpClient, "Bearer $slackBotToken")
+
     suspend fun ingest(
         conversationId: ConversationId,
         files: List<IncomingChatFile>,
         summarizeImages: Boolean = true,
-    ): List<IncomingChatFile> =
-        files.take(MAX_MESSAGE_FILES).mapNotNull { file ->
-            val virtualPaths = virtualPathsFactory.forConversation(conversationId)
-            val localPath = download(virtualPaths, file) ?: return@mapNotNull null
-            file.copy(
-                localPath = virtualPaths.virtualPath(localPath.toString()),
-                summary =
-                    if (summarizeImages && file.mimetype?.startsWith("image/") == true) {
-                        when (val result = imageSummarizer.summarize(localPath)) {
-                            is ImageSummarizer.Result.Success -> {
-                                result.summary
-                            }
-
-                            is ImageSummarizer.Result.Failure -> {
-                                Loggers.SLACK.warn(
-                                    "Image summarization failed for file id={}",
-                                    file.id,
-                                    result.error,
-                                )
-                                null
-                            }
-                        }
-                    } else {
-                        null
-                    },
-            )
-        }
-
-    private fun download(
-        virtualPaths: VirtualPaths,
-        file: IncomingChatFile,
-    ): Path? =
-        runCatching {
-                val response =
-                    httpClient.send(
-                        HttpRequest.newBuilder(URI.create(file.urlPrivateDownload))
-                            .timeout(Duration.ofSeconds(30))
-                            .header("Authorization", "Bearer $slackBotToken")
-                            .GET()
-                            .build(),
-                        HttpResponse.BodyHandlers.ofByteArray(),
-                    )
-                check(response.statusCode() in 200..299) {
-                    "Slack file download failed with HTTP ${response.statusCode()}."
-                }
-
-                Files.createDirectories(virtualPaths.sessionRoot)
-                val target = virtualPaths.sessionRoot.resolve(downloadFileName(file))
-                Files.write(target, response.body())
-                return@runCatching target
-            }
-            .getOrElse {
-                Loggers.SLACK.warn("Slack file ingest failed for file id={}", file.id, it)
-                null
-            }
+    ): List<IncomingChatFile> = delegate.ingest(conversationId, files, summarizeImages)
 }
 
 private fun List<SlackFile>?.toIncomingChatFiles(): List<IncomingChatFile> =
@@ -402,12 +347,6 @@ private fun List<SlackFile>?.toIncomingChatFiles(): List<IncomingChatFile> =
         )
     }
 
-internal fun downloadFileName(file: IncomingChatFile): String =
-    "${sanitizeFileName(file.id)}-${sanitizeFileName(file.name)}"
-
-private fun sanitizeFileName(value: String): String =
-    value.replace(Regex("[^A-Za-z0-9._-]"), "_").trim('.', '_').ifBlank { "file" }
-
 internal fun slackTsToMillis(ts: String): Long = (ts.toDouble().times(1000)).toLong()
 
 internal fun isBotsOwnMessage(
@@ -419,5 +358,3 @@ internal fun containsMention(
     text: String,
     username: String,
 ): Boolean = text.contains("<@$username>")
-
-private const val MAX_MESSAGE_FILES = 3

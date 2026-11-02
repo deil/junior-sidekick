@@ -23,6 +23,7 @@ data class ParticipationClassifierMessage(
     val text: String,
     val author: MessageAuthor,
     val isExplicitMention: Boolean = false,
+    val hasAttachments: Boolean = false,
 )
 
 data class ParticipationClassifierInput(
@@ -95,6 +96,7 @@ class TurnParticipation(
                             author = message.sender,
                             isExplicitMention =
                                 message.type == IncomingMessageType.EXPLICIT_MENTION,
+                            hasAttachments = message.files.isNotEmpty(),
                         )
                     },
                 botUser = botUser,
@@ -141,7 +143,8 @@ class DeterministicParticipationClassifier {
                 TurnParticipationDecision.Unsubscribe(TurnParticipationReason.UNSUBSCRIBE_COMMAND)
             message.isExplicitMention || explicitMention(text, input.botUser.username) ->
                 TurnParticipationDecision.Respond(TurnParticipationReason.EXPLICIT_MENTION)
-            text.isBlank() -> TurnParticipationDecision.Skip(TurnParticipationReason.EMPTY_MESSAGE)
+            text.isBlank() && !message.hasAttachments ->
+                TurnParticipationDecision.Skip(TurnParticipationReason.EMPTY_MESSAGE)
             otherParty != null ->
                 TurnParticipationDecision.Skip(
                     TurnParticipationReason.DIRECTED_TO_OTHER_PARTY,
