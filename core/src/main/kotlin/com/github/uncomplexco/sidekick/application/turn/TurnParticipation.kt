@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.turn
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.AgentRunResult
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.koog.KoogAgent
 import com.github.uncomplexco.sidekick.application.agent.koog.RunId
@@ -13,6 +14,7 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRo
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -214,7 +216,7 @@ class LlmParticipationClassifier(private val config: KoogConfig) {
                             .joinToString("\n")
                     }
 
-                val result =
+                val execution =
                     KoogAgent(config, "sidekick-should-reply-classifier")
                         .runSimple<ParticipationClassifierResult>(
                             runId = RunId(input.conversationId, UUID.randomUUID().toString()),
@@ -235,6 +237,12 @@ class LlmParticipationClassifier(private val config: KoogConfig) {
                                 )
                             },
                         )
+
+                val result =
+                    when (execution) {
+                        is AgentRunResult.Completed -> execution.output
+                        is AgentRunResult.Failed -> throw execution.cause
+                    }
 
                 if (!result.shouldReply) {
                     return TurnParticipationDecision.Skip(
@@ -261,6 +269,7 @@ class LlmParticipationClassifier(private val config: KoogConfig) {
                 }
             }
             .getOrElse { error ->
+                if (error is CancellationException) throw error
                 log.warn("Participation classifier failed", error)
                 TurnParticipationDecision.Skip(
                     TurnParticipationReason.CLASSIFIER_ERROR,
