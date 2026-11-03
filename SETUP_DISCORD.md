@@ -42,7 +42,7 @@ ADAPTERS_DISCORD_BOT_TOKEN=YOUR_DISCORD_BOT_TOKEN
 ADAPTERS_OPEN_ROUTER_API_KEY=YOUR_OPENROUTER_API_KEY
 ```
 
-The defaults remain in `app/src/main/resources/META-INF/sidekick-defaults.properties`.
+The defaults remain in `interfaces/src/main/resources/META-INF/sidekick-defaults.properties`.
 
 ## Start Sidekick
 

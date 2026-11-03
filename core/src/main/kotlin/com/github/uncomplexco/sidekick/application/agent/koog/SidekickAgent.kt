@@ -9,7 +9,6 @@ import ai.koog.agents.core.dsl.builder.strategy
 import ai.koog.agents.core.dsl.extension.ToolCalls
 import ai.koog.agents.core.dsl.extension.onTextMessage
 import ai.koog.agents.core.dsl.extension.onToolCalls
-import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.agents.snapshot.feature.Persistence
 import ai.koog.prompt.dsl.prompt
@@ -24,6 +23,9 @@ import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
+import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
+import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
+import com.github.uncomplexco.sidekick.application.agent.tools.ToolRegistration
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
@@ -32,7 +34,6 @@ import com.github.uncomplexco.sidekick.application.stats.AgentStats
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.turn.RecordedTurn
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
-import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
 import com.github.uncomplexco.sidekick.application.turn.resolveRequester
 import java.nio.file.Path
@@ -40,21 +41,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 private val log = LoggerFactory.getLogger(SidekickAgent::class.java)
-
-interface ToolRegistryFactory {
-    suspend fun buildExecutionTools(
-        ctx: TurnContext,
-        chat: ChatPlatformAdapter,
-        replyAttachments: ReplyAttachmentCollector,
-        onSubagentCompleted: (AgentUsageStats) -> Unit,
-    ): ToolRegistry
-
-    suspend fun buildOrchestrationTools(
-        toolRegistry: ToolRegistry,
-        chat: ChatPlatformAdapter,
-        ctx: TurnContext,
-    ): ToolRegistry
-}
 
 interface McpServersRegistry {
     suspend fun connect(
@@ -66,7 +52,7 @@ interface McpServersRegistry {
 
 interface ConnectedMcpServer {
     val id: String
-    val toolRegistry: ToolRegistry
+    val tools: List<ToolRegistration<Path>>
 
     suspend fun close()
 }
@@ -77,7 +63,7 @@ class SidekickAgent(
     private val koogConfig: KoogConfig,
     private val systemPromptBuilder: SystemPromptBuilder,
     private val turnPromptBuilder: TurnPromptBuilder,
-    private val toolRegistryFactory: ToolRegistryFactory,
+    private val toolCatalog: AgentToolCatalog,
     private val mcpServersRegistry: McpServersRegistry,
     private val chatHistoryProvider: ChatHistoryProvider,
     private val checkpointPersistence: TurnCheckpointPersistence,
@@ -101,20 +87,10 @@ class SidekickAgent(
         val replyAttachments = ReplyAttachmentCollector(ctx.conversation.virtualPaths)
 
         try {
-            val mcpToolRegistry =
-                mcpServers.fold(ToolRegistry.EMPTY) { acc, server -> acc + server.toolRegistry }
-            val baseTools =
-                toolRegistryFactory.buildExecutionTools(ctxWithMcp, chat, replyAttachments) {
-                    subagentUsage ->
-                    usage += subagentUsage
-                } + mcpToolRegistry
             val toolRegistry =
-                baseTools +
-                    toolRegistryFactory.buildOrchestrationTools(
-                        toolRegistry = baseTools,
-                        chat = chat,
-                        ctx = ctxWithMcp,
-                    )
+                toolCatalog.bindOrchestrator(
+                    ToolExecutionContext(ctxWithMcp, chat, replyAttachments) { usage += it }
+                )
             val aiModelProfile = koogConfig.profile(ctx.aiModelProfile)
 
             val seenMessages = turn.messages.map { it.id }.toMutableSet()

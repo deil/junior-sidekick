@@ -1,8 +1,13 @@
 package com.github.uncomplexco.sidekick.application.turn
 
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.openrouter.OpenRouterParams
+import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.message.Message
+import ai.koog.prompt.message.ResponseMetaInfo
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
+import com.github.uncomplexco.sidekick.application.agent.koog.QueuedPromptExecutor
+import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
@@ -17,11 +22,88 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.mockito.Mockito.mockStatic
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 import org.xml.sax.InputSource
 
 class LlmParticipationClassifierTest {
+    @Test
+    fun `shared runtime parses classifier response and retains conversation association`() =
+        runBlocking {
+            val batch =
+                input(
+                    listOf(
+                        ParticipationClassifierMessage("check this", MessageAuthor("U123", "User"))
+                    )
+                )
+
+            val (decision, prompt) =
+                classifyWithModel(
+                    batch,
+                    """{"shouldReply":true,"confidence":0.95,"reason":"directed request"}""",
+                )
+
+            assertEquals(
+                TurnParticipationDecision.Respond(
+                    TurnParticipationReason.CLASSIFIER,
+                    "directed request",
+                ),
+                decision,
+            )
+            assertEquals(
+                "\"C123:thread1\"",
+                (prompt.params as OpenRouterParams)
+                    .additionalProperties
+                    ?.get("session_id")
+                    .toString(),
+            )
+            assertContains(
+                prompt.messages.filterIsInstance<Message.System>().first().textContent(),
+                "entire batch",
+            )
+            assertContains(
+                prompt.messages.filterIsInstance<Message.User>().first().textContent(),
+                "check this",
+            )
+        }
+
+    @Test
+    fun `shared runtime supports classification without conversation association`() = runBlocking {
+        val batch =
+            input(
+                    listOf(
+                        ParticipationClassifierMessage("check this", MessageAuthor("U123", "User"))
+                    )
+                )
+                .copy(conversationId = null)
+
+        val (decision, prompt) =
+            classifyWithModel(batch, """{"shouldReply":true,"confidence":0.95}""")
+
+        assertEquals(
+            TurnParticipationDecision.Respond(TurnParticipationReason.CLASSIFIER),
+            decision,
+        )
+        assertEquals(
+            null,
+            (prompt.params as OpenRouterParams).additionalProperties?.get("session_id"),
+        )
+    }
+
+    @Test
+    fun `invalid structured output from shared runtime skips classification`() = runBlocking {
+        val batch =
+            input(
+                listOf(ParticipationClassifierMessage("check this", MessageAuthor("U123", "User")))
+            )
+
+        val (decision, _) = classifyWithModel(batch, "not JSON")
+
+        assertIs<TurnParticipationDecision.Skip>(decision)
+        assertEquals(TurnParticipationReason.CLASSIFIER_ERROR, decision.reason)
+    }
+
     @Nested
     inner class PromptContents {
         @Test
@@ -50,7 +132,7 @@ class LlmParticipationClassifierTest {
                 rendered.map { it.getAttribute("author_name") },
             )
             assertContains(
-                prompt.messages.filterIsInstance<Message.System>().single().textContent(),
+                prompt.messages.filterIsInstance<Message.System>().first().textContent(),
                 "entire batch",
             )
         }
@@ -153,7 +235,6 @@ class LlmParticipationClassifierTest {
     inner class BatchDecision {
         @ParameterizedTest
         @CsvSource(
-            "true,0.95,CLASSIFIER",
             "false,0.95,SIDE_CONVERSATION",
             "true,0.5,LOW_CONFIDENCE",
             "false,0.5,LOW_CONFIDENCE",
@@ -164,14 +245,6 @@ class LlmParticipationClassifierTest {
             reason: TurnParticipationReason,
         ) = runBlocking {
             // Arrange
-            val classifier =
-                LlmParticipationClassifier(config()) { _, _ ->
-                    LlmParticipationClassifier.ParticipationClassifierResult(
-                        shouldReply,
-                        confidence,
-                        "batch assessment",
-                    )
-                }
             val batch =
                 input(
                     listOf(
@@ -184,14 +257,14 @@ class LlmParticipationClassifierTest {
                 )
 
             // Act
-            val decision = classifier.classify(batch)
+            val (decision, _) =
+                classifyWithModel(
+                    batch,
+                    """{"shouldReply":$shouldReply,"confidence":$confidence,"reason":"batch assessment"}""",
+                )
 
             // Assert
-            if (reason == TurnParticipationReason.CLASSIFIER) {
-                assertIs<TurnParticipationDecision.Respond>(decision)
-            } else {
-                assertIs<TurnParticipationDecision.Skip>(decision)
-            }
+            assertIs<TurnParticipationDecision.Skip>(decision)
             assertEquals(reason, decision.reason)
             assertEquals("batch assessment", decision.detail)
         }
@@ -200,8 +273,7 @@ class LlmParticipationClassifierTest {
         fun `model failure skips the batch with classifier error instead of crashing`() =
             runBlocking {
                 // Arrange
-                val classifier =
-                    LlmParticipationClassifier(config()) { _, _ -> error("llm unavailable") }
+                val executor = QueuedPromptExecutor(beforeResponse = { error("llm unavailable") })
                 val batch =
                     input(
                         listOf(
@@ -213,7 +285,7 @@ class LlmParticipationClassifierTest {
                     )
 
                 // Act
-                val decision = classifier.classify(batch)
+                val (decision, _) = classifyWithExecutor(batch, executor)
 
                 // Assert
                 assertEquals(
@@ -227,14 +299,33 @@ class LlmParticipationClassifierTest {
     }
 
     private suspend fun capturePrompt(input: ParticipationClassifierInput): Prompt {
-        val prompts = mutableListOf<Prompt>()
-        val classifier =
-            LlmParticipationClassifier(config()) { prompt, _ ->
-                prompts += prompt
-                LlmParticipationClassifier.ParticipationClassifierResult(true, 0.95)
-            }
-        classifier.classify(input)
-        return prompts.single()
+        return classifyWithModel(input, """{"shouldReply":true,"confidence":0.95}""").second
+    }
+
+    private suspend fun classifyWithModel(
+        input: ParticipationClassifierInput,
+        response: String,
+    ): Pair<TurnParticipationDecision, Prompt> {
+        val executor = QueuedPromptExecutor(Message.Assistant(response, ResponseMetaInfo.Empty))
+        return classifyWithExecutor(input, executor)
+    }
+
+    private suspend fun classifyWithExecutor(
+        input: ParticipationClassifierInput,
+        executor: QueuedPromptExecutor,
+    ): Pair<TurnParticipationDecision, Prompt> {
+        val config = config()
+        val decision =
+            mockStatic(
+                    Class.forName("com.github.uncomplexco.sidekick.application.agent.OpenRouterKt")
+                )
+                .use { model ->
+                    model
+                        .`when`<PromptExecutor> { config.openRouterExecutor() }
+                        .thenReturn(executor)
+                    LlmParticipationClassifier(config).classify(input)
+                }
+        return decision to executor.prompts.single()
     }
 
     private fun currentMessages(prompt: Prompt): List<Element> {
@@ -245,7 +336,7 @@ class LlmParticipationClassifierTest {
     }
 
     private fun document(prompt: Prompt): Document {
-        val text = prompt.messages.filterIsInstance<Message.User>().single().textContent()
+        val text = prompt.messages.filterIsInstance<Message.User>().first().textContent()
         return DocumentBuilderFactory.newInstance()
             .newDocumentBuilder()
             .parse(InputSource(StringReader("<prompt>$text</prompt>")))

@@ -8,7 +8,7 @@ plugins {
 java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 
 dependencies {
-    implementation(project(":app"))
+    implementation(project(":interfaces"))
     implementation(project(":tools-dumphere"))
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.kotlin.reflect)

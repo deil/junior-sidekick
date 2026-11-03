@@ -1,16 +1,17 @@
 package com.github.uncomplexco.sidekick.application.tools.mcp
 
 import ai.koog.agents.core.tools.Tool
-import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.serialization.JSONObject
 import ai.koog.serialization.JSONPrimitive
 import com.github.uncomplexco.sidekick.application.agent.koog.ConnectedMcpServer
+import com.github.uncomplexco.sidekick.application.agent.tools.ToolRegistration
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
@@ -85,7 +86,7 @@ class McpStatusToolsTest {
 }
 
 private class TestConnectedMcpServer(override val id: String) : ConnectedMcpServer {
-    override val toolRegistry: ToolRegistry = ToolRegistry.EMPTY
+    override val tools: List<ToolRegistration<Path>> = emptyList()
 
     override suspend fun close() = Unit
 }

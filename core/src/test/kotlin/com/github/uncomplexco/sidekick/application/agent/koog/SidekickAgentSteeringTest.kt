@@ -18,6 +18,8 @@ import com.github.uncomplexco.sidekick.application.agent.ReasoningEffort
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
+import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
+import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
@@ -31,9 +33,7 @@ import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
-import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.turn.RecordedTurn
-import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
 import java.nio.file.Path
@@ -283,7 +283,7 @@ class SidekickAgentSteeringTest {
         config: AgentConfig,
         koog: KoogConfig,
         store: FilesystemConversationStateStore,
-        tools: ToolRegistryFactory,
+        tools: AgentToolCatalog,
         registry: McpServersRegistry,
     ) =
         SidekickAgent(
@@ -345,19 +345,14 @@ class SidekickAgentSteeringTest {
     private class ContextTools(
         private val targets: MutableList<Pair<String, List<String>>>,
         private val onInspected: () -> Unit = {},
-    ) : ToolRegistryFactory {
-        override suspend fun buildExecutionTools(
-            ctx: TurnContext,
-            chat: ChatPlatformAdapter,
-            replyAttachments: ReplyAttachmentCollector,
-            onSubagentCompleted: (AgentUsageStats) -> Unit,
-        ) = ToolRegistry { tool(InspectTool(ctx, targets, onInspected)) }
+    ) : AgentToolCatalog {
+        override suspend fun bindOrchestrator(context: ToolExecutionContext) = bind(context)
 
-        override suspend fun buildOrchestrationTools(
-            toolRegistry: ToolRegistry,
-            chat: ChatPlatformAdapter,
-            ctx: TurnContext,
-        ) = ToolRegistry.EMPTY
+        override suspend fun bindDelegate(context: ToolExecutionContext) = bind(context)
+
+        private fun bind(context: ToolExecutionContext) = ToolRegistry {
+            tool(InspectTool(context.turn, targets, onInspected))
+        }
     }
 
     private class InspectTool(

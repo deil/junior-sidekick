@@ -17,16 +17,13 @@ import ai.koog.prompt.structure.json.JsonStructure
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.LlmProfile
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
-import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
-import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.utils.Loggers
@@ -40,8 +37,8 @@ import org.springframework.stereotype.Component
 class LoopTools(
     private val factory: LoopFactory,
     private val chat: ChatPlatformAdapter,
-    private val toolRegistry: ToolRegistry,
     private val ctx: TurnContext,
+    private val bindTools: suspend (TurnContext) -> ToolRegistry,
 ) : ToolSet {
     @Tool("Loop")
     @LLMDescription("Spawns a subagent to execute a loop in fresh context.")
@@ -52,12 +49,11 @@ class LoopTools(
         val loop = factory.create(chat = chat)
 
         return loop.run(
-            conversationId = ctx.conversation.conversationId,
+            parent = ctx,
             userId = "anonymous",
             validationPrompt = validation,
             iterationPrompt = iteration,
-            virtualPaths = ctx.conversation.virtualPaths,
-            toolRegistry = toolRegistry,
+            bindTools = bindTools,
         )
     }
 }
@@ -79,12 +75,11 @@ class Loop(
     private val chat: ChatPlatformAdapter,
 ) {
     fun run(
-        conversationId: ConversationId,
+        parent: TurnContext,
         userId: String,
         validationPrompt: String,
         iterationPrompt: String,
-        virtualPaths: VirtualPaths,
-        toolRegistry: ToolRegistry,
+        bindTools: suspend (TurnContext) -> ToolRegistry,
     ): ValidationResult = runBlocking {
         Loggers.TOOLS_LOOP.info(
             """
@@ -101,10 +96,9 @@ class Loop(
             val validation =
                 runAgent(
                     message = wrapPrompt(validationPrompt, userId),
-                    conversationId = conversationId,
+                    parent = parent,
                     chat = chat,
-                    toolRegistry = toolRegistry,
-                    virtualPaths = virtualPaths,
+                    bindTools = bindTools,
                     ValidationResult::class,
                 )
 
@@ -124,10 +118,9 @@ class Loop(
             val result =
                 runAgent(
                     message = wrapPrompt(iterationPrompt, "anonymous"),
-                    conversationId = conversationId,
+                    parent = parent,
                     chat = chat,
-                    toolRegistry = toolRegistry,
-                    virtualPaths = virtualPaths,
+                    bindTools = bindTools,
                 )
 
             Loggers.TOOLS_LOOP.info(
@@ -159,12 +152,11 @@ class Loop(
 
     private suspend fun runAgent(
         message: SessionMessage,
-        conversationId: ConversationId,
+        parent: TurnContext,
         chat: ChatPlatformAdapter,
-        toolRegistry: ToolRegistry,
-        virtualPaths: VirtualPaths,
+        bindTools: suspend (TurnContext) -> ToolRegistry,
     ): String {
-        val ctx = turnContext(conversationId, virtualPaths, message.id)
+        val ctx = turnContext(parent, message.id)
 
         val aiModelProfile = koogConfig.profile(AiModelProfile.NORMAL)
         val model = llModel(aiModelProfile)
@@ -173,7 +165,7 @@ class Loop(
                 strategy = singleRunStrategy(),
                 promptExecutor = koogConfig.openRouterExecutor(),
                 agentConfig = agentConfig(ctx, chat, aiModelProfile, model),
-                toolRegistry = toolRegistry,
+                toolRegistry = bindTools(ctx),
             )
 
         return agent.run(
@@ -184,13 +176,12 @@ class Loop(
 
     private suspend inline fun <reified T : Any> runAgent(
         message: SessionMessage,
-        conversationId: ConversationId,
+        parent: TurnContext,
         chat: ChatPlatformAdapter,
-        toolRegistry: ToolRegistry,
-        virtualPaths: VirtualPaths,
+        bindTools: suspend (TurnContext) -> ToolRegistry,
         outputClass: KClass<T>,
     ): T {
-        val ctx = turnContext(conversationId, virtualPaths, message.id)
+        val ctx = turnContext(parent, message.id)
 
         require(outputClass == T::class) { "Output class must match reified output type." }
         val structure = JsonStructure.create<T>()
@@ -206,7 +197,7 @@ class Loop(
                     },
                 promptExecutor = koogConfig.openRouterExecutor(),
                 agentConfig = agentConfig(ctx, chat, aiModelProfile, model),
-                toolRegistry = toolRegistry,
+                toolRegistry = bindTools(ctx),
             )
 
         return agent.run(
@@ -251,26 +242,21 @@ class Loop(
 
     @OptIn(ExperimentalUuidApi::class)
     private fun turnContext(
-        conversationId: ConversationId,
-        virtualPaths: VirtualPaths,
+        parent: TurnContext,
         messageId: String,
     ): TurnContext =
-        TurnContext(
+        parent.copy(
             conversation =
-                ConversationContext(
-                    conversationId = conversationId,
-                    virtualPaths = virtualPaths,
+                parent.conversation.copy(
                     history =
                         ConversationHistory(
                             compactions = emptyList(),
                             messages = emptyList(),
                             hasKoogMessages = false,
-                        ),
-                    mcpServers = emptyList(),
+                        )
                 ),
             turnId = "loop_${Uuid.generateV7()}",
             lastMessageId = messageId,
-            sessionFiles = emptyList(),
             aiModelProfile = AiModelProfile.NORMAL,
         )
 

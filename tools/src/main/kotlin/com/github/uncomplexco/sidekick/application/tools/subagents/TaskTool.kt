@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools.subagents
 
 import ai.koog.agents.core.tools.Tool
+import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.fail
 import ai.koog.agents.core.tools.validate
@@ -8,6 +9,7 @@ import ai.koog.serialization.typeToken
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 
@@ -16,6 +18,7 @@ fun interface SubagentRunner {
         ctx: TurnContext,
         subagentType: String,
         prompt: String,
+        tools: ToolRegistry,
     ): SubagentRunResult
 }
 
@@ -30,6 +33,7 @@ class TaskTool(
     private val activityReporter: TurnLifecycle,
     availableSubagents: List<Subagent>,
     private val onSubagentCompleted: (AgentUsageStats) -> Unit,
+    private val bindTools: suspend (TurnContext) -> ToolRegistry,
 ) :
     Tool<TaskTool.Args, String>(
         argsType = typeToken<Args>(),
@@ -61,11 +65,13 @@ class TaskTool(
         activityReporter.progress("$subagentType task - $description")
 
         try {
+            val child = ctx.copy(turnId = "task-${UUID.randomUUID()}")
             val result =
                 runner.run(
-                    ctx = ctx,
+                    ctx = child,
                     subagentType = subagentType,
                     prompt = args.prompt,
+                    tools = bindTools(child),
                 )
             onSubagentCompleted(result.stats)
             return result.output

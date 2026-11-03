@@ -14,6 +14,6 @@ include("tools")
 
 include("tools-dumphere")
 
-include("app")
+include("interfaces")
 
 include("example-app")

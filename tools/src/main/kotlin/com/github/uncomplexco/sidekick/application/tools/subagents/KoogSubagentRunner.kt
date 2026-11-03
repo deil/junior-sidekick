@@ -7,19 +7,15 @@ import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
-import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
-import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
-import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import java.util.UUID
 import org.springframework.stereotype.Component
 
 @Component
 class KoogSubagentRunner(
-    private val agentConfig: AgentConfig,
     private val koogConfig: KoogConfig,
     private val subagents: SubagentCatalogProvider,
 ) : SubagentRunner {
@@ -27,6 +23,7 @@ class KoogSubagentRunner(
         ctx: TurnContext,
         subagentType: String,
         prompt: String,
+        tools: ToolRegistry,
     ): SubagentRunResult {
         val aiModelProfile = koogConfig.normalProfile
         var toolCallCount = 0
@@ -59,11 +56,7 @@ class KoogSubagentRunner(
                             ),
                         maxAgentIterations = koogConfig.maxAgentIterations,
                     ),
-                toolRegistry =
-                    ToolRegistry {
-                        tools(WorkspaceFileTools(ctx.conversation.virtualPaths))
-                        tools(WebFetchTools(agentConfig.name))
-                    },
+                toolRegistry = tools,
             ) {
                 handleEvents {
                     onLLMCallCompleted { llmCall ->

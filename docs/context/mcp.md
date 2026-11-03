@@ -58,6 +58,23 @@ agent.mcp.servers[0].env.GRAFANA_SERVICE_ACCOUNT_TOKEN=...
 
 ## Runtime
 
+MCP tools enter the global tool catalog through each connected server's registrations.
+Tools default to `ORCHESTRATOR_ONLY`. Configure shared development tools centrally, per
+server or by original MCP tool name:
+
+```properties
+agent.mcp.servers[0].default-tool-access=SHARED
+agent.mcp.servers[0].tool-access[send_message]=ORCHESTRATOR_ONLY
+```
+
+Alternatively, keep the default and mark individual tools `SHARED`. Requester-facing
+communication tools must remain orchestrator-only; development-system mutations may be
+shared. Callers cannot override these classifications. Connection-status tools are shared;
+interactive connection/authentication tools are orchestrator-only.
+
+Connections remain turn-owned and are closed by Sidekick. Catalog binding creates new
+wrappers for each execution, using that execution's work root for large output files.
+
 Each MCP tool is exposed as a Koog tool named `${mcpServerId}__${toolName}`. The wrapper calls the original MCP tool name under the hood.
 
 Each configured MCP server also gets local helper tools:
