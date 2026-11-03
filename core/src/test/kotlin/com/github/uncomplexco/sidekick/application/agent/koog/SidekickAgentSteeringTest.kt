@@ -17,12 +17,15 @@ import com.github.uncomplexco.sidekick.application.agent.LlmProfile
 import com.github.uncomplexco.sidekick.application.agent.ReasoningEffort
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
+import com.github.uncomplexco.sidekick.application.agent.skills.Skill
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
@@ -66,12 +69,7 @@ class SidekickAgentSteeringTest {
                 it.botUsername = "bot"
             }
         val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
-        val sessions =
-            SessionManager(
-                store,
-                VirtualPathsFactory(config, ChatPlatform.SLACK),
-                SessionContextCompactor { _, _, _ -> "summary" },
-            )
+        val sessions = sessionManager(config, store)
         val conversation = ConversationId("C123", "thread")
         val turn = recordInitial(sessions, conversation, false)
         val registry = mock(McpServersRegistry::class.java)
@@ -182,12 +180,7 @@ class SidekickAgentSteeringTest {
                 it.botUsername = "bot"
             }
         val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
-        val sessions =
-            SessionManager(
-                store,
-                VirtualPathsFactory(config, ChatPlatform.SLACK),
-                SessionContextCompactor { _, _, _ -> "summary" },
-            )
+        val sessions = sessionManager(config, store)
         val conversation = ConversationId("C123", "thread")
         val turn = recordInitial(sessions, conversation, multipleAuthors)
         val registry = mock(McpServersRegistry::class.java)
@@ -266,6 +259,14 @@ class SidekickAgentSteeringTest {
         )
     }
 
+    private fun sessionManager(config: AgentConfig, store: FilesystemConversationStateStore) =
+        SessionManager(
+            store,
+            VirtualPathsFactory(config, ChatPlatform.SLACK),
+            SessionContextCompactor { _, _, _ -> "summary" },
+            ProjectContexts(),
+        )
+
     private suspend fun recordInitial(
         sessions: SessionManager,
         conversation: ConversationId,
@@ -290,7 +291,12 @@ class SidekickAgentSteeringTest {
             config,
             koog,
             SystemPromptBuilder(config, ChatPlatform.SLACK),
-            TurnPromptBuilder(config, StubSkillsCatalog()),
+            TurnPromptBuilder(
+                config,
+                StubSkillsCatalog(
+                    SkillCatalog(listOf(Skill("review", "Review instructions", dir, true, true)))
+                ),
+            ),
             tools,
             registry,
             ConversationStateChatHistoryProvider(store),

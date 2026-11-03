@@ -86,7 +86,8 @@ class DefaultAgentToolCatalog(
                 WebFetchTools(agentConfig.name).asTools()
             },
             ToolRegistration("skills", ToolAccess.SHARED) {
-                SkillTools(skills, it.turn.conversation.virtualPaths).asTools()
+                SkillTools(skills, it.turn.conversation.virtualPaths, it.turn.conversation.project)
+                    .asTools()
             },
             ToolRegistration("skills-reload", ToolAccess.ORCHESTRATOR_ONLY) {
                 SkillsManagementTools(skills).asTools()

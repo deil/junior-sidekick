@@ -21,6 +21,7 @@ import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.SteeringInbox
 import com.github.uncomplexco.sidekick.application.chat.SteeringInput
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
+import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
@@ -1167,6 +1168,7 @@ class TurnCoordinatorTest {
             SessionContextCompactor(
                 summarizer = { _, _, messages -> "summary for ${messages.size} messages" }
             ),
+            ProjectContexts(),
         )
 
     private fun config(): AgentConfig =

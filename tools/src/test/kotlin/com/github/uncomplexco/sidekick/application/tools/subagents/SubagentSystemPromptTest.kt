@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.tools.subagents
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.context.ProjectContext
 import java.nio.file.Path
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -21,7 +22,7 @@ class SubagentSystemPromptTest {
         val catalog = SkillCatalog(listOf(skill("research", "Find evidence & sources.")))
 
         // Act
-        val prompt = subagentSystemPrompt(instructions, catalog, virtualPaths())
+        val prompt = subagentSystemPrompt(instructions, catalog, virtualPaths(), ProjectContext())
 
         // Assert
         assertTrue(prompt.startsWith("$instructions\n\n<skills>"), prompt)
@@ -37,7 +38,13 @@ class SubagentSystemPromptTest {
     fun `empty skills catalog preserves instructions exactly`() {
         val instructions = "You are a subagent.\n\nKeep these instructions intact.\n"
 
-        val prompt = subagentSystemPrompt(instructions, SkillCatalog(emptyList()), virtualPaths())
+        val prompt =
+            subagentSystemPrompt(
+                instructions,
+                SkillCatalog(emptyList()),
+                virtualPaths(),
+                ProjectContext(),
+            )
 
         assertEquals(instructions, prompt)
     }
@@ -52,7 +59,8 @@ class SubagentSystemPromptTest {
                 )
             )
 
-        val prompt = subagentSystemPrompt("General instructions", catalog, virtualPaths())
+        val prompt =
+            subagentSystemPrompt("General instructions", catalog, virtualPaths(), ProjectContext())
 
         assertContains(prompt, "<user_invocable_skills>")
         assertContains(prompt, "<user_invocable_skills>\nrelease\nreview\n</user_invocable_skills>")
@@ -67,9 +75,36 @@ class SubagentSystemPromptTest {
     fun `catalog with no invocable skills preserves instructions exactly`() {
         val catalog = SkillCatalog(listOf(skill("hidden", "Hidden skill.", true, false)))
 
-        val prompt = subagentSystemPrompt("General instructions", catalog, virtualPaths())
+        val prompt =
+            subagentSystemPrompt("General instructions", catalog, virtualPaths(), ProjectContext())
 
         assertEquals("General instructions", prompt)
+    }
+
+    @Test
+    fun `subagent catalog selects untagged and fully matching skills from project context`() {
+        val catalog =
+            SkillCatalog(
+                listOf(
+                    skill("shared", "Shared skill."),
+                    skill("matching", "Matching skill.", tags = setOf("engineering", "productA")),
+                    skill("partial", "Partial match.", tags = setOf("engineering", "productB")),
+                    skill("hidden-user", "Unrelated user skill.", true, true, setOf("support")),
+                )
+            )
+
+        val prompt =
+            subagentSystemPrompt(
+                "General instructions",
+                catalog,
+                virtualPaths(),
+                ProjectContext(tags = setOf("engineering", "productA", "production")),
+            )
+
+        assertContains(prompt, "<name>shared</name>")
+        assertContains(prompt, "<name>matching</name>")
+        assertFalse(prompt.contains("Partial match."), prompt)
+        assertFalse(prompt.contains("hidden-user"), prompt)
     }
 
     private fun skill(
@@ -77,6 +112,7 @@ class SubagentSystemPromptTest {
         description: String,
         disableModelInvocation: Boolean = false,
         userInvocable: Boolean = false,
+        tags: Set<String> = emptySet(),
     ) =
         Skill(
             name,
@@ -84,6 +120,7 @@ class SubagentSystemPromptTest {
             root.resolve("skills/repo/$name"),
             disableModelInvocation,
             userInvocable,
+            tags,
         )
 
     private fun virtualPaths() =

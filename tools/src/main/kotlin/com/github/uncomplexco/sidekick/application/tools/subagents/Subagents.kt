@@ -109,8 +109,10 @@ class Subagents(
         markdown: String,
     ): Subagent {
         val document = parseMarkdownFrontmatter(markdown)
-        val name = document.frontmatter["name"]?.takeUnless { it.isBlank() } ?: expectedName
-        val description = document.frontmatter["description"]?.takeUnless { it.isBlank() }
+        val name =
+            (document.frontmatter["name"] as? String)?.takeUnless { it.isBlank() } ?: expectedName
+        val description =
+            (document.frontmatter["description"] as? String)?.takeUnless { it.isBlank() }
         require(description != null) { "frontmatter field 'description' is required" }
         require(AGENT_NAME_RE.matches(name)) {
             "frontmatter field 'name' must use lowercase letters, numbers, and single hyphens only"

@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.turn
 
 import com.github.uncomplexco.sidekick.application.agent.koog.ConnectedMcpServer
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.context.ProjectContext
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
@@ -14,6 +15,7 @@ data class ConversationContext(
     val virtualPaths: VirtualPaths,
     val history: ConversationHistory,
     val mcpServers: List<ConnectedMcpServer>,
+    val project: ProjectContext = ProjectContext(),
 )
 
 data class TurnContext(

@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.agent.koog.RunId
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunner
+import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import kotlinx.coroutines.CancellationException
 
 class RecordingSubagentRunner(
@@ -17,6 +18,7 @@ class RecordingSubagentRunner(
     val agentIds = mutableListOf<String>()
     val runIds = mutableListOf<RunId>()
     val virtualPaths = mutableListOf<VirtualPaths>()
+    val conversations = mutableListOf<ConversationContext>()
 
     override suspend fun run(
         agentId: String,
@@ -24,11 +26,12 @@ class RecordingSubagentRunner(
         subagentType: String,
         prompt: String,
         tools: ToolRegistry,
-        virtualPaths: VirtualPaths,
+        conversation: ConversationContext,
     ): AgentRunResult<String> {
         agentIds += agentId
         runIds += runId
-        this.virtualPaths += virtualPaths
+        virtualPaths += conversation.virtualPaths
+        conversations += conversation
         subagentTypes += subagentType
         prompts += prompt
         return AgentRunResult.Completed(result, usage)
@@ -45,7 +48,7 @@ class FailingSubagentRunner(
         subagentType: String,
         prompt: String,
         tools: ToolRegistry,
-        virtualPaths: VirtualPaths,
+        conversation: ConversationContext,
     ): AgentRunResult<String> = AgentRunResult.Failed(failure, usage)
 }
 
@@ -56,6 +59,6 @@ class CancellingSubagentRunner(private val cancellation: CancellationException) 
         subagentType: String,
         prompt: String,
         tools: ToolRegistry,
-        virtualPaths: VirtualPaths,
+        conversation: ConversationContext,
     ): AgentRunResult<String> = throw cancellation
 }

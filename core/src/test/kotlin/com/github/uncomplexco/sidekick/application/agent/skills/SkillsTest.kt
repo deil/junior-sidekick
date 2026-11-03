@@ -9,6 +9,8 @@ import kotlin.test.assertTrue
 import org.eclipse.jgit.api.Git
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class SkillsTest {
     @TempDir lateinit var dir: Path
@@ -79,6 +81,7 @@ class SkillsTest {
         val defaultFlags = catalog.skills.single { it.name == "default-flag" }
         assertEquals(false, defaultFlags.disableModelInvocation)
         assertEquals(false, defaultFlags.userInvocable)
+        assertEquals(emptySet(), defaultFlags.tags)
         assertEquals(
             1536,
             catalog.skills.single { it.name == "too-long-description" }.description.length,
@@ -168,6 +171,72 @@ class SkillsTest {
 
         assertEquals(emptyList(), catalog.skills)
         assertSame(catalog, skills.catalog())
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings =
+            [
+                "tags: [engineering, productA, engineering]",
+                "tags:\n  - engineering\n  - productA\n  - engineering",
+            ]
+    )
+    fun `root level skill tags are parsed and deduplicated`(metadata: String) {
+        // Arrange
+        val source = Files.createDirectories(dir.resolve("source"))
+        val folder = Files.createDirectories(source.resolve("skills/tagged"))
+        Files.writeString(
+            folder.resolve("SKILL.md"),
+            "---\nname: tagged\ndescription: Tagged skill.\n" +
+                "metadata:\n  owner: engineering\n$metadata\n---\nInstructions",
+        )
+        initializeRepository(source)
+        configure(source, "skills")
+        val skills: SkillsCatalog = Skills(config())
+
+        // Act
+        val catalog = skills.reload()
+
+        // Assert
+        assertEquals(setOf("engineering", "productA"), catalog.skills.single().tags)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["", "tags: []", "metadata:\n  tags: engineering"])
+    fun `absent or empty root tags default to an empty tag set`(metadata: String) {
+        val source = Files.createDirectories(dir.resolve("source"))
+        val folder = Files.createDirectories(source.resolve("skills/untagged"))
+        Files.writeString(
+            folder.resolve("SKILL.md"),
+            "---\nname: untagged\ndescription: Untagged skill.\n$metadata\n---\nInstructions",
+        )
+        initializeRepository(source)
+        configure(source, "skills")
+        val skills: SkillsCatalog = Skills(config())
+
+        val catalog = skills.reload()
+
+        assertEquals(emptySet(), catalog.skills.single().tags)
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = ["tags: engineering", "tags: {team: engineering}", "tags: [engineering, 123]"]
+    )
+    fun `invalid root level skill tags skip the skill`(metadata: String) {
+        val source = Files.createDirectories(dir.resolve("source"))
+        val folder = Files.createDirectories(source.resolve("skills/invalid"))
+        Files.writeString(
+            folder.resolve("SKILL.md"),
+            "---\nname: invalid\ndescription: Invalid skill.\n$metadata\n---\nInstructions",
+        )
+        initializeRepository(source)
+        configure(source, "skills")
+        val skills: SkillsCatalog = Skills(config())
+
+        val catalog = skills.reload()
+
+        assertEquals(emptyList(), catalog.skills)
     }
 
     private fun initializeRepository(source: Path) {

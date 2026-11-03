@@ -8,7 +8,9 @@ import com.github.uncomplexco.sidekick.application.agent.koog.RunId
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.context.ProjectContext
 import com.github.uncomplexco.sidekick.application.context.prompts.SkillsSection.renderSkillsSection
+import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import org.springframework.stereotype.Component
 
 @Component
@@ -23,7 +25,7 @@ class KoogSubagentRunner(
         subagentType: String,
         prompt: String,
         tools: ToolRegistry,
-        virtualPaths: VirtualPaths,
+        conversation: ConversationContext,
     ): AgentRunResult<String> {
         val systemPrompt =
             subagents.catalog().subagents.firstOrNull { it.name == subagentType }?.systemPrompt
@@ -35,7 +37,12 @@ class KoogSubagentRunner(
                 tools = tools,
                 model = koogConfig.normalProfile,
                 systemPrompt = {
-                    subagentSystemPrompt(systemPrompt, skills.catalog(), virtualPaths)
+                    subagentSystemPrompt(
+                        systemPrompt,
+                        skills.catalog(),
+                        conversation.virtualPaths,
+                        conversation.project,
+                    )
                 },
                 input = { prompt },
             )
@@ -46,5 +53,10 @@ internal fun subagentSystemPrompt(
     instructions: String,
     skills: SkillCatalog,
     virtualPaths: VirtualPaths,
+    project: ProjectContext,
 ): String =
-    listOfNotNull(instructions, renderSkillsSection(skills, virtualPaths)).joinToString("\n\n")
+    listOfNotNull(
+            instructions,
+            renderSkillsSection(skills.matchingTags(project.tags), virtualPaths),
+        )
+        .joinToString("\n\n")

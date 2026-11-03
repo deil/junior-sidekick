@@ -14,6 +14,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class TurnPromptBuilderSkillsTest {
     @TempDir lateinit var dir: Path
@@ -224,6 +226,115 @@ class TurnPromptBuilderSkillsTest {
 
         // Assert
         assertFalse(prompt.contains("<$EXPLICIT_SKILL_INVOCATION_TAG>"), prompt)
+    }
+
+    @Test
+    fun `bootstrap catalog uses all project tags for model and user skills`() {
+        val catalog =
+            SkillCatalog(
+                listOf(
+                    skill("shared", "Shared skill.", false),
+                    skill("matching", "Matching skill.", false)
+                        .copy(tags = setOf("engineering", "productA")),
+                    skill("partial", "Partial match.", false)
+                        .copy(tags = setOf("engineering", "productB")),
+                    skill("hidden-user", "User skill.", true, true).copy(tags = setOf("support")),
+                )
+            )
+        val initial = context()
+        val ctx =
+            initial.copy(
+                conversation =
+                    initial.conversation.copy(
+                        project =
+                            ProjectContext(tags = setOf("engineering", "productA", "production"))
+                    )
+            )
+
+        val prompt = builder(catalog).buildSessionTurnPrompt(message(), ctx)
+
+        assertTrue(prompt.contains("<name>shared</name>"), prompt)
+        assertTrue(prompt.contains("<name>matching</name>"), prompt)
+        assertFalse(prompt.contains("Partial match."), prompt)
+        assertFalse(prompt.contains("hidden-user"), prompt)
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `unavailable invoked skill keeps user text and detection but omits activation hint`(
+        hasHistory: Boolean
+    ) {
+        val invocation = ExplicitSkillInvocation("code-review")
+        val message =
+            message(text = "please /code-review this", explicitSkillInvocation = invocation)
+        val catalog =
+            SkillCatalog(
+                listOf(
+                    skill("code-review", "Review code.", false, true)
+                        .copy(tags = setOf("engineering", "productA"))
+                )
+            )
+        val initial = context(hasKoogMessages = hasHistory)
+        val ctx =
+            initial.copy(
+                conversation =
+                    initial.conversation.copy(project = ProjectContext(tags = setOf("engineering")))
+            )
+
+        val prompt = builder(catalog).buildSessionTurnPrompt(message, ctx)
+
+        assertFalse(prompt.contains("<$EXPLICIT_SKILL_INVOCATION_TAG>"), prompt)
+        assertTrue(prompt.contains("[alice] please /code-review this"), prompt)
+        assertTrue(message.explicitSkillInvocation === invocation)
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `invoked skill with all required project tags receives activation hint`(
+        hasHistory: Boolean
+    ) {
+        val message =
+            message(
+                text = "please /code-review this",
+                explicitSkillInvocation = ExplicitSkillInvocation("code-review"),
+            )
+        val catalog =
+            SkillCatalog(
+                listOf(
+                    skill("code-review", "Review code.", false, true)
+                        .copy(tags = setOf("engineering", "productA"))
+                )
+            )
+        val initial = context(hasKoogMessages = hasHistory)
+        val ctx =
+            initial.copy(
+                conversation =
+                    initial.conversation.copy(
+                        project =
+                            ProjectContext(tags = setOf("engineering", "productA", "production"))
+                    )
+            )
+
+        val prompt = builder(catalog).buildSessionTurnPrompt(message, ctx)
+
+        assertTrue(prompt.contains("<$EXPLICIT_SKILL_INVOCATION_TAG>"), prompt)
+        assertTrue(prompt.contains("[alice] please /code-review this"), prompt)
+    }
+
+    @Test
+    fun `skill whose user invocation was disabled loses its activation hint`() {
+        val message =
+            message(
+                text = "please /code-review this",
+                explicitSkillInvocation = ExplicitSkillInvocation("code-review"),
+            )
+        val catalog = SkillCatalog(listOf(skill("code-review", "Review code.", false, false)))
+
+        val prompt =
+            builder(catalog).buildSessionTurnPrompt(message, context(hasKoogMessages = true))
+
+        assertFalse(prompt.contains("<$EXPLICIT_SKILL_INVOCATION_TAG>"), prompt)
+        assertTrue(prompt.contains("[alice] please /code-review this"), prompt)
     }
 
     private fun builder(catalog: SkillCatalog): TurnPromptBuilder =

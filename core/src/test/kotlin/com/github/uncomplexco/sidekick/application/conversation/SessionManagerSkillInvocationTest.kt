@@ -5,6 +5,7 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
+import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import java.nio.file.Path
 import kotlin.test.assertEquals
@@ -86,6 +87,7 @@ class SessionManagerSkillInvocationTest {
             SessionContextCompactor(
                 summarizer = { _, _, messages -> "summary for ${messages.size} messages" }
             ),
+            ProjectContexts(),
         )
     }
 

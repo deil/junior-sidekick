@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.conversation
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
@@ -17,6 +18,7 @@ class SessionManager(
     private val store: ConversationStateStore,
     private val virtualPathsFactory: VirtualPathsFactory,
     private val contextCompactor: SessionContextCompactor,
+    private val projectContexts: ProjectContexts,
 ) {
     fun exists(conversationId: ConversationId): Boolean = store.exists(conversationId)
 
@@ -62,10 +64,12 @@ class SessionManager(
             orderedMessages.forEach { upsertMessage(state.messages, it) }
             store.save(conversationId, state)
 
+            val virtualPaths = virtualPathsFactory.forConversation(conversationId)
             val conversation =
                 ConversationContext(
                     conversationId = conversationId,
-                    virtualPaths = virtualPathsFactory.forConversation(conversationId),
+                    virtualPaths = virtualPaths,
+                    project = projectContexts.resolve(virtualPaths.projectRoot),
                     history =
                         ConversationHistory(
                             compactions = state.compactions,

@@ -12,6 +12,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageQueue
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
+import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionManager
@@ -218,6 +219,7 @@ class SlackActivityTest {
                 FilesystemConversationStateStore(config, ChatPlatform.SLACK),
                 paths,
                 SessionContextCompactor { _, _, _ -> error("No compaction expected") },
+                ProjectContexts(),
             )
         private val coordinator =
             TurnCoordinator(

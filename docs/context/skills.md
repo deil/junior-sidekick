@@ -70,6 +70,9 @@ name: example-skill
 description: Short description used for discovery.
 disable-model-invocation: false
 user-invocable: true
+tags:
+  - engineering
+  - productA
 ---
 ```
 
@@ -79,6 +82,21 @@ Optional fields:
 
 - `disable-model-invocation`, defaults to `false`
 - `user-invocable`, defaults to `false`
+- `tags`, a root-level list of string tags, defaults to an empty set on `Skill`.
+  Inline YAML lists are also supported. Tags retain their case and are deduplicated.
+  Invalid tag types cause the skill to be skipped during discovery.
+
+`metadata` remains a string-to-string mapping as defined by the skills specification;
+project-selection tags use the root-level `tags` field.
+
+Skill catalogs are selected using the resolved [project context](project-context.md).
+A skill is available when every skill tag belongs to the project's tag set:
+`project.tags.containsAll(skill.tags)`. Untagged skills match every project; a project
+with empty tags selects untagged skills. Matching is case-sensitive.
+
+Sidekick and Task render the selected catalog in their prompts. `activateSkill` applies
+the same selection when loading a skill by name. The loaded global catalog remains the
+source for project-specific selections.
 
 `name` must use lowercase letters, numbers, and single hyphens. It must match the parent folder name.
 
@@ -153,7 +171,9 @@ Slash-style invocation wins. If Sidekick detects `/skill-name` and the skill is 
 
 For natural-language invocation, Sidekick blocks the same activation pattern when it is prefixed by a negative instruction: `do not`, `don't`, `dont`, or `never`. Examples: `don't use skill-name`, `do not activate skill-name`, or `never run skill-name`.
 
-When `SessionMessage.explicitSkillInvocation` is present, Sidekick does not call `activateSkill` directly. It adds an `<explicit_skill_invocation>` section before `<current_instruction>`. The section body starts with an instruction hint, then a blank line, then the slash-prefixed skill name:
+When `SessionMessage.explicitSkillInvocation` identifies an available user-invocable
+skill, Sidekick adds an `<explicit_skill_invocation>` section before `<current_instruction>`.
+The section body starts with an instruction hint, then a blank line, then the slash-prefixed skill name:
 
 ```xml
 <explicit_skill_invocation>

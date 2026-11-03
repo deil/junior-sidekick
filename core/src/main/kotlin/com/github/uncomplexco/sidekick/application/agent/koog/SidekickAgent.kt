@@ -130,7 +130,7 @@ class SidekickAgent(
                                     system(
                                         systemPromptBuilder.buildSystemPrompt(
                                             config.botUsername!!,
-                                            ctx.conversation.virtualPaths.projectRoot,
+                                            ctx.conversation.project,
                                         )
                                     )
                                 },

@@ -15,7 +15,7 @@ class SystemPromptBuilder(
 ) {
     fun buildSystemPrompt(
         username: String,
-        projectRoot: Path,
+        project: ProjectContext,
     ): String {
         val sections = mutableListOf<String>()
         sections += baseSystemPrompt(platform)
@@ -31,7 +31,7 @@ class SystemPromptBuilder(
                 path = workspace.configDirectoryPath().resolve("WORLD.md"),
             )
             ?.also { sections += it }
-        optionalProjectContext(projectRoot)?.also { sections += it }
+        project.instructions?.let { sections += markdownSection("Project context", it) }
         optionalMarkdownSection(
                 heading = "Operating rules",
                 path = workspace.configDirectoryPath().resolve("RULES.md"),
@@ -67,15 +67,6 @@ class SystemPromptBuilder(
                 result.replace("{{$key}}", value)
             }
         return markdownSection(heading, content.trimEnd())
-    }
-
-    private fun optionalProjectContext(projectRoot: Path): String? {
-        val path = projectRoot.resolve("AGENTS.md")
-        if (!Files.isRegularFile(path)) {
-            return null
-        }
-
-        return markdownSection("Project context", Files.readString(path).trimEnd())
     }
 
     companion object {

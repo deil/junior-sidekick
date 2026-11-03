@@ -25,7 +25,10 @@ data class ExtensionRepository(
     val sshKeyPath: String? = null,
 )
 
-data class SkillCatalog(val skills: List<Skill>)
+data class SkillCatalog(val skills: List<Skill>) {
+    fun matchingTags(tags: Set<String>): SkillCatalog =
+        SkillCatalog(skills.filter { tags.containsAll(it.tags) })
+}
 
 data class Skill(
     val name: String,
@@ -33,6 +36,7 @@ data class Skill(
     val folder: Path,
     val disableModelInvocation: Boolean,
     val userInvocable: Boolean,
+    val tags: Set<String> = emptySet(),
 )
 
 @Component
@@ -182,12 +186,19 @@ class Skills(private val config: AgentConfig) : SkillsCatalog {
         }
         val frontmatter = parseMarkdownFrontmatter(markdown).frontmatter
 
-        val name = frontmatter["name"]?.takeUnless { it.isBlank() }
+        val name = (frontmatter["name"] as? String)?.takeUnless { it.isBlank() }
         val description =
-            frontmatter["description"]?.takeUnless { it.isBlank() }?.take(MAX_DESCRIPTION_LENGTH)
+            (frontmatter["description"] as? String)
+                ?.takeUnless { it.isBlank() }
+                ?.take(MAX_DESCRIPTION_LENGTH)
         val disableModelInvocation =
-            frontmatter["disable-model-invocation"]?.toBooleanStrictOrNull() ?: false
-        val userInvocable = frontmatter["user-invocable"]?.toBooleanStrictOrNull() ?: false
+            frontmatter["disable-model-invocation"]?.toString()?.toBooleanStrictOrNull() ?: false
+        val userInvocable =
+            frontmatter["user-invocable"]?.toString()?.toBooleanStrictOrNull() ?: false
+        val tags = frontmatter["tags"] ?: emptyList<String>()
+        require(tags is List<*> && tags.all { it is String }) {
+            "$SKILL_FILE_NAME tags must be a list of strings"
+        }
         require(name != null) { "$SKILL_FILE_NAME is missing frontmatter field 'name'" }
         require(description != null) {
             "$SKILL_FILE_NAME is missing frontmatter field 'description'"
@@ -199,7 +210,14 @@ class Skills(private val config: AgentConfig) : SkillsCatalog {
             "$SKILL_FILE_NAME frontmatter field 'name' must match parent directory name"
         }
 
-        return Skill(name, description, skillFile.parent, disableModelInvocation, userInvocable)
+        return Skill(
+            name,
+            description,
+            skillFile.parent,
+            disableModelInvocation,
+            userInvocable,
+            tags.map { it as String }.toSet(),
+        )
     }
 
     companion object {

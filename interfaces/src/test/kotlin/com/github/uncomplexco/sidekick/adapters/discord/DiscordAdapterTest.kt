@@ -15,6 +15,7 @@ import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageQueue
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
+import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
@@ -497,6 +498,7 @@ class DiscordAdapterTest {
                     SessionContextCompactor { _, _, messages ->
                         "summary for ${messages.size} messages"
                     },
+                    ProjectContexts(),
                 )
             val coordinator =
                 TurnCoordinator(
@@ -567,6 +569,7 @@ class DiscordAdapterTest {
                     SessionContextCompactor { _, _, messages ->
                         "summary for ${messages.size} messages"
                     },
+                    ProjectContexts(),
                 )
             val coordinator =
                 TurnCoordinator(

@@ -79,8 +79,9 @@ status label. Tool definitions are supplied separately from message text;
 the tool loop then adds model tool calls and tool results before the final answer.
 
 The `<skills>` section follows the agent instructions, separated by a blank line.
-It uses the current catalog at execution start and the child's virtual paths to render
-skill locations. A catalog with no model-invocable or user-invocable skills leaves the
+It selects the current catalog using the inherited project tags: every skill tag must
+belong to the project's tag set. Untagged skills match every project. The child's virtual
+paths supply skill locations. A catalog with no model-invocable or user-invocable skills leaves the
 definition unchanged. Skill instructions are loaded on demand through `activateSkill`.
 
 Each subagent starts with a fresh message history containing the system prompt and delegated

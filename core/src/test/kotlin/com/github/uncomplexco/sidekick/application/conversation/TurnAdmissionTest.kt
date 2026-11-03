@@ -9,6 +9,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.IncomingBatch
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
+import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.turn.TurnAdmission
 import com.github.uncomplexco.sidekick.application.turn.TurnAdmissionDecision
@@ -401,6 +402,7 @@ class TurnAdmissionTest {
             SessionContextCompactor(
                 summarizer = { _, _, messages -> "summary for ${messages.size} messages" }
             ),
+            ProjectContexts(),
         )
     }
 

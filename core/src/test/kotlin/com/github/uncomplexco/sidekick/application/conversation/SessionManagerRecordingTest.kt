@@ -6,9 +6,13 @@ import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsF
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.context.ProjectContext
+import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
@@ -32,7 +36,55 @@ class SessionManagerRecordingTest {
                 store,
                 VirtualPathsFactory(config, ChatPlatform.SLACK),
                 SessionContextCompactor { _, _, _ -> "summary" },
+                ProjectContexts(),
             )
+    }
+
+    @Test
+    fun `turn context contains resolved project tags and instructions`() = runBlocking {
+        val paths = VirtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversationId)
+        Files.writeString(
+            paths.projectRoot.resolve("AGENTS.md"),
+            "---\ntags: [engineering, productA]\n---\nProject instructions",
+        )
+
+        val turn = record(listOf(message("m1", 1)))
+
+        assertEquals(
+            ProjectContext(setOf("engineering", "productA"), "Project instructions"),
+            turn.context.conversation.project,
+        )
+    }
+
+    @Test
+    fun `steering keeps the project snapshot after source changes`() = runBlocking {
+        val paths = VirtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversationId)
+        val file = paths.projectRoot.resolve("AGENTS.md")
+        Files.writeString(file, "Original instructions")
+        val initial = record(listOf(message("m1", 1)))
+        Files.writeString(file, "Updated instructions")
+
+        val updated = manager.appendIncomingMessages(initial, listOf(message("m2", 2)), emptyList())
+
+        assertSame(initial.context.conversation.project, updated.context.conversation.project)
+        assertEquals("Original instructions", updated.context.conversation.project.instructions)
+    }
+
+    @Test
+    fun `new turns resolve the latest project context`() = runBlocking {
+        val paths = VirtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversationId)
+        val file = paths.projectRoot.resolve("AGENTS.md")
+        Files.writeString(file, "Original instructions")
+        val initial = record(listOf(message("m1", 1)))
+        Files.writeString(file, "---\ntags: [support]\n---\nUpdated instructions")
+
+        val updated = record(listOf(message("m2", 2)))
+
+        assertEquals(
+            ProjectContext(setOf("support"), "Updated instructions"),
+            updated.context.conversation.project,
+        )
+        assertEquals("Original instructions", initial.context.conversation.project.instructions)
     }
 
     @Nested

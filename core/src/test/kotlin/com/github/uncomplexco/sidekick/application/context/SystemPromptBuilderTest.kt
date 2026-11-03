@@ -1,6 +1,8 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.skills.Skill
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
@@ -332,7 +334,14 @@ class TurnPromptBuilderTest {
                 stateDir = dir.resolve("state").toString(),
                 workingDir = dir.resolve("workspace").toString(),
             ),
-            skills = StubSkillsCatalog(),
+            skills =
+                StubSkillsCatalog(
+                    SkillCatalog(
+                        listOf("code-review", "security-review").map { name ->
+                            Skill(name, "Review instructions", dir, true, true)
+                        }
+                    )
+                ),
         )
 
     private fun context(

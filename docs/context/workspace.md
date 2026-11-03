@@ -46,7 +46,10 @@ workspace/
 
 Global context is tenant-wide company context: stable company knowledge, policies, glossary, team map, and other shared background material. Treat it as mostly read-only ordinary work context; write paths need explicit product semantics rather than accidental tool writes.
 
-Channel-scoped project context may be provided at `/data/project/AGENTS.md`, backed by `${agent.working-directory}/data/workspaces/projects/<channel-id>/AGENTS.md`. Only this root-level `AGENTS.md` is read. When present, `SystemPromptBuilder` embeds it in the system prompt under `# Project context` for turns in that channel.
+Project context may be provided at `/data/project/AGENTS.md`, backed by `${agent.working-directory}/data/workspaces/projects/<channel-id>/AGENTS.md`.
+The [project-context module](project-context.md) resolves frontmatter tags and Markdown
+instructions from that root-level file into a per-turn snapshot. `SystemPromptBuilder`
+renders the resolved instructions under `# Project context`.
 
 System prompt overlay files live in `${agent.working-directory}/config`: `SOUL.md` becomes `# Personality`, `WORLD.md` becomes `# World`, and `RULES.md` becomes `# Operating rules`. Slack App Home reads `${agent.working-directory}/config/DESCRIPTION.md`.
 

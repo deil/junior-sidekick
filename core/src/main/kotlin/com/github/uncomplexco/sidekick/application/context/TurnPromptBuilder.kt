@@ -48,6 +48,7 @@ class TurnPromptBuilder(
         requester: MessageAuthor? = message.author,
         includeContext: Boolean = true,
     ): String = buildString {
+        val catalog = skills.catalog().matchingTags(ctx.conversation.project.tags)
         if (includeContext && !ctx.conversation.history.hasKoogMessages) {
             appendLine(
                 buildThreadContext(
@@ -58,9 +59,13 @@ class TurnPromptBuilder(
                 )
             )
 
-            renderSkillsSection(skills.catalog(), ctx.conversation.virtualPaths)?.also {
-                appendLine(it)
-            }
+            renderSkillsSection(
+                    catalog,
+                    ctx.conversation.virtualPaths,
+                )
+                ?.also {
+                    appendLine(it)
+                }
         }
 
         val skippedMessages = if (includeContext) pendingSkippedMessages(ctx) else emptyList()
@@ -97,10 +102,14 @@ class TurnPromptBuilder(
 
         appendLine()
 
-        message.explicitSkillInvocation?.let {
-            appendLine(renderExplicitSkillInvocation(it.skillName))
-            appendLine()
-        }
+        message.explicitSkillInvocation
+            ?.takeIf { invocation ->
+                catalog.skills.any { it.name == invocation.skillName && it.userInvocable }
+            }
+            ?.let {
+                appendLine(renderExplicitSkillInvocation(it.skillName))
+                appendLine()
+            }
 
         appendLine(
             xmlTag(

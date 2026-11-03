@@ -8,6 +8,7 @@ import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
@@ -45,6 +46,7 @@ class SidekickAgentIdentityTest {
                 store,
                 VirtualPathsFactory(config, ChatPlatform.SLACK),
                 SessionContextCompactor { _, _, _ -> "summary" },
+                ProjectContexts(),
             )
         val conversationId = ConversationId("C123", "thread")
         val turn =

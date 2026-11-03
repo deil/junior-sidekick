@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.ToolException
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.context.ProjectContext
 import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import java.nio.file.Files
 import java.nio.file.Path
@@ -56,6 +57,7 @@ class SkillToolsTest {
                             )
                         ),
                     virtualPaths = virtualPaths(),
+                    project = ProjectContext(),
                 )
                 .activateSkill("pdf-processing")
 
@@ -77,10 +79,52 @@ class SkillToolsTest {
             SkillTools(
                 skills = StubSkillsCatalog(),
                 virtualPaths = virtualPaths(),
+                project = ProjectContext(),
             )
 
         // Act / Assert
         assertThrows<ToolException.ValidationFailure> { tools.activateSkill("missing") }
+    }
+
+    @Test
+    fun `activates skill when all required project tags match`() {
+        val folder = Files.createDirectories(dir.resolve("skills/repo/deploy"))
+        Files.writeString(folder.resolve("SKILL.md"), "Deploy instructions")
+        val skill =
+            Skill("deploy", "Deploy", folder, false, false, setOf("engineering", "productA"))
+        val tools =
+            SkillTools(
+                StubSkillsCatalog(SkillCatalog(listOf(skill))),
+                virtualPaths(),
+                ProjectContext(tags = setOf("engineering", "productA", "production")),
+            )
+
+        val result = tools.activateSkill("deploy")
+
+        assertContains(result, "Deploy instructions")
+    }
+
+    @Test
+    fun `known skill with partially matching tags is unavailable for activation`() {
+        val skill =
+            Skill(
+                "deploy",
+                "Deploy",
+                dir.resolve("skills/repo/deploy"),
+                false,
+                false,
+                setOf("engineering", "productA"),
+            )
+        val tools =
+            SkillTools(
+                StubSkillsCatalog(SkillCatalog(listOf(skill))),
+                virtualPaths(),
+                ProjectContext(tags = setOf("engineering")),
+            )
+
+        val error = assertThrows<ToolException.ValidationFailure> { tools.activateSkill("deploy") }
+
+        assertEquals("Unknown skill: deploy", error.message)
     }
 
     @Test

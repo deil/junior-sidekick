@@ -8,9 +8,9 @@ import ai.koog.agents.core.tools.validate
 import ai.koog.serialization.typeToken
 import com.github.uncomplexco.sidekick.application.agent.AgentRunResult
 import com.github.uncomplexco.sidekick.application.agent.koog.RunId
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
+import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -23,7 +23,7 @@ fun interface SubagentRunner {
         subagentType: String,
         prompt: String,
         tools: ToolRegistry,
-        virtualPaths: VirtualPaths,
+        conversation: ConversationContext,
     ): AgentRunResult<String>
 }
 
@@ -75,7 +75,7 @@ class TaskTool(
                     subagentType = subagentType,
                     prompt = args.prompt,
                     tools = bindTools(child),
-                    virtualPaths = child.conversation.virtualPaths,
+                    conversation = child.conversation,
                 )
             onSubagentCompleted(result.usage)
             return when (result) {

@@ -7,7 +7,9 @@ import ai.koog.agents.core.tools.reflect.ToolSet
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.context.ProjectContext
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
+import com.github.uncomplexco.sidekick.application.utils.parseMarkdownFrontmatter
 import java.nio.file.Files
 import kotlin.io.path.name
 import kotlin.io.path.pathString
@@ -17,6 +19,7 @@ import kotlin.streams.asSequence
 class SkillTools(
     private val skills: SkillsCatalog,
     private val virtualPaths: VirtualPaths,
+    private val project: ProjectContext,
 ) : ToolSet {
     @Tool
     @LLMDescription("Load a skill's full instructions by skill name.")
@@ -24,11 +27,11 @@ class SkillTools(
         @LLMDescription("Skill name from the system prompt skills catalog.") name: String
     ): String {
         val skill =
-            skills.catalog().skills.find { it.name == name }
+            skills.catalog().matchingTags(project.tags).skills.find { it.name == name }
                 ?: throw ToolException.ValidationFailure("Unknown skill: $name")
 
         val skillFile = skill.folder.resolve(SKILL_FILE_NAME)
-        val instructions = stripFrontmatter(Files.readString(skillFile)).trim()
+        val instructions = parseMarkdownFrontmatter(Files.readString(skillFile)).body.trim()
 
         return buildString {
             appendLine("<skill_content name=\"${escapeXml(skill.name)}\">")
@@ -58,23 +61,7 @@ class SkillTools(
                 .toList()
         }
 
-    private fun stripFrontmatter(content: String): String {
-        val lines = content.lines()
-        if (lines.firstOrNull()?.trim() != FRONTMATTER_DELIMITER) {
-            return content
-        }
-
-        val closingDelimiterIndex =
-            lines.drop(1).indexOfFirst { it.trim() == FRONTMATTER_DELIMITER }
-        if (closingDelimiterIndex < 0) {
-            return content
-        }
-
-        return lines.drop(closingDelimiterIndex + 2).joinToString("\n")
-    }
-
     companion object {
         private const val SKILL_FILE_NAME = "SKILL.md"
-        private const val FRONTMATTER_DELIMITER = "---"
     }
 }

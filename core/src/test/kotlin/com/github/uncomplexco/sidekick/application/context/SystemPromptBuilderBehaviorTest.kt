@@ -65,6 +65,18 @@ class SystemPromptBuilderBehaviorTest {
     }
 
     @Test
+    fun `system prompt consumes resolved project instructions independently of their source`() {
+        val config = AgentConfig("Sidekick", dir.resolve("state").toString(), dir.toString())
+        val project = ProjectContext(setOf("engineering"), "Resolved project instructions")
+
+        val prompt =
+            SystemPromptBuilder(config, ChatPlatform.SLACK).buildSystemPrompt("sidekick", project)
+
+        assertTrue(prompt.contains("# Project context\n\nResolved project instructions"), prompt)
+        assertFalse(prompt.contains("engineering"), prompt)
+    }
+
+    @Test
     fun `replaces operating rule variables`() {
         val workingDir = Files.createDirectories(dir.resolve("workspace"))
         Files.createDirectories(workingDir.resolve("config"))
@@ -130,10 +142,13 @@ class SystemPromptBuilderBehaviorTest {
         return SystemPromptBuilder(config, platform)
             .buildSystemPrompt(
                 username,
-                config
-                    .workspaceLayout()
-                    .projectWorkspacesDirectoryPath()
-                    .resolve(sanitizePathSegment(conversationId.channelId)),
+                ProjectContexts()
+                    .resolve(
+                        config
+                            .workspaceLayout()
+                            .projectWorkspacesDirectoryPath()
+                            .resolve(sanitizePathSegment(conversationId.channelId))
+                    ),
             )
     }
 

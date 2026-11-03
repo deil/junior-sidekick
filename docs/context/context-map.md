@@ -13,6 +13,7 @@ Hierarchical index of project context documentation for future-us and AI agents.
 
 ## Domain Specs. Read these files based on relevance to current task or user's request.
 
+- [project-context.md](project-context.md) – Resolved project tags and instructions, AGENTS.md source parsing, and per-turn context snapshots; read for project context loading and consumption changes.
 - [conversation-management.md](conversation-management.md) – Conversation trigger flow, Slack thread seeding, session history ownership, prompt context shape, and deduplication invariants; read for conversation behavior changes.
 - [context-management.md](context-management.md) – Sidekick system/user prompt assembly, bootstrap versus follow-up context, and session compaction invariants; read for prompt generation, context window, and prompt history changes.
 - [mcp.md](mcp.md) – Koog MCP tool registry configuration, supported transports, Grafana MCP examples, and registry merge behavior; read for MCP tool integration changes.

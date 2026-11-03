@@ -139,6 +139,7 @@ class TaskToolTest {
 
         assertEquals(boundContexts.single().turnId, runner.runIds.single().runId)
         assertSame(boundContexts.single().conversation.virtualPaths, runner.virtualPaths.single())
+        assertSame(boundContexts.single().conversation, runner.conversations.single())
         assertNotEquals("turn-1", runner.runIds.single().runId)
     }
 
