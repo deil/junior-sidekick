@@ -7,7 +7,9 @@ import com.github.uncomplexco.sidekick.application.agent.koog.McpServersRegistry
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import io.ktor.client.*
+import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.*
+import io.ktor.client.plugins.compression.ContentEncoding
 import io.ktor.client.plugins.sse.*
 import io.ktor.client.request.*
 import io.modelcontextprotocol.kotlin.sdk.client.*
@@ -255,10 +257,21 @@ class DefaultMcpServersRegistry(
         }
     }
 
-    private fun mcpHttpClient(
-        server: McpServerConfig,
-        authHeaderValue: String?,
-    ): HttpClient = HttpClient {
+    companion object {
+        private const val MAX_ERROR_RESPONSE_LOG_LENGTH = 4000
+        private val log = Loggers.MCP
+    }
+}
+
+internal fun mcpHttpClient(
+    server: McpServerConfig,
+    authHeaderValue: String?,
+): HttpClient =
+    HttpClient(CIO) {
+        install(ContentEncoding) {
+            gzip()
+            deflate()
+        }
         install(SSE)
         install(HttpTimeout) {
             requestTimeoutMillis = server.timeoutSeconds.seconds.inWholeMilliseconds
@@ -268,12 +281,6 @@ class DefaultMcpServersRegistry(
             defaultRequest { header("Authorization", headerValue) }
         }
     }
-
-    companion object {
-        private const val MAX_ERROR_RESPONSE_LOG_LENGTH = 4000
-        private val log = Loggers.MCP
-    }
-}
 
 private class DefaultConnectedMcpServer(
     override val id: String,
