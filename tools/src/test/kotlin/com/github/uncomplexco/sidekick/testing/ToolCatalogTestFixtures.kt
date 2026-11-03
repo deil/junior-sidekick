@@ -11,7 +11,6 @@ import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorConfig
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
-import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.koog.ConnectedMcpServer
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloadResult
@@ -30,8 +29,6 @@ import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
-import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
-import com.github.uncomplexco.sidekick.application.context.TurnPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
@@ -48,7 +45,6 @@ import com.github.uncomplexco.sidekick.application.tools.subagents.Subagent
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentCatalog
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunResult
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunner
-import com.github.uncomplexco.sidekick.application.tools.system.LoopFactory
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
@@ -69,25 +65,6 @@ class ToolCatalogFixture(
 ) {
     val runner = CatalogSubagentRunner()
     val config = AgentConfig("Test", root.resolve("state").toString(), root.toString())
-    val koog =
-        KoogConfig(
-            "unused",
-            "Test",
-            "",
-            "test",
-            "test",
-            "low",
-            "test",
-            "test",
-            "low",
-            "test",
-            "test",
-            "low",
-            "test",
-            10,
-        )
-    val systemPrompt = SystemPromptBuilder(config, ChatPlatform.SLACK)
-    val turnPrompt = TurnPromptBuilder(config) { SkillCatalog(emptyList()) }
     private val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
     val catalog =
         DefaultAgentToolCatalog(
@@ -110,7 +87,6 @@ class ToolCatalogFixture(
             WeeklyStatsService(store),
             runner,
             { SubagentCatalog(listOf(Subagent("general", "General-purpose subagent", "Prompt"))) },
-            LoopFactory(koog, systemPrompt, turnPrompt),
             providers,
         )
 

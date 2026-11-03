@@ -53,7 +53,7 @@ Current built-in agent:
 
 Subagents use the configured normal/default Koog model profile and the global max agent iteration setting. They do not inherit Sidekick chat memory or session history; the `prompt` argument is the only user message.
 
-Task and Loop receive the global catalog's fixed shared selection. Callers cannot narrow or
+Task receives the global catalog's fixed shared selection. Callers cannot narrow or
 override it. Shared tools include workspace files, configured sandbox/bash, git, web, skills,
 time utilities, stats, platform history/user/channel/file reads, and MCP/extension tools
 classified as shared. Workspace and sandbox operations are not restricted to reads.
@@ -63,7 +63,7 @@ settings, scheduling, and delegation tools are orchestrator-only. Delegates retu
 to their caller without independently communicating with the requester.
 
 Each Task has its own execution context and tool instances, using the parent's virtual paths
-and current attachment context. Each Loop validation/iteration also binds fresh tools.
+and current attachment context.
 MCP connections remain owned by the parent turn; delegates bind fresh wrappers from those
 execution-local sources. Tools and live connections are never global singletons.
 

@@ -61,7 +61,6 @@ class DefaultAgentToolCatalogTest {
                 setOf(
                     "assistant_report_status",
                     "Task",
-                    "Loop",
                     "attachFile",
                     "slackCanvasCreate",
                     "slackReactionAdd",
@@ -77,6 +76,7 @@ class DefaultAgentToolCatalogTest {
                 "Missing Sidekick tools: ${orchestrator - sidekick}",
             )
             assertTrue((delegate intersect orchestrator).isEmpty())
+            assertFalse("Loop" in sidekick)
         }
 
     @Test
@@ -162,20 +162,20 @@ class DefaultAgentToolCatalogTest {
             val second = fixture.execution("second", servers = listOf(source))
 
             val task = fixture.catalog.bindDelegate(first)
-            val loop = fixture.catalog.bindDelegate(second)
+            val secondDelegate = fixture.catalog.bindDelegate(second)
             val sidekick = fixture.catalog.bindOrchestrator(first)
 
             assertContains(sidekick.names(), "mcpMessage")
             assertFalse("mcpMessage" in task.names())
-            assertFalse("mcpMessage" in loop.names())
-            assertNotSame(task.getTool("mcpRead"), loop.getTool("mcpRead"))
+            assertFalse("mcpMessage" in secondDelegate.names())
+            assertNotSame(task.getTool("mcpRead"), secondDelegate.getTool("mcpRead"))
             assertEquals(
                 first.turn.conversation.virtualPaths.workRoot.toString(),
                 task.getTool<ContextProbeTool>().execute(JSONObject(emptyMap())),
             )
             assertEquals(
                 second.turn.conversation.virtualPaths.workRoot.toString(),
-                loop.getTool<ContextProbeTool>().execute(JSONObject(emptyMap())),
+                secondDelegate.getTool<ContextProbeTool>().execute(JSONObject(emptyMap())),
             )
         }
 

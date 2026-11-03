@@ -40,8 +40,6 @@ import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunne
 import com.github.uncomplexco.sidekick.application.tools.subagents.TaskTool
 import com.github.uncomplexco.sidekick.application.tools.system.ActivityTools
 import com.github.uncomplexco.sidekick.application.tools.system.ConversationIntelligenceLevelTools
-import com.github.uncomplexco.sidekick.application.tools.system.LoopFactory
-import com.github.uncomplexco.sidekick.application.tools.system.LoopTools
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
@@ -66,7 +64,6 @@ class DefaultAgentToolCatalog(
     weeklyStats: WeeklyStatsService,
     subagentRunner: SubagentRunner,
     subagents: SubagentCatalogProvider,
-    loopFactory: LoopFactory,
     sidekickToolProviders: List<SidekickToolProvider>,
 ) : AgentToolCatalog {
     private val registrations: List<ToolRegistration<ToolExecutionContext>> =
@@ -127,17 +124,6 @@ class DefaultAgentToolCatalog(
                         },
                     )
                 )
-            },
-            ToolRegistration("loop", ToolAccess.ORCHESTRATOR_ONLY) { execution ->
-                LoopTools(
-                        factory = loopFactory,
-                        chat = execution.chat,
-                        ctx = execution.turn,
-                        bindTools = { child ->
-                            bindDelegate(execution.copy(turn = child))
-                        },
-                    )
-                    .asTools()
             },
             ToolRegistration("slack-output", ToolAccess.ORCHESTRATOR_ONLY) {
                 if (it.chat is SlackBackedChatPlatformAdapter) {
