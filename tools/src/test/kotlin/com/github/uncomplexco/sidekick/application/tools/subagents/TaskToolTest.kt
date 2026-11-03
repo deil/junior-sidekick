@@ -138,6 +138,7 @@ class TaskToolTest {
         task.execute(TaskTool.Args("Find", "Inspect"))
 
         assertEquals(boundContexts.single().turnId, runner.runIds.single().runId)
+        assertSame(boundContexts.single().conversation.virtualPaths, runner.virtualPaths.single())
         assertNotEquals("turn-1", runner.runIds.single().runId)
     }
 

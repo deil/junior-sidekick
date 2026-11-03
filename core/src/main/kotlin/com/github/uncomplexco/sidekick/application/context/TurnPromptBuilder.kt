@@ -10,7 +10,7 @@ import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.R
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.THREAD_SUMMARIES
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.THREAD_TRANSCRIPT
 import com.github.uncomplexco.sidekick.application.context.prompts.Prompts
-import com.github.uncomplexco.sidekick.application.context.prompts.skillsSection
+import com.github.uncomplexco.sidekick.application.context.prompts.SkillsSection.renderSkillsSection
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionCompaction
@@ -58,7 +58,9 @@ class TurnPromptBuilder(
                 )
             )
 
-            skillsSection(skills.catalog(), ctx.conversation.virtualPaths)?.also { appendLine(it) }
+            renderSkillsSection(skills.catalog(), ctx.conversation.virtualPaths)?.also {
+                appendLine(it)
+            }
         }
 
         val skippedMessages = if (includeContext) pendingSkippedMessages(ctx) else emptyList()

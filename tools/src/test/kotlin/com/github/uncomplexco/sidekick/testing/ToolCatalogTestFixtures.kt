@@ -187,6 +187,7 @@ class CatalogSubagentRunner : SubagentRunner {
         subagentType: String,
         prompt: String,
         tools: ToolRegistry,
+        virtualPaths: VirtualPaths,
     ): AgentRunResult<String> {
         runIds += runId
         registries += tools

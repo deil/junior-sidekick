@@ -14,11 +14,11 @@ Hierarchical index of project context documentation for future-us and AI agents.
 ## Domain Specs. Read these files based on relevance to current task or user's request.
 
 - [conversation-management.md](conversation-management.md) – Conversation trigger flow, Slack thread seeding, session history ownership, prompt context shape, and deduplication invariants; read for conversation behavior changes.
-- [context-management.md](context-management.md) – Session context compaction and prompt-context invariants, including the requirement that live recent messages always remain; read for context window and prompt history changes.
+- [context-management.md](context-management.md) – Sidekick system/user prompt assembly, bootstrap versus follow-up context, and session compaction invariants; read for prompt generation, context window, and prompt history changes.
 - [mcp.md](mcp.md) – Koog MCP tool registry configuration, supported transports, Grafana MCP examples, and registry merge behavior; read for MCP tool integration changes.
 - [slack.md](slack.md) – Slack channel and thread identifier semantics, including `C`/`G`/`D` prefixes and DM channel handling; read for Slack adapter mapping changes.
-- [skills.md](skills.md) – Remote extension repository configuration, checkout layout, skill discovery metadata, validation, and current scope; read for skills loading and activation changes.
-- [subagents.md](subagents.md) – `Task` tool behavior, built-in and extension subagent loading, frontmatter stripping, and subagent isolation; read for subagent behavior changes.
+- [skills.md](skills.md) – Skill sources, discovery, activation, and orchestrator catalog prompting; read for skills loading, prompting, and activation changes.
+- [subagents.md](subagents.md) – `Task` behavior, subagent system/user prompt shape, definition loading, context isolation, and tool access; read for subagent execution and prompt generation changes.
 - [turn-flow.md](turn-flow.md) – Session/Turn processing model, turn boundary, and processing stages from Slack event through turn participation and response delivery; read for turn orchestration and participation changes.
 - [turn-suspension.md](turn-suspension.md) – Durable turn checkpoint/resume semantics, external-action waiting, supersession, races, parallel tools, and Koog Persistence versus ChatMemory; read for suspended turns and per-user OAuth continuation work.
 - [scheduled-jobs.md](scheduled-jobs.md) – Channel-scoped recurring prompts, conversational management, isolated scheduled runs, persistence, and delivery; read for scheduled agent work.

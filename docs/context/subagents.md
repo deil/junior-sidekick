@@ -1,3 +1,7 @@
+---
+type: Domain
+---
+
 # Subagents
 
 Sidekick exposes a Koog `Task` tool that runs an isolated subagent and returns the subagent's final answer to the parent agent.
@@ -49,9 +53,47 @@ Current built-in agent:
 
 - `general` - general-purpose autonomous subagent.
 
+## Prompt Generation
+
+Subagent prompting is separate from [Sidekick session prompting](context-management.md).
+The selected agent definition supplies behavior, the current skills catalog supplies
+skill discovery instructions, and the caller supplies the task context. Prompt composition
+belongs to the subagent caller of `KoogAgent`.
+
+The initial model-visible messages have this shape:
+
+```text
+SYSTEM
+  Selected subagent definition's Markdown body, with frontmatter stripped.
+
+  <skills>
+    Activation instructions and available/user-invocable skill entries.
+  </skills>
+
+USER
+  Task.prompt, unchanged.
+```
+
+`subagent_type` selects the system prompt. `description` supplies the task's progress
+status label. Tool definitions are supplied separately from message text;
+the tool loop then adds model tool calls and tool results before the final answer.
+
+The `<skills>` section follows the agent instructions, separated by a blank line.
+It uses the current catalog at execution start and the child's virtual paths to render
+skill locations. A catalog with no model-invocable or user-invocable skills leaves the
+definition unchanged. Skill instructions are loaded on demand through `activateSkill`.
+
+Each subagent starts with a fresh message history containing the system prompt and delegated
+task shown above. Workspace and attachment access comes from bound tools.
+
+The catalog section uses the shared [skill entry shape and activation rules](skills.md#turn-prompt-catalog).
+Model-invocable skills are available for task-based selection; user-invocable skills
+require an explicit user request. Subagent catalogs belong to the system prompt;
+Sidekick session catalogs belong to the bootstrap user prompt.
+
 ## Runtime Isolation
 
-Subagents use the configured normal/default Koog model profile and the global max agent iteration setting. They do not inherit Sidekick chat memory or session history; the `prompt` argument is the only user message.
+Subagents use the configured normal/default Koog model profile and the global max agent iteration setting. Each execution starts with its own message history; the `prompt` argument supplies the initial user message.
 
 Task receives the global catalog's fixed shared selection. Callers cannot narrow or
 override it. Shared tools include workspace files, configured sandbox/bash, git, web, skills,

@@ -5,12 +5,17 @@ import com.github.uncomplexco.sidekick.application.agent.AgentRunResult
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.koog.KoogAgent
 import com.github.uncomplexco.sidekick.application.agent.koog.RunId
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.context.prompts.SkillsSection.renderSkillsSection
 import org.springframework.stereotype.Component
 
 @Component
 class KoogSubagentRunner(
     private val koogConfig: KoogConfig,
     private val subagents: SubagentCatalogProvider,
+    private val skills: SkillsCatalog,
 ) : SubagentRunner {
     override suspend fun run(
         agentId: String,
@@ -18,6 +23,7 @@ class KoogSubagentRunner(
         subagentType: String,
         prompt: String,
         tools: ToolRegistry,
+        virtualPaths: VirtualPaths,
     ): AgentRunResult<String> {
         val systemPrompt =
             subagents.catalog().subagents.firstOrNull { it.name == subagentType }?.systemPrompt
@@ -28,8 +34,17 @@ class KoogSubagentRunner(
                 runId = runId,
                 tools = tools,
                 model = koogConfig.normalProfile,
-                systemPrompt = { systemPrompt },
+                systemPrompt = {
+                    subagentSystemPrompt(systemPrompt, skills.catalog(), virtualPaths)
+                },
                 input = { prompt },
             )
     }
 }
+
+internal fun subagentSystemPrompt(
+    instructions: String,
+    skills: SkillCatalog,
+    virtualPaths: VirtualPaths,
+): String =
+    listOfNotNull(instructions, renderSkillsSection(skills, virtualPaths)).joinToString("\n\n")

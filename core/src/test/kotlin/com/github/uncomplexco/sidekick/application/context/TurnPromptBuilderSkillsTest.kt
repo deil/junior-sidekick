@@ -100,7 +100,11 @@ class TurnPromptBuilderSkillsTest {
         // Assert
         assertFalse(prompt.contains("<available_skills>"), prompt)
         assertTrue(prompt.contains("<user_invocable_skills>"), prompt)
-        assertTrue(prompt.contains("<name>disabled-skill</name>"), prompt)
+        assertTrue(
+            prompt.contains("<user_invocable_skills>\ndisabled-skill\n</user_invocable_skills>"),
+            prompt,
+        )
+        assertFalse(prompt.contains("User-only skill."), prompt)
     }
 
     @Test

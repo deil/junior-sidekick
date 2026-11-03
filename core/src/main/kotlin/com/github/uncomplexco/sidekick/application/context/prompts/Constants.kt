@@ -4,8 +4,6 @@ object ContextTags {
     const val THREAD_SUMMARIES = "thread_summaries"
     const val HANDOFF_SUMMARY = "handoff_summary"
     const val RUNTIME_CONTEXT_TAG = "runtime_context"
-    const val SKILLS_SECTION_TAG = "skills"
-    const val AVAILABLE_SKILLS_TAG = "available_skills"
     const val EXPLICIT_SKILL_INVOCATION_TAG = "explicit_skill_invocation"
     const val REQUESTER_TAG = "requester"
     const val THREAD_TRANSCRIPT = "thread_transcript"
