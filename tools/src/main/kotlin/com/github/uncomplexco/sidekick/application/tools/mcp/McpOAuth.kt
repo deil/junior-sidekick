@@ -31,6 +31,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.core.AuthorizationGrantType
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod
 import org.springframework.stereotype.Component
+import org.springframework.web.client.HttpClientErrorException
 
 @Component
 class McpOAuthService(
@@ -158,7 +159,16 @@ class McpOAuthService(
 
     private fun discover(server: McpServerConfig): OAuthMetadata {
         log.info("Discovering MCP OAuth metadata for server {}", server.id)
-        val challenge = discovery.getWwwAuthenticateParameters(server.url)
+        val challenge =
+            try {
+                discovery.getWwwAuthenticateParameters(server.url)
+            } catch (_: HttpClientErrorException.MethodNotAllowed) {
+                log.info(
+                    "MCP OAuth challenge probe does not support POST for server {}; using metadata discovery",
+                    server.id,
+                )
+                null
+            }
         val protectedResource =
             if (challenge == null) {
                 discovery.getMcpMetadata(server.url, null).protectedResourceMetadata()

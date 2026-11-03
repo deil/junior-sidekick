@@ -18,9 +18,15 @@ import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
 import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.testing.CancellingSubagentRunner
+import com.github.uncomplexco.sidekick.testing.FailingSubagentRunner
+import com.github.uncomplexco.sidekick.testing.RecordingSubagentRunner
 import java.nio.file.Path
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertSame
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -99,43 +105,101 @@ class TaskToolTest {
         assertEquals(listOf("general task - Find", null), chat.continuedWith)
     }
 
+    @Test
+    fun `each task gets a fresh agent and run in the parent conversation`() = runBlocking {
+        val runner = RecordingSubagentRunner("ok")
+        val task = tool(runner)
+
+        task.execute(TaskTool.Args("Find", "Inspect"))
+        task.execute(TaskTool.Args("Find again", "Inspect again"))
+
+        assertNotEquals(runner.agentIds[0], runner.agentIds[1])
+        assertNotEquals(runner.runIds[0].runId, runner.runIds[1].runId)
+        assertNotEquals(runner.agentIds[0], runner.runIds[0].runId)
+        assertEquals(
+            List(2) { ConversationId("C123", "1.23") },
+            runner.runIds.map { it.conversationId },
+        )
+    }
+
+    @Test
+    fun `task run ID matches the context used to bind its tools`() = runBlocking {
+        val runner = RecordingSubagentRunner("ok")
+        val boundContexts = mutableListOf<TurnContext>()
+        val task =
+            tool(
+                runner,
+                bindTools = {
+                    boundContexts += it
+                    ToolRegistry.EMPTY
+                },
+            )
+
+        task.execute(TaskTool.Args("Find", "Inspect"))
+
+        assertEquals(boundContexts.single().turnId, runner.runIds.single().runId)
+        assertSame(boundContexts.single().conversation.virtualPaths, runner.virtualPaths.single())
+        assertNotEquals("turn-1", runner.runIds.single().runId)
+    }
+
+    @Test
+    fun `completed task reports child usage to parent`() = runBlocking {
+        val usage = AgentUsageStats(2, 100, 20)
+        val reported = mutableListOf<AgentUsageStats>()
+        val task = tool(RecordingSubagentRunner("ok", usage), onUsage = reported::add)
+
+        val result = task.execute(TaskTool.Args("Find", "Inspect"))
+
+        assertEquals("ok", result)
+        assertEquals(listOf(usage), reported)
+    }
+
+    @Test
+    fun `failed task reports partial usage before returning tool failure`() {
+        val usage = AgentUsageStats(1, 30, 8)
+        val reported = mutableListOf<AgentUsageStats>()
+        val task = tool(FailingSubagentRunner(usage = usage), onUsage = reported::add)
+
+        val error =
+            assertThrows<ToolException.ValidationFailure> {
+                runBlocking { task.execute(TaskTool.Args("Find", "Inspect")) }
+            }
+
+        assertEquals("boom", error.message)
+        assertEquals(listOf(usage), reported)
+    }
+
+    @Test
+    fun `cancellation propagates and restores thinking without reporting completion`() {
+        val cancellation = CancellationException("Cancelled")
+        val chat = RecordingChatPlatform()
+        val reported = mutableListOf<AgentUsageStats>()
+        val task = tool(CancellingSubagentRunner(cancellation), chat, reported::add)
+
+        val error =
+            assertThrows<CancellationException> {
+                runBlocking { task.execute(TaskTool.Args("Find", "Inspect")) }
+            }
+
+        assertSame(cancellation, error)
+        assertEquals(listOf("general task - Find", null), chat.continuedWith)
+        assertEquals(emptyList(), reported)
+    }
+
     private fun tool(
         runner: SubagentRunner,
         chat: RecordingChatPlatform = RecordingChatPlatform(),
+        onUsage: (AgentUsageStats) -> Unit = {},
+        bindTools: suspend (TurnContext) -> ToolRegistry = { ToolRegistry.EMPTY },
     ): TaskTool =
         TaskTool(
             runner = runner,
             ctx = turnContext(tempDir),
             activityReporter = chat.lifecycle,
             availableSubagents = listOf(Subagent("general", "General-purpose subagent", "Prompt")),
-            onSubagentCompleted = {},
-            bindTools = { ToolRegistry.EMPTY },
+            onSubagentCompleted = onUsage,
+            bindTools = bindTools,
         )
-}
-
-private class RecordingSubagentRunner(private val result: String) : SubagentRunner {
-    val prompts = mutableListOf<String>()
-    val subagentTypes = mutableListOf<String>()
-
-    override suspend fun run(
-        ctx: TurnContext,
-        subagentType: String,
-        prompt: String,
-        tools: ToolRegistry,
-    ): SubagentRunResult {
-        subagentTypes += subagentType
-        prompts += prompt
-        return SubagentRunResult(result, AgentUsageStats())
-    }
-}
-
-private class FailingSubagentRunner : SubagentRunner {
-    override suspend fun run(
-        ctx: TurnContext,
-        subagentType: String,
-        prompt: String,
-        tools: ToolRegistry,
-    ): SubagentRunResult = error("boom")
 }
 
 private class RecordingChatPlatform : ChatPlatformAdapter {

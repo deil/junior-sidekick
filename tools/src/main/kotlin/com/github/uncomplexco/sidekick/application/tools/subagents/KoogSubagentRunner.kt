@@ -1,80 +1,50 @@
 package com.github.uncomplexco.sidekick.application.tools.subagents
 
-import ai.koog.agents.core.agent.AIAgent
-import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.tools.ToolRegistry
-import ai.koog.agents.features.eventHandler.feature.handleEvents
-import ai.koog.prompt.dsl.prompt
-import ai.koog.prompt.llm.LLMProvider
-import ai.koog.prompt.llm.LLModel
+import com.github.uncomplexco.sidekick.application.agent.AgentRunResult
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
-import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
-import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
-import com.github.uncomplexco.sidekick.application.turn.TurnContext
-import java.util.UUID
+import com.github.uncomplexco.sidekick.application.agent.koog.KoogAgent
+import com.github.uncomplexco.sidekick.application.agent.koog.RunId
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.context.prompts.SkillsSection.renderSkillsSection
 import org.springframework.stereotype.Component
 
 @Component
 class KoogSubagentRunner(
     private val koogConfig: KoogConfig,
     private val subagents: SubagentCatalogProvider,
+    private val skills: SkillsCatalog,
 ) : SubagentRunner {
     override suspend fun run(
-        ctx: TurnContext,
+        agentId: String,
+        runId: RunId,
         subagentType: String,
         prompt: String,
         tools: ToolRegistry,
-    ): SubagentRunResult {
-        val aiModelProfile = koogConfig.normalProfile
-        var toolCallCount = 0
-        var inputTokenCount = 0L
-        var outputTokenCount = 0L
+        virtualPaths: VirtualPaths,
+    ): AgentRunResult<String> {
         val systemPrompt =
             subagents.catalog().subagents.firstOrNull { it.name == subagentType }?.systemPrompt
                 ?: throw IllegalArgumentException("Unknown subagent type: $subagentType")
-        val agent =
-            AIAgent(
-                promptExecutor = koogConfig.openRouterExecutor(),
-                agentConfig =
-                    AIAgentConfig(
-                        prompt =
-                            prompt(
-                                id = "sidekick-subagent-prompt",
-                                params =
-                                    koogConfig.openRouterParams(
-                                        aiModelProfile,
-                                        ctx.conversation.conversationId,
-                                    ),
-                            ) {
-                                system(systemPrompt)
-                            },
-                        model =
-                            LLModel(
-                                provider = LLMProvider.OpenRouter,
-                                id = aiModelProfile.model,
-                                capabilities = koogConfig.modelCapabilities(),
-                            ),
-                        maxAgentIterations = koogConfig.maxAgentIterations,
-                    ),
-                toolRegistry = tools,
-            ) {
-                handleEvents {
-                    onLLMCallCompleted { llmCall ->
-                        inputTokenCount += llmCall.response?.metaInfo?.inputTokensCount ?: 0
-                        outputTokenCount += llmCall.response?.metaInfo?.outputTokensCount ?: 0
-                    }
-                    onToolCallStarting { toolCallCount++ }
-                }
-            }
 
-        return SubagentRunResult(
-            output = agent.run(prompt, "subagent-${UUID.randomUUID()}"),
-            stats =
-                AgentUsageStats(
-                    toolCallCount = toolCallCount,
-                    inputTokenCount = inputTokenCount,
-                    outputTokenCount = outputTokenCount,
-                ),
-        )
+        return KoogAgent(koogConfig, agentId)
+            .run(
+                runId = runId,
+                tools = tools,
+                model = koogConfig.normalProfile,
+                systemPrompt = {
+                    subagentSystemPrompt(systemPrompt, skills.catalog(), virtualPaths)
+                },
+                input = { prompt },
+            )
     }
 }
+
+internal fun subagentSystemPrompt(
+    instructions: String,
+    skills: SkillCatalog,
+    virtualPaths: VirtualPaths,
+): String =
+    listOfNotNull(instructions, renderSkillsSection(skills, virtualPaths)).joinToString("\n\n")

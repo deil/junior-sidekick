@@ -147,6 +147,8 @@ Seeded messages are context. The batch is current turn input. `lastMessageId` id
 
 `TurnParticipation` decides whether Sidekick should respond during an admitted turn. It returns `Respond`, `Skip`, or `Unsubscribe`.
 
+An attachment-only message is not empty. File-only DMs can trigger a response; passive thread messages still follow the usual participation rules.
+
 The latest unsubscribe request or explicit mention determines subscription and response precedence. Unsubscribe does not require a mention. Other deterministic checks apply per message:
 
 - Explicit mentions reply.

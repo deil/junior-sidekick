@@ -48,7 +48,6 @@ class DefaultAgentToolCatalogTest {
                     "git__pull",
                     "webFetch",
                     "activateSkill",
-                    "reloadSkills",
                     "currentDateTime",
                     "timestampToIsoUtc",
                     "slackChannelHistory",
@@ -60,8 +59,8 @@ class DefaultAgentToolCatalogTest {
             val orchestrator =
                 setOf(
                     "assistant_report_status",
+                    "reloadSkills",
                     "Task",
-                    "Loop",
                     "attachFile",
                     "slackCanvasCreate",
                     "slackReactionAdd",
@@ -77,6 +76,7 @@ class DefaultAgentToolCatalogTest {
                 "Missing Sidekick tools: ${orchestrator - sidekick}",
             )
             assertTrue((delegate intersect orchestrator).isEmpty())
+            assertFalse("Loop" in sidekick)
         }
 
     @Test
@@ -162,20 +162,20 @@ class DefaultAgentToolCatalogTest {
             val second = fixture.execution("second", servers = listOf(source))
 
             val task = fixture.catalog.bindDelegate(first)
-            val loop = fixture.catalog.bindDelegate(second)
+            val secondDelegate = fixture.catalog.bindDelegate(second)
             val sidekick = fixture.catalog.bindOrchestrator(first)
 
             assertContains(sidekick.names(), "mcpMessage")
             assertFalse("mcpMessage" in task.names())
-            assertFalse("mcpMessage" in loop.names())
-            assertNotSame(task.getTool("mcpRead"), loop.getTool("mcpRead"))
+            assertFalse("mcpMessage" in secondDelegate.names())
+            assertNotSame(task.getTool("mcpRead"), secondDelegate.getTool("mcpRead"))
             assertEquals(
                 first.turn.conversation.virtualPaths.workRoot.toString(),
                 task.getTool<ContextProbeTool>().execute(JSONObject(emptyMap())),
             )
             assertEquals(
                 second.turn.conversation.virtualPaths.workRoot.toString(),
-                loop.getTool<ContextProbeTool>().execute(JSONObject(emptyMap())),
+                secondDelegate.getTool<ContextProbeTool>().execute(JSONObject(emptyMap())),
             )
         }
 
@@ -219,13 +219,11 @@ class DefaultAgentToolCatalogTest {
         )
         task.execute(TaskTool.Args("Inspect again", "Inspect again"))
 
-        val contexts = fixture.runner.contexts
+        val runIds = fixture.runner.runIds
         val registries = fixture.runner.registries
-        assertEquals(2, contexts.size)
-        assertNotEquals(parent.turn.turnId, contexts[0].turnId)
-        assertNotEquals(contexts[0].turnId, contexts[1].turnId)
-        assertNotSame(parent.turn, contexts[0])
-        assertEquals(parent.turn.conversation.virtualPaths, contexts[0].conversation.virtualPaths)
+        assertEquals(2, runIds.size)
+        assertNotEquals(runIds[0].runId, runIds[1].runId)
+        assertEquals(parent.turn.conversation.conversationId, runIds[0].conversationId)
         assertNotSame(registry.getTool("Read"), registries[0].getTool("Read"))
         assertNotSame(registries[0].getTool("Read"), registries[1].getTool("Read"))
         assertContains(registries[0].names(), "bash")

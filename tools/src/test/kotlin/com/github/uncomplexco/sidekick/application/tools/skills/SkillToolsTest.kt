@@ -3,14 +3,14 @@ package com.github.uncomplexco.sidekick.application.tools.skills
 import ai.koog.agents.core.tools.ToolException
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloadResult
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -41,21 +41,21 @@ class SkillToolsTest {
         // Act
         val result =
             SkillTools(
-                    skills = {
-                        SkillCatalog(
-                            listOf(
-                                Skill(
-                                    name = "pdf-processing",
-                                    description = "Work with PDFs.",
-                                    folder = skillFolder,
-                                    disableModelInvocation = false,
-                                    userInvocable = true,
+                    skills =
+                        StubSkillsCatalog(
+                            SkillCatalog(
+                                listOf(
+                                    Skill(
+                                        name = "pdf-processing",
+                                        description = "Work with PDFs.",
+                                        folder = skillFolder,
+                                        disableModelInvocation = false,
+                                        userInvocable = true,
+                                    )
                                 )
                             )
-                        )
-                    },
+                        ),
                     virtualPaths = virtualPaths(),
-                    skillCatalogReloader = emptyReloader(),
                 )
                 .activateSkill("pdf-processing")
 
@@ -75,9 +75,8 @@ class SkillToolsTest {
         // Arrange
         val tools =
             SkillTools(
-                skills = { SkillCatalog(emptyList()) },
+                skills = StubSkillsCatalog(),
                 virtualPaths = virtualPaths(),
-                skillCatalogReloader = emptyReloader(),
             )
 
         // Act / Assert
@@ -88,38 +87,54 @@ class SkillToolsTest {
     fun `reload skills returns catalog summary`() {
         // Arrange
         val tools =
-            SkillTools(
-                skills = { SkillCatalog(emptyList()) },
-                virtualPaths = virtualPaths(),
-                skillCatalogReloader = {
-                    SkillCatalogReloadResult(
-                        totalSkills = 3,
-                        modelInvocableSkills = 2,
-                        userInvocableSkills = 1,
-                        skillNames = listOf("alpha", "beta", "gamma"),
+            SkillsManagementTools(
+                skills =
+                    StubSkillsCatalog(
+                        reloaded =
+                            SkillCatalog(
+                                listOf(
+                                    Skill("gamma", "Gamma", dir, true, false),
+                                    Skill("alpha", "Alpha", dir, false, true),
+                                    Skill("beta", "Beta", dir, false, false),
+                                )
+                            )
                     )
-                },
             )
 
         // Act
         val result = tools.reloadSkills()
 
         // Assert
-        assertContains(result.skill_names, "alpha")
-        assertContains(result.skill_names, "beta")
-        assertContains(result.skill_names, "gamma")
+        assertEquals(listOf("alpha", "beta", "gamma"), result.skillNames)
         assertEquals(true, result.ok)
-        assertEquals(3, result.total_skills)
-        assertEquals(2, result.model_invocable_skills)
-        assertEquals(1, result.user_invocable_skills)
+        assertEquals(3, result.totalSkills)
+        assertEquals(2, result.modelInvocableSkills)
+        assertEquals(1, result.userInvocableSkills)
     }
 
-    private fun emptyReloader(): SkillCatalogReloader = SkillCatalogReloader {
-        SkillCatalogReloadResult(
-            totalSkills = 0,
-            modelInvocableSkills = 0,
-            userInvocableSkills = 0,
-            skillNames = emptyList(),
+    @Test
+    fun `reload result preserves snake case response fields`() {
+        // Arrange
+        val result = ReloadSkillsResult(true, 3, 2, 1, listOf("alpha", "beta", "gamma"))
+
+        // Act
+        val response = Json.encodeToJsonElement(ReloadSkillsResult.serializer(), result)
+
+        // Assert
+        assertEquals(
+            Json.parseToJsonElement(
+                """
+                {
+                    "ok": true,
+                    "total_skills": 3,
+                    "model_invocable_skills": 2,
+                    "user_invocable_skills": 1,
+                    "skill_names": ["alpha", "beta", "gamma"]
+                }
+                """
+                    .trimIndent()
+            ),
+            response,
         )
     }
 

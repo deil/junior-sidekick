@@ -3,7 +3,7 @@ package com.github.uncomplexco.sidekick.application.turn
 import com.github.uncomplexco.sidekick.application.agent.AgentSteering
 import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
 import com.github.uncomplexco.sidekick.application.agent.skills.detectUserSkillInvocation
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.IncomingBatch
@@ -33,7 +33,7 @@ class TurnCoordinator(
     private val sessions: SessionManager,
     private val participation: TurnParticipation,
     private val agent: AgentTurnExecutor,
-    private val skills: SkillCatalogProvider,
+    private val skills: SkillsCatalog,
 ) {
     suspend fun run(trigger: TurnTrigger, inbox: SteeringInbox? = null) {
         when (trigger) {

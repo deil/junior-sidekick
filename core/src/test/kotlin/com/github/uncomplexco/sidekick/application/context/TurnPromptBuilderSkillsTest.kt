@@ -8,6 +8,7 @@ import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.C
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.EXPLICIT_SKILL_INVOCATION_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.RUNTIME_CONTEXT_TAG
 import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
+import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import java.nio.file.Path
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -99,7 +100,11 @@ class TurnPromptBuilderSkillsTest {
         // Assert
         assertFalse(prompt.contains("<available_skills>"), prompt)
         assertTrue(prompt.contains("<user_invocable_skills>"), prompt)
-        assertTrue(prompt.contains("<name>disabled-skill</name>"), prompt)
+        assertTrue(
+            prompt.contains("<user_invocable_skills>\ndisabled-skill\n</user_invocable_skills>"),
+            prompt,
+        )
+        assertFalse(prompt.contains("User-only skill."), prompt)
     }
 
     @Test
@@ -229,7 +234,7 @@ class TurnPromptBuilderSkillsTest {
                     stateDir = dir.resolve("state").toString(),
                     workingDir = dir.resolve("workspace").toString(),
                 ),
-            skills = { catalog },
+            skills = StubSkillsCatalog(catalog),
         )
 
     private fun context(

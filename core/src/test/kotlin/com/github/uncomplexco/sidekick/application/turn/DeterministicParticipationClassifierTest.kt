@@ -13,6 +13,19 @@ class DeterministicParticipationClassifierTest {
 
     @Nested
     inner class Replying {
+        @Test
+        fun `attachment-only private message replies`() {
+            // Arrange
+            val messages = listOf(message("").copy(hasAttachments = true))
+
+            // Act
+            val decision = classifier.classify(input(messages, privateMessage = true))
+
+            // Assert
+            assertIs<TurnParticipationDecision.Respond>(decision)
+            assertEquals(TurnParticipationReason.PRIVATE_MESSAGE, decision.reason)
+        }
+
         @ParameterizedTest
         @ValueSource(ints = [0, 1, 2])
         fun `explicit mention replies regardless of its position in the batch`(position: Int) {

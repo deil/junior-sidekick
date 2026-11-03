@@ -26,6 +26,7 @@ Treat the bot token as a password. If it appears in a log, terminal transcript, 
    - Send Messages in Threads
    - Read Message History
    - Add Reactions
+   - Attach Files
 
 4. Open the generated URL.
 5. Select the server and authorize the installation.
@@ -63,6 +64,8 @@ The application connects to Discord during startup. An invalid token or a disabl
 5. Send an unmentioned message in the parent channel. Sidekick should ignore it.
 
 Sidekick can skip acknowledgments and messages directed at other people. Use a clear request when you test passive thread follow-ups.
+
+Attachments follow the same flow as Slack: Sidekick downloads up to three files per message into the session workspace and summarizes images. It can also upload generated files in replies. Discord's upload size limits apply.
 
 ## Troubleshoot
 

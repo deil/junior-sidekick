@@ -18,6 +18,7 @@ Project-level architectural practices for `sidekick`. This file records how the 
 ### Code style
 
 - Use JSpecify; apply `@NullMarked` by default. Or use Kotlin
+- Place constants at the top of the file, after package and import declarations, before functions and classes.
 - Use plural package names when a package holds a collection of similar types — `controllers`, `repositories`, `listeners`
 - Name regex constants with the `_RE` suffix
 - Use `snake_case` for XML prompt tag names, not kebab-case: `<current_instruction>`, not `<current-instruction>`

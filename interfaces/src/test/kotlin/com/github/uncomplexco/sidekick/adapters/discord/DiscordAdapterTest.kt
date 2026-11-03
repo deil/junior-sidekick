@@ -1,16 +1,17 @@
 package com.github.uncomplexco.sidekick.adapters.discord
 
+import com.github.uncomplexco.sidekick.adapters.ChatFileIngestor
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationKind
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.DiscordChannelHistoryMessage
+import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageQueue
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
@@ -26,11 +27,12 @@ import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.turn.DeterministicParticipationClassifier
 import com.github.uncomplexco.sidekick.application.turn.LlmParticipationClassifier
-import com.github.uncomplexco.sidekick.application.turn.ReplyAttachment
 import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
 import com.github.uncomplexco.sidekick.application.turn.TurnAdmission
 import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
 import com.github.uncomplexco.sidekick.application.turn.TurnParticipation
+import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
+import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
 import java.nio.file.Files
 import java.nio.file.Path
@@ -48,12 +50,23 @@ import org.mockito.Mockito.mock
 class DiscordAdapterTest {
     @TempDir lateinit var dir: Path
 
+    private val fileIngestor by lazy {
+        ChatFileIngestor(
+            VirtualPathsFactory(
+                AgentConfig("Sidekick", dir.toString(), dir.resolve("workspace").toString()),
+                ChatPlatform.DISCORD,
+            ),
+            mock(ImageSummarizer::class.java),
+        )
+    }
+
     @Test
     fun `ingress maps one text dm with real ids`() = runBlocking {
         val received = mutableListOf<Pair<ChatConversationId, IncomingMessage>>()
-        val ingress = DiscordIngress { conversationId, message, _ ->
-            received += conversationId to message
-        }
+        val ingress =
+            DiscordIngress(fileIngestor) { conversationId, message, _ ->
+                received += conversationId to message
+            }
 
         ingress.receive(message(), "999", ::sent)
 
@@ -107,9 +120,10 @@ class DiscordAdapterTest {
     @Test
     fun `ingress maps guild mention to isolated channel turn with real ids`() = runBlocking {
         val received = mutableListOf<Pair<ChatConversationId, IncomingMessage>>()
-        val ingress = DiscordIngress { conversationId, message, _ ->
-            received += conversationId to message
-        }
+        val ingress =
+            DiscordIngress(fileIngestor) { conversationId, message, _ ->
+                received += conversationId to message
+            }
 
         ingress.receive(
             message(kind = DiscordMessageKind.GUILD_MENTION, text = "hello <@999>"),
@@ -129,9 +143,10 @@ class DiscordAdapterTest {
     @Test
     fun `ingress maps passive thread message to its existing session`() = runBlocking {
         val received = mutableListOf<Pair<ChatConversationId, IncomingMessage>>()
-        val ingress = DiscordIngress { conversationId, message, _ ->
-            received += conversationId to message
-        }
+        val ingress =
+            DiscordIngress(fileIngestor) { conversationId, message, _ ->
+                received += conversationId to message
+            }
 
         ingress.receive(
             message(
@@ -150,11 +165,11 @@ class DiscordAdapterTest {
     }
 
     @Test
-    fun `ingress filters unsupported messages rejects attachments and deduplicates`() =
+    fun `ingress filters unsupported messages accepts attachments and deduplicates`() =
         runBlocking {
             val received = mutableListOf<String>()
             val sent = mutableListOf<String>()
-            val ingress = DiscordIngress { _, message, _ -> received += message.id }
+            val ingress = DiscordIngress(fileIngestor) { _, message, _ -> received += message.id }
             val send: suspend (String) -> DiscordSentMessage = { text ->
                 sent += text
                 DiscordSentMessage("1", 1)
@@ -164,61 +179,63 @@ class DiscordAdapterTest {
             ingress.receive(message(id = "webhook", isWebhook = true), "999", send)
             ingress.receive(message(id = "blank", text = "  "), "999", send)
             ingress.receive(
-                message(id = "file", attachmentNames = listOf("report.csv")),
+                message(id = "file", files = listOf(file())),
                 "999",
                 send,
             )
             ingress.receive(message(id = "duplicate"), "999", send)
             ingress.receive(message(id = "duplicate"), "999", send)
 
-            assertEquals(listOf("duplicate"), received)
-            assertEquals(
-                listOf("Attachments are not supported yet. Send a text-only message."),
-                sent,
-            )
+            assertEquals(listOf("file", "duplicate"), received)
+            assertEquals(emptyList(), sent)
         }
 
     @Test
-    fun `unmentioned guild message is ignored before attachment rejection and dedupe`() =
-        runBlocking {
-            val received = mutableListOf<String>()
-            val sent = mutableListOf<String>()
-            val ingress = DiscordIngress { _, message, _ -> received += message.id }
-            val send: suspend (String) -> DiscordSentMessage = { text ->
-                sent += text
-                DiscordSentMessage("1", 1)
-            }
-            val ignored =
-                message(
-                    kind = DiscordMessageKind.IGNORED_GUILD_MESSAGE,
-                    attachmentNames = listOf("report.csv"),
-                )
-
-            ingress.receive(ignored, "999", send)
-            ingress.receive(ignored.copy(kind = DiscordMessageKind.GUILD_MENTION), "999", send)
-
-            assertEquals(emptyList(), received)
-            assertEquals(
-                listOf("Attachments are not supported yet. Send a text-only message."),
-                sent,
-            )
-        }
-
-    @Test
-    fun `guild mention attachment rejection is deduplicated`() = runBlocking {
+    fun `unmentioned guild message with attachments is ignored before dedupe`() = runBlocking {
+        val received = mutableListOf<String>()
         val sent = mutableListOf<String>()
-        val ingress = DiscordIngress { _, _, _ -> error("attachment must not enter turn flow") }
+        val ingress = DiscordIngress(fileIngestor) { _, message, _ -> received += message.id }
         val send: suspend (String) -> DiscordSentMessage = { text ->
             sent += text
             DiscordSentMessage("1", 1)
         }
-        val mentioned =
-            message(kind = DiscordMessageKind.GUILD_MENTION, attachmentNames = listOf("report.csv"))
+        val ignored =
+            message(
+                kind = DiscordMessageKind.IGNORED_GUILD_MESSAGE,
+                files = listOf(file()),
+            )
 
-        ingress.receive(mentioned, "999", send)
-        ingress.receive(mentioned, "999", send)
+        ingress.receive(ignored, "999", send)
+        ingress.receive(ignored.copy(kind = DiscordMessageKind.GUILD_MENTION), "999", send)
 
-        assertEquals(listOf("Attachments are not supported yet. Send a text-only message."), sent)
+        assertEquals(listOf(ignored.id), received)
+        assertEquals(emptyList(), sent)
+    }
+
+    @Test
+    fun `guild mention attachments enter turn flow once`() = runBlocking {
+        val received = mutableListOf<IncomingMessage>()
+        val ingress =
+            DiscordIngress(fileIngestor) { _, message, _ ->
+                received += message
+            }
+        val mentioned = message(kind = DiscordMessageKind.GUILD_MENTION, files = listOf(file()))
+
+        ingress.receive(mentioned, "999", ::sent)
+        ingress.receive(mentioned, "999", ::sent)
+
+        assertEquals(listOf(file()), received.single().files)
+    }
+
+    @Test
+    fun `attachment-only dm enters turn flow`() = runBlocking {
+        val received = mutableListOf<IncomingMessage>()
+        val ingress = DiscordIngress(fileIngestor) { _, message, _ -> received += message }
+
+        ingress.receive(message(text = "  ", files = listOf(file())), "999", ::sent)
+
+        assertEquals("", received.single().text)
+        assertEquals(listOf(file()), received.single().files)
     }
 
     @Test
@@ -413,26 +430,6 @@ class DiscordAdapterTest {
     }
 
     @Test
-    fun `reply names unsupported generated attachments`() = runBlocking {
-        val path = dir.resolve("report.csv")
-        Files.writeString(path, "report")
-        val sent = mutableListOf<String>()
-        val handler = DiscordTurnOutput { text ->
-            sent += text
-            DiscordSentMessage("reply", 1)
-        }
-
-        handler.deliver(
-            AgentResponse("Ready.", listOf(ReplyAttachment(path, "report.csv", "text/csv", 6)))
-        )
-
-        assertEquals(
-            "Ready.\n\nGenerated attachments are not supported on Discord: report.csv",
-            sent.single(),
-        )
-    }
-
-    @Test
     fun `reply renders explicit status line as Discord subtext`() = runBlocking {
         val sent = mutableListOf<String>()
         val handler = DiscordTurnOutput { text ->
@@ -521,7 +518,7 @@ class DiscordAdapterTest {
                                 AgentStats("normal", AgentUsageStats()),
                             )
                         },
-                    skills = { SkillCatalog(emptyList()) },
+                    skills = StubSkillsCatalog(),
                 )
             val scope = SidekickCoroutineScope()
             val usecase =
@@ -530,9 +527,10 @@ class DiscordAdapterTest {
                     coordinator,
                 )
             val sent = mutableListOf<String>()
-            val ingress = DiscordIngress { conversationId, message, chat ->
-                usecase.receiveNow(conversationId, message, chat)
-            }
+            val ingress =
+                DiscordIngress(fileIngestor) { conversationId, message, chat ->
+                    usecase.receiveNow(conversationId, message, chat)
+                }
 
             ingress.receive(message(), "999") { text ->
                 sent += text
@@ -590,7 +588,7 @@ class DiscordAdapterTest {
                                 AgentStats("normal", AgentUsageStats()),
                             )
                         },
-                    skills = { SkillCatalog(emptyList()) },
+                    skills = StubSkillsCatalog(),
                 )
             val scope = SidekickCoroutineScope()
             val usecase =
@@ -599,9 +597,10 @@ class DiscordAdapterTest {
                     coordinator,
                 )
             val sent = mutableListOf<String>()
-            val ingress = DiscordIngress { conversationId, message, chat ->
-                usecase.receiveNow(conversationId, message, chat)
-            }
+            val ingress =
+                DiscordIngress(fileIngestor) { conversationId, message, chat ->
+                    usecase.receiveNow(conversationId, message, chat)
+                }
 
             ingress.receive(
                 message(kind = DiscordMessageKind.GUILD_MENTION, text = "hello <@999>"),
@@ -625,7 +624,7 @@ class DiscordAdapterTest {
     private fun message(
         id: String = "234567890123456789",
         text: String = " hello ",
-        attachmentNames: List<String> = emptyList(),
+        files: List<IncomingChatFile> = emptyList(),
         kind: DiscordMessageKind = DiscordMessageKind.DIRECT_MESSAGE,
         threadId: String? = null,
         isBot: Boolean = false,
@@ -638,7 +637,7 @@ class DiscordAdapterTest {
             authorId = "345678901234567890",
             authorName = "User",
             text = text,
-            attachmentNames = attachmentNames,
+            files = files,
             kind = kind,
             threadId = threadId,
             isBot = isBot,
@@ -647,6 +646,17 @@ class DiscordAdapterTest {
 
     private fun sent(text: String): DiscordSentMessage =
         DiscordSentMessage("sent", text.length.toLong())
+
+    private fun file() =
+        IncomingChatFile(
+            "file",
+            "report.csv",
+            "text/csv",
+            "csv",
+            "https://cdn.discordapp.com/file",
+            "https://cdn.discordapp.com/file",
+            null,
+        )
 
     private fun historyMessage(id: String) =
         DiscordChannelHistoryMessage(

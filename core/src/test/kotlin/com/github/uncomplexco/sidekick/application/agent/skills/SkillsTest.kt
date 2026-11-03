@@ -4,6 +4,7 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import org.eclipse.jgit.api.Git
 import org.junit.jupiter.api.Test
@@ -12,260 +13,193 @@ import org.junit.jupiter.api.io.TempDir
 class SkillsTest {
     @TempDir lateinit var dir: Path
 
-    private val skills = Skills()
-
     @Test
-    fun `loads extension repository config from workspace config directory`() {
-        Files.writeString(
-            config().workspaceLayout().extensionsConfigPath(),
-            """
-            {"extensions": [{"url": "git@github.com:deil/skills.git", "path": "skills", "sshKeyPath": "/home/sidekick/.ssh/skills"}]}
-            """
-                .trimIndent(),
-        )
+    fun `missing configuration produces an empty catalog without checkouts`() {
+        val skills: SkillsCatalog = Skills(config())
 
-        val config = skills.loadConfig(config())
-
-        assertEquals(
-            listOf(
-                ExtensionRepository(
-                    "git@github.com:deil/skills.git",
-                    "skills",
-                    "/home/sidekick/.ssh/skills",
-                )
-            ),
-            config.extensions,
-        )
-    }
-
-    @Test
-    fun `defaults missing repository path to repository root`() {
-        Files.writeString(
-            config().workspaceLayout().extensionsConfigPath(),
-            """
-            {"extensions": [{"url": "git@github.com:deil/skills.git"}]}
-            """
-                .trimIndent(),
-        )
-
-        val config = skills.loadConfig(config())
-
-        assertEquals(
-            listOf(ExtensionRepository(url = "git@github.com:deil/skills.git")),
-            config.extensions,
-        )
-    }
-
-    @Test
-    fun `returns empty config when extensions config file is missing`() {
-        val config = skills.loadConfig(config())
-
-        assertEquals(emptyList(), config.extensions)
-    }
-
-    @Test
-    fun `does nothing when extensions config file is missing`() {
-        val catalog = skills.syncAndScan(config())
+        val catalog = skills.reload()
 
         assertEquals(emptyList(), catalog.skills)
+        assertSame(catalog, skills.catalog())
         assertTrue(Files.notExists(dir.resolve("workspace/data/repositories/extensions")))
     }
 
     @Test
-    fun `does nothing when extensions config is empty`() {
+    fun `empty configuration produces an empty catalog without checkouts`() {
         Files.writeString(
             config().workspaceLayout().extensionsConfigPath(),
             """{"extensions": []}""",
         )
+        val skills: SkillsCatalog = Skills(config())
 
-        val catalog = skills.syncAndScan(config())
+        val catalog = skills.reload()
 
         assertEquals(emptyList(), catalog.skills)
+        assertSame(catalog, skills.catalog())
         assertTrue(Files.notExists(dir.resolve("workspace/data/repositories/extensions")))
     }
 
     @Test
-    fun `configured reloader syncs and summarizes catalog`() {
-        Files.writeString(
-            config().workspaceLayout().extensionsConfigPath(),
-            """{"extensions": []}""",
-        )
-        val reloader = ConfiguredSkillCatalogReloader(config(), skills)
-
-        val result = reloader.reloadSkills()
-
-        assertEquals(0, result.totalSkills)
-        assertEquals(0, result.modelInvocableSkills)
-        assertEquals(0, result.userInvocableSkills)
-        assertEquals(emptyList(), result.skillNames)
-    }
-
-    @Test
-    fun `checkout path is stable and unique per repository url`() {
-        val repo = ExtensionRepository("git@github.com:deil/skills.git", "skills")
-
-        val first = skills.checkoutPath(config(), repo)
-        val second = skills.checkoutPath(config(), repo)
-        val other =
-            skills.checkoutPath(
-                config(),
-                ExtensionRepository("git@github.com:deil/other-skills.git", "skills"),
-            )
-
-        assertEquals(first, second)
-        assertTrue(first.startsWith(dir.resolve("workspace/data/repositories/extensions")))
-        assertTrue(first.fileName.toString().startsWith("skills-"))
-        assertTrue(other.fileName.toString().startsWith("other-skills-"))
-        assertTrue(first != other)
-    }
-
-    @Test
-    fun `syncs and scans local git repository`() {
+    fun `reload discovers valid skills and skips invalid folders at configured path`() {
+        // Arrange
         val source = Files.createDirectories(dir.resolve("source"))
-        writeSkillFile(source.resolve("skills/local-skill/SKILL.md"), "local-skill", "Local skill.")
-        Git.init().setDirectory(source.toFile()).call().use { git ->
-            git.add().addFilepattern(".").call()
-            git.commit().setMessage("add skill").call()
-        }
-        Files.writeString(
-            config().workspaceLayout().extensionsConfigPath(),
-            """
-            {"extensions": [{"url": "${source.toUri()}", "path": "skills"}]}
-            """
-                .trimIndent(),
+        writeSkill(source.resolve("skills/valid"), "valid", "Valid skill.", true, false)
+        writeSkill(source.resolve("skills/default-flag"), "default-flag", "Default flags.")
+        writeSkill(
+            source.resolve("skills/too-long-description"),
+            "too-long-description",
+            "x".repeat(1537),
         )
+        writeSkill(source.resolve("skills/wrong-name"), "other-name", "Invalid name.")
+        Files.createDirectories(source.resolve("skills/missing-file"))
+        Files.writeString(source.resolve("skills/missing-file/README.md"), "No skill instructions")
+        val missingDescription =
+            Files.createDirectories(source.resolve("skills/missing-description"))
+        Files.writeString(
+            missingDescription.resolve("SKILL.md"),
+            "---\nname: missing-description\n---\nInstructions",
+        )
+        initializeRepository(source)
+        configure(source, "skills")
+        val skills: SkillsCatalog = Skills(config())
 
-        val catalog = skills.syncAndScan(config())
+        // Act
+        val catalog = skills.reload()
 
-        assertEquals(listOf("local-skill"), catalog.skills.map { it.name })
-    }
-
-    @Test
-    fun `scans valid skills and skips bad skill folders from configured repository path`() {
-        val repo = ExtensionRepository("git@github.com:deil/skills.git", "skills")
-        val checkout = Files.createDirectories(dir.resolve("checkout"))
-        val skillsRoot = Files.createDirectories(checkout.resolve("skills"))
-        Files.createDirectories(skillsRoot.resolve("valid"))
-        Files.writeString(
-            skillsRoot.resolve("valid/SKILL.md"),
-            """
-            ---
-            name: valid
-            description: Valid skill.
-            disable-model-invocation: true
-            user-invocable: false
-            ---
-            # Instructions
-            """
-                .trimIndent(),
-        )
-        Files.createDirectories(skillsRoot.resolve("default-flag"))
-        Files.writeString(
-            skillsRoot.resolve("default-flag/SKILL.md"),
-            """
-            ---
-            name: default-flag
-            description: Defaults optional flags.
-            ---
-            # Instructions
-            """
-                .trimIndent(),
-        )
-        Files.createDirectories(skillsRoot.resolve("max-description"))
-        Files.writeString(
-            skillsRoot.resolve("max-description/SKILL.md"),
-            """
-            ---
-            name: max-description
-            description: ${"x".repeat(1536)}
-            ---
-            # Instructions
-            """
-                .trimIndent(),
-        )
-        Files.createDirectories(skillsRoot.resolve("too-long-description"))
-        Files.writeString(
-            skillsRoot.resolve("too-long-description/SKILL.md"),
-            """
-            ---
-            name: too-long-description
-            description: ${"x".repeat(1537)}
-            ---
-            # Instructions
-            """
-                .trimIndent(),
-        )
-        Files.createDirectories(skillsRoot.resolve("missing-file"))
-        Files.createDirectories(skillsRoot.resolve("missing-description"))
-        Files.writeString(
-            skillsRoot.resolve("missing-description/SKILL.md"),
-            """
-            ---
-            name: missing-description
-            ---
-            # Instructions
-            """
-                .trimIndent(),
-        )
-        Files.createDirectories(skillsRoot.resolve("wrong-name"))
-        Files.writeString(
-            skillsRoot.resolve("wrong-name/SKILL.md"),
-            """
-            ---
-            name: other-name
-            description: Name does not match folder.
-            ---
-            # Instructions
-            """
-                .trimIndent(),
-        )
-
-        val catalog = skills.scanRepository(repo, checkout)
-
+        // Assert
         assertEquals(
-            listOf("default-flag", "max-description", "too-long-description", "valid"),
+            listOf("default-flag", "too-long-description", "valid"),
             catalog.skills.map { it.name },
         )
-        assertEquals(
-            skillsRoot.resolve("valid"),
-            catalog.skills.single { it.name == "valid" }.folder,
-        )
-        assertEquals(true, catalog.skills.single { it.name == "valid" }.disableModelInvocation)
-        assertEquals(false, catalog.skills.single { it.name == "valid" }.userInvocable)
-        assertEquals(
-            false,
-            catalog.skills.single { it.name == "default-flag" }.disableModelInvocation,
-        )
-        assertEquals(false, catalog.skills.single { it.name == "default-flag" }.userInvocable)
+        val valid = catalog.skills.single { it.name == "valid" }
+        assertEquals(true, valid.disableModelInvocation)
+        assertEquals(false, valid.userInvocable)
+        assertTrue(valid.folder.startsWith(dir.resolve("workspace/data/repositories/extensions")))
+        assertTrue(Files.isRegularFile(valid.folder.resolve("SKILL.md")))
+        val defaultFlags = catalog.skills.single { it.name == "default-flag" }
+        assertEquals(false, defaultFlags.disableModelInvocation)
+        assertEquals(false, defaultFlags.userInvocable)
         assertEquals(
             1536,
             catalog.skills.single { it.name == "too-long-description" }.description.length,
         )
+        assertSame(catalog, skills.catalog())
     }
 
     @Test
-    fun `scans repository root when configured path is blank`() {
-        val repo = ExtensionRepository("git@github.com:deil/skills.git", path = "")
-        val checkout = Files.createDirectories(dir.resolve("checkout"))
-        writeSkillFile(checkout.resolve("root-skill/SKILL.md"), "root-skill", "Root skill.")
+    fun `omitted repository path discovers skills at repository root`() {
+        val source = Files.createDirectories(dir.resolve("source"))
+        writeSkill(source.resolve("root-skill"), "root-skill", "Root skill.")
+        initializeRepository(source)
+        Files.writeString(
+            config().workspaceLayout().extensionsConfigPath(),
+            """{"extensions": [{"url": "${source.toUri()}"}]}""",
+        )
+        val skills: SkillsCatalog = Skills(config())
 
-        val catalog = skills.scanRepository(repo, checkout)
+        val catalog = skills.reload()
 
         assertEquals(listOf("root-skill"), catalog.skills.map { it.name })
     }
 
-    private fun writeSkillFile(
-        skillFile: Path,
+    @Test
+    fun `reload refreshes added updated and removed skills from source`() {
+        // Arrange
+        val source = Files.createDirectories(dir.resolve("source"))
+        writeSkill(source.resolve("skills/existing"), "existing", "Old instructions.")
+        writeSkill(source.resolve("skills/removed"), "removed", "Remove me.")
+        initializeRepository(source)
+        configure(source, "skills")
+        val skills: SkillsCatalog = Skills(config())
+        skills.reload()
+        writeSkill(source.resolve("skills/existing"), "existing", "Updated instructions.")
+        writeSkill(source.resolve("skills/added"), "added", "New skill.")
+        Git.open(source.toFile()).use { git ->
+            git.rm().addFilepattern("skills/removed/SKILL.md").call()
+            git.add().addFilepattern(".").call()
+            git.commit().setMessage("update skills").call()
+        }
+
+        // Act
+        val catalog = skills.reload()
+
+        // Assert
+        assertEquals(listOf("added", "existing"), catalog.skills.map { it.name })
+        assertEquals(
+            "Updated instructions.",
+            catalog.skills.single { it.name == "existing" }.description,
+        )
+        assertSame(catalog, skills.catalog())
+    }
+
+    @Test
+    fun `reload reads changed source configuration`() {
+        val first = Files.createDirectories(dir.resolve("first"))
+        writeSkill(first.resolve("skills/first"), "first", "First source.")
+        initializeRepository(first)
+        val second = Files.createDirectories(dir.resolve("second"))
+        writeSkill(second.resolve("skills/second"), "second", "Second source.")
+        initializeRepository(second)
+        configure(first, "skills")
+        val skills: SkillsCatalog = Skills(config())
+        skills.reload()
+        configure(second, "skills")
+
+        val catalog = skills.reload()
+
+        assertEquals(listOf("second"), catalog.skills.map { it.name })
+        assertSame(catalog, skills.catalog())
+    }
+
+    @Test
+    fun `removing configured sources clears the current catalog`() {
+        val source = Files.createDirectories(dir.resolve("source"))
+        writeSkill(source.resolve("skills/old"), "old", "Old source.")
+        initializeRepository(source)
+        configure(source, "skills")
+        val skills: SkillsCatalog = Skills(config())
+        skills.reload()
+        Files.writeString(
+            config().workspaceLayout().extensionsConfigPath(),
+            """{"extensions": []}""",
+        )
+
+        val catalog = skills.reload()
+
+        assertEquals(emptyList(), catalog.skills)
+        assertSame(catalog, skills.catalog())
+    }
+
+    private fun initializeRepository(source: Path) {
+        Git.init().setDirectory(source.toFile()).call().use { git ->
+            git.add().addFilepattern(".").call()
+            git.commit().setMessage("add skills").call()
+        }
+    }
+
+    private fun configure(source: Path, path: String) {
+        Files.writeString(
+            config().workspaceLayout().extensionsConfigPath(),
+            """{"extensions": [{"url": "${source.toUri()}", "path": "$path"}]}""",
+        )
+    }
+
+    private fun writeSkill(
+        folder: Path,
         name: String,
         description: String,
+        disableModelInvocation: Boolean = false,
+        userInvocable: Boolean = false,
     ) {
-        Files.createDirectories(skillFile.parent)
+        Files.createDirectories(folder)
         Files.writeString(
-            skillFile,
+            folder.resolve("SKILL.md"),
             """
             ---
             name: $name
             description: $description
+            disable-model-invocation: $disableModelInvocation
+            user-invocable: $userInvocable
             ---
             # Instructions
             """

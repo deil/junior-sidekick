@@ -1,3 +1,7 @@
+---
+type: Domain
+---
+
 # Skills
 
 Sidekick discovers skills from remote extension repositories listed in `${agent.working-directory}/config/extensions.json`.
@@ -82,13 +86,18 @@ Discovered skills retain the parsed metadata and the skill base folder. The base
 
 ## Turn Prompt Catalog
 
-`TurnPromptBuilder` includes a skills catalog in the per-turn user prompt when the discovered catalog contains model-invocable or user-invocable skills.
+For the Sidekick orchestrator, `TurnPromptBuilder` includes a skills catalog in the
+bootstrap user prompt when the discovered catalog contains model-invocable or
+user-invocable skills. See [context management](context-management.md#prompt-shape)
+for its placement relative to runtime facts, history, and the current instruction.
 
 Model-invocable skills are skills where `disableModelInvocation == false`. Skills with `disable-model-invocation: true` are excluded from the model-facing catalog.
 
 User-invocable skills are skills where `userInvocable == true`. They are listed separately so the model knows which skill names users may explicitly request, including skills where `disable-model-invocation: true`.
 
-The catalog follows Agent Skills progressive disclosure: the turn prompt includes only the skill name, description, and virtual location of `SKILL.md`. Full skill instructions are not embedded in the base system prompt or turn prompt.
+The catalog follows Agent Skills progressive disclosure: model-invocable entries contain
+the skill name, description, and virtual location of `SKILL.md`; user-invocable entries
+contain names. `activateSkill` loads full instructions on demand.
 
 `/data/skills` locations resolve through `parseVirtualPath()` against `WorkspaceLayout.extensionsRepositoryDirectoryPath()`, backed by `${agent.working-directory}/data/repositories/extensions`.
 
@@ -109,20 +118,20 @@ Structural shape:
     </skill>
   </available_skills>
   <user_invocable_skills>
-    <skill>
-      <name>user-only-skill</name>
-      <description>Short discovery description.</description>
-      <location>/data/skills/repo/user-only-skill/SKILL.md</location>
-    </skill>
+    user-only-skill
+    another-user-skill
   </user_invocable_skills>
 </skills>
 ```
 
-Model-invocable skills are listed under `<available_skills>`. User-invocable skills are listed under `<user_invocable_skills>`. Each `<skill>` entry contains:
+Model-invocable skills are listed under `<available_skills>`. Each `<skill>` entry contains:
 
 - `<name>`
 - `<description>`
 - `<location>` pointing to the `/data/skills` virtual path for `SKILL.md`
+
+User-invocable skills are listed under `<user_invocable_skills>` as XML-escaped names,
+one per line. Descriptions and locations support model selection in `<available_skills>`.
 
 If no model-invocable or user-invocable skills exist, the `<skills>` section is omitted.
 
@@ -162,6 +171,14 @@ The wrapped response includes the skill directory as a `/data/skills` virtual pa
 
 ## Technical Decisions
 
+`SkillsCatalog` is the core contract for reading and reloading skills. `Skills` owns
+configuration, repository refresh, discovery, and the current catalog. Callers use
+`catalog()` for the current snapshot or `reload()` to load configured sources and
+replace it. Startup uses the same reload operation.
+
+Skill consumption tools (`activateSkill`) are shared by orchestrators and delegates.
+Skill management tools (`reloadSkills`) are available only to the orchestrator.
+
 Checkout folder names are deterministic and collision-resistant. Sidekick derives a readable prefix from the repository URL's final path segment, strips a `.git` suffix, replaces unsafe path characters with `_`, and appends the first 12 hex characters of `sha256(url)`.
 
 Examples:
@@ -181,9 +198,9 @@ Repository clone and refresh use the shared JGit adapter, not the `git` CLI. Rep
 
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/Skills.kt` – skills config loading, skill discovery, and in-memory catalog ownership.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/git/GitRepositories.kt` – shared JGit checkout path, clone, fetch, reset, and SSH-key wiring.
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/SkillCatalogReloading.kt` – implements the skill catalog reload port by re-reading config, refreshing repositories, and rebuilding the catalog.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/SkillsCatalog.kt` – catalog read/reload contract shared by core callers and tools.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/Utils.kt` – small generic helpers used by skills discovery.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/UserSkillInvocation.kt` – detects user skill invocation before LLM prompting.
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/SkillCatalogReloader.kt` – defines the skill catalog reload interface used by tools.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/context/TurnPromptBuilder.kt` – renders the skills catalog and already-materialized explicit skill invocation in the turn prompt.
-- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/skills/SkillTools.kt` – exposes skill tools including `activateSkill` and `reloadSkills`.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/skills/SkillTools.kt` – exposes skill activation.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/skills/SkillsManagementTools.kt` – exposes orchestrator-only skill reloading and formats its response.

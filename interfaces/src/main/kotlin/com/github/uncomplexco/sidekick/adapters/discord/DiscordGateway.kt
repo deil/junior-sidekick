@@ -1,6 +1,9 @@
 package com.github.uncomplexco.sidekick.adapters.discord
 
+import com.github.uncomplexco.sidekick.adapters.ChatFileIngestor
+import com.github.uncomplexco.sidekick.adapters.MAX_MESSAGE_FILES
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationKind
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
@@ -8,10 +11,13 @@ import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.DiscordChannelHistoryMessage
 import com.github.uncomplexco.sidekick.application.chat.DiscordChannelHistoryPage
 import com.github.uncomplexco.sidekick.application.chat.DiscordThreadHistoryPage
+import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
+import com.github.uncomplexco.sidekick.application.turn.ReplyAttachment
+import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
 import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
 import java.util.LinkedHashSet
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +33,7 @@ import net.dv8tion.jda.api.entities.emoji.Emoji
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
 import net.dv8tion.jda.api.requests.GatewayIntent
+import net.dv8tion.jda.api.utils.FileUpload
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -41,7 +48,7 @@ internal data class DiscordIncomingMessage(
     val authorId: String,
     val authorName: String,
     val text: String,
-    val attachmentNames: List<String> = emptyList(),
+    val files: List<IncomingChatFile> = emptyList(),
     val kind: DiscordMessageKind,
     val isBot: Boolean = false,
     val isWebhook: Boolean = false,
@@ -53,6 +60,17 @@ internal enum class DiscordMessageKind {
     GUILD_THREAD_MESSAGE,
     IGNORED_GUILD_MESSAGE,
 }
+
+internal fun Message.Attachment.toIncomingChatFile(): IncomingChatFile =
+    IncomingChatFile(
+        id = id,
+        name = fileName,
+        mimetype = contentType,
+        filetype = fileExtension,
+        urlPrivateDownload = url,
+        permalink = url,
+        localPath = null,
+    )
 
 internal fun discordMessageKind(
     isFromGuild: Boolean,
@@ -69,7 +87,8 @@ internal fun discordMessageKind(
     }
 
 internal class DiscordIngress(
-    private val receive: suspend (ChatConversationId, IncomingMessage, ChatPlatformAdapter) -> Unit
+    private val fileIngestor: ChatFileIngestor,
+    private val receive: suspend (ChatConversationId, IncomingMessage, ChatPlatformAdapter) -> Unit,
 ) {
     private val handledMessageIds = LinkedHashSet<String>()
 
@@ -90,6 +109,7 @@ internal class DiscordIngress(
             loadThreadHistory = { threadId, _, _ ->
                 DiscordThreadHistoryPage(message.channelId, threadId, emptyList(), null)
             },
+            upload = { error("File upload is not configured") },
         )
 
     suspend fun receive(
@@ -100,15 +120,12 @@ internal class DiscordIngress(
         startTyping: () -> AutoCloseable,
         loadChannelHistory: suspend (Int, String?) -> DiscordChannelHistoryPage,
         loadThreadHistory: suspend (String, Int, String?) -> DiscordThreadHistoryPage,
+        upload: suspend (ReplyAttachment) -> DiscordSentMessage,
     ) {
         if (message.kind == DiscordMessageKind.IGNORED_GUILD_MESSAGE) return
         if (message.isBot || message.isWebhook || !admit(message.id)) return
-        if (message.attachmentNames.isNotEmpty()) {
-            send("Attachments are not supported yet. Send a text-only message.")
-            return
-        }
         val text = message.text.trim()
-        if (text.isEmpty()) return
+        if (text.isEmpty() && message.files.isEmpty()) return
 
         receive(
             ChatConversationId(
@@ -129,6 +146,7 @@ internal class DiscordIngress(
                 createdAtMs = message.createdAtMs,
                 sender = MessageAuthor(message.authorId, message.authorName),
                 text = text,
+                files = message.files,
                 type =
                     when (message.kind) {
                         DiscordMessageKind.DIRECT_MESSAGE -> IncomingMessageType.ASSISTANT_MESSAGE
@@ -145,6 +163,8 @@ internal class DiscordIngress(
                 startTyping,
                 loadChannelHistory,
                 loadThreadHistory,
+                fileIngestor,
+                upload,
                 send,
             ),
         )
@@ -199,9 +219,15 @@ class DiscordConfiguration {
         selectedChatPlatform: ChatPlatform,
         incoming: ReceiveChatMessageUsecase,
         scope: SidekickCoroutineScope,
+        virtualPathsFactory: VirtualPathsFactory,
+        imageSummarizer: ImageSummarizer,
     ): JDA {
         check(selectedChatPlatform == ChatPlatform.DISCORD)
-        val ingress = DiscordIngress(incoming::receive)
+        val ingress =
+            DiscordIngress(
+                ChatFileIngestor(virtualPathsFactory, imageSummarizer),
+                incoming::receive,
+            )
         val listener =
             object : ListenerAdapter() {
                 override fun onMessageReceived(event: MessageReceivedEvent) {
@@ -227,6 +253,20 @@ class DiscordConfiguration {
                     }
                     val send: suspend (String) -> DiscordSentMessage = { text ->
                         resolveReplyChannel().send(text)
+                    }
+                    val upload: suspend (ReplyAttachment) -> DiscordSentMessage = { attachment ->
+                        val channel = resolveReplyChannel()
+                        val sent =
+                            withContext(Dispatchers.IO) {
+                                FileUpload.fromData(attachment.path.toFile(), attachment.name)
+                                    .use { file ->
+                                        channel
+                                            .sendFiles(file)
+                                            .setAllowedMentions(emptyList())
+                                            .complete()
+                                    }
+                            }
+                        DiscordSentMessage(sent.id, sent.timeCreated.toInstant().toEpochMilli())
                     }
                     val startTyping = {
                         startDiscordTypingHeartbeat(
@@ -274,6 +314,7 @@ class DiscordConfiguration {
                                     startTyping,
                                     loadChannelHistory,
                                     loadThreadHistory,
+                                    upload,
                                 )
                             }
                             .onFailure { log.error("Discord message handling failed", it) }
@@ -304,7 +345,7 @@ class DiscordConfiguration {
             authorId = author.id,
             authorName = author.globalName ?: author.name,
             text = message.contentRaw,
-            attachmentNames = message.attachments.map(Message.Attachment::getFileName),
+            files = message.attachments.take(MAX_MESSAGE_FILES).map { it.toIncomingChatFile() },
             kind =
                 discordMessageKind(
                     isFromGuild,

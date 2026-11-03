@@ -3,8 +3,7 @@ package com.github.uncomplexco.sidekick.application.tools
 import ai.koog.agents.core.tools.ToolRegistry
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolAccess
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
@@ -28,6 +27,7 @@ import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
 import com.github.uncomplexco.sidekick.application.tools.scheduling.ScheduledJobTools
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
+import com.github.uncomplexco.sidekick.application.tools.skills.SkillsManagementTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackFileTools
@@ -40,8 +40,6 @@ import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunne
 import com.github.uncomplexco.sidekick.application.tools.subagents.TaskTool
 import com.github.uncomplexco.sidekick.application.tools.system.ActivityTools
 import com.github.uncomplexco.sidekick.application.tools.system.ConversationIntelligenceLevelTools
-import com.github.uncomplexco.sidekick.application.tools.system.LoopFactory
-import com.github.uncomplexco.sidekick.application.tools.system.LoopTools
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
@@ -54,8 +52,7 @@ import org.springframework.stereotype.Component
 class DefaultAgentToolCatalog(
     sharedContext: SharedContext,
     agentConfig: AgentConfig,
-    skills: SkillCatalogProvider,
-    skillCatalogReloader: SkillCatalogReloader,
+    skills: SkillsCatalog,
     mcpToolsConfig: McpToolsConfig,
     mcpAuthTools: McpAuthTools,
     bashToolConfig: BashToolConfig,
@@ -66,7 +63,6 @@ class DefaultAgentToolCatalog(
     weeklyStats: WeeklyStatsService,
     subagentRunner: SubagentRunner,
     subagents: SubagentCatalogProvider,
-    loopFactory: LoopFactory,
     sidekickToolProviders: List<SidekickToolProvider>,
 ) : AgentToolCatalog {
     private val registrations: List<ToolRegistration<ToolExecutionContext>> =
@@ -90,8 +86,10 @@ class DefaultAgentToolCatalog(
                 WebFetchTools(agentConfig.name).asTools()
             },
             ToolRegistration("skills", ToolAccess.SHARED) {
-                SkillTools(skills, it.turn.conversation.virtualPaths, skillCatalogReloader)
-                    .asTools()
+                SkillTools(skills, it.turn.conversation.virtualPaths).asTools()
+            },
+            ToolRegistration("skills-reload", ToolAccess.ORCHESTRATOR_ONLY) {
+                SkillsManagementTools(skills).asTools()
             },
             ToolRegistration("git", ToolAccess.SHARED) {
                 GitTools(gitToolConfig, it.turn.conversation.virtualPaths).asTools()
@@ -127,17 +125,6 @@ class DefaultAgentToolCatalog(
                         },
                     )
                 )
-            },
-            ToolRegistration("loop", ToolAccess.ORCHESTRATOR_ONLY) { execution ->
-                LoopTools(
-                        factory = loopFactory,
-                        chat = execution.chat,
-                        ctx = execution.turn,
-                        bindTools = { child ->
-                            bindDelegate(execution.copy(turn = child))
-                        },
-                    )
-                    .asTools()
             },
             ToolRegistration("slack-output", ToolAccess.ORCHESTRATOR_ONLY) {
                 if (it.chat is SlackBackedChatPlatformAdapter) {

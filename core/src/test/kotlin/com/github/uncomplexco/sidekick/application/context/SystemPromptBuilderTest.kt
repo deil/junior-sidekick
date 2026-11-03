@@ -13,6 +13,7 @@ import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.resolveRequester
+import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -331,9 +332,7 @@ class TurnPromptBuilderTest {
                 stateDir = dir.resolve("state").toString(),
                 workingDir = dir.resolve("workspace").toString(),
             ),
-            skills = {
-                com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog(emptyList())
-            },
+            skills = StubSkillsCatalog(),
         )
 
     private fun context(

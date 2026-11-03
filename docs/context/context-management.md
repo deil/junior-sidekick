@@ -1,21 +1,41 @@
+---
+type: Domain
+---
+
 # Context Management
 
 Focused spec for how Sidekick prepares persisted session context for LLM turns.
+See [turn flow](turn-flow.md) for the surrounding admission and execution lifecycle.
 
 ## Prompt shape
 
-Each Sidekick turn sends a system prompt plus a user message to the agent runtime.
+Sidekick session prompts and [delegated Task prompts](subagents.md#prompt-generation)
+have separate construction contracts. This section describes Sidekick session prompts.
 
-The system prompt contains Sidekick's base behavioral contract. The user message contains prior session context plus the triggering message:
+`SystemPromptBuilder` assembles the system prompt in this order: base platform-specific
+behavior, username identity, optional personality (`SOUL.md`), world (`WORLD.md`),
+project context (`AGENTS.md`), and operating rules (`RULES.md`). Missing optional files
+omit their sections. Prompt construction belongs to the caller, not the shared agent runtime.
+
+`TurnPromptBuilder` creates one user message per incoming message in the admitted batch.
+Only the first includes shared context and requester metadata. On bootstrap, its shape is:
 
 ```text
 system:
-  base Sidekick behavior and response rules
+  base behavior, identity, and configured personality/world/project/rules sections
 
 user:
 <runtime_context>
 ...
 </runtime_context>
+
+<thread_compactions>
+...
+</thread_compactions>
+
+<thread_transcript>
+...
+</thread_transcript>
 
 <skills>
   <available_skills>
@@ -26,13 +46,10 @@ user:
   </user_invocable_skills>
 </skills>
 
-<thread_compactions>
-...
-</thread_compactions>
-
-<thread_transcript>
-...
-</thread_transcript>
+<requester>
+  user_id: ...
+  full_name: ...
+</requester>
 
 <explicit_skill_invocation>
 The user explicitly requested this skill. Call activateSkill with this name before answering.
@@ -41,13 +58,20 @@ The user explicitly requested this skill. Call activateSkill with this name befo
 </explicit_skill_invocation>
 
 <current_instruction>
-...
+[author username] current message text, XML-escaped
 </current_instruction>
+
+... current message's file attachments, when present ...
 ```
 
 The current message is excluded from transcript history. That invariant prevents Sidekick from seeing the same user request twice in one turn.
 
-`<skills>` appears only when bootstrapping model-visible thread context and only when at least one model-invocable or user-invocable skill exists. `<explicit_skill_invocation>` appears only when the current `SessionMessage` has `explicitSkillInvocation` materialized by message preprocessing. The prompt builder renders this field but does not detect invocations. The original `<current_instruction>` text is preserved unchanged.
+`<skills>` appears only when bootstrapping model-visible thread context and only when at least one model-invocable or user-invocable skill exists. Its contents and activation rules are documented in [skills](skills.md#turn-prompt-catalog). `<explicit_skill_invocation>` appears only when the current `SessionMessage` has `explicitSkillInvocation` materialized by message preprocessing. The prompt builder renders this field but does not detect invocations. Message text is XML-escaped and author-prefixed, not rewritten.
+
+With existing Koog history, bootstrap runtime facts, compactions, transcript, and skills
+are omitted. The first user message can instead include pending skipped messages before
+requester metadata. Later messages in the batch contain their own explicit invocation,
+current instruction, and attachments without repeating shared context.
 
 Seeded Slack history affects prompts the same way locally recorded history does. Once persisted, it is just session history.
 

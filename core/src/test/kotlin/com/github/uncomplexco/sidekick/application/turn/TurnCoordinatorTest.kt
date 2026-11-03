@@ -32,6 +32,7 @@ import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.stats.AgentStats
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.stats.TurnStats
+import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
@@ -79,7 +80,7 @@ class TurnCoordinatorTest {
                                 events += "work finished"
                                 TurnExecutionResult.Stopped(AgentStats("normal", AgentUsageStats()))
                             },
-                            { SkillCatalog(emptyList()) },
+                            StubSkillsCatalog(),
                         )
                     val execution = async {
                         coordinator.runIncoming(
@@ -133,7 +134,7 @@ class TurnCoordinatorTest {
                             TurnExecutionResult.Stopped(AgentStats("normal", AgentUsageStats()))
                         else successfulResult()
                     },
-                    { SkillCatalog(emptyList()) },
+                    StubSkillsCatalog(),
                 )
 
             // Act
@@ -164,7 +165,7 @@ class TurnCoordinatorTest {
                         sessions,
                         participation(config),
                         AgentTurnExecutor { _, _, _ -> successfulResult() },
-                        { SkillCatalog(emptyList()) },
+                        StubSkillsCatalog(),
                     )
                 val inbox =
                     object : SteeringInbox {
@@ -244,7 +245,7 @@ class TurnCoordinatorTest {
                             }
                             successfulResult()
                         },
-                        { reviewSkills() },
+                        StubSkillsCatalog(reviewSkills()),
                     )
                 val chat =
                     chat(
@@ -304,7 +305,7 @@ class TurnCoordinatorTest {
                             steer.drain()
                             successfulResult()
                         },
-                        { SkillCatalog(emptyList()) },
+                        StubSkillsCatalog(),
                     )
 
                 // Act
@@ -357,7 +358,7 @@ class TurnCoordinatorTest {
                             repeat(3) { steer.drain()?.let { turns += it } }
                             successfulResult()
                         },
-                        { SkillCatalog(emptyList()) },
+                        StubSkillsCatalog(),
                     )
 
                 // Act
@@ -501,7 +502,7 @@ class TurnCoordinatorTest {
                             AgentStats("normal", AgentUsageStats()),
                         )
                     },
-                    { SkillCatalog(emptyList()) },
+                    StubSkillsCatalog(),
                 )
             val messages =
                 (1..2).map { index ->
@@ -556,7 +557,7 @@ class TurnCoordinatorTest {
                             observed += turn
                             successfulResult()
                         },
-                        { SkillCatalog(emptyList()) },
+                        StubSkillsCatalog(),
                     )
                 val messages =
                     (1..2).map { index ->
@@ -624,7 +625,7 @@ class TurnCoordinatorTest {
                             AgentStats("normal", AgentUsageStats()),
                         )
                     },
-                    { SkillCatalog(emptyList()) },
+                    StubSkillsCatalog(),
                 )
             val mention = incoming(if (unsubscribeLast) 1 else 2)
             val unsubscribe =
@@ -698,7 +699,7 @@ class TurnCoordinatorTest {
                         sessions,
                         participation(config),
                         AgentTurnExecutor { _, _, _ -> error("Skipped batch must not execute") },
-                        { SkillCatalog(emptyList()) },
+                        StubSkillsCatalog(),
                     )
 
                 // Act
@@ -755,7 +756,7 @@ class TurnCoordinatorTest {
                                 }
                                 successfulResult()
                             },
-                            { SkillCatalog(emptyList()) },
+                            StubSkillsCatalog(),
                         )
                     SidekickCoroutineScope().use { scope ->
                         val queue = IncomingMessageQueue(scope, coordinator)
@@ -819,7 +820,7 @@ class TurnCoordinatorTest {
                                 proceed.receive()
                                 successfulResult()
                             },
-                            { SkillCatalog(emptyList()) },
+                            StubSkillsCatalog(),
                         )
                     val chat =
                         chat(
@@ -896,7 +897,7 @@ class TurnCoordinatorTest {
                             AgentStats("normal", AgentUsageStats()),
                         )
                     },
-                skills = { SkillCatalog(emptyList()) },
+                skills = StubSkillsCatalog(),
             )
         val job = ScheduledJob(32, "report", null, "0 9 * * *", "UTC", "Run the report")
         val first = ConversationId("C123", "scheduled_32_first")
@@ -954,7 +955,7 @@ class TurnCoordinatorTest {
                     AgentTurnExecutor { _, _, _ ->
                         error("OpenRouter API error: 429 Too Many Requests")
                     },
-                skills = { SkillCatalog(emptyList()) },
+                skills = StubSkillsCatalog(),
             )
         val chat = chat(replies, lifecycle, statusLines)
         val message =
@@ -1015,7 +1016,7 @@ class TurnCoordinatorTest {
                                 ),
                         )
                     },
-                skills = { SkillCatalog(emptyList()) },
+                skills = StubSkillsCatalog(),
             )
         val chat =
             object : ChatPlatformAdapter {
@@ -1101,7 +1102,7 @@ class TurnCoordinatorTest {
                 sessions = manager,
                 participation = participation(config),
                 agent = AgentTurnExecutor { _, _, _ -> error("agent should not run") },
-                skills = { SkillCatalog(emptyList()) },
+                skills = StubSkillsCatalog(),
             )
         val message =
             IncomingMessage(
@@ -1137,7 +1138,7 @@ class TurnCoordinatorTest {
                 sessions = manager,
                 participation = participation(config),
                 agent = AgentTurnExecutor { _, _, _ -> error("agent should not run") },
-                skills = { SkillCatalog(emptyList()) },
+                skills = StubSkillsCatalog(),
             )
         val message =
             IncomingMessage(
