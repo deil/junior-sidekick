@@ -9,7 +9,7 @@ java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 
 dependencies {
     compileOnly(platform(libs.spring.boot.bom))
-    implementation(platform(libs.ktor.bom))
+    api(platform(libs.ktor.bom))
     api(libs.slack.api.client)
 
     compileOnly(libs.spring.boot)

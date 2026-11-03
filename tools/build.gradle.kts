@@ -13,6 +13,8 @@ dependencies {
 
     compileOnly(platform(libs.spring.boot.bom))
     implementation(platform(libs.ktor.bom))
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.encoding)
     api(libs.slack.api.client)
 
     compileOnly(libs.spring.boot)
@@ -28,6 +30,11 @@ dependencies {
     implementation(libs.koog.agents.mcp)
     implementation(libs.mcp.client)
     implementation(libs.mcp.core)
+    implementation(libs.mcp.client.security) {
+        exclude(group = "org.springframework.ai", module = "spring-ai-mcp")
+        exclude(group = "io.modelcontextprotocol.sdk", module = "mcp")
+        exclude(group = "org.springframework.security", module = "spring-security-config")
+    }
     implementation(libs.jgit.core)
     implementation(libs.jgit.ssh)
 

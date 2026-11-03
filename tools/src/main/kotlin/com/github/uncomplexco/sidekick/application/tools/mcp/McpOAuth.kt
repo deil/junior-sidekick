@@ -20,13 +20,16 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toJavaDuration
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
+import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService
+import org.springframework.security.oauth2.client.registration.ClientRegistrations
+import org.springframework.security.oauth2.core.AuthorizationGrantType
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod
 import org.springframework.stereotype.Component
 
 @Component
@@ -35,6 +38,8 @@ class McpOAuthService(
     private val config: McpToolsConfig,
 ) {
     private val http = HttpClient.newHttpClient()
+    private val discovery = McpMetadataDiscoveryService()
+    private val registration = DynamicClientRegistrationService()
     private val json = Json {
         ignoreUnknownKeys = true
         prettyPrint = true
@@ -88,12 +93,14 @@ class McpOAuthService(
         val redirectUrl = "${config.oauth.publicBaseUrl.trimEnd('/')}/mcp/oauth/callback"
         val metadata = discover(server)
         val client =
-            loadClient(server.id)?.takeIf { it.redirectUrl == redirectUrl }
-                ?: registerClient(server, metadata, redirectUrl)
+            loadClient(server.id)?.takeIf {
+                it.redirectUrl == redirectUrl && it.issuer == metadata.issuer
+            } ?: registerClient(server, metadata, redirectUrl)
         val state = randomUrlSafe(32)
         val verifier = randomUrlSafe(64)
         val updatedClient =
             client.copy(
+                resource = metadata.resource,
                 pending =
                     PendingOAuthFlow(
                         state = state,
@@ -101,21 +108,25 @@ class McpOAuthService(
                         authorizationEndpoint = metadata.authorizationEndpoint,
                         tokenEndpoint = metadata.tokenEndpoint,
                         createdAt = Instant.now().toString(),
-                    )
+                    ),
             )
         saveClient(server.id, updatedClient)
 
+        val authorizationFields =
+            mutableListOf(
+                "response_type" to "code",
+                "client_id" to updatedClient.clientId,
+                "redirect_uri" to redirectUrl,
+                "code_challenge" to codeChallenge(verifier),
+                "code_challenge_method" to "S256",
+                "state" to state,
+                "resource" to metadata.resource,
+            )
+        metadata.scope?.let { authorizationFields += "scope" to it }
         val authorizationUrl =
             metadata.authorizationEndpoint +
-                "?" +
-                form(
-                    "response_type" to "code",
-                    "client_id" to updatedClient.clientId,
-                    "redirect_uri" to redirectUrl,
-                    "code_challenge" to codeChallenge(verifier),
-                    "code_challenge_method" to "S256",
-                    "state" to state,
-                )
+                (if (URI.create(metadata.authorizationEndpoint).rawQuery == null) "?" else "&") +
+                form(*authorizationFields.toTypedArray())
         responseDelivery.deliver(
             AgentResponse("Connect ${server.id} MCP server: $authorizationUrl")
         )
@@ -146,52 +157,54 @@ class McpOAuthService(
     }
 
     private fun discover(server: McpServerConfig): OAuthMetadata {
-        val serverUri = URI.create(server.url)
-        val origin = "${serverUri.scheme}://${serverUri.authority}"
+        log.info("Discovering MCP OAuth metadata for server {}", server.id)
+        val challenge = discovery.getWwwAuthenticateParameters(server.url)
         val protectedResource =
-            runCatching {
-                    val request =
-                        HttpRequest.newBuilder(
-                                URI.create("$origin/.well-known/oauth-protected-resource")
-                            )
-                            .GET()
-                            .build()
-                    val response = http.send(request, HttpResponse.BodyHandlers.ofString())
-                    if (response.statusCode() !in 200..299) {
-                        error(
-                            "OAuth HTTP ${response.statusCode()} from ${request.uri()}: ${response.body()}"
-                        )
-                    }
-                    json.parseToJsonElement(response.body()).jsonObject
-                }
-                .getOrNull()
-        val authorizationServer =
-            protectedResource
-                ?.get("authorization_servers")
-                ?.jsonArray
-                ?.firstOrNull()
-                ?.jsonPrimitive
-                ?.contentOrNull ?: origin
-        val metadataUrl =
-            "${authorizationServer.trimEnd('/')}/.well-known/oauth-authorization-server"
-        val metadataRequest = HttpRequest.newBuilder(URI.create(metadataUrl)).GET().build()
-        val metadataResponse = http.send(metadataRequest, HttpResponse.BodyHandlers.ofString())
-        if (metadataResponse.statusCode() !in 200..299) {
-            error(
-                "OAuth HTTP ${metadataResponse.statusCode()} from $metadataUrl: ${metadataResponse.body()}"
-            )
+            if (challenge == null) {
+                discovery.getMcpMetadata(server.url, null).protectedResourceMetadata()
+            } else {
+                discovery.getProtectedResourceMetadata(
+                    server.url,
+                    listOf(challenge.resourceMetadata),
+                )
+            }
+        val issuer =
+            protectedResource.authorizationServers()?.firstOrNull()
+                ?: error("MCP server ${server.id} advertises no authorization server")
+        val metadata =
+            ClientRegistrations.fromIssuerLocation(issuer)
+                .clientId(server.id)
+                .build()
+                .providerDetails
+        val capabilities = metadata.configurationMetadata
+        check(
+            (capabilities["code_challenge_methods_supported"] as? List<*>)?.contains("S256") == true
+        ) {
+            "MCP authorization server does not advertise PKCE S256 support"
         }
-        val metadata = json.parseToJsonElement(metadataResponse.body()).jsonObject
+        val supportedMethods =
+            capabilities["token_endpoint_auth_methods_supported"] as? List<*>
+                ?: listOf(ClientAuthenticationMethod.CLIENT_SECRET_BASIC.value)
+        val authenticationMethod =
+            listOf(
+                    ClientAuthenticationMethod.CLIENT_SECRET_POST,
+                    ClientAuthenticationMethod.CLIENT_SECRET_BASIC,
+                    ClientAuthenticationMethod.NONE,
+                )
+                .firstOrNull { it.value in supportedMethods }
+                ?: error(
+                    "MCP authorization server advertises no supported client authentication method"
+                )
         return OAuthMetadata(
+            issuer = issuer,
             authorizationEndpoint =
-                metadata["authorization_endpoint"]?.jsonPrimitive?.contentOrNull
-                    ?: error("Missing OAuth metadata field: authorization_endpoint"),
-            tokenEndpoint =
-                metadata["token_endpoint"]?.jsonPrimitive?.contentOrNull
-                    ?: error("Missing OAuth metadata field: token_endpoint"),
-            registrationEndpoint =
-                metadata["registration_endpoint"]?.jsonPrimitive?.contentOrNull
-                    ?: error("Missing OAuth metadata field: registration_endpoint"),
+                requireNotNull(metadata.authorizationUri) {
+                    "MCP authorization server advertises no authorization endpoint"
+                },
+            tokenEndpoint = metadata.tokenUri,
+            resource = protectedResource.resource(),
+            scope = challenge?.scope ?: protectedResource.scopesSupported()?.joinToString(" "),
+            authenticationMethod = authenticationMethod,
         )
     }
 
@@ -200,51 +213,34 @@ class McpOAuthService(
         metadata: OAuthMetadata,
         redirectUrl: String,
     ): OAuthClientState {
-        val body =
-            JsonObject(
-                mapOf(
-                    "client_name" to JsonPrimitive("${agentConfig.name} MCP Client"),
-                    "redirect_uris" to
-                        kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive(redirectUrl))),
-                    "grant_types" to
-                        kotlinx.serialization.json.JsonArray(
-                            listOf(
-                                JsonPrimitive("authorization_code"),
-                                JsonPrimitive("refresh_token"),
-                            )
-                        ),
-                    "response_types" to
-                        kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("code"))),
-                    "token_endpoint_auth_method" to JsonPrimitive("client_secret_post"),
-                )
-            )
         val request =
-            HttpRequest.newBuilder(URI.create(metadata.registrationEndpoint))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
-                .build()
-        val httpResponse = http.send(request, HttpResponse.BodyHandlers.ofString())
-        if (httpResponse.statusCode() !in 200..299) {
-            error(
-                "OAuth HTTP ${httpResponse.statusCode()} from ${metadata.registrationEndpoint}: ${httpResponse.body()}"
-            )
-        }
-        val response = httpResponse.body()
-        val registered = json.parseToJsonElement(response).jsonObject
+            DynamicClientRegistrationRequest.builder()
+                .clientName("${agentConfig.name} MCP Client")
+                .redirectUris(listOf(redirectUrl))
+                .grantTypes(
+                    listOf(
+                        AuthorizationGrantType.AUTHORIZATION_CODE,
+                        AuthorizationGrantType.REFRESH_TOKEN,
+                    )
+                )
+                .tokenEndpointAuthMethod(metadata.authenticationMethod)
+        log.info(
+            "Registering MCP OAuth client for server {} with issuer {}",
+            server.id,
+            metadata.issuer,
+        )
+        val registered = registration.register(request.build(), metadata.issuer)
         return OAuthClientState(
                 serverId = server.id,
                 redirectUrl = redirectUrl,
-                clientId =
-                    registered["client_id"]?.jsonPrimitive?.contentOrNull
-                        ?: error("Missing OAuth client registration field: client_id"),
-                clientSecret = registered["client_secret"]?.jsonPrimitive?.contentOrNull,
-                clientIdIssuedAt =
-                    registered["client_id_issued_at"]?.jsonPrimitive?.contentOrNull?.toLongOrNull(),
-                clientSecretExpiresAt =
-                    registered["client_secret_expires_at"]
-                        ?.jsonPrimitive
-                        ?.contentOrNull
-                        ?.toLongOrNull(),
+                clientId = registered.clientId(),
+                clientSecret = registered.clientSecret(),
+                clientIdIssuedAt = registered.clientIdIssuedAt()?.epochSecond,
+                clientSecretExpiresAt = registered.clientSecretExpiresAt()?.epochSecond,
+                issuer = metadata.issuer,
+                resource = metadata.resource,
+                tokenEndpointAuthMethod =
+                    registered.tokenEndpointAuthMethod() ?: metadata.authenticationMethod.value,
             )
             .also { saveClient(server.id, it) }
     }
@@ -282,10 +278,26 @@ class McpOAuthService(
         vararg fields: Pair<String, String>,
     ): OAuthTokenState {
         val requestFields = mutableListOf("client_id" to client.clientId)
-        client.clientSecret?.let { requestFields += "client_secret" to it }
+        if (client.tokenEndpointAuthMethod == ClientAuthenticationMethod.CLIENT_SECRET_POST.value) {
+            client.clientSecret?.let { requestFields += "client_secret" to it }
+        }
+        client.resource?.let { requestFields += "resource" to it }
         requestFields += fields
+        val requestBuilder = HttpRequest.newBuilder(URI.create(tokenEndpoint))
+        if (
+            client.tokenEndpointAuthMethod == ClientAuthenticationMethod.CLIENT_SECRET_BASIC.value
+        ) {
+            val credentials =
+                listOf(client.clientId, requireNotNull(client.clientSecret)).joinToString(":") {
+                    URLEncoder.encode(it, StandardCharsets.UTF_8)
+                }
+            requestBuilder.header(
+                "Authorization",
+                "Basic ${Base64.getEncoder().encodeToString(credentials.toByteArray(StandardCharsets.US_ASCII))}",
+            )
+        }
         val request =
-            HttpRequest.newBuilder(URI.create(tokenEndpoint))
+            requestBuilder
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(form(*requestFields.toTypedArray())))
                 .build()
@@ -376,9 +388,12 @@ data class ConnectMcpResult(
 )
 
 private data class OAuthMetadata(
+    val issuer: String,
     val authorizationEndpoint: String,
     val tokenEndpoint: String,
-    val registrationEndpoint: String,
+    val resource: String,
+    val scope: String?,
+    val authenticationMethod: ClientAuthenticationMethod,
 )
 
 @Serializable
@@ -390,6 +405,9 @@ data class OAuthClientState(
     val clientIdIssuedAt: Long? = null,
     val clientSecretExpiresAt: Long? = null,
     val pending: PendingOAuthFlow? = null,
+    val issuer: String? = null,
+    val resource: String? = null,
+    val tokenEndpointAuthMethod: String = "client_secret_post",
 )
 
 @Serializable
