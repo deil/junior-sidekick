@@ -58,7 +58,7 @@ override it. Shared tools include workspace files, configured sandbox/bash, git,
 time utilities, stats, platform history/user/channel/file reads, and MCP/extension tools
 classified as shared. Workspace and sandbox operations are not restricted to reads.
 
-User-facing status, attachments, canvases, reactions, interactive authentication, session
+Skill catalog reloading, user-facing status, attachments, canvases, reactions, interactive authentication, session
 settings, scheduling, and delegation tools are orchestrator-only. Delegates return results
 to their caller without independently communicating with the requester.
 

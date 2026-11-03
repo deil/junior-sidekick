@@ -8,6 +8,7 @@ import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.C
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.EXPLICIT_SKILL_INVOCATION_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.RUNTIME_CONTEXT_TAG
 import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
+import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import java.nio.file.Path
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -229,7 +230,7 @@ class TurnPromptBuilderSkillsTest {
                     stateDir = dir.resolve("state").toString(),
                     workingDir = dir.resolve("workspace").toString(),
                 ),
-            skills = { catalog },
+            skills = StubSkillsCatalog(catalog),
         )
 
     private fun context(

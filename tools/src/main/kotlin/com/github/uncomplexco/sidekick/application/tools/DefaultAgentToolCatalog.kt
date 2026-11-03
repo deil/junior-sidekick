@@ -3,8 +3,7 @@ package com.github.uncomplexco.sidekick.application.tools
 import ai.koog.agents.core.tools.ToolRegistry
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolAccess
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
@@ -28,6 +27,7 @@ import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
 import com.github.uncomplexco.sidekick.application.tools.scheduling.ScheduledJobTools
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
+import com.github.uncomplexco.sidekick.application.tools.skills.SkillsManagementTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackFileTools
@@ -52,8 +52,7 @@ import org.springframework.stereotype.Component
 class DefaultAgentToolCatalog(
     sharedContext: SharedContext,
     agentConfig: AgentConfig,
-    skills: SkillCatalogProvider,
-    skillCatalogReloader: SkillCatalogReloader,
+    skills: SkillsCatalog,
     mcpToolsConfig: McpToolsConfig,
     mcpAuthTools: McpAuthTools,
     bashToolConfig: BashToolConfig,
@@ -87,8 +86,10 @@ class DefaultAgentToolCatalog(
                 WebFetchTools(agentConfig.name).asTools()
             },
             ToolRegistration("skills", ToolAccess.SHARED) {
-                SkillTools(skills, it.turn.conversation.virtualPaths, skillCatalogReloader)
-                    .asTools()
+                SkillTools(skills, it.turn.conversation.virtualPaths).asTools()
+            },
+            ToolRegistration("skills-reload", ToolAccess.ORCHESTRATOR_ONLY) {
+                SkillsManagementTools(skills).asTools()
             },
             ToolRegistration("git", ToolAccess.SHARED) {
                 GitTools(gitToolConfig, it.turn.conversation.virtualPaths).asTools()

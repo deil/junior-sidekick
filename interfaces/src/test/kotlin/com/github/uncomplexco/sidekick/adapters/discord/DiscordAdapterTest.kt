@@ -6,7 +6,6 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationKind
@@ -33,6 +32,7 @@ import com.github.uncomplexco.sidekick.application.turn.TurnAdmission
 import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
 import com.github.uncomplexco.sidekick.application.turn.TurnParticipation
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
+import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
 import java.nio.file.Files
 import java.nio.file.Path
@@ -518,7 +518,7 @@ class DiscordAdapterTest {
                                 AgentStats("normal", AgentUsageStats()),
                             )
                         },
-                    skills = { SkillCatalog(emptyList()) },
+                    skills = StubSkillsCatalog(),
                 )
             val scope = SidekickCoroutineScope()
             val usecase =
@@ -588,7 +588,7 @@ class DiscordAdapterTest {
                                 AgentStats("normal", AgentUsageStats()),
                             )
                         },
-                    skills = { SkillCatalog(emptyList()) },
+                    skills = StubSkillsCatalog(),
                 )
             val scope = SidekickCoroutineScope()
             val usecase =

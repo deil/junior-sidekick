@@ -35,27 +35,20 @@ data class Skill(
     val userInvocable: Boolean,
 )
 
-fun interface SkillCatalogProvider {
-    fun catalog(): SkillCatalog
-}
-
 @Component
-class LoadSkillsOnStartup(
-    private val config: AgentConfig,
-    private val skills: Skills,
-) : ApplicationRunner {
+class LoadSkillsOnStartup(private val skills: SkillsCatalog) : ApplicationRunner {
     override fun run(args: ApplicationArguments) {
-        skills.syncAndScan(config)
+        skills.reload()
     }
 }
 
 @Component
-class Skills : SkillCatalogProvider {
+class Skills(private val config: AgentConfig) : SkillsCatalog {
     private val json = Json
     private var catalog: SkillCatalog = SkillCatalog(emptyList())
 
-    fun syncAndScan(config: AgentConfig): SkillCatalog {
-        val extensionsConfig = loadConfig(config)
+    override fun reload(): SkillCatalog {
+        val extensionsConfig = loadConfig()
         if (extensionsConfig.extensions.isEmpty()) {
             catalog = SkillCatalog(emptyList())
             return catalog
@@ -68,7 +61,7 @@ class Skills : SkillCatalogProvider {
 
         val checkouts =
             extensionsConfig.extensions.map { repository ->
-                val checkout = checkoutPath(config, repository)
+                val checkout = checkoutPath(repository)
                 Loggers.EXTENSIONS.info(
                     "Syncing extension repository {} into {}",
                     repository.url,
@@ -95,7 +88,7 @@ class Skills : SkillCatalogProvider {
 
     override fun catalog(): SkillCatalog = catalog
 
-    fun loadConfig(config: AgentConfig): ExtensionsConfig {
+    private fun loadConfig(): ExtensionsConfig {
         val configFile = config.workspaceLayout().extensionsConfigPath()
         if (!Files.exists(configFile)) {
             return ExtensionsConfig()
@@ -104,16 +97,13 @@ class Skills : SkillCatalogProvider {
         return json.decodeFromString<ExtensionsConfig>(Files.readString(configFile))
     }
 
-    fun checkoutPath(
-        config: AgentConfig,
-        repository: ExtensionRepository,
-    ): Path =
+    private fun checkoutPath(repository: ExtensionRepository): Path =
         gitRepositoryCheckoutPath(
             config.workspaceLayout().extensionsRepositoryDirectoryPath(),
             repository.url,
         )
 
-    fun scanRepository(
+    private fun scanRepository(
         repository: ExtensionRepository,
         checkout: Path,
     ): SkillCatalog {

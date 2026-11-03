@@ -14,8 +14,6 @@ import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.AgentRunResult
 import com.github.uncomplexco.sidekick.application.agent.koog.ConnectedMcpServer
 import com.github.uncomplexco.sidekick.application.agent.koog.RunId
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloadResult
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolRegistration
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
@@ -71,8 +69,7 @@ class ToolCatalogFixture(
         DefaultAgentToolCatalog(
             SharedContext().apply { slackClient = Slack.getInstance().methods("unused") },
             config,
-            { SkillCatalog(emptyList()) },
-            { SkillCatalogReloadResult(0, 0, 0, emptyList()) },
+            StubSkillsCatalog(),
             mcp,
             McpAuthTools(mcp, McpOAuthService(config, mcp)),
             BashToolConfig().apply { enabled = bashEnabled },

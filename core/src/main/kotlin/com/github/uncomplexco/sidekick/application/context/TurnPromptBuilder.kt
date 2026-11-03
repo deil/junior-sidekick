@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.application.context
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.CURRENT_INSTRUCTION_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.EXPLICIT_SKILL_INVOCATION_TAG
 import com.github.uncomplexco.sidekick.application.context.prompts.ContextTags.HANDOFF_SUMMARY
@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component
 @Component
 class TurnPromptBuilder(
     private val config: AgentConfig,
-    private val skills: SkillCatalogProvider,
+    private val skills: SkillsCatalog,
 ) {
     fun buildSessionTurnPrompts(messages: List<SessionMessage>, ctx: TurnContext): List<String> {
         val requester = resolveRequester(messages)

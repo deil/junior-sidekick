@@ -48,7 +48,6 @@ class DefaultAgentToolCatalogTest {
                     "git__pull",
                     "webFetch",
                     "activateSkill",
-                    "reloadSkills",
                     "currentDateTime",
                     "timestampToIsoUtc",
                     "slackChannelHistory",
@@ -60,6 +59,7 @@ class DefaultAgentToolCatalogTest {
             val orchestrator =
                 setOf(
                     "assistant_report_status",
+                    "reloadSkills",
                     "Task",
                     "attachFile",
                     "slackCanvasCreate",

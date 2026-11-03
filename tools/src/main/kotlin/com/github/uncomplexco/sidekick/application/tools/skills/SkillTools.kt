@@ -5,21 +5,18 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import com.github.uncomplexco.sidekick.application.agent.skills.Skill
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogProvider
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloader
+import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import java.nio.file.Files
 import kotlin.io.path.name
 import kotlin.io.path.pathString
 import kotlin.streams.asSequence
-import kotlinx.serialization.Serializable
 
 @LLMDescription("Agent skill tools")
 class SkillTools(
-    private val skills: SkillCatalogProvider,
+    private val skills: SkillsCatalog,
     private val virtualPaths: VirtualPaths,
-    private val skillCatalogReloader: SkillCatalogReloader,
 ) : ToolSet {
     @Tool
     @LLMDescription("Load a skill's full instructions by skill name.")
@@ -48,22 +45,6 @@ class SkillTools(
             appendLine("</skill_resources>")
             appendLine("</skill_content>")
         }
-    }
-
-    @Tool
-    @LLMDescription(
-        "Reload skills by re-reading extensions.json, refreshing configured extension repositories, and rebuilding the available skills catalog."
-    )
-    fun reloadSkills(): ReloadSkillsResult {
-        val result = skillCatalogReloader.reloadSkills()
-
-        return ReloadSkillsResult(
-            ok = true,
-            total_skills = result.totalSkills,
-            model_invocable_skills = result.modelInvocableSkills,
-            user_invocable_skills = result.userInvocableSkills,
-            skill_names = result.skillNames,
-        )
     }
 
     private fun bundledResources(skill: Skill): List<String> =
@@ -97,12 +78,3 @@ class SkillTools(
         private const val FRONTMATTER_DELIMITER = "---"
     }
 }
-
-@Serializable
-data class ReloadSkillsResult(
-    val ok: Boolean,
-    val total_skills: Int,
-    val model_invocable_skills: Int,
-    val user_invocable_skills: Int,
-    val skill_names: List<String>,
-)

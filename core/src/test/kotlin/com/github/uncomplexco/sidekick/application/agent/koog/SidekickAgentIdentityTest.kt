@@ -4,7 +4,6 @@ import ai.koog.agents.chatMemory.feature.ChatHistoryProvider
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
@@ -18,6 +17,7 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
+import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import java.nio.file.Path
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
@@ -74,7 +74,7 @@ class SidekickAgentIdentityTest {
                 config,
                 mock(KoogConfig::class.java),
                 SystemPromptBuilder(config, ChatPlatform.SLACK),
-                TurnPromptBuilder(config) { SkillCatalog(emptyList()) },
+                TurnPromptBuilder(config, StubSkillsCatalog()),
                 mock(AgentToolCatalog::class.java),
                 registry,
                 mock(ChatHistoryProvider::class.java),

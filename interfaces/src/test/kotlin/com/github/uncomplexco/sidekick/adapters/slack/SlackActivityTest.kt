@@ -5,7 +5,6 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
@@ -25,6 +24,7 @@ import com.github.uncomplexco.sidekick.application.turn.TurnAdmission
 import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
 import com.github.uncomplexco.sidekick.application.turn.TurnParticipation
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
+import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
 import com.slack.api.app_backend.events.payload.AgentSessionStoppedPayload
 import com.slack.api.bolt.context.builtin.EventContext
@@ -241,7 +241,7 @@ class SlackActivityTest {
                             AgentStats("normal", AgentUsageStats()),
                         )
                 },
-                { SkillCatalog(emptyList()) },
+                StubSkillsCatalog(),
             )
         private val queue = IncomingMessageQueue(scope, coordinator)
         private val incoming = ReceiveChatMessageUsecase(queue, coordinator)

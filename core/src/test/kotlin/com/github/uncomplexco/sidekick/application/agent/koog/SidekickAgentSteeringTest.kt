@@ -17,7 +17,6 @@ import com.github.uncomplexco.sidekick.application.agent.LlmProfile
 import com.github.uncomplexco.sidekick.application.agent.ReasoningEffort
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
-import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
@@ -36,6 +35,7 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRo
 import com.github.uncomplexco.sidekick.application.turn.RecordedTurn
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
+import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -290,7 +290,7 @@ class SidekickAgentSteeringTest {
             config,
             koog,
             SystemPromptBuilder(config, ChatPlatform.SLACK),
-            TurnPromptBuilder(config) { SkillCatalog(emptyList()) },
+            TurnPromptBuilder(config, StubSkillsCatalog()),
             tools,
             registry,
             ConversationStateChatHistoryProvider(store),

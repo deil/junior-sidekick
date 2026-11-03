@@ -162,6 +162,14 @@ The wrapped response includes the skill directory as a `/data/skills` virtual pa
 
 ## Technical Decisions
 
+`SkillsCatalog` is the core contract for reading and reloading skills. `Skills` owns
+configuration, repository refresh, discovery, and the current catalog. Callers use
+`catalog()` for the current snapshot or `reload()` to load configured sources and
+replace it. Startup uses the same reload operation.
+
+`SkillsManagementTools` formats the reloaded catalog into the LLM-facing summary.
+Reloading is orchestrator-only; delegates can activate skills but cannot reload them.
+
 Checkout folder names are deterministic and collision-resistant. Sidekick derives a readable prefix from the repository URL's final path segment, strips a `.git` suffix, replaces unsafe path characters with `_`, and appends the first 12 hex characters of `sha256(url)`.
 
 Examples:
@@ -181,9 +189,9 @@ Repository clone and refresh use the shared JGit adapter, not the `git` CLI. Rep
 
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/Skills.kt` – skills config loading, skill discovery, and in-memory catalog ownership.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/git/GitRepositories.kt` – shared JGit checkout path, clone, fetch, reset, and SSH-key wiring.
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/SkillCatalogReloading.kt` – implements the skill catalog reload port by re-reading config, refreshing repositories, and rebuilding the catalog.
+- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/SkillsCatalog.kt` – catalog read/reload contract shared by core callers and tools.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/Utils.kt` – small generic helpers used by skills discovery.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/UserSkillInvocation.kt` – detects user skill invocation before LLM prompting.
-- `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/skills/SkillCatalogReloader.kt` – defines the skill catalog reload interface used by tools.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/context/TurnPromptBuilder.kt` – renders the skills catalog and already-materialized explicit skill invocation in the turn prompt.
-- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/skills/SkillTools.kt` – exposes skill tools including `activateSkill` and `reloadSkills`.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/skills/SkillTools.kt` – exposes skill activation.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/skills/SkillsManagementTools.kt` – exposes orchestrator-only skill reloading and formats its response.
