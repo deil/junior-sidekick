@@ -219,13 +219,11 @@ class DefaultAgentToolCatalogTest {
         )
         task.execute(TaskTool.Args("Inspect again", "Inspect again"))
 
-        val contexts = fixture.runner.contexts
+        val runIds = fixture.runner.runIds
         val registries = fixture.runner.registries
-        assertEquals(2, contexts.size)
-        assertNotEquals(parent.turn.turnId, contexts[0].turnId)
-        assertNotEquals(contexts[0].turnId, contexts[1].turnId)
-        assertNotSame(parent.turn, contexts[0])
-        assertEquals(parent.turn.conversation.virtualPaths, contexts[0].conversation.virtualPaths)
+        assertEquals(2, runIds.size)
+        assertNotEquals(runIds[0].runId, runIds[1].runId)
+        assertEquals(parent.turn.conversation.conversationId, runIds[0].conversationId)
         assertNotSame(registry.getTool("Read"), registries[0].getTool("Read"))
         assertNotSame(registries[0].getTool("Read"), registries[1].getTool("Read"))
         assertContains(registries[0].names(), "bash")

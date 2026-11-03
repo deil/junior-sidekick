@@ -64,6 +64,12 @@ to their caller without independently communicating with the requester.
 
 Each Task has its own execution context and tool instances, using the parent's virtual paths
 and current attachment context.
+Task generates a fresh agent ID and run ID for each invocation and executes through
+`KoogAgent.run()`. The run ID is also the child execution context's `turnId`.
+The conversation ID is inherited; OpenRouter session grouping keeps
+the shared runtime's conversation-prefixed session ID. Run IDs are reserved for
+persistence/checkpoints. Completed and failed runs both contribute reported usage to the parent;
+cancellation propagates.
 MCP connections remain owned by the parent turn; delegates bind fresh wrappers from those
 execution-local sources. Tools and live connections are never global singletons.
 
@@ -71,6 +77,6 @@ execution-local sources. Tools and live connections are never global singletons.
 
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/subagents/Subagents.kt` - built-in and extension subagent loading and frontmatter stripping.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/subagents/TaskTool.kt` - Koog `Task` tool descriptor, validation, status updates, and runner call.
-- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/subagents/KoogSubagentRunner.kt` - isolated Koog agent construction using catalog-bound tools.
+- `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/subagents/KoogSubagentRunner.kt` - subagent prompt selection and execution through the shared Koog runtime using catalog-bound tools.
 - `core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/tools/AgentToolCatalog.kt` - registration, access policy, and execution binding contracts.
 - `tools/src/main/kotlin/com/github/uncomplexco/sidekick/application/tools/DefaultAgentToolCatalog.kt` - built-in and extension registrations, MCP source binding, and fixed orchestrator/delegate binding methods.

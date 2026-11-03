@@ -6,6 +6,8 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.fail
 import ai.koog.agents.core.tools.validate
 import ai.koog.serialization.typeToken
+import com.github.uncomplexco.sidekick.application.agent.AgentRunResult
+import com.github.uncomplexco.sidekick.application.agent.koog.RunId
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
@@ -15,17 +17,13 @@ import kotlinx.serialization.Serializable
 
 fun interface SubagentRunner {
     suspend fun run(
-        ctx: TurnContext,
+        agentId: String,
+        runId: RunId,
         subagentType: String,
         prompt: String,
         tools: ToolRegistry,
-    ): SubagentRunResult
+    ): AgentRunResult<String>
 }
-
-data class SubagentRunResult(
-    val output: String,
-    val stats: AgentUsageStats,
-)
 
 class TaskTool(
     private val runner: SubagentRunner,
@@ -66,15 +64,21 @@ class TaskTool(
 
         try {
             val child = ctx.copy(turnId = "task-${UUID.randomUUID()}")
+            val agentId = "subagent-${UUID.randomUUID()}"
+            val runId = RunId(ctx.conversation.conversationId, child.turnId)
             val result =
                 runner.run(
-                    ctx = child,
+                    agentId = agentId,
+                    runId = runId,
                     subagentType = subagentType,
                     prompt = args.prompt,
                     tools = bindTools(child),
                 )
-            onSubagentCompleted(result.stats)
-            return result.output
+            onSubagentCompleted(result.usage)
+            return when (result) {
+                is AgentRunResult.Completed -> result.output
+                is AgentRunResult.Failed -> throw result.cause
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

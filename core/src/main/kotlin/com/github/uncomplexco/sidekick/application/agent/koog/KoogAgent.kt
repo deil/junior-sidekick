@@ -18,7 +18,6 @@ import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import kotlinx.coroutines.CancellationException
-import org.slf4j.LoggerFactory
 
 data class RunId(
     val conversationId: ConversationId?,
@@ -29,7 +28,6 @@ class KoogAgent(
     @PublishedApi internal val koogConfig: KoogConfig,
     @PublishedApi internal val agentId: String,
 ) {
-    // This execution boundary returns ordinary failures; cancellation still propagates.
     @Suppress("TooGenericExceptionCaught")
     suspend inline fun <reified T> runSimple(
         runId: RunId,
@@ -38,7 +36,9 @@ class KoogAgent(
         crossinline input: () -> String,
     ): AgentRunResult<T> {
         var usage = AgentUsageStats()
+        val runLog = AgentRunLog(runId, agentId)
         return try {
+            runLog.started(model.model)
             val prompt =
                 prompt(
                     id = "${runId.conversationId}-$agentId",
@@ -54,37 +54,38 @@ class KoogAgent(
                     capabilities = koogConfig.modelCapabilities(),
                 )
 
-            koogConfig.openRouterExecutor().use { executor ->
-                log.info(
-                    "Executing simple agent {} run {} for conversation {} with model {}",
-                    agentId,
-                    runId.runId,
-                    runId.conversationId,
-                    model.model,
-                )
-                val structure =
-                    if (T::class == String::class) null
-                    else
-                        StructuredRequestConfig(
-                            default = StructuredRequest.Manual(JsonStructure.create<T>())
+            val result =
+                koogConfig.openRouterExecutor().use { executor ->
+                    val structure =
+                        if (T::class == String::class) null
+                        else
+                            StructuredRequestConfig(
+                                default = StructuredRequest.Manual(JsonStructure.create<T>())
+                            )
+                    val response =
+                        executor.execute(structure?.updatePrompt(llm, prompt) ?: prompt, llm)
+                    usage =
+                        AgentUsageStats(
+                            inputTokenCount = response.metaInfo.inputTokensCount?.toLong() ?: 0,
+                            outputTokenCount = response.metaInfo.outputTokensCount?.toLong() ?: 0,
                         )
-                val response = executor.execute(structure?.updatePrompt(llm, prompt) ?: prompt, llm)
-                usage =
-                    AgentUsageStats(
-                        inputTokenCount = response.metaInfo.inputTokensCount?.toLong() ?: 0,
-                        outputTokenCount = response.metaInfo.outputTokensCount?.toLong() ?: 0,
-                    )
-                val output =
-                    if (structure == null) {
-                        response.textContent() as T
-                    } else {
-                        executor.parseResponseToStructuredResponse(response, structure, llm).data
-                    }
-                AgentRunResult.Completed(output, usage)
-            }
+                    val output =
+                        if (structure == null) {
+                            response.textContent() as T
+                        } else {
+                            executor
+                                .parseResponseToStructuredResponse(response, structure, llm)
+                                .data
+                        }
+                    AgentRunResult.Completed(output, usage)
+                }
+            runLog.completed(usage)
+            result
         } catch (cancelled: CancellationException) {
+            runLog.cancelled()
             throw cancelled
         } catch (error: Exception) {
+            runLog.failed(usage, error)
             AgentRunResult.Failed(error, usage)
         }
     }
@@ -98,65 +99,63 @@ class KoogAgent(
         input: () -> String,
     ): AgentRunResult<String> {
         var usage = AgentUsageStats()
+        val runLog = AgentRunLog(runId, agentId)
         return try {
-            koogConfig.openRouterExecutor().use { executor ->
-                val koog =
-                    AIAgent(
-                        promptExecutor = executor,
-                        agentConfig =
-                            AIAgentConfig(
-                                model =
-                                    LLModel(
-                                        provider = LLMProvider.OpenRouter,
-                                        id = model.model,
-                                        capabilities = koogConfig.modelCapabilities(),
-                                    ),
-                                maxAgentIterations = koogConfig.maxAgentIterations,
-                                prompt =
-                                    prompt(
-                                        id = "${runId.conversationId}-$agentId",
-                                        params =
-                                            koogConfig.openRouterParams(
-                                                model,
-                                                runId.conversationId,
-                                            ),
-                                    ) {
-                                        system(systemPrompt())
-                                    },
-                            ),
-                        toolRegistry = tools,
-                    ) {
-                        handleEvents {
-                            onLLMCallCompleted { call ->
-                                val meta = call.response?.metaInfo
-                                usage +=
-                                    AgentUsageStats(
-                                        inputTokenCount = meta?.inputTokensCount?.toLong() ?: 0,
-                                        outputTokenCount = meta?.outputTokensCount?.toLong() ?: 0,
-                                    )
+            val result =
+                koogConfig.openRouterExecutor().use { executor ->
+                    val koog =
+                        AIAgent(
+                            id = agentId,
+                            promptExecutor = executor,
+                            agentConfig =
+                                AIAgentConfig(
+                                    model =
+                                        LLModel(
+                                            provider = LLMProvider.OpenRouter,
+                                            id = model.model,
+                                            capabilities = koogConfig.modelCapabilities(),
+                                        ),
+                                    maxAgentIterations = koogConfig.maxAgentIterations,
+                                    prompt =
+                                        prompt(
+                                            id = "${runId.conversationId}-$agentId",
+                                            params =
+                                                koogConfig.openRouterParams(
+                                                    model,
+                                                    runId.conversationId,
+                                                ),
+                                        ) {
+                                            system(systemPrompt())
+                                        },
+                                ),
+                            toolRegistry = tools,
+                        ) {
+                            handleEvents {
+                                onLLMCallCompleted { call ->
+                                    val meta = call.response?.metaInfo
+                                    usage +=
+                                        AgentUsageStats(
+                                            inputTokenCount = meta?.inputTokensCount?.toLong() ?: 0,
+                                            outputTokenCount =
+                                                meta?.outputTokensCount?.toLong() ?: 0,
+                                        )
+                                }
+                                onToolCallStarting { usage += AgentUsageStats(toolCallCount = 1) }
                             }
-                            onToolCallStarting { usage += AgentUsageStats(toolCallCount = 1) }
                         }
-                    }
 
-                log.info(
-                    "Executing agent {} run {} for conversation {} with model {}",
-                    agentId,
-                    runId.runId,
-                    runId.conversationId,
-                    model.model,
-                )
-                val output = koog.run(input(), "${runId.conversationId?.lockKey()}-$agentId")
-                AgentRunResult.Completed(output, usage)
-            }
+                    runLog.started(model.model)
+                    val output = koog.run(input(), "${runId.conversationId?.lockKey()}-$agentId")
+                    AgentRunResult.Completed(output, usage)
+                }
+            runLog.completed(usage)
+            result
         } catch (cancelled: CancellationException) {
+            runLog.cancelled()
             throw cancelled
         } catch (error: Exception) {
+            runLog.failed(usage, error)
             AgentRunResult.Failed(error, usage)
         }
-    }
-
-    companion object {
-        @PublishedApi internal val log = LoggerFactory.getLogger(KoogAgent::class.java)
     }
 }

@@ -11,7 +11,9 @@ import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorConfig
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
+import com.github.uncomplexco.sidekick.application.agent.AgentRunResult
 import com.github.uncomplexco.sidekick.application.agent.koog.ConnectedMcpServer
+import com.github.uncomplexco.sidekick.application.agent.koog.RunId
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalogReloadResult
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
@@ -43,7 +45,6 @@ import com.github.uncomplexco.sidekick.application.tools.mcp.McpOAuthService
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
 import com.github.uncomplexco.sidekick.application.tools.subagents.Subagent
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentCatalog
-import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunResult
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunner
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
@@ -180,18 +181,19 @@ class CatalogOutput : TurnLifecycle, ResponseDelivery {
 }
 
 class CatalogSubagentRunner : SubagentRunner {
-    val contexts = mutableListOf<TurnContext>()
+    val runIds = mutableListOf<RunId>()
     val registries = mutableListOf<ToolRegistry>()
 
     override suspend fun run(
-        ctx: TurnContext,
+        agentId: String,
+        runId: RunId,
         subagentType: String,
         prompt: String,
         tools: ToolRegistry,
-    ): SubagentRunResult {
-        contexts += ctx
+    ): AgentRunResult<String> {
+        runIds += runId
         registries += tools
-        return SubagentRunResult("Task completed", AgentUsageStats())
+        return AgentRunResult.Completed("Task completed", AgentUsageStats())
     }
 }
 
