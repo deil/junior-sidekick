@@ -21,6 +21,7 @@ import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.SteeringInbox
 import com.github.uncomplexco.sidekick.application.chat.SteeringInput
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
+import com.github.uncomplexco.sidekick.application.context.ProjectContext
 import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
@@ -36,6 +37,7 @@ import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -54,6 +56,157 @@ import org.mockito.Mockito.verifyNoInteractions
 
 class TurnCoordinatorTest {
     @TempDir lateinit var dir: Path
+
+    @Nested
+    inner class ProjectConfiguration {
+        @ParameterizedTest
+        @ValueSource(
+            strings = ["---\ntags: [engineering", "---\ntags: engineering\n---\nInstructions"]
+        )
+        fun `invalid project configuration reports failure before preparation or recording`(
+            markdown: String
+        ) = runBlocking {
+            // Arrange
+            val config = config()
+            val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+            val sessions = conversationManager(config, store)
+            val conversation = ConversationId("C123", "thread")
+            sessions.recordIncomingMessages(
+                conversation,
+                false,
+                { emptyList() },
+                listOf(
+                    SessionMessage(
+                        "old",
+                        SessionMessageRole.USER,
+                        MessageAuthor("U123", "User"),
+                        "Earlier request",
+                        createdAtMs = 0,
+                    )
+                ),
+                emptyList(),
+                sessions.resolveProjectContext(conversation),
+            )
+            val paths =
+                VirtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversation)
+            Files.writeString(paths.projectRoot.resolve("AGENTS.md"), markdown)
+            val replies = mutableListOf<String>()
+            val lifecycle = mutableListOf<String>()
+            val ingested = mutableListOf<List<IncomingChatFile>>()
+            val executed = mutableListOf<RecordedTurn>()
+            val coordinator =
+                TurnCoordinator(
+                    TurnAdmission(sessions),
+                    sessions,
+                    participation(config),
+                    AgentTurnExecutor { turn, _, _ ->
+                        executed += turn
+                        successfulResult()
+                    },
+                    StubSkillsCatalog(),
+                )
+            val chat = chat(replies, lifecycle, ingestedFiles = ingested)
+
+            // Act
+            coordinator.runIncoming(ChatConversationId("C123", "thread"), incoming(1), chat)
+
+            // Assert
+            assertContains(replies.single(), "Invalid project configuration in AGENTS.md")
+            assertEquals(listOf("old"), store.load(conversation).messages.map { it.id })
+            assertEquals(emptyList(), ingested)
+            assertEquals(emptyList(), executed)
+            assertEquals(emptyList(), lifecycle)
+        }
+
+        @Test
+        fun `corrected project configuration lets the original request run once`() = runBlocking {
+            val config = config()
+            val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+            val sessions = conversationManager(config, store)
+            val conversation = ConversationId("C123", "thread")
+            val paths =
+                VirtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversation)
+            val file = paths.projectRoot.resolve("AGENTS.md")
+            Files.writeString(file, "---\ntags: engineering\n---\nInstructions")
+            val replies = mutableListOf<String>()
+            val executed = mutableListOf<RecordedTurn>()
+            val coordinator =
+                TurnCoordinator(
+                    TurnAdmission(sessions),
+                    sessions,
+                    participation(config),
+                    AgentTurnExecutor { turn, _, _ ->
+                        executed += turn
+                        successfulResult()
+                    },
+                    StubSkillsCatalog(),
+                )
+            val chat = chat(replies, mutableListOf())
+            coordinator.runIncoming(ChatConversationId("C123", "thread"), incoming(1), chat)
+            Files.writeString(
+                file,
+                "---\ntags: [engineering, productA]\n---\nCorrected instructions",
+            )
+
+            coordinator.runIncoming(ChatConversationId("C123", "thread"), incoming(1), chat)
+
+            assertEquals(
+                ProjectContext(setOf("engineering", "productA"), "Corrected instructions"),
+                executed.single().context.conversation.project,
+            )
+            assertEquals(
+                listOf("m1"),
+                store
+                    .load(conversation)
+                    .messages
+                    .filter { it.role == SessionMessageRole.USER }
+                    .map { it.id },
+            )
+            assertEquals(2, replies.size)
+            assertEquals("done", replies.last())
+        }
+
+        @Test
+        fun `scheduled request with invalid project configuration leaves session unrecorded`() =
+            runBlocking {
+                val config = config()
+                val store = FilesystemConversationStateStore(config, ChatPlatform.SLACK)
+                val sessions = conversationManager(config, store)
+                val conversation = ConversationId("C123", "scheduled_32_first")
+                val paths =
+                    VirtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversation)
+                Files.writeString(
+                    paths.projectRoot.resolve("AGENTS.md"),
+                    "---\ntags: engineering\n---\nInstructions",
+                )
+                val replies = mutableListOf<String>()
+                val executed = mutableListOf<RecordedTurn>()
+                val coordinator =
+                    TurnCoordinator(
+                        TurnAdmission(sessions),
+                        sessions,
+                        participation(config),
+                        AgentTurnExecutor { turn, _, _ ->
+                            executed += turn
+                            successfulResult()
+                        },
+                        StubSkillsCatalog(),
+                    )
+
+                coordinator.run(
+                    TurnTrigger.Scheduled(
+                        conversation,
+                        ScheduledJob(32, "report", null, "0 9 * * *", "UTC", "Run the report"),
+                        chat(replies, mutableListOf()),
+                        1,
+                    )
+                )
+
+                assertContains(replies.single(), "Invalid project configuration in AGENTS.md")
+                assertFalse(store.exists(conversation))
+                assertEquals(emptyList(), executed)
+            }
+    }
 
     @Nested
     inner class CooperativeStop {
@@ -691,6 +844,7 @@ class TurnCoordinatorTest {
                         )
                     ),
                     emptyList(),
+                    sessions.resolveProjectContext(conversation),
                 )
                 val replies = mutableListOf<String>()
                 val events = mutableListOf<String>()
@@ -1195,6 +1349,7 @@ class TurnCoordinatorTest {
         messageLifecycle: MutableList<Pair<String, String>> = mutableListOf(),
         onCompleted: (IncomingMessage) -> Unit = {},
         outputEvents: MutableList<String>? = null,
+        ingestedFiles: MutableList<List<IncomingChatFile>> = mutableListOf(),
     ): ChatPlatformAdapter =
         object : ChatPlatformAdapter {
             override val botUsername = "USIDEKICK"
@@ -1248,7 +1403,7 @@ class TurnCoordinatorTest {
             override suspend fun ingestFiles(
                 conversationId: ConversationId,
                 files: List<IncomingChatFile>,
-            ): List<IncomingChatFile> = files
+            ): List<IncomingChatFile> = files.also { ingestedFiles += it }
         }
 
     private suspend fun TurnCoordinator.runIncoming(

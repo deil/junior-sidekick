@@ -38,6 +38,7 @@ class SessionManagerSkillInvocationTest {
                     )
                 ),
             files = emptyList(),
+            project = manager.resolveProjectContext(conversationId),
         )
 
         // Assert
@@ -71,6 +72,7 @@ class SessionManagerSkillInvocationTest {
             messages =
                 listOf(message(id = "current", text = "please review this", createdAtMs = 2)),
             files = emptyList(),
+            project = manager.resolveProjectContext(conversationId),
         )
 
         // Assert

@@ -6,15 +6,17 @@ import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 
 sealed interface TurnTrigger {
+    val chat: ChatPlatformAdapter
+
     data class Incoming(
         val batch: IncomingBatch,
-        val chat: ChatPlatformAdapter,
+        override val chat: ChatPlatformAdapter,
     ) : TurnTrigger
 
     data class Scheduled(
         val conversationId: ConversationId,
         val job: ScheduledJob,
-        val chat: ChatPlatformAdapter,
+        override val chat: ChatPlatformAdapter,
         val startedAtMs: Long,
     ) : TurnTrigger
 }

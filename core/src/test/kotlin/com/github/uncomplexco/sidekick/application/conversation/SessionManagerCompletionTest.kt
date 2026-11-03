@@ -183,6 +183,7 @@ class SessionManagerCompletionTest {
                     )
                 },
             files = emptyList(),
+            project = manager.resolveProjectContext(conversationId),
         )
 
     private suspend fun reply(messageIds: List<String>, text: String = "Done.") =

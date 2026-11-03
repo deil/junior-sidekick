@@ -37,9 +37,9 @@ deduplicated into a set. Other metadata is ignored. Plain Markdown supplies inst
 with an empty tag set. A missing file resolves to empty tags and absent instructions.
 Trailing instruction whitespace is trimmed.
 
-Malformed frontmatter and invalid tag types surface as configuration errors. The
-resolver separates metadata from instructions so configuration stays outside model
-instruction text.
+Malformed frontmatter and invalid tag types produce a project-configuration error
+response. Session history remains unchanged. The resolver separates metadata from
+instructions so configuration stays outside model instruction text.
 
 The shared `parseMarkdownFrontmatter` and `parseYaml` helpers own YAML parsing and
 document boundaries. Project resolution validates the project-specific tag list;
@@ -47,8 +47,9 @@ skill and subagent consumers use the same helpers for their metadata and instruc
 
 ## Execution Snapshot
 
-When recording the initial incoming batch, `SessionManager` resolves project context
-from the prepared project workspace and stores it in `ConversationContext.project`.
+After admission, the coordinator resolves project context before preparing attachments,
+compacting history, recording messages, or deciding participation. Recording receives
+that snapshot and stores it in `ConversationContext.project`. Scheduled turns use the same order.
 That snapshot remains stable through steering and child execution-context copies.
 Each new turn resolves the current source again.
 

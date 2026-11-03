@@ -92,7 +92,7 @@ class ProjectContextsTest {
     fun `invalid project metadata is reported`(metadata: String) {
         Files.writeString(projectRoot.resolve("AGENTS.md"), "---\n$metadata\n---\nInstructions")
 
-        assertThrows<IllegalArgumentException> { contexts.resolve(projectRoot) }
+        assertThrows<ProjectConfigurationException> { contexts.resolve(projectRoot) }
     }
 
     @Test
@@ -102,6 +102,6 @@ class ProjectContextsTest {
             "---\ntags: [engineering]\nInstructions",
         )
 
-        assertThrows<IllegalArgumentException> { contexts.resolve(projectRoot) }
+        assertThrows<ProjectConfigurationException> { contexts.resolve(projectRoot) }
     }
 }

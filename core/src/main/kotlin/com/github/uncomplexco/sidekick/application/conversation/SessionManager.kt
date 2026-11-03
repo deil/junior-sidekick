@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.conversation
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
+import com.github.uncomplexco.sidekick.application.context.ProjectContext
 import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
@@ -24,6 +25,9 @@ class SessionManager(
 
     fun isSubscribed(conversationId: ConversationId): Boolean =
         store.load(conversationId).subscribed
+
+    fun resolveProjectContext(conversationId: ConversationId): ProjectContext =
+        projectContexts.resolve(virtualPathsFactory.forConversation(conversationId).projectRoot)
 
     suspend fun setSubscribed(
         conversationId: ConversationId,
@@ -55,6 +59,7 @@ class SessionManager(
         historyLoader: suspend (ConversationId) -> List<ChatMessage>,
         messages: List<SessionMessage>,
         files: List<IncomingChatFile>,
+        project: ProjectContext,
     ): RecordedTurn =
         store.withSessionLock(conversationId) {
             val orderedMessages = messages.sortedBy { it.createdAtMs }
@@ -69,7 +74,7 @@ class SessionManager(
                 ConversationContext(
                     conversationId = conversationId,
                     virtualPaths = virtualPaths,
-                    project = projectContexts.resolve(virtualPaths.projectRoot),
+                    project = project,
                     history =
                         ConversationHistory(
                             compactions = state.compactions,

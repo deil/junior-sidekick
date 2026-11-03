@@ -87,6 +87,32 @@ class SessionManagerRecordingTest {
         assertEquals("Original instructions", initial.context.conversation.project.instructions)
     }
 
+    @Test
+    fun `recording uses the resolved project snapshot even if source changes`() = runBlocking {
+        val paths = VirtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversationId)
+        val file = paths.projectRoot.resolve("AGENTS.md")
+        Files.writeString(file, "---\ntags: [engineering]\n---\nOriginal instructions")
+        val project = manager.resolveProjectContext(conversationId)
+        Files.writeString(file, "---\ntags: invalid\n---\nChanged instructions")
+
+        val turn =
+            manager.recordIncomingMessages(
+                conversationId,
+                false,
+                { emptyList() },
+                listOf(message("m1", 1)),
+                emptyList(),
+                project,
+            )
+
+        assertSame(project, turn.context.conversation.project)
+        assertEquals(
+            ProjectContext(setOf("engineering"), "Original instructions"),
+            turn.context.conversation.project,
+        )
+        assertEquals(listOf("m1"), reload().messages.map { it.id })
+    }
+
     @Nested
     inner class Steering {
         @Test
@@ -336,6 +362,7 @@ class SessionManagerRecordingTest {
             historyLoader = { history },
             messages = messages,
             files = files,
+            project = manager.resolveProjectContext(conversationId),
         )
 
     private fun reload() =

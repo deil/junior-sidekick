@@ -1,3 +1,7 @@
+---
+type: Domain
+---
+
 # Turn Flow
 
 Sidekick processing is easiest to reason about as durable `Session` state plus a series of `Turn`s.
@@ -45,6 +49,12 @@ Turn admission
   |
   v
 Turn processing
+  |
+  +-- resolve project context
+  |     |
+  |     | configuration error: deliver failure response and finish with session history unchanged
+  |     v
+  |   ProjectContext snapshot
   |
   +-- explicit skill invocation preprocessing
   |     |
@@ -134,6 +144,9 @@ It returns either:
 Admission also selects the session. A root app mention creates a session from the message id. A thread message maps to the thread session. A direct assistant message maps to the direct-message session.
 
 ### Session recording
+
+The coordinator resolves [project context](project-context.md) before message preparation,
+compaction, recording, and participation. Recording receives the resolved snapshot.
 
 Explicit skill invocation preprocessing runs on each live batch message before session recording and stores the result on `SessionMessage.explicitSkillInvocation`. Seeded history is not preprocessed for skill invocation. The five-file limit applies separately to each live message.
 

@@ -12,6 +12,7 @@ import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
 import com.github.uncomplexco.sidekick.application.chat.SteeringInbox
 import com.github.uncomplexco.sidekick.application.chat.SteeringInput
+import com.github.uncomplexco.sidekick.application.context.ProjectConfigurationException
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.conversation.ExplicitSkillInvocation
@@ -36,9 +37,14 @@ class TurnCoordinator(
     private val skills: SkillsCatalog,
 ) {
     suspend fun run(trigger: TurnTrigger, inbox: SteeringInbox? = null) {
-        when (trigger) {
-            is TurnTrigger.Incoming -> runIncoming(trigger.batch, trigger.chat, inbox)
-            is TurnTrigger.Scheduled -> runScheduled(trigger)
+        try {
+            when (trigger) {
+                is TurnTrigger.Incoming -> runIncoming(trigger.batch, trigger.chat, inbox)
+                is TurnTrigger.Scheduled -> runScheduled(trigger)
+            }
+        } catch (error: ProjectConfigurationException) {
+            log.warn("Turn rejected: {}", error.message, error)
+            trigger.chat.delivery.deliverRuntimeFailure(error)
         }
     }
 
@@ -90,10 +96,11 @@ class TurnCoordinator(
 
     private suspend fun runScheduled(trigger: TurnTrigger.Scheduled) {
         val turnStartedAt = TimeSource.Monotonic.markNow()
-        val currentMessage = scheduledMessage(trigger.job, trigger.startedAtMs)
 
         trigger.chat.lifecycle.begin()
         try {
+            val project = sessions.resolveProjectContext(trigger.conversationId)
+            val currentMessage = scheduledMessage(trigger.job, trigger.startedAtMs)
             val turn =
                 sessions.recordIncomingMessages(
                     conversationId = trigger.conversationId,
@@ -101,6 +108,7 @@ class TurnCoordinator(
                     historyLoader = { emptyList() },
                     messages = listOf(currentMessage),
                     files = emptyList(),
+                    project = project,
                 )
             executeAgentTurn(trigger.conversationId, turn, trigger.chat, turnStartedAt)
         } finally {
@@ -115,6 +123,7 @@ class TurnCoordinator(
         inbox: SteeringInbox?,
     ): Boolean {
         val turnStartedAt = TimeSource.Monotonic.markNow()
+        val project = sessions.resolveProjectContext(decision.conversationId)
         val messages = incomingMessages.sortedBy { it.createdAtMs }
         val (currentMessages, attachedFiles) =
             prepareMessages(messages, decision.conversationId, chat)
@@ -134,6 +143,7 @@ class TurnCoordinator(
                 historyLoader = chat::loadHistory,
                 messages = currentMessages,
                 files = attachedFiles,
+                project = project,
             )
         val participationDecision =
             participation.decide(

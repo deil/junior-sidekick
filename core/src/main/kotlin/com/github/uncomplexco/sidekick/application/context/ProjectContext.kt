@@ -20,15 +20,25 @@ class ProjectContexts {
         val file = projectRoot.resolve(PROJECT_INSTRUCTIONS_FILE)
         if (!Files.isRegularFile(file)) return ProjectContext()
 
-        val document = parseMarkdownFrontmatter(Files.readString(file))
-        val tags = document.frontmatter["tags"] ?: emptyList<String>()
-        require(tags is List<*> && tags.all { it is String }) {
-            "$file: tags must be a list of strings"
-        }
+        return try {
+            val document = parseMarkdownFrontmatter(Files.readString(file))
+            val tags = document.frontmatter["tags"] ?: emptyList<String>()
+            require(tags is List<*> && tags.all { it is String }) {
+                "tags must be a list of strings"
+            }
 
-        return ProjectContext(
-            tags = tags.map { it as String }.toSet(),
-            instructions = document.body.trimEnd(),
-        )
+            ProjectContext(
+                tags = tags.map { it as String }.toSet(),
+                instructions = document.body.trimEnd(),
+            )
+        } catch (error: IllegalArgumentException) {
+            throw ProjectConfigurationException(
+                "Invalid project configuration in $PROJECT_INSTRUCTIONS_FILE: ${error.message}",
+                error,
+            )
+        }
     }
 }
+
+class ProjectConfigurationException(message: String, cause: IllegalArgumentException) :
+    IllegalArgumentException(message, cause)

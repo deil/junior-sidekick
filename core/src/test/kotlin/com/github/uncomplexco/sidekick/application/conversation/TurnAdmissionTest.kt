@@ -108,6 +108,7 @@ class TurnAdmissionTest {
                     )
                 ),
             files = emptyList(),
+            project = agentSessions.resolveProjectContext(sessionId),
         )
         val policy = TurnAdmission(agentSessions)
         val message = message(IncomingMessageType.PASSIVE_MESSAGE)
@@ -144,6 +145,7 @@ class TurnAdmissionTest {
                     )
                 ),
             files = emptyList(),
+            project = agentSessions.resolveProjectContext(sessionId),
         )
         agentSessions.setSubscribed(sessionId, false)
         val policy = TurnAdmission(agentSessions)
@@ -179,6 +181,7 @@ class TurnAdmissionTest {
                         )
                     ),
                 files = emptyList(),
+                project = agentSessions.resolveProjectContext(sessionId),
             )
             agentSessions.setSubscribed(sessionId, false)
             val policy = TurnAdmission(agentSessions)
@@ -298,6 +301,7 @@ class TurnAdmissionTest {
                         )
                     ),
                 files = emptyList(),
+                project = agentSessions.resolveProjectContext(conversationId),
             )
             val policy = TurnAdmission(agentSessions)
             val chatConversationId =

@@ -59,6 +59,7 @@ class SidekickAgentIdentityTest {
                     message("m2", if (multipleAuthors) "bob" else "alice"),
                 ),
                 emptyList(),
+                sessions.resolveProjectContext(conversationId),
             )
         val registry = mock(McpServersRegistry::class.java)
         val identity = if (multipleAuthors) null else "alice"

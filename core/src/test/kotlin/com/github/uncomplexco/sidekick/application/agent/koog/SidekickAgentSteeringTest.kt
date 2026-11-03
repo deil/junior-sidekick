@@ -135,6 +135,7 @@ class SidekickAgentSteeringTest {
                 { emptyList() },
                 listOf(message("m3", "alice", text = "What is two plus two?")),
                 emptyList(),
+                sessions.resolveProjectContext(conversation),
             )
         val result =
             mockStatic(
@@ -278,6 +279,7 @@ class SidekickAgentSteeringTest {
             { emptyList() },
             listOf(message("m1", "alice"), message("m2", if (multipleAuthors) "bob" else "alice")),
             emptyList(),
+            sessions.resolveProjectContext(conversation),
         )
 
     private fun agent(
