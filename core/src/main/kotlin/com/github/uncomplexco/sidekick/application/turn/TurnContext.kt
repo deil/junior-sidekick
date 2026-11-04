@@ -25,6 +25,7 @@ data class TurnContext(
     var lastMessageId: String,
     var sessionFiles: List<SessionFileRef>,
     val aiModelProfile: AiModelProfile,
+    val headless: Boolean = false,
 )
 
 data class RecordedTurn(

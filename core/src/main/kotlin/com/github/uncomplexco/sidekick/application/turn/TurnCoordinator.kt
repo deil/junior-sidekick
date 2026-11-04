@@ -109,6 +109,7 @@ class TurnCoordinator(
                     messages = listOf(currentMessage),
                     files = emptyList(),
                     project = project,
+                    headless = true,
                 )
             executeAgentTurn(trigger.conversationId, turn, trigger.chat, turnStartedAt)
         } finally {

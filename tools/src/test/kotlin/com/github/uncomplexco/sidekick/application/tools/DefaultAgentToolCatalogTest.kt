@@ -11,6 +11,7 @@ import com.github.uncomplexco.sidekick.application.tools.todos.TodoTool
 import com.github.uncomplexco.sidekick.testing.CatalogChat
 import com.github.uncomplexco.sidekick.testing.CatalogDiscordChat
 import com.github.uncomplexco.sidekick.testing.CatalogMcpServer
+import com.github.uncomplexco.sidekick.testing.CatalogSlackChat
 import com.github.uncomplexco.sidekick.testing.ContextProbeTool
 import com.github.uncomplexco.sidekick.testing.ToolCatalogFixture
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
@@ -23,7 +24,9 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.io.TempDir
 
 class DefaultAgentToolCatalogTest {
@@ -123,6 +126,49 @@ class DefaultAgentToolCatalogTest {
         assertTrue(chat.output.statusMessages.isEmpty())
         assertTrue(chat.output.progress.isEmpty())
     }
+
+    @TestFactory
+    fun `headless Todo stays private on each chat platform`() =
+        listOf("Slack" to CatalogSlackChat(), "Discord" to CatalogDiscordChat()).map { (name, chat)
+            ->
+            dynamicTest("$name headless Todo returns updates without publishing or refreshing") {
+                runBlocking {
+                    // Arrange
+                    val fixture = ToolCatalogFixture(root)
+                    val context = fixture.execution(chat = chat, headless = true)
+                    val todo = fixture.catalog.bindOrchestrator(context).getTool<TodoTool>()
+                    todo.execute(
+                        TodoTool.Args(
+                            "Run report",
+                            listOf(
+                                TodoTool.Item(
+                                    "Collect data",
+                                    TodoTool.Status.IN_PROGRESS,
+                                    TodoTool.Priority.HIGH,
+                                )
+                            ),
+                        )
+                    )
+                    val completed =
+                        listOf(
+                            TodoTool.Item(
+                                "Collect data",
+                                TodoTool.Status.COMPLETED,
+                                TodoTool.Priority.HIGH,
+                            )
+                        )
+
+                    // Act
+                    val result = todo.execute(TodoTool.Args("Run report", completed))
+
+                    // Assert
+                    assertEquals(completed, result)
+                    assertTrue(chat.output.statusMessages.isEmpty())
+                    assertTrue(chat.output.statusRefreshes.isEmpty())
+                    assertTrue(chat.output.progress.isEmpty())
+                }
+            }
+        }
 
     @Test
     fun `disabled integrations are absent for orchestrators and delegates`() = runBlocking {

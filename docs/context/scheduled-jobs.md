@@ -102,6 +102,11 @@ A scheduled firing is a first-class Turn trigger. It must not be represented as 
 
 A successful run posts its final answer as a new root message in the owning channel. It never posts the result as a thread reply.
 
+Automations execute with `TurnContext.headless = true`. `Todo` remains available;
+its goal, task list, and update
+time stay in memory; calls return the updated list without publishing or refreshing
+todo messages in Slack or Discord. Interactive turns retain visible todo updates.
+
 The Chat adapter remains responsible for platform-specific delivery. Scheduled-job orchestration deals in Sidekick's Chat, Session, and Turn concepts rather than Slack payloads.
 
 Agent or delivery failures use Sidekick's existing Turn failure behavior, posted as a root channel message.

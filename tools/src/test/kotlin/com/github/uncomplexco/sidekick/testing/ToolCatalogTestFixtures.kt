@@ -92,6 +92,7 @@ class ToolCatalogFixture(
         id: String = "parent",
         chat: ChatPlatformAdapter = CatalogSlackChat(),
         servers: List<ConnectedMcpServer> = emptyList(),
+        headless: Boolean = false,
     ): ToolExecutionContext {
         val paths =
             VirtualPaths(
@@ -113,6 +114,7 @@ class ToolCatalogFixture(
                 "message-$id",
                 emptyList(),
                 AiModelProfile.NORMAL,
+                headless = headless,
             )
         return ToolExecutionContext(turn, chat, ReplyAttachmentCollector(paths)) {}
     }

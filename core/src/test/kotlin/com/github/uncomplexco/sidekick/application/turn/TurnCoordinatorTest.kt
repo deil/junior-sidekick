@@ -41,6 +41,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
@@ -1047,6 +1048,7 @@ class TurnCoordinatorTest {
                     AgentTurnExecutor { turn, _, _ ->
                         seenConversationIds += turn.context.conversation.conversationId
                         assertEquals("Run the report", turn.messages.single().text)
+                        assertTrue(turn.context.headless)
                         TurnExecutionResult.Completed(
                             AgentResponse("done"),
                             AgentStats("normal", AgentUsageStats()),

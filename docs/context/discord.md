@@ -18,7 +18,8 @@ refreshing. Turn completion also stops refreshes and leaves the message in place
 
 Delivery is best-effort. A failed initial post can be retried on the next update;
 failed edits retain the message reference. Delegates return the structured list
-without publishing. Message text preserves Discord Markdown formatting.
+without publishing. Scheduled runs also keep todos in memory without publishing or
+refreshing messages. Message text preserves Discord Markdown formatting.
 
 Typing indicators remain separate from todo delivery. Both posting and editing
 use the gateway's existing reply-channel resolution and disable automatic mentions.

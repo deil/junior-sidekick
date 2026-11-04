@@ -85,7 +85,9 @@ minutes since the last `Todo` call and refreshes every minute. The update time s
 fixed until the next call. Lists containing only completed/cancelled tasks omit the
 age and stop refreshing; turn completion also stops refreshing.
 `Todo` owns an in-memory snapshot of the goal, task list, and last tool-update time.
-Both immediate and scheduled publications render that current snapshot.
+Both immediate updates and minute refreshes render that current snapshot.
+Scheduled-job executions keep todo snapshots in memory without posting or refreshing
+todo messages; their final response delivery is unchanged.
 
 Sidekick uses `agents.sessions.setStatus`: `processing` while working, renewed every eight seconds, and `active` on completion or stop. The API has a one-hour processing timeout and no custom loading text. Posting a reply does not clear processing automatically. The legacy custom-status API did not enable Stop in the target workspace.
 

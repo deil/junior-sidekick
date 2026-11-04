@@ -193,7 +193,9 @@ class DefaultAgentToolCatalog(
             (registrations + mcpRegistrations)
                 .filter { orchestrator || it.access == ToolAccess.SHARED }
                 .flatMap { it.bind(context) } +
-                TodoTool(if (orchestrator) context.chat.lifecycle else null)
+                TodoTool(
+                    if (orchestrator && !context.turn.headless) context.chat.lifecycle else null
+                )
         val registry = ToolRegistry { tools(tools) }
         log.info(
             "Bound {} tools for {} execution {}",

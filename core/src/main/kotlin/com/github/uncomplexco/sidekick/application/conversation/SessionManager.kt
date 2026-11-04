@@ -60,6 +60,7 @@ class SessionManager(
         messages: List<SessionMessage>,
         files: List<IncomingChatFile>,
         project: ProjectContext,
+        headless: Boolean = false,
     ): RecordedTurn =
         store.withSessionLock(conversationId) {
             val orderedMessages = messages.sortedBy { it.createdAtMs }
@@ -92,6 +93,7 @@ class SessionManager(
                         lastMessageId = orderedMessages.last().id,
                         sessionFiles = state.files,
                         aiModelProfile = state.aiModel,
+                        headless = headless,
                     ),
                 messages = orderedMessages,
             )

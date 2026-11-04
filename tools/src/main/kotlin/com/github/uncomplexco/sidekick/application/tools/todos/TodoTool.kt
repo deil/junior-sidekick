@@ -122,9 +122,9 @@ class TodoTool(
     }
 
     override suspend fun execute(args: Args): List<Item> {
+        snapshot = Snapshot(args.goal, args.todos.toList(), clock.now())
         if (output == null) return args.todos
 
-        snapshot = Snapshot(args.goal, args.todos.toList(), clock.now())
         output.reportStatus(
             renderCurrentSnapshot(),
             key = "todos",
