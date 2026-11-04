@@ -88,6 +88,7 @@ internal fun discordMessageKind(
 
 internal class DiscordIngress(
     private val fileIngestor: ChatFileIngestor,
+    private val scope: SidekickCoroutineScope,
     private val receive: suspend (ChatConversationId, IncomingMessage, ChatPlatformAdapter) -> Unit,
 ) {
     private val handledMessageIds = LinkedHashSet<String>()
@@ -121,6 +122,9 @@ internal class DiscordIngress(
         loadChannelHistory: suspend (Int, String?) -> DiscordChannelHistoryPage,
         loadThreadHistory: suspend (String, Int, String?) -> DiscordThreadHistoryPage,
         upload: suspend (ReplyAttachment) -> DiscordSentMessage,
+        edit: suspend (String, String) -> Unit = { _, _ ->
+            error("Message editing is not configured")
+        },
     ) {
         if (message.kind == DiscordMessageKind.IGNORED_GUILD_MESSAGE) return
         if (message.isBot || message.isWebhook || !admit(message.id)) return
@@ -158,6 +162,7 @@ internal class DiscordIngress(
                     },
             ),
             DiscordChatPlatformAdapter(
+                scope,
                 botUsername,
                 updateReaction,
                 startTyping,
@@ -165,6 +170,7 @@ internal class DiscordIngress(
                 loadThreadHistory,
                 fileIngestor,
                 upload,
+                edit,
                 send,
             ),
         )
@@ -226,6 +232,7 @@ class DiscordConfiguration {
         val ingress =
             DiscordIngress(
                 ChatFileIngestor(virtualPathsFactory, imageSummarizer),
+                scope,
                 incoming::receive,
             )
         val listener =
@@ -253,6 +260,15 @@ class DiscordConfiguration {
                     }
                     val send: suspend (String) -> DiscordSentMessage = { text ->
                         resolveReplyChannel().send(text)
+                    }
+                    val edit: suspend (String, String) -> Unit = { messageId, text ->
+                        val channel = resolveReplyChannel()
+                        withContext(Dispatchers.IO) {
+                            channel
+                                .editMessageById(messageId, text)
+                                .setAllowedMentions(emptyList())
+                                .complete()
+                        }
                     }
                     val upload: suspend (ReplyAttachment) -> DiscordSentMessage = { attachment ->
                         val channel = resolveReplyChannel()
@@ -315,6 +331,7 @@ class DiscordConfiguration {
                                     loadChannelHistory,
                                     loadThreadHistory,
                                     upload,
+                                    edit,
                                 )
                             }
                             .onFailure { log.error("Discord message handling failed", it) }

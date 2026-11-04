@@ -18,6 +18,7 @@ Hierarchical index of project context documentation for future-us and AI agents.
 - [context-management.md](context-management.md) – Sidekick system/user prompt assembly, bootstrap versus follow-up context, and session compaction invariants; read for prompt generation, context window, and prompt history changes.
 - [mcp.md](mcp.md) – Koog MCP tool registry configuration, supported transports, Grafana MCP examples, and registry merge behavior; read for MCP tool integration changes.
 - [slack.md](slack.md) – Slack channel and thread identifier semantics, including `C`/`G`/`D` prefixes and DM channel handling; read for Slack adapter mapping changes.
+- [discord.md](discord.md) – Discord todo message delivery, editing, minute refreshes, and reply-target routing; read for Discord progress-message changes.
 - [skills.md](skills.md) – Skill sources, discovery, activation, and orchestrator catalog prompting; read for skills loading, prompting, and activation changes.
 - [subagents.md](subagents.md) – `Task` behavior, subagent system/user prompt shape, definition loading, context isolation, and tool access; read for subagent execution and prompt generation changes.
 - [turn-flow.md](turn-flow.md) – Session/Turn processing model, turn boundary, and processing stages from Slack event through turn participation and response delivery; read for turn orchestration and participation changes.

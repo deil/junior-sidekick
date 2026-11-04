@@ -2,17 +2,22 @@ package com.github.uncomplexco.sidekick.adapters.discord
 
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
+import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachment
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 
 class DiscordAttachmentReplyTest {
     @TempDir lateinit var dir: Path
+    private val scope = SidekickCoroutineScope()
+
+    @AfterEach fun closeScope() = scope.close()
 
     @Test
     fun `reply uploads generated attachments and sends text`() = runBlocking {
@@ -21,10 +26,11 @@ class DiscordAttachmentReplyTest {
         val uploaded = mutableListOf<ReplyAttachment>()
         val handler =
             DiscordTurnOutput(
+                scope = scope,
                 upload = {
                     uploaded += it
                     DiscordSentMessage("file-reply", 2)
-                }
+                },
             ) {
                 sent += it
                 DiscordSentMessage("reply", 3)
@@ -44,10 +50,11 @@ class DiscordAttachmentReplyTest {
         val uploaded = mutableListOf<ReplyAttachment>()
         val handler =
             DiscordTurnOutput(
+                scope = scope,
                 upload = {
                     uploaded += it
                     DiscordSentMessage("file-reply", 42)
-                }
+                },
             ) {
                 error("No text should be sent")
             }
@@ -65,10 +72,11 @@ class DiscordAttachmentReplyTest {
         val uploaded = mutableListOf<ReplyAttachment>()
         val handler =
             DiscordTurnOutput(
+                scope = scope,
                 upload = {
                     uploaded += it
                     DiscordSentMessage("file-reply", 42)
-                }
+                },
             ) {
                 error("No text should be sent")
             }
@@ -85,7 +93,7 @@ class DiscordAttachmentReplyTest {
         val attachment = attachment()
         val sent = mutableListOf<String>()
         val handler =
-            DiscordTurnOutput(upload = { throw IOException("Upload failed") }) {
+            DiscordTurnOutput(scope, upload = { throw IOException("Upload failed") }) {
                 sent += it
                 DiscordSentMessage("reply", 42)
             }

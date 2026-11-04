@@ -167,7 +167,7 @@ class CatalogOutput : TurnLifecycle, ResponseDelivery {
         progress += text
     }
 
-    override fun reportStatus(text: String, key: String, refresh: (() -> String)?) {
+    override suspend fun reportStatus(text: String, key: String, refresh: (() -> String)?) {
         statusMessages += key to text
         statusRefreshes.remove(key)
         refresh?.let { statusRefreshes[key] = it }

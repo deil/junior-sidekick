@@ -44,12 +44,16 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.mockito.Mockito.mock
 
 class DiscordAdapterTest {
     @TempDir lateinit var dir: Path
+    private val runtimeScope = SidekickCoroutineScope()
+
+    @AfterEach fun closeScope() = runtimeScope.close()
 
     private val fileIngestor by lazy {
         ChatFileIngestor(
@@ -62,10 +66,42 @@ class DiscordAdapterTest {
     }
 
     @Test
+    fun `ingress adapter publishes and edits todo messages through the supplied reply target`() =
+        runBlocking {
+            // Arrange
+            val api = RecordingDiscordMessages()
+            val ingress =
+                DiscordIngress(fileIngestor, runtimeScope) { _, _, chat ->
+                    chat.lifecycle.begin()
+                    chat.lifecycle.reportStatus("Pending", "todos")
+                    chat.lifecycle.reportStatus("Completed", "todos")
+                    chat.delivery.deliver(AgentResponse("Done"))
+                    chat.lifecycle.end()
+                }
+
+            // Act
+            ingress.receive(
+                message = message(),
+                botUsername = "999",
+                send = api::send,
+                updateReaction = { _, _, _ -> },
+                startTyping = { AutoCloseable {} },
+                loadChannelHistory = { _, _ -> error("History should not be loaded") },
+                loadThreadHistory = { _, _, _ -> error("History should not be loaded") },
+                upload = { error("No attachments expected") },
+                edit = api::edit,
+            )
+
+            // Assert
+            assertEquals(mapOf("message-1" to "Completed", "message-2" to "Done"), api.messages)
+            assertEquals(listOf("message-1" to "Completed"), api.edits)
+        }
+
+    @Test
     fun `ingress maps one text dm with real ids`() = runBlocking {
         val received = mutableListOf<Pair<ChatConversationId, IncomingMessage>>()
         val ingress =
-            DiscordIngress(fileIngestor) { conversationId, message, _ ->
+            DiscordIngress(fileIngestor, runtimeScope) { conversationId, message, _ ->
                 received += conversationId to message
             }
 
@@ -122,7 +158,7 @@ class DiscordAdapterTest {
     fun `ingress maps guild mention to isolated channel turn with real ids`() = runBlocking {
         val received = mutableListOf<Pair<ChatConversationId, IncomingMessage>>()
         val ingress =
-            DiscordIngress(fileIngestor) { conversationId, message, _ ->
+            DiscordIngress(fileIngestor, runtimeScope) { conversationId, message, _ ->
                 received += conversationId to message
             }
 
@@ -145,7 +181,7 @@ class DiscordAdapterTest {
     fun `ingress maps passive thread message to its existing session`() = runBlocking {
         val received = mutableListOf<Pair<ChatConversationId, IncomingMessage>>()
         val ingress =
-            DiscordIngress(fileIngestor) { conversationId, message, _ ->
+            DiscordIngress(fileIngestor, runtimeScope) { conversationId, message, _ ->
                 received += conversationId to message
             }
 
@@ -170,7 +206,10 @@ class DiscordAdapterTest {
         runBlocking {
             val received = mutableListOf<String>()
             val sent = mutableListOf<String>()
-            val ingress = DiscordIngress(fileIngestor) { _, message, _ -> received += message.id }
+            val ingress =
+                DiscordIngress(fileIngestor, runtimeScope) { _, message, _ ->
+                    received += message.id
+                }
             val send: suspend (String) -> DiscordSentMessage = { text ->
                 sent += text
                 DiscordSentMessage("1", 1)
@@ -195,7 +234,8 @@ class DiscordAdapterTest {
     fun `unmentioned guild message with attachments is ignored before dedupe`() = runBlocking {
         val received = mutableListOf<String>()
         val sent = mutableListOf<String>()
-        val ingress = DiscordIngress(fileIngestor) { _, message, _ -> received += message.id }
+        val ingress =
+            DiscordIngress(fileIngestor, runtimeScope) { _, message, _ -> received += message.id }
         val send: suspend (String) -> DiscordSentMessage = { text ->
             sent += text
             DiscordSentMessage("1", 1)
@@ -217,7 +257,7 @@ class DiscordAdapterTest {
     fun `guild mention attachments enter turn flow once`() = runBlocking {
         val received = mutableListOf<IncomingMessage>()
         val ingress =
-            DiscordIngress(fileIngestor) { _, message, _ ->
+            DiscordIngress(fileIngestor, runtimeScope) { _, message, _ ->
                 received += message
             }
         val mentioned = message(kind = DiscordMessageKind.GUILD_MENTION, files = listOf(file()))
@@ -231,7 +271,8 @@ class DiscordAdapterTest {
     @Test
     fun `attachment-only dm enters turn flow`() = runBlocking {
         val received = mutableListOf<IncomingMessage>()
-        val ingress = DiscordIngress(fileIngestor) { _, message, _ -> received += message }
+        val ingress =
+            DiscordIngress(fileIngestor, runtimeScope) { _, message, _ -> received += message }
 
         ingress.receive(message(text = "  ", files = listOf(file())), "999", ::sent)
 
@@ -246,6 +287,7 @@ class DiscordAdapterTest {
             val reactions = mutableListOf<Triple<String, String, Boolean>>()
             val handler =
                 DiscordTurnOutput(
+                    scope = runtimeScope,
                     updateReaction = { id, emoji, add -> reactions += Triple(id, emoji, add) },
                     send = ::sent,
                 )
@@ -283,6 +325,7 @@ class DiscordAdapterTest {
         val reactions = mutableListOf<Pair<String, Boolean>>()
         val handler =
             DiscordTurnOutput(
+                scope = runtimeScope,
                 updateReaction = { _, emoji, add -> reactions += emoji to add },
                 send = ::sent,
             )
@@ -306,6 +349,7 @@ class DiscordAdapterTest {
         val reactions = mutableListOf<Pair<String, Boolean>>()
         val handler =
             DiscordTurnOutput(
+                scope = runtimeScope,
                 updateReaction = { _, emoji, add -> reactions += emoji to add },
                 send = ::sent,
             )
@@ -330,6 +374,7 @@ class DiscordAdapterTest {
         var stops = 0
         val handler =
             DiscordTurnOutput(
+                scope = runtimeScope,
                 startTyping = {
                     starts += 1
                     AutoCloseable { stops += 1 }
@@ -403,10 +448,11 @@ class DiscordAdapterTest {
     fun `reply sends complete text in 2000 character chunks and returns last real metadata`() =
         runBlocking {
             val chunks = mutableListOf<String>()
-            val handler = DiscordTurnOutput { text ->
-                chunks += text
-                DiscordSentMessage("reply-${chunks.size}", 1_000L + chunks.size)
-            }
+            val handler =
+                DiscordTurnOutput(runtimeScope) { text ->
+                    chunks += text
+                    DiscordSentMessage("reply-${chunks.size}", 1_000L + chunks.size)
+                }
 
             val result = handler.deliver(AgentResponse("x".repeat(4_001)))
 
@@ -419,10 +465,11 @@ class DiscordAdapterTest {
     @Test
     fun `reply does not split an emoji surrogate pair`() = runBlocking {
         val chunks = mutableListOf<String>()
-        val handler = DiscordTurnOutput { text ->
-            chunks += text
-            DiscordSentMessage("reply", 1)
-        }
+        val handler =
+            DiscordTurnOutput(runtimeScope) { text ->
+                chunks += text
+                DiscordSentMessage("reply", 1)
+            }
 
         handler.deliver(AgentResponse("x".repeat(1_999) + "😀"))
 
@@ -433,10 +480,11 @@ class DiscordAdapterTest {
     @Test
     fun `reply renders explicit status line as Discord subtext`() = runBlocking {
         val sent = mutableListOf<String>()
-        val handler = DiscordTurnOutput { text ->
-            sent += text
-            DiscordSentMessage("reply", 1)
-        }
+        val handler =
+            DiscordTurnOutput(runtimeScope) { text ->
+                sent += text
+                DiscordSentMessage("reply", 1)
+            }
 
         handler.deliver(
             AgentResponse("Try again."),
@@ -449,10 +497,11 @@ class DiscordAdapterTest {
     @Test
     fun `reply renders turn stats as Discord subtext`() = runBlocking {
         val sent = mutableListOf<String>()
-        val handler = DiscordTurnOutput { text ->
-            sent += text
-            DiscordSentMessage("reply", 1)
-        }
+        val handler =
+            DiscordTurnOutput(runtimeScope) { text ->
+                sent += text
+                DiscordSentMessage("reply", 1)
+            }
 
         handler.deliver(
             AgentResponse("Ready."),
@@ -465,10 +514,11 @@ class DiscordAdapterTest {
     @Test
     fun `marker-only reply with stats is not sent`() = runBlocking {
         var sends = 0
-        val handler = DiscordTurnOutput {
-            sends += 1
-            DiscordSentMessage("reply", 1)
-        }
+        val handler =
+            DiscordTurnOutput(runtimeScope) {
+                sends += 1
+                DiscordSentMessage("reply", 1)
+            }
 
         val result =
             handler.deliver(
@@ -530,7 +580,7 @@ class DiscordAdapterTest {
                 )
             val sent = mutableListOf<String>()
             val ingress =
-                DiscordIngress(fileIngestor) { conversationId, message, chat ->
+                DiscordIngress(fileIngestor, runtimeScope) { conversationId, message, chat ->
                     usecase.receiveNow(conversationId, message, chat)
                 }
 
@@ -601,7 +651,7 @@ class DiscordAdapterTest {
                 )
             val sent = mutableListOf<String>()
             val ingress =
-                DiscordIngress(fileIngestor) { conversationId, message, chat ->
+                DiscordIngress(fileIngestor, runtimeScope) { conversationId, message, chat ->
                     usecase.receiveNow(conversationId, message, chat)
                 }
 

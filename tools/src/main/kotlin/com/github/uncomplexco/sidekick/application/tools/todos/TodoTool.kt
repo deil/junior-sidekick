@@ -41,7 +41,7 @@ class TodoTool(
     data class Args(
         @property:LLMDescription(
             "Brief description of the current user's ask, focusing on the desired outcome. " +
-                "Supports Slack mrkdwn formatting."
+                "Supports the current chat platform's Markdown formatting."
         )
         val goal: String,
         @property:LLMDescription("The updated todo list") val todos: List<Item>,

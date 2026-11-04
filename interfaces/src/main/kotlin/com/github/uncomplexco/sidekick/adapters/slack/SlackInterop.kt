@@ -120,7 +120,7 @@ internal class SlackTurnOutput(
         }
     }
 
-    override fun reportStatus(text: String, key: String, refresh: (() -> String)?) {
+    override suspend fun reportStatus(text: String, key: String, refresh: (() -> String)?) {
         messages.report(text, key, refresh)
     }
 

@@ -32,6 +32,7 @@ internal data class DiscordSentMessage(
 )
 
 internal class DiscordChatPlatformAdapter(
+    scope: SidekickCoroutineScope,
     override val botUsername: String,
     updateReaction: suspend (String, String, Boolean) -> Unit = { _, _, _ -> },
     startTyping: () -> AutoCloseable,
@@ -39,9 +40,10 @@ internal class DiscordChatPlatformAdapter(
     private val loadThreadHistory: suspend (String, Int, String?) -> DiscordThreadHistoryPage,
     private val fileIngestor: ChatFileIngestor,
     upload: suspend (ReplyAttachment) -> DiscordSentMessage,
+    edit: suspend (String, String) -> Unit,
     send: suspend (String) -> DiscordSentMessage,
 ) : DiscordBackedChatPlatformAdapter {
-    private val output = DiscordTurnOutput(updateReaction, startTyping, upload, send)
+    private val output = DiscordTurnOutput(scope, updateReaction, startTyping, upload, edit, send)
     override val lifecycle: TurnLifecycle = output
     override val delivery: ResponseDelivery = output
 
@@ -66,18 +68,22 @@ internal class DiscordChatPlatformAdapter(
 }
 
 internal class DiscordTurnOutput(
+    scope: SidekickCoroutineScope,
     private val updateReaction: suspend (String, String, Boolean) -> Unit = { _, _, _ -> },
     private val startTyping: () -> AutoCloseable = { AutoCloseable {} },
     private val upload: suspend (ReplyAttachment) -> DiscordSentMessage = {
         error("File upload is not configured")
     },
+    edit: suspend (String, String) -> Unit = { _, _ -> error("Message editing is not configured") },
     private val send: suspend (String) -> DiscordSentMessage,
 ) : TurnLifecycle, ResponseDelivery {
     private var turnActive = false
     private var typingHeartbeat: AutoCloseable? = null
+    private val messages = DiscordProgressMessages(scope, send, edit)
 
     override fun begin() {
         turnActive = true
+        messages.begin()
     }
 
     override fun progress(text: String?) {
@@ -88,6 +94,7 @@ internal class DiscordTurnOutput(
 
     override fun end() {
         turnActive = false
+        messages.end()
         typingHeartbeat?.close()
         typingHeartbeat = null
     }
@@ -95,6 +102,10 @@ internal class DiscordTurnOutput(
     override suspend fun markProcessing(message: IncomingMessage) {
         updateReaction(message.id, PROCESSING_REACTION, add = true)
         progress()
+    }
+
+    override suspend fun reportStatus(text: String, key: String, refresh: (() -> String)?) {
+        messages.report(text, key, refresh)
     }
 
     override suspend fun markCompleted(message: IncomingMessage) {

@@ -9,6 +9,7 @@ import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsF
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
@@ -28,6 +29,7 @@ class ChatFileIngestorTest {
     private lateinit var server: HttpServer
     private lateinit var paths: VirtualPathsFactory
     private val conversationId = ConversationId("123", "456")
+    private val runtimeScope = SidekickCoroutineScope()
     private val requests = mutableListOf<String>()
     private val authorizationHeaders = mutableListOf<String?>()
 
@@ -55,6 +57,7 @@ class ChatFileIngestorTest {
 
     @AfterEach
     fun tearDown() {
+        runtimeScope.close()
         server.stop(0)
     }
 
@@ -65,7 +68,7 @@ class ChatFileIngestorTest {
             val ingestor = ChatFileIngestor(paths, mock(ImageSummarizer::class.java))
             val received = mutableListOf<IncomingChatFile>()
             val ingress =
-                DiscordIngress(ingestor) { _, incoming, chat ->
+                DiscordIngress(ingestor, runtimeScope) { _, incoming, chat ->
                     received += chat.ingestFiles(conversationId, incoming.files)
                 }
             val message =

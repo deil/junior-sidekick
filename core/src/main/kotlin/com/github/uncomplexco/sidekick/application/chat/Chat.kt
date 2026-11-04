@@ -61,8 +61,11 @@ interface TurnLifecycle {
 
     fun progress(text: String? = null)
 
-    fun reportStatus(text: String, key: String = "status", refresh: (() -> String)? = null) =
-        progress(text)
+    suspend fun reportStatus(
+        text: String,
+        key: String = "status",
+        refresh: (() -> String)? = null,
+    ) = Unit
 
     fun end()
 
