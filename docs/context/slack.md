@@ -65,6 +65,28 @@ Duplicate cases seen in practice:
 
 ## Agent sessions and Stop
 
+`Todo` requires an outcome-focused `goal` describing the current user's ask and the
+full updated task list. It returns that list as a JSON array.
+Each item requires `content`, `status` (`pending`, `in_progress`, `completed`,
+`cancelled`), and `priority` (`high`, `medium`, `low`). Sidekick posts one todo
+message per turn in the reply thread (or starts a thread) and replaces its full
+text on subsequent calls. The final response is separate, in the same thread.
+Ending the turn leaves the todo message unchanged. Delivery failures are ignored;
+after a failed initial post, the next invocation tries posting again. Delivery does
+not record a message in session or Koog history; later Slack history reads work normally.
+Internal progress updates and the processing indicator are separate. Delegates return the list without
+publishing a message. The message preserves Slack mrkdwn formatting in the goal,
+shows one status-icon task per line, and ends with italic `todos as of <updated_at>`
+in the app's local timezone (`HH:mm:ss`). Priority remains in the tool
+arguments and result, but is hidden in the message.
+Indicators are plain characters: `◦` pending, `∗` in progress, `✓` completed, and `×` cancelled.
+While a turn has pending or in-progress tasks, the italic footer includes elapsed
+minutes since the last `Todo` call and refreshes every minute. The update time stays
+fixed until the next call. Lists containing only completed/cancelled tasks omit the
+age and stop refreshing; turn completion also stops refreshing.
+`Todo` owns an in-memory snapshot of the goal, task list, and last tool-update time.
+Both immediate and scheduled publications render that current snapshot.
+
 Sidekick uses `agents.sessions.setStatus`: `processing` while working, renewed every eight seconds, and `active` on completion or stop. The API has a one-hour processing timeout and no custom loading text. Posting a reply does not clear processing automatically. The legacy custom-status API did not enable Stop in the target workspace.
 
 The `agent_session_stopped` handler acknowledges Slack immediately and requests a cooperative stop for the channel/thread, including work started by a root mention. The queue discards pending input and ignores input until that handler finishes. Other conversations are unaffected.

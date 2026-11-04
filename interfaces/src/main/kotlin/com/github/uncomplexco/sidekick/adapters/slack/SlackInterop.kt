@@ -76,11 +76,13 @@ internal class SlackTurnOutput(
 
     private val statusLock = Any()
     private var activity: Activity? = null
+    private val messages = SlackProgressMessages(client, channelId, threadId?.threadTs, scope)
 
     override fun begin() {
         synchronized(statusLock) {
             activity?.let { stopActivity(it) }
             activity = Activity()
+            messages.begin()
         }
     }
 
@@ -94,7 +96,7 @@ internal class SlackTurnOutput(
                     while (isActive) {
                         delay(STATUS_RENEWAL_INTERVAL_MS)
                         synchronized(statusLock) {
-                            if (activity === current && isActive) publishActivity()
+                            if (activity === current && isActive) setStatus("processing")
                         }
                     }
                 }
@@ -107,7 +109,7 @@ internal class SlackTurnOutput(
             }
 
             if (activity === current && current.renewal?.isActive == true) {
-                publishActivity()
+                setStatus("processing")
             }
         }
     }
@@ -118,14 +120,15 @@ internal class SlackTurnOutput(
         }
     }
 
-    private fun stopActivity(current: Activity) {
-        activity = null
-        current.renewal?.cancel()
-        setStatus("active")
+    override fun reportStatus(text: String, key: String, refresh: (() -> String)?) {
+        messages.report(text, key, refresh)
     }
 
-    private fun publishActivity() {
-        setStatus("processing")
+    private fun stopActivity(current: Activity) {
+        activity = null
+        messages.end()
+        current.renewal?.cancel()
+        setStatus("active")
     }
 
     override suspend fun markProcessing(message: IncomingMessage) {
@@ -176,7 +179,7 @@ internal class SlackTurnOutput(
 
         val postResponse = client.chatPostMessage { req ->
             req.channel(channelId)
-            threadId?.also { req.threadTs(it.threadTs) }
+            messages.threadTs?.also { req.threadTs(it) }
             req.text(text)
             req.blocks(replyBlocks(text, metadata.statusLine()))
         }
@@ -191,7 +194,7 @@ internal class SlackTurnOutput(
                 )
                 client.chatPostMessage { req ->
                     req.channel(channelId)
-                    threadId?.also { req.threadTs(it.threadTs) }
+                    messages.threadTs?.also { req.threadTs(it) }
                     req.text(text)
                 }
             }

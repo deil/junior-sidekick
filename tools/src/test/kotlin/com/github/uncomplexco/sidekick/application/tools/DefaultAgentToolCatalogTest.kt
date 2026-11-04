@@ -7,6 +7,7 @@ import com.github.uncomplexco.sidekick.application.agent.tools.ToolRegistration
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpServerConfig
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
 import com.github.uncomplexco.sidekick.application.tools.subagents.TaskTool
+import com.github.uncomplexco.sidekick.application.tools.todos.TodoTool
 import com.github.uncomplexco.sidekick.testing.CatalogChat
 import com.github.uncomplexco.sidekick.testing.CatalogDiscordChat
 import com.github.uncomplexco.sidekick.testing.CatalogMcpServer
@@ -40,6 +41,7 @@ class DefaultAgentToolCatalogTest {
             val shared =
                 setOf(
                     "Read",
+                    "Todo",
                     "Glob",
                     "Grep",
                     "bash",
@@ -58,7 +60,6 @@ class DefaultAgentToolCatalogTest {
                 )
             val orchestrator =
                 setOf(
-                    "assistant_report_status",
                     "reloadSkills",
                     "Task",
                     "attachFile",
@@ -77,7 +78,51 @@ class DefaultAgentToolCatalogTest {
             )
             assertTrue((delegate intersect orchestrator).isEmpty())
             assertFalse("Loop" in sidekick)
+            assertFalse("assistant_report_status" in sidekick)
         }
+
+    @Test
+    fun `orchestrator Todo publishes the supplied list`() = runBlocking {
+        // Arrange
+        val fixture = ToolCatalogFixture(root)
+        val chat = CatalogChat()
+        val registry = fixture.catalog.bindOrchestrator(fixture.execution(chat = chat))
+        val todo = registry.getTool<TodoTool>()
+        val todos =
+            listOf(TodoTool.Item("Fix bug", TodoTool.Status.COMPLETED, TodoTool.Priority.HIGH))
+
+        // Act
+        val result = todo.execute(TodoTool.Args("Fix the bug", todos))
+
+        // Assert
+        assertEquals(todos, result)
+        assertEquals("todos", chat.output.statusMessages.single().first)
+        assertTrue(
+            chat.output.statusMessages
+                .single()
+                .second
+                .startsWith("Fix the bug\n\n✓ Fix bug\n\n_todos as of ")
+        )
+    }
+
+    @Test
+    fun `delegate Todo returns success without publishing a message`() = runBlocking {
+        // Arrange
+        val fixture = ToolCatalogFixture(root)
+        val chat = CatalogChat()
+        val registry = fixture.catalog.bindDelegate(fixture.execution(chat = chat))
+        val todo = registry.getTool<TodoTool>()
+        val todos =
+            listOf(TodoTool.Item("Fix bug", TodoTool.Status.COMPLETED, TodoTool.Priority.HIGH))
+
+        // Act
+        val result = todo.execute(TodoTool.Args("Fix the bug", todos))
+
+        // Assert
+        assertEquals(todos, result)
+        assertTrue(chat.output.statusMessages.isEmpty())
+        assertTrue(chat.output.progress.isEmpty())
+    }
 
     @Test
     fun `disabled integrations are absent for orchestrators and delegates`() = runBlocking {
@@ -227,6 +272,7 @@ class DefaultAgentToolCatalogTest {
         assertNotSame(registry.getTool("Read"), registries[0].getTool("Read"))
         assertNotSame(registries[0].getTool("Read"), registries[1].getTool("Read"))
         assertContains(registries[0].names(), "bash")
+        assertContains(registries[0].names(), "Todo")
         assertFalse("assistant_report_status" in registries[0].names())
         assertFalse("Task" in registries[0].names())
     }

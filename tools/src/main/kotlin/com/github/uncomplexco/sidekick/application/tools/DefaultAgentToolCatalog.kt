@@ -38,9 +38,9 @@ import com.github.uncomplexco.sidekick.application.tools.stats.StatsTools
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentCatalogProvider
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunner
 import com.github.uncomplexco.sidekick.application.tools.subagents.TaskTool
-import com.github.uncomplexco.sidekick.application.tools.system.ActivityTools
 import com.github.uncomplexco.sidekick.application.tools.system.ConversationIntelligenceLevelTools
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
+import com.github.uncomplexco.sidekick.application.tools.todos.TodoTool
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
 import com.github.uncomplexco.sidekick.tools.SidekickToolProvider
@@ -109,9 +109,6 @@ class DefaultAgentToolCatalog(
             },
             ToolRegistration("mcp-status", ToolAccess.SHARED) {
                 McpStatusTools(it.turn, mcpToolsConfig.servers).asTools()
-            },
-            ToolRegistration("activity", ToolAccess.ORCHESTRATOR_ONLY) {
-                ActivityTools(it.chat.lifecycle).asTools()
             },
             ToolRegistration("task", ToolAccess.ORCHESTRATOR_ONLY) { execution ->
                 listOf(
@@ -195,7 +192,8 @@ class DefaultAgentToolCatalog(
         val tools =
             (registrations + mcpRegistrations)
                 .filter { orchestrator || it.access == ToolAccess.SHARED }
-                .flatMap { it.bind(context) }
+                .flatMap { it.bind(context) } +
+                TodoTool(if (orchestrator) context.chat.lifecycle else null)
         val registry = ToolRegistry { tools(tools) }
         log.info(
             "Bound {} tools for {} execution {}",

@@ -7,7 +7,6 @@ import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
-import com.github.uncomplexco.sidekick.application.tools.system.ActivityTools.Companion.TOOL_REPORT_ASSISTANT_ACTIVITY
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutor
@@ -38,7 +37,8 @@ class BashTools(
 
     @Tool
     @LLMDescription(
-        "Run a shell command. Only home directory /work is writable. Do not use to read or search for files, use ${WorkspaceFileTools.TOOL_GLOB}, ${WorkspaceFileTools.TOOL_GREP} or ${WorkspaceFileTools.TOOL_READ} instead. Before proceeding, always notify the user via `$TOOL_REPORT_ASSISTANT_ACTIVITY` tool"
+        "Run a shell command. Only home directory /work is writable. Do not use to read or search for files, " +
+            "use ${WorkspaceFileTools.TOOL_GLOB}, ${WorkspaceFileTools.TOOL_GREP} or ${WorkspaceFileTools.TOOL_READ} instead."
     )
     fun bash(
         @LLMDescription("Shell command string to execute") command: String,

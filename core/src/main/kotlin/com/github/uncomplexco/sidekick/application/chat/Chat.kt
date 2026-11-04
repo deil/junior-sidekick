@@ -61,6 +61,9 @@ interface TurnLifecycle {
 
     fun progress(text: String? = null)
 
+    fun reportStatus(text: String, key: String = "status", refresh: (() -> String)? = null) =
+        progress(text)
+
     fun end()
 
     suspend fun markProcessing(message: IncomingMessage)

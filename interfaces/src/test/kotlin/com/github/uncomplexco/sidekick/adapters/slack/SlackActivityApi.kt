@@ -4,8 +4,10 @@ import com.slack.api.RequestConfigurator
 import com.slack.api.methods.MethodsClient
 import com.slack.api.methods.request.agents.sessions.AgentsSessionsSetStatusRequest
 import com.slack.api.methods.request.chat.ChatPostMessageRequest
+import com.slack.api.methods.request.chat.ChatUpdateRequest
 import com.slack.api.methods.response.agents.sessions.AgentsSessionsSetStatusResponse
 import com.slack.api.methods.response.chat.ChatPostMessageResponse
+import com.slack.api.methods.response.chat.ChatUpdateResponse
 import com.slack.api.methods.response.reactions.ReactionsAddResponse
 import com.slack.api.methods.response.reactions.ReactionsRemoveResponse
 import java.lang.reflect.Proxy
@@ -16,6 +18,10 @@ internal class SlackActivityApi(private val now: () -> Long) {
     private val statuses = mutableMapOf<Pair<String, String>, Activity>()
     private val statusCalls = mutableListOf<StatusCall>()
     private val postedMessages = mutableListOf<ChatPostMessageRequest>()
+    private val updatedMessages = mutableListOf<ChatUpdateRequest>()
+    val edits: List<ChatUpdateRequest>
+        @Synchronized get() = updatedMessages.toList()
+
     val replies: List<ChatPostMessageRequest>
         @Synchronized get() = postedMessages.toList()
 
@@ -24,6 +30,10 @@ internal class SlackActivityApi(private val now: () -> Long) {
 
     @Volatile var beforeStatus: (AgentsSessionsSetStatusRequest) -> Boolean = { true }
     @Volatile var failReplies = false
+    var rejectPosts = false
+    var rejectEdits = false
+    var postError: java.io.IOException? = null
+    var editError: java.io.IOException? = null
     val replied = CompletableDeferred<Unit>()
     val cleared = CompletableDeferred<Unit>()
 
@@ -58,6 +68,7 @@ internal class SlackActivityApi(private val now: () -> Long) {
                 "reactionsAdd" -> ReactionsAddResponse().also { it.isOk = true }
                 "reactionsRemove" -> ReactionsRemoveResponse().also { it.isOk = true }
                 "chatPostMessage" -> {
+                    postError?.let { throw it }
                     check(!failReplies) { "Reply failed" }
                     val configure =
                         args!![0]
@@ -69,13 +80,31 @@ internal class SlackActivityApi(private val now: () -> Long) {
                     recordReply(request)
                     replied.complete(Unit)
                     ChatPostMessageResponse().also {
-                        it.isOk = true
-                        it.ts = "1700000001.000"
+                        it.isOk = !rejectPosts
+                        if (rejectPosts) it.error = "temporary_failure"
+                        it.ts = "${1700000000L + replies.size}.000"
+                    }
+                }
+                "chatUpdate" -> {
+                    editError?.let { throw it }
+                    val configure =
+                        args!![0] as RequestConfigurator<ChatUpdateRequest.ChatUpdateRequestBuilder>
+                    val request = configure.configure(ChatUpdateRequest.builder()).build()
+                    recordEdit(request)
+                    ChatUpdateResponse().also {
+                        it.isOk = !rejectEdits
+                        if (rejectEdits) it.error = "temporary_failure"
+                        it.ts = request.ts
                     }
                 }
                 else -> error("Unexpected Slack API method: ${method.name}")
             }
         } as MethodsClient
+
+    @Synchronized
+    private fun recordEdit(request: ChatUpdateRequest) {
+        updatedMessages += request
+    }
 
     @Synchronized
     private fun recordReply(request: ChatPostMessageRequest) {

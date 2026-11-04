@@ -158,11 +158,19 @@ class CatalogDiscordChat : CatalogChat(), DiscordBackedChatPlatformAdapter {
 
 class CatalogOutput : TurnLifecycle, ResponseDelivery {
     val progress = mutableListOf<String?>()
+    val statusMessages = mutableListOf<Pair<String, String>>()
+    val statusRefreshes = mutableMapOf<String, () -> String>()
 
     override fun begin() = Unit
 
     override fun progress(text: String?) {
         progress += text
+    }
+
+    override fun reportStatus(text: String, key: String, refresh: (() -> String)?) {
+        statusMessages += key to text
+        statusRefreshes.remove(key)
+        refresh?.let { statusRefreshes[key] = it }
     }
 
     override fun end() = Unit

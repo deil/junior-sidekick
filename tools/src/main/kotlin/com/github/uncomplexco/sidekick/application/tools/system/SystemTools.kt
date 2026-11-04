@@ -4,29 +4,9 @@ import ai.koog.agents.core.tools.ToolException
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
-import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.serialization.Serializable
-
-@LLMDescription("General system/runtime tools")
-class ActivityTools(private val activityReporter: TurnLifecycle) : ToolSet {
-    @Tool(TOOL_REPORT_ASSISTANT_ACTIVITY)
-    @LLMDescription(
-        "Report current activity to the user as a short status message. Use at the start of each work phase or a tool call. Use again when the current task, phase, or investigation direction changes. Use for status updates during multi-step work such as researching, diagnosing, searching files, running bash commands, running tests, building, deploying, etc. Messages should be short sentence-case fragments that describe what is happening now and start with a present-participle verb, for example: 'investigating the failure', 'searching files', or 'running tests', and so on."
-    )
-    fun reportAssistantActivity(
-        @LLMDescription("Short user-facing activity message describing what is happening now.")
-        message: String
-    ): ReportAssistantActivityResult {
-        activityReporter.progress(message)
-        return ReportAssistantActivityResult(ok = true)
-    }
-
-    companion object {
-        const val TOOL_REPORT_ASSISTANT_ACTIVITY = "assistant_report_status"
-    }
-}
 
 class SystemTools(private val clock: Clock = Clock.System) : ToolSet {
     @Tool
@@ -88,8 +68,6 @@ data class SystemTimeResult(
     val unix_ms: Long,
     val iso_utc: String,
 )
-
-@Serializable data class ReportAssistantActivityResult(val ok: Boolean)
 
 @Serializable
 data class TimestampToIsoUtcResult(
