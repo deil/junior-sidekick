@@ -22,3 +22,8 @@ without publishing. Message text preserves Discord Markdown formatting.
 
 Typing indicators remain separate from todo delivery. Both posting and editing
 use the gateway's existing reply-channel resolution and disable automatic mentions.
+
+Published todo text is capped at Discord's 2,000-character message limit. Oversized
+messages retain the time/age footer and mark omitted content with a truncation notice.
+The tool snapshot and JSON result remain complete. The cap applies to posts, edits,
+and minute refreshes.

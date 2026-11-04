@@ -24,6 +24,8 @@ import kotlinx.coroutines.delay
 import net.dv8tion.jda.api.exceptions.ErrorResponseException
 import org.slf4j.LoggerFactory
 
+internal const val DISCORD_MESSAGE_LIMIT = 2_000
+
 private val log = LoggerFactory.getLogger(DiscordTurnOutput::class.java)
 
 internal data class DiscordSentMessage(
@@ -216,7 +218,6 @@ internal fun splitDiscordMessage(text: String): List<String> {
     return chunks
 }
 
-private const val DISCORD_MESSAGE_LIMIT = 2_000
 private const val DISCORD_TYPING_INDICATOR_LIFETIME_MS = 10_000L
 private const val DISCORD_TYPING_REFRESH_MARGIN_MS = 2_000L
 private const val DISCORD_TYPING_REFRESH_MS =

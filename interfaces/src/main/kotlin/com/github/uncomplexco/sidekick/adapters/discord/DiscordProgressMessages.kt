@@ -17,6 +17,8 @@ internal class DiscordProgressMessages(
 ) {
     private companion object {
         const val REFRESH_INTERVAL_MS = 60_000L
+        const val TODO_FOOTER_PREFIX = "\n\n_todos as of "
+        const val TRUNCATION_NOTICE = "\n\n… (todo list truncated)"
         val log = LoggerFactory.getLogger(DiscordProgressMessages::class.java)
     }
 
@@ -55,14 +57,15 @@ internal class DiscordProgressMessages(
     }
 
     private suspend fun publish(current: State, text: String, key: String) {
+        val content = capText(text)
         try {
             val messageId = current.messageIds[key]
             if (messageId == null) {
-                val sent = send(text)
+                val sent = send(content)
                 current.messageIds[key] = sent.id
                 log.info("Posted Discord progress message {}", sent.id)
             } else {
-                edit(messageId, text)
+                edit(messageId, content)
                 log.info("Updated Discord progress message {}", messageId)
             }
         } catch (error: IOException) {
@@ -72,5 +75,15 @@ internal class DiscordProgressMessages(
         } catch (error: IllegalArgumentException) {
             log.warn("Discord progress message rejected", error)
         }
+    }
+
+    private fun capText(text: String): String {
+        if (text.length <= DISCORD_MESSAGE_LIMIT) return text
+
+        val footerStart = text.lastIndexOf(TODO_FOOTER_PREFIX)
+        val footer = if (footerStart >= 0) text.substring(footerStart) else ""
+        var end = DISCORD_MESSAGE_LIMIT - TRUNCATION_NOTICE.length - footer.length
+        if (Character.isHighSurrogate(text[end - 1])) end--
+        return text.substring(0, end) + TRUNCATION_NOTICE + footer
     }
 }
