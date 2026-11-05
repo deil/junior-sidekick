@@ -25,7 +25,7 @@ describe('AgentProfileStore', () => {
       slack: { username: 'juniper_helper', user_id: 'UBOT', team_id: 'TTEAM' },
     };
     TestBed.inject(HttpTestingController)
-      .expectOne(`${environment.apiBaseUrl}/api/web/user/profile`)
+      .expectOne(`${environment.apiBaseUrl}/api/web/sidekick/profile`)
       .flush(profile);
     await loading;
     expect(store.profile()).toEqual(profile);
@@ -36,7 +36,7 @@ describe('AgentProfileStore', () => {
     const store = TestBed.inject(AgentProfileStore);
     const loading = store.load();
     TestBed.inject(HttpTestingController)
-      .expectOne(`${environment.apiBaseUrl}/api/web/user/profile`)
+      .expectOne(`${environment.apiBaseUrl}/api/web/sidekick/profile`)
       .flush('Unavailable', { status: 503, statusText: 'Service Unavailable' });
     await loading;
     expect(store.profile()).toBeNull();
@@ -44,7 +44,7 @@ describe('AgentProfileStore', () => {
 
     const retry = store.load();
     TestBed.inject(HttpTestingController)
-      .expectOne(`${environment.apiBaseUrl}/api/web/user/profile`)
+      .expectOne(`${environment.apiBaseUrl}/api/web/sidekick/profile`)
       .flush({ name: 'Fern', slack: null });
     await retry;
     expect(store.profile()?.name).toBe('Fern');
@@ -55,7 +55,7 @@ describe('AgentProfileStore', () => {
     const store = TestBed.inject(AgentProfileStore);
     const loading = store.load();
     TestBed.inject(HttpTestingController)
-      .expectOne(`${environment.apiBaseUrl}/api/web/user/profile`)
+      .expectOne(`${environment.apiBaseUrl}/api/web/sidekick/profile`)
       .flush({ name: 123, slack: null });
     await loading;
     expect(store.profile()).toBeNull();

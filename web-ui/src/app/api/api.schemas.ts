@@ -24,3 +24,23 @@ export const UsageStatsSchema = z.strictObject({
   tokens_consumed: count,
 });
 export type UsageStats = z.infer<typeof UsageStatsSchema>;
+
+export const AuthConfigSchema = z.strictObject({
+  enabled: z.boolean(),
+});
+export type AuthConfig = z.infer<typeof AuthConfigSchema>;
+
+export const AccessTokenSchema = z.strictObject({
+  access_token: z.string().check(z.minLength(1)),
+  token_type: z.literal('Bearer'),
+  expires_at: z.iso.datetime(),
+});
+export type AccessToken = z.infer<typeof AccessTokenSchema>;
+
+export const UserProfileSchema = z.strictObject({ email: z.email() });
+export type UserProfile = z.infer<typeof UserProfileSchema>;
+
+export const BrowserSignOutSchema = z.strictObject({ signedOut: z.literal(true) });
+
+export const DeletedMessageSchema = z.strictObject({ status: z.literal('deleted') });
+export type DeletedMessage = z.infer<typeof DeletedMessageSchema>;

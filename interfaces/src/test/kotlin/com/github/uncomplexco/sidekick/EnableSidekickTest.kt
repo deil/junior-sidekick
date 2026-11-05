@@ -29,7 +29,7 @@ class EnableSidekickTest {
     fun `web UI profile allows direct requests from the configured UI origin`() {
         val mvc = MockMvcBuilders.webAppContextSetup(webContext).build()
 
-        mvc.get("/api/web/user/profile") { header("Origin", "http://localhost:4200") }
+        mvc.get("/api/web/sidekick/profile") { header("Origin", "http://localhost:4200") }
             .andExpect {
                 status { isOk() }
                 header { string("Access-Control-Allow-Origin", "http://localhost:4200") }

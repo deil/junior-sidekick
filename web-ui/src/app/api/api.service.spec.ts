@@ -21,21 +21,21 @@ describe('ApiService', () => {
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
   it('returns a validated profile with the configured identity', async () => {
-    const response = firstValueFrom(TestBed.inject(ApiService).getProfile());
+    const response = firstValueFrom(TestBed.inject(ApiService).getAgentProfile());
     const profile = {
       name: 'Juniper',
       slack: { username: 'juniper-helper', user_id: 'UBOT', team_id: 'TTEAM' },
     };
     TestBed.inject(HttpTestingController)
-      .expectOne(`${environment.apiBaseUrl}/api/web/user/profile`)
+      .expectOne(`${environment.apiBaseUrl}/api/web/sidekick/profile`)
       .flush(profile);
     expect(await response).toEqual(profile);
   });
 
   it('accepts an explicitly disconnected Slack profile', async () => {
-    const response = firstValueFrom(TestBed.inject(ApiService).getProfile());
+    const response = firstValueFrom(TestBed.inject(ApiService).getAgentProfile());
     TestBed.inject(HttpTestingController)
-      .expectOne(`${environment.apiBaseUrl}/api/web/user/profile`)
+      .expectOne(`${environment.apiBaseUrl}/api/web/sidekick/profile`)
       .flush({ name: 'Juniper', slack: null });
     expect(await response).toEqual({ name: 'Juniper', slack: null });
   });
@@ -50,10 +50,10 @@ describe('ApiService', () => {
     },
     { label: 'unexpected fields', body: { name: 'Juniper', slack: null, unexpected: true } },
   ])('rejects profile responses with $label', async ({ body }) => {
-    const response = firstValueFrom(TestBed.inject(ApiService).getProfile());
+    const response = firstValueFrom(TestBed.inject(ApiService).getAgentProfile());
     const rejected = expect(response).rejects.toBeInstanceOf($ZodError);
     TestBed.inject(HttpTestingController)
-      .expectOne(`${environment.apiBaseUrl}/api/web/user/profile`)
+      .expectOne(`${environment.apiBaseUrl}/api/web/sidekick/profile`)
       .flush(body);
     await rejected;
   });

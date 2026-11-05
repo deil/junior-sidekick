@@ -1,0 +1,94 @@
+<div class="entry">
+  <button
+    type="button"
+    class="open-button"
+    aria-haspopup="dialog"
+    title="Kill switch: remove a bot message from Slack"
+    aria-label="Kill switch: remove a bot message from Slack"
+    [attr.data-testid]="ids.openButton"
+    (click)="open()"
+  >
+    <span class="switch-cap" aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+      >
+        <path d="M12 3v8M6.3 6.3a8 8 0 1 0 11.4 0" />
+      </svg>
+    </span>
+    <span class="switch-label">
+      <span class="switch-caption">In case of oversharing</span>
+      <span class="switch-title">Kill switch</span>
+    </span>
+    <span class="switch-rivets" aria-hidden="true"><i></i><i></i></span>
+  </button>
+</div>
+
+<dialog #dialog aria-labelledby="kill-switch-title" [attr.data-testid]="ids.dialog">
+  <div class="dialog-heading">
+    <div>
+      <span class="eyebrow">Emergency control</span>
+      <h2 id="kill-switch-title">Delete a Slack message</h2>
+    </div>
+    <button
+      type="button"
+      class="close-button"
+      [attr.data-testid]="ids.closeButton"
+      (click)="close()"
+    >
+      Close
+    </button>
+  </div>
+  <form
+    (submit)="deleteMessage($event)"
+    [attr.data-testid]="ids.form"
+    [attr.aria-busy]="deleting()"
+  >
+    <label for="kill-switch-url">Slack message link</label>
+    <div class="controls">
+      <input
+        id="kill-switch-url"
+        type="url"
+        required
+        autocomplete="off"
+        autocapitalize="none"
+        [spellcheck]="false"
+        placeholder="https://your-workspace.slack.com/archives/…"
+        aria-describedby="kill-switch-warning"
+        [attr.aria-invalid]="error() ? 'true' : null"
+        [attr.data-testid]="ids.messageUrl"
+        [value]="messageUrl()"
+        [disabled]="deleting()"
+        (input)="updateUrl($event)"
+      />
+      <button
+        type="submit"
+        class="delete-button"
+        [attr.data-testid]="ids.deleteButton"
+        [disabled]="deleting() || !messageUrl().trim()"
+      >
+        {{ deleting() ? 'Deleting…' : 'Delete message' }}
+      </button>
+    </div>
+    <p id="kill-switch-warning" class="warning">
+      Deletes one message posted by this bot. This can’t be undone.
+    </p>
+    <div [attr.data-testid]="ids.result">
+      @if (deleting()) {
+        <p role="status">Deleting the message from Slack…</p>
+      } @else if (deleted()) {
+        <p role="status" class="success">Message deleted from Slack.</p>
+      }
+      @if (error(); as message) {
+        <p role="alert">{{ message }}</p>
+      }
+    </div>
+  </form>
+  <p class="limits">
+    Copies, notifications, and stored conversation history are not removed. Rotate exposed
+    credentials.
+  </p>
+</dialog>

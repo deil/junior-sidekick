@@ -16,7 +16,7 @@ data class WebSlackProfile(
 data class WebAgentProfile(val name: String, val slack: WebSlackProfile?)
 
 @RestController
-@RequestMapping("/api/web/user")
+@RequestMapping("/api/web/sidekick")
 class SidekickProfileController(
     private val agentConfig: AgentConfig,
     private val slackBotProfile: SlackBotProfile,

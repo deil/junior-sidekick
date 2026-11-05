@@ -10,6 +10,16 @@ class WebUiHttpConfiguration(
     @Value($$"${webui.allowed-origin:http://localhost:4200}") private val allowedOrigin: String
 ) : WebMvcConfigurer {
     override fun addCorsMappings(registry: CorsRegistry) {
+        registry
+            .addMapping("/api/web/auth/token")
+            .allowedOrigins(allowedOrigin)
+            .allowedMethods("POST")
+            .allowCredentials(true)
+        registry
+            .addMapping("/api/web/auth/session")
+            .allowedOrigins(allowedOrigin)
+            .allowedMethods("GET", "DELETE")
+            .allowCredentials(true)
         registry.addMapping("/api/web/**").allowedOrigins(allowedOrigin)
     }
 }

@@ -18,6 +18,9 @@ dependencies {
     compileOnly(libs.spring.boot.webmvc)
     compileOnly(libs.jackson.annotations)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.spring.security.oauth2.jose)
+    implementation(libs.spring.boot.starter.oauth2.client)
+    implementation(libs.spring.boot.starter.oauth2.resource.server)
     compileOnly(libs.jakarta.servlet)
 
     implementation(libs.slack.bolt.servlet)
@@ -25,6 +28,7 @@ dependencies {
 
     testImplementation(platform(libs.spring.boot.bom))
     testImplementation(libs.spring.boot.starter.webmvc.test)
+    testImplementation(libs.spring.security.test)
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.kotlinx.coroutines.test)
     testRuntimeOnly(libs.junit.platform.launcher)

@@ -14,7 +14,7 @@ export class AgentProfileStore {
     this.loading.set(true);
     this.failed.set(false);
     try {
-      const profile = await firstValueFrom(this.api.getProfile());
+      const profile = await firstValueFrom(this.api.getAgentProfile());
       this.profile.set(profile);
     } catch {
       this.failed.set(true);

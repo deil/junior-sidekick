@@ -68,17 +68,6 @@
   background: var(--accent);
   color: white;
 }
-.sidebar-footer > div {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.sidebar-footer small {
-  display: block;
-  color: var(--muted);
-  font-size: 10px;
-  margin-top: 4px;
-  font-weight: 400;
-}
 .nav-label {
   font: 10px var(--font-mono);
   letter-spacing: 0.12em;
@@ -124,29 +113,18 @@ nav a.active {
   margin-left: auto;
   width: 14px;
 }
-.sidebar-footer {
+.sidebar-safety {
   margin-top: auto;
+  width: 100%;
+  padding-block: 20px;
+}
+.sidebar-footer {
   display: flex;
   gap: 9px;
   align-items: center;
   padding: 20px 0;
   border-top: 1px solid var(--border);
   font-size: 12px;
-}
-.tiny-bot {
-  width: 32px;
-  height: 32px;
-  background: #dce4cc;
-  color: var(--accent);
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font: bold 23px var(--font-display);
-}
-.version {
-  margin-left: auto;
-  font: 10px var(--font-mono);
-  color: var(--muted);
 }
 .app-body {
   margin-left: var(--sidebar-width);
@@ -214,8 +192,7 @@ main {
   padding: 24px 12px 0;
   align-items: center;
 }
-:host(.sidebar-collapsed)
-  :is(.brand-name, .nav-label, .nav-text, .nav-dot, .nav-end, .sidebar-footer > div, .version) {
+:host(.sidebar-collapsed) :is(.brand-name, .nav-label, .nav-text, .nav-dot, .nav-end) {
   display: none;
 }
 :host(.sidebar-collapsed) nav {
@@ -239,10 +216,27 @@ main {
   }
   .sidebar {
     width: 100%;
-    position: static;
+    position: sticky;
+    top: 0;
     padding: 18px 20px 12px;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+  }
+  .sidebar-safety {
+    position: absolute;
+    top: 12px;
+    right: 76px;
+    width: 44px;
+    padding: 0;
+    margin: 0;
+  }
+  .sidebar-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px 40px;
+    gap: 12px;
+  }
+  .sidebar-toggle {
+    grid-column: 3;
   }
   :host(.sidebar-collapsed) .sidebar {
     padding: 14px 20px;
@@ -277,4 +271,8 @@ main {
   main {
     padding: 28px 20px 0;
   }
+}
+.app-body.signed-out {
+  margin-left: 0;
+  width: 100%;
 }

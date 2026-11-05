@@ -13,11 +13,13 @@ Hierarchical index of project context documentation for future-us and AI agents.
 
 ## Domain Specs. Read these files based on relevance to current task or user's request.
 
+- [web-authentication.md](web-authentication.md) – Google sign-in, opaque bearer tokens, browser-session cookie scope, and the shared fixed 24-hour JWT/cookie expiry; read for web authentication and login persistence changes.
+
 - [project-context.md](project-context.md) – Resolved project tags and instructions, AGENTS.md source parsing, and per-turn context snapshots; read for project context loading and consumption changes.
 - [conversation-management.md](conversation-management.md) – Conversation trigger flow, Slack thread seeding, session history ownership, prompt context shape, and deduplication invariants; read for conversation behavior changes.
 - [context-management.md](context-management.md) – Sidekick system/user prompt assembly, bootstrap versus follow-up context, and session compaction invariants; read for prompt generation, context window, and prompt history changes.
 - [mcp.md](mcp.md) – Koog MCP tool registry configuration, supported transports, Grafana MCP examples, and registry merge behavior; read for MCP tool integration changes.
-- [slack.md](slack.md) – Slack channel and thread identifier semantics, including `C`/`G`/`D` prefixes and DM channel handling; read for Slack adapter mapping changes.
+- [slack.md](slack.md) – Slack channel/thread identity, `C`/`G`/`D` prefixes, and authenticated emergency message deletion; read for Slack adapter mapping or kill-switch changes.
 - [discord.md](discord.md) – Discord todo message delivery, editing, minute refreshes, and reply-target routing; read for Discord progress-message changes.
 - [skills.md](skills.md) – Skill sources, discovery, activation, and orchestrator catalog prompting; read for skills loading, prompting, and activation changes.
 - [subagents.md](subagents.md) – `Task` behavior, subagent system/user prompt shape, definition loading, context isolation, and tool access; read for subagent execution and prompt generation changes.

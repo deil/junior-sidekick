@@ -18,7 +18,7 @@ class SidekickProfileControllerTest {
             SidekickProfileController(AgentConfig("Juniper", "unused", "unused"), slack)
         val mvc = MockMvcBuilders.standaloneSetup(controller).build()
 
-        mvc.get("/api/web/user/profile").andExpect {
+        mvc.get("/api/web/sidekick/profile").andExpect {
             status { isOk() }
             jsonPath("$.name") { value("Juniper") }
             jsonPath("$.slack.username") { value("juniper_helper") }
@@ -33,7 +33,7 @@ class SidekickProfileControllerTest {
             SidekickProfileController(AgentConfig("Fern", "unused", "unused"), SlackBotProfile())
         val mvc = MockMvcBuilders.standaloneSetup(controller).build()
 
-        mvc.get("/api/web/user/profile").andExpect {
+        mvc.get("/api/web/sidekick/profile").andExpect {
             status { isOk() }
             jsonPath("$.name") { value("Fern") }
             jsonPath("$.slack") { doesNotExist() }

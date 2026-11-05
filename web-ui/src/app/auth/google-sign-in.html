@@ -1,0 +1,50 @@
+<section aria-labelledby="sign-in-title">
+  @if (session.email(); as email) {
+    <h1 id="sign-in-title">You’re signed in.</h1>
+    <p>{{ email }}</p>
+    <p>This browser stays signed in for up to 24 hours.</p>
+    <div class="actions">
+      <a routerLink="/app/overview" [attr.data-testid]="ids.overviewLink">Back to overview</a>
+      <button
+        type="button"
+        [attr.data-testid]="ids.signOutButton"
+        (click)="browserSession.signOut()"
+        [disabled]="browserSession.signingOut()"
+      >
+        Sign out
+      </button>
+    </div>
+  } @else {
+    <h1 id="sign-in-title">Sign in to {{ profile.profile()?.name ?? 'your workspace' }}.</h1>
+    <p>Use your organization’s Google account.</p>
+  }
+  @if (browserSession.error(); as message) {
+    <p role="alert">{{ message }}</p>
+  }
+  @if (!session.email() && (enabled() || loading()) && !exchanging()) {
+    <button
+      type="button"
+      [attr.data-testid]="ids.googleButton"
+      [disabled]="loading()"
+      (click)="start()"
+    >
+      Continue with Google
+    </button>
+  }
+  @if (!session.email()) {
+    @if (exchanging()) {
+      <p role="status">Signing in…</p>
+    }
+    @if (error(); as message) {
+      <p role="alert">{{ message }}</p>
+      <button
+        type="button"
+        [attr.data-testid]="ids.retryButton"
+        (click)="prepare()"
+        [disabled]="loading() || exchanging()"
+      >
+        Try again
+      </button>
+    }
+  }
+</section>
