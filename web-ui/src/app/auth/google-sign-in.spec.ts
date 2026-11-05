@@ -98,7 +98,6 @@ describe('Google sign-in', () => {
       http.expectOne({ method: 'GET', url: 'https://backend.test/api/web/auth/session' }),
     );
     expect(restore.request.withCredentials).toBe(true);
-    expect(restore.request.transferCache).toBe(false);
     expect(restore.request.headers.get('X-Sidekick-Session')).toBe('1');
 
     restore.flush({

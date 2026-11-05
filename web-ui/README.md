@@ -1,6 +1,6 @@
 # Web UI
 
-Angular 22 application with routing, request-time server-side rendering (SSR), and client hydration.
+Angular 22 client-rendered application. All routing, authentication, and API requests run in the browser. SSR and hydration are disabled.
 
 ## Setup
 
@@ -28,27 +28,29 @@ Open <http://localhost:4200/>. The development server reloads when source files 
 mise exec -- pnpm test --watch=false
 ```
 
-## Production SSR
+## Production
 
 ```bash
 mise exec -- pnpm build
-API_BASE_URL=https://api.example.com mise exec -- pnpm run serve:ssr:web-ui
+API_BASE_URL=https://api.example.com mise exec -- pnpm run serve:web-ui
 ```
 
 Open <http://localhost:4000/>. Set `PORT` to change the port. Build output is in `dist/web-ui/`.
 
-All routes use `RenderMode.Server` in `src/app/app.routes.server.ts`.
+`server.mjs` serves the built browser app, injects runtime configuration, and returns
+the same HTML shell for direct loads of application routes. It never renders Angular
+or calls backend APIs. Authentication restoration and route guards run in the browser.
 Deploy the same build to each environment; no source edits or rebuilds are needed to change these settings:
 
-| Environment variable | Default                | Purpose                                                                            |
-| -------------------- | ---------------------- | ---------------------------------------------------------------------------------- |
-| `API_BASE_URL`       | Required in production | Absolute HTTP(S) backend URL reachable by both the SSR server and users' browsers. |
-| `PORT`               | `4000`                 | SSR server port.                                                                   |
+| Environment variable | Default                | Purpose                                                    |
+| -------------------- | ---------------------- | ---------------------------------------------------------- |
+| `API_BASE_URL`       | Required in production | Absolute HTTP(S) backend URL reachable by users' browsers. |
+| `PORT`               | `4000`                 | Web server port.                                           |
 
 Set these on the running Node process, not on the build command. Restart the process after changing them.
 The production server refuses to start if `API_BASE_URL` is missing, blank, or not an absolute HTTP(S) URL.
 It logs the configured backend URL at startup. Building does not require this variable or a running backend.
-Serve the frontend and backend over HTTPS in production. SSR accepts any hostname;
+Serve the frontend and backend over HTTPS in production. The web server accepts any hostname;
 host restrictions belong at the deployment's ingress or reverse proxy.
 
 ### Backend profile API
@@ -59,13 +61,12 @@ connection's `auth.test` and `users.info` results. The visible handle preserves 
 Slack profile display name, including punctuation. No credentials are returned. All visible branding
 and page titles use the API name; there is no frontend name setting or fallback name.
 
-Set `API_BASE_URL` on the SSR server. `src/environments/environment.ts` only supplies
-the default for `pnpm start` (development SSR). SSR transfers the configured URL to the browser through Angular
-`TransferState`. Both call that backend directly; no API proxy is used. Profile data is transferred
-into the HTML for hydration, avoiding a duplicate browser request.
-The browser requires transferred configuration. If it is missing, startup shows a configuration error
-without making backend requests. It never falls back to localhost. Serve application pages through the
-SSR server, not directly from `dist/web-ui/browser/`.
+Set `API_BASE_URL` on the web server. `src/environments/environment.ts` only supplies
+the default for `pnpm start`. The web server injects an encoded `api-base-url` meta tag
+into the HTML. Browser API calls go directly to that backend; no API proxy is used.
+Missing or invalid production configuration shows a startup error without making
+backend requests. Production never falls back to localhost. Serve production pages
+through `server.mjs`, not directly from `dist/web-ui/browser/`.
 
 The backend allows the UI origin `http://localhost:4200` for `/api/web/**` by default.
 Set the Spring property `webui.allowed-origin` to the deployed UI origin.
@@ -171,7 +172,7 @@ Endpoints:
   configuration rejects token exchange with 403; missing client/signing configuration returns 503.
 - `GET /api/web/user/profile` returns `{ "email": "person@example.com" }` from
   the validated Sidekick token, or 401 without a valid bearer token. This response
-  is not transferred through SSR hydration.
+  is fetched in the browser after restoring the access token.
 - `GET /api/web/auth/session` accepts the `sidekick-encore` cookie and returns the
   existing access token, or 401. `DELETE` on the same path revokes the session and
   expires the cookie. Both require `X-Sidekick-Session: 1` and credentialed browser

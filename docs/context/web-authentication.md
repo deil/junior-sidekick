@@ -11,6 +11,13 @@ hyphens, for example `webui.auth.google-client-id` becomes `WEBUI_AUTH_GOOGLECLI
 
 ## Authentication contract
 
+The web UI is client-rendered. SSR and hydration are disabled. The Node web server
+only serves the application shell and injects runtime `API_BASE_URL` configuration;
+it never calls backend APIs or executes route guards. On direct loads and reloads,
+the browser restores its cookie-backed token before the guard fetches the current
+user profile. This keeps path-scoped cookies on the session endpoint and preserves
+the requested application route.
+
 - Google credentials stay on the backend. A short-lived, single-use PKCE handoff
   delivers the Sidekick access token to the initiating browser.
 - The frontend treats access tokens as opaque. Only authenticated

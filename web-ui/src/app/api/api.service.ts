@@ -29,7 +29,7 @@ export class ApiService {
 
   getAuthConfig(): Observable<AuthConfig> {
     return this.http
-      .get<unknown>(`${this.baseUrl}/api/web/auth/config`, { transferCache: false })
+      .get<unknown>(`${this.baseUrl}/api/web/auth/config`)
       .pipe(map((response) => AuthConfigSchema.parse(response)));
   }
 
@@ -45,7 +45,7 @@ export class ApiService {
       .post<unknown>(
         `${this.baseUrl}/api/web/auth/token`,
         { code, code_verifier: verifier },
-        { transferCache: false, withCredentials: true },
+        { withCredentials: true },
       )
       .pipe(map((response) => AccessTokenSchema.parse(response)));
   }
@@ -60,7 +60,6 @@ export class ApiService {
     return this.http
       .get<unknown>(`${this.baseUrl}/api/web/auth/session`, {
         withCredentials: true,
-        transferCache: false,
         headers: { 'X-Sidekick-Session': '1' },
       })
       .pipe(map((response) => AccessTokenSchema.parse(response)));
@@ -70,7 +69,6 @@ export class ApiService {
     return this.http
       .delete<unknown>(`${this.baseUrl}/api/web/auth/session`, {
         withCredentials: true,
-        transferCache: false,
         headers: { 'X-Sidekick-Session': '1' },
       })
       .pipe(
@@ -84,7 +82,6 @@ export class ApiService {
     return this.http
       .get<unknown>(`${this.baseUrl}/api/web/user/profile`, {
         headers: this.authorizationHeaders(),
-        transferCache: false,
       })
       .pipe(
         map((response) => UserProfileSchema.parse(response)),
@@ -113,7 +110,6 @@ export class ApiService {
         },
         {
           headers: this.authorizationHeaders(),
-          transferCache: false,
         },
       )
       .pipe(

@@ -7,9 +7,9 @@ bootstrapApplication(App, appConfig).catch((err: unknown) => {
   console.error(err);
   if (err instanceof MissingApiConfigurationError) {
     const heading = document.createElement('h1');
-    heading.textContent = 'Workspace configuration is missing.';
+    heading.textContent = 'Workspace configuration is missing or invalid.';
     const message = document.createElement('p');
-    message.textContent = 'Serve this page through the SSR server, then reload.';
+    message.textContent = 'Serve this page through the web server, then reload.';
     document.querySelector('app-root')?.replaceChildren(heading, message);
   }
 });

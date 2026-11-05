@@ -217,3 +217,43 @@ describe('Expired API authentication', () => {
     http.verify();
   });
 });
+
+describe('Remembered browser navigation', () => {
+  it('restores authentication on a direct protected-route load without visiting login', async () => {
+    TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        provideRouter(routes),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: API_BASE_URL, useValue: environment.apiBaseUrl },
+      ],
+    });
+    TestBed.inject(AgentProfileStore).profile.set({ name: 'Juniper', slack: null });
+    const fixture = TestBed.createComponent(App);
+    const router = TestBed.inject(Router);
+    const http = TestBed.inject(HttpTestingController);
+    const navigation = router.navigateByUrl('/admin');
+    const restore = await vi.waitFor(() =>
+      http.expectOne(`${environment.apiBaseUrl}/api/web/auth/session`),
+    );
+
+    restore.flush({
+      access_token: 'remembered-browser-token',
+      token_type: 'Bearer',
+      expires_at: new Date(Date.now() + 86400000).toISOString(),
+    });
+    const profile = await vi.waitFor(() =>
+      http.expectOne(`${environment.apiBaseUrl}/api/web/user/profile`),
+    );
+    expect(profile.request.headers.get('Authorization')).toBe('Bearer remembered-browser-token');
+    profile.flush({ email: 'remembered@example.com' });
+    await navigation;
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/admin');
+    expect(TestBed.inject(AuthSession).email()).toBe('remembered@example.com');
+    http.expectNone(`${environment.apiBaseUrl}/api/web/auth/config`);
+    http.verify();
+  });
+});

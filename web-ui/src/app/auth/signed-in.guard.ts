@@ -1,5 +1,4 @@
-import { inject, PLATFORM_ID, REQUEST } from '@angular/core';
-import { isPlatformServer } from '@angular/common';
+import { inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { CanActivateFn, Router } from '@angular/router';
 import { catchError, from, map, of, switchMap, throwError } from 'rxjs';
@@ -9,7 +8,6 @@ import { BrowserSession } from './browser-session';
 
 /** The API establishes identity. An access token is opaque to the frontend. */
 export const signedInGuard: CanActivateFn = () => {
-  if (isPlatformServer(inject(PLATFORM_ID)) && !inject(REQUEST)) return true;
   const session = inject(AuthSession);
   const router = inject(Router);
   const api = inject(ApiService);

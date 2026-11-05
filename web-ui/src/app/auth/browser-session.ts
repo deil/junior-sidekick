@@ -1,6 +1,5 @@
-import { isPlatformBrowser } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { inject, Injectable, PLATFORM_ID, signal } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../api/api.service';
 import { AuthSession } from './auth-session';
@@ -9,17 +8,11 @@ import { AuthSession } from './auth-session';
 export class BrowserSession {
   private readonly api = inject(ApiService);
   private readonly session = inject(AuthSession);
-  private readonly platform = inject(PLATFORM_ID);
   readonly signingOut = signal(false);
   readonly error = signal<string | null>(null);
 
   async restore(): Promise<void> {
-    if (
-      !isPlatformBrowser(this.platform) ||
-      this.session.accessToken() ||
-      !this.session.restorationAllowed
-    )
-      return;
+    if (this.session.accessToken() || !this.session.restorationAllowed) return;
 
     try {
       this.session.accept(await firstValueFrom(this.api.restoreBrowserSession()));
