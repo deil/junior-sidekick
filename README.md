@@ -31,7 +31,7 @@ According to GPT-5.5 summary, it receives Slack events, resolves user identity, 
 
 | Integration | Purpose |
 | --- | --- |
-| [Dumphere](https://github.com/uncomplex-co/dumphere) | Publishes internal HTML and Markdown files and returns share URLs. |
+| [Dumphere](https://github.com/uncomplex-co/dumphere) | Publishes, reads, edits, and replaces internal HTML, Markdown, and text files. Returns share URLs and replacement version metadata. |
 
 ## Ingredients
 

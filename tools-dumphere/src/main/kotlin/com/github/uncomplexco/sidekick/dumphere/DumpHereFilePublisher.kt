@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.dumphere
 
 import java.nio.file.Files
 import java.nio.file.Path
+import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
 import org.springframework.web.client.RestClient
 
@@ -11,6 +12,34 @@ internal class DumpHereFilePublisher(
     private val password: String,
 ) : FilePublisher {
     private val restClient = RestClient.create()
+    private val logger = LoggerFactory.getLogger(DumpHereFilePublisher::class.java)
+
+    override fun replaceFile(id: String, path: String): InternalFileReplaceResult {
+        val content = Files.readAllBytes(Path.of(path))
+
+        logger.info("Replacing published artifact {} from file {}", id, path)
+        val replaced =
+            restClient
+                .post()
+                .uri("${baseUrl.trimEnd('/')}/api/pages/{id}/replace", id)
+                .headers { it.setBasicAuth(username, password) }
+                .accept(MediaType.APPLICATION_JSON)
+                .body(content)
+                .retrieve()
+                .body(ReplaceFileResponse::class.java)
+                ?: error("DumpHere replace returned an empty response")
+
+        return InternalFileReplaceResult(
+            id = replaced.id,
+            title = replaced.title,
+            url = replaced.url,
+            version = replaced.version,
+            bytes = replaced.bytes,
+            contentFormat = replaced.contentFormat,
+            updatedAt = replaced.updatedAt,
+            live = replaced.live,
+        )
+    }
 
     override fun publishContent(
         content: String,
@@ -102,4 +131,15 @@ private data class EditFileContentsRequest(
     val oldString: String,
     val newString: String,
     val replaceAll: Boolean,
+)
+
+private data class ReplaceFileResponse(
+    val id: String,
+    val title: String,
+    val url: String,
+    val version: Int,
+    val bytes: Long,
+    val contentFormat: String,
+    val updatedAt: String,
+    val live: Boolean,
 )

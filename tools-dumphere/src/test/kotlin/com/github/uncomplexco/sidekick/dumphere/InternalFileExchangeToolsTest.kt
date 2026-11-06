@@ -63,6 +63,20 @@ class InternalFileExchangeToolsTest {
         assertEquals("edited page1 old new true", result)
     }
 
+    @Test
+    fun `resolves virtual path before replacing artifact contents`() {
+        var uploadedPath: String? = null
+        val tools =
+            InternalFileExchangeTools(fakePublisher { uploadedPath = it }) {
+                Path.of("/resolved").resolve(it.removePrefix("/"))
+            }
+
+        val result = tools.replaceInternalFile("page1", "/data/session/report.html")
+
+        assertEquals("https://files.internal/page1", result.url)
+        assertEquals("/resolved/data/session/report.html", uploadedPath)
+    }
+
     private fun tools(): InternalFileExchangeTools =
         InternalFileExchangeTools(fakePublisher()) { Path.of(it) }
 
@@ -88,6 +102,20 @@ class InternalFileExchangeToolsTest {
                 offset: Int?,
                 limit: Int?,
             ): String = "contents $id $offset $limit"
+
+            override fun replaceFile(id: String, path: String): InternalFileReplaceResult {
+                onPublishFile(path)
+                return InternalFileReplaceResult(
+                    id,
+                    "Report",
+                    "https://files.internal/$id",
+                    2,
+                    1024,
+                    "HTML",
+                    "2026-11-06T12:00:00Z",
+                    false,
+                )
+            }
 
             override fun editFileContents(
                 id: String,

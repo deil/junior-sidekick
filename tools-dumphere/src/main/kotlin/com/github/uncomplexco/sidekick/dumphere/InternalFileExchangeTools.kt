@@ -6,6 +6,7 @@ import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
 import java.nio.file.Path
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.springframework.http.MediaType
 
@@ -27,6 +28,8 @@ internal interface FilePublisher {
         offset: Int?,
         limit: Int?,
     ): String
+
+    fun replaceFile(id: String, path: String): InternalFileReplaceResult
 
     fun editFileContents(
         id: String,
@@ -142,6 +145,18 @@ internal class InternalFileExchangeTools(
         @LLMDescription("Replace all occurrences of oldString (default false)")
         replaceAll: Boolean?,
     ): String = filePublisher.editFileContents(id, oldString, newString, replaceAll ?: false)
+
+    @Tool
+    @LLMDescription(
+        """
+        Replace all contents of an existing published artifact with a workspace file.
+        The artifact keeps its identity, title, and format.
+        """
+    )
+    fun replaceInternalFile(
+        @LLMDescription("Published artifact id") id: String,
+        @LLMDescription("Absolute path to the file to upload") path: String,
+    ): InternalFileReplaceResult = filePublisher.replaceFile(id, resolvePath(path).toString())
 }
 
 internal class InternalFileReadTools(private val filePublisher: FilePublisher) : ToolSet {
@@ -170,6 +185,18 @@ internal data class InternalFilePublishResult(
     val ok: Boolean,
     val url: String? = null,
     val error: String? = null,
+)
+
+@Serializable
+internal data class InternalFileReplaceResult(
+    val id: String,
+    val title: String,
+    val url: String,
+    val version: Int,
+    val bytes: Long,
+    @SerialName("content_format") val contentFormat: String,
+    @SerialName("updated_at") val updatedAt: String,
+    val live: Boolean,
 )
 
 private val SUPPORTED_INTERNAL_FILE_MIME_TYPES =

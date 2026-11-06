@@ -29,7 +29,12 @@ class DumpHereToolProviderTest {
 
         assertEquals(setOf("readInternalSnippet"), sharedNames)
         assertEquals(
-            setOf("publishFileInternally", "publishSnippetInternally", "editInternalSnippet"),
+            setOf(
+                "publishFileInternally",
+                "publishSnippetInternally",
+                "editInternalSnippet",
+                "replaceInternalFile",
+            ),
             orchestratorNames,
         )
         val shared = registrations.single { it.access == ToolAccess.SHARED }
