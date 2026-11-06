@@ -68,10 +68,10 @@ class McpOAuthService(
                 }
 
         return runCatching {
-                val refreshed = refreshToken(pending.tokenEndpoint, client, refreshToken)
-                saveToken(server.id, refreshed)
-                refreshed.accessToken
-            }
+            val refreshed = refreshToken(pending.tokenEndpoint, client, refreshToken)
+            saveToken(server.id, refreshed)
+            refreshed.accessToken
+        }
             .onFailure {
                 log.warn("Failed to refresh MCP OAuth token for server {}", server.id, it)
             }
@@ -197,9 +197,9 @@ class McpOAuthService(
                 ?: listOf(ClientAuthenticationMethod.CLIENT_SECRET_BASIC.value)
         val authenticationMethod =
             listOf(
+                    ClientAuthenticationMethod.NONE,
                     ClientAuthenticationMethod.CLIENT_SECRET_POST,
                     ClientAuthenticationMethod.CLIENT_SECRET_BASIC,
-                    ClientAuthenticationMethod.NONE,
                 )
                 .firstOrNull { it.value in supportedMethods }
                 ?: error(
