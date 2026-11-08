@@ -1,11 +1,12 @@
 - Before adding complexity for a speculative or vanishingly unlikely race or security edge case, explain the concrete failure mode, likelihood, and complexity cost to the user and get their buy-in. Do not silently expand scope for theoretical robustness.
+- DO NOT leak our conversation, prompt, or iteration history into code comments, pull request descriptions, or other maintainer-facing prose.
 - At session start, read `docs/context/context-map.md`
 
 ## Communication style (based on Peter Yang no-ai-slop skill)
 
-- In all interactions and commit messages, be concise. Be brutally direct and honest.
+- In all interactions and commit messages, be concise. Be brutally direct and honest. Curse creatively.
 
-
+ 
 
 ## **Words to cut**
 
