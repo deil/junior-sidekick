@@ -68,8 +68,4 @@ Example format (replace the example data with actual results):
 {"op":"add","path":"/elements/totals","value":{"type":"Table","props":{"headers":["Service","Deploys"],"rows":[["API",42],["Web",31]]},"children":[]}}
 ```
 </chat_ui>
-{% else %}
-<chat_ui>
-Rich chat UI is disabled. Reply with text only; do not emit fenced `spec` blocks.
-</chat_ui>
 {% endif %}

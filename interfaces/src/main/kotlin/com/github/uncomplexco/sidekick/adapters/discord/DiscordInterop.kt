@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.discord
 
 import com.github.uncomplexco.sidekick.adapters.ChatFileIngestor
+import com.github.uncomplexco.sidekick.adapters.chat.ChatUiRenderer
 import com.github.uncomplexco.sidekick.adapters.statusLine
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
@@ -21,6 +22,7 @@ import java.io.IOException
 import kotlin.time.Clock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.serialization.json.JsonObject
 import net.dv8tion.jda.api.exceptions.ErrorResponseException
 import org.slf4j.LoggerFactory
 
@@ -44,8 +46,22 @@ internal class DiscordChatPlatformAdapter(
     upload: suspend (ReplyAttachment) -> DiscordSentMessage,
     edit: suspend (String, String) -> Unit,
     send: suspend (String) -> DiscordSentMessage,
+    renderer: ChatUiRenderer = ChatUiRenderer(),
+    sendCard: suspend (JsonObject) -> DiscordSentMessage = {
+        error("Card delivery is not configured")
+    },
 ) : DiscordBackedChatPlatformAdapter {
-    private val output = DiscordTurnOutput(scope, updateReaction, startTyping, upload, edit, send)
+    private val output =
+        DiscordTurnOutput(
+            scope,
+            updateReaction,
+            startTyping,
+            upload,
+            edit,
+            renderer,
+            sendCard,
+            send,
+        )
     override val lifecycle: TurnLifecycle = output
     override val delivery: ResponseDelivery = output
 
@@ -77,6 +93,10 @@ internal class DiscordTurnOutput(
         error("File upload is not configured")
     },
     edit: suspend (String, String) -> Unit = { _, _ -> error("Message editing is not configured") },
+    private val renderer: ChatUiRenderer = ChatUiRenderer(),
+    private val sendCard: suspend (JsonObject) -> DiscordSentMessage = {
+        error("Card delivery is not configured")
+    },
     private val send: suspend (String) -> DiscordSentMessage,
 ) : TurnLifecycle, ResponseDelivery {
     private var turnActive = false
@@ -172,10 +192,25 @@ internal class DiscordTurnOutput(
                 ?.lineSequence()
                 ?.joinToString(prefix = "\n\n", separator = "\n") { "-# $it" }
                 .orEmpty()
-        val chunks = splitDiscordMessage(text + statusSubtext)
-
-        val sent = chunks.map { send(it) }.last()
-        return PublishedMessage(sent.id, sent.createdAtMs)
+        val parts = renderer.render("discord", text)
+        var sent: DiscordSentMessage? = null
+        parts.forEachIndexed { index, part ->
+            if (part.payload != null) {
+                log.info("Posting rendered Discord card")
+                sent = sendCard(part.payload)
+            } else {
+                val content =
+                    part.text.orEmpty() + if (index == parts.lastIndex) statusSubtext else ""
+                if (content.isNotBlank()) {
+                    splitDiscordMessage(content).forEach { sent = send(it) }
+                }
+            }
+        }
+        if (parts.lastOrNull()?.payload != null && statusSubtext.isNotBlank()) {
+            splitDiscordMessage(statusSubtext).forEach { sent = send(it) }
+        }
+        val last = checkNotNull(sent)
+        return PublishedMessage(last.id, last.createdAtMs)
     }
 
     private companion object {

@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
+import com.github.uncomplexco.sidekick.adapters.chat.ChatUiRenderer
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
@@ -14,8 +15,10 @@ class ScheduledSlackChatPlatformAdapter(
     channelId: String,
     override val botUsername: String,
     scope: SidekickCoroutineScope,
+    renderer: ChatUiRenderer = ChatUiRenderer(),
 ) : SlackBackedChatPlatformAdapter {
-    private val output = SlackTurnOutput(client, channelId, threadId = null, scope = scope)
+    private val output =
+        SlackTurnOutput(client, channelId, threadId = null, scope = scope, renderer = renderer)
     override val lifecycle: TurnLifecycle = output
     override val delivery: ResponseDelivery = output
 

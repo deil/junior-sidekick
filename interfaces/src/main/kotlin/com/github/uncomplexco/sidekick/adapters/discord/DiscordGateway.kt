@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.discord
 
 import com.github.uncomplexco.sidekick.adapters.ChatFileIngestor
+import com.github.uncomplexco.sidekick.adapters.chat.ChatUiRenderer
 import com.github.uncomplexco.sidekick.adapters.MAX_MESSAGE_FILES
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
@@ -24,8 +25,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
+import net.dv8tion.jda.api.components.MessageTopLevelComponent
+import net.dv8tion.jda.api.components.utils.ComponentDeserializer
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
@@ -34,6 +40,9 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.FileUpload
+import net.dv8tion.jda.api.utils.data.DataArray
+import net.dv8tion.jda.api.utils.data.DataObject
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -89,6 +98,7 @@ internal fun discordMessageKind(
 internal class DiscordIngress(
     private val fileIngestor: ChatFileIngestor,
     private val scope: SidekickCoroutineScope,
+    private val renderer: ChatUiRenderer = ChatUiRenderer(),
     private val receive: suspend (ChatConversationId, IncomingMessage, ChatPlatformAdapter) -> Unit,
 ) {
     private val handledMessageIds = LinkedHashSet<String>()
@@ -124,6 +134,9 @@ internal class DiscordIngress(
         upload: suspend (ReplyAttachment) -> DiscordSentMessage,
         edit: suspend (String, String) -> Unit = { _, _ ->
             error("Message editing is not configured")
+        },
+        sendCard: suspend (JsonObject) -> DiscordSentMessage = {
+            error("Card delivery is not configured")
         },
     ) {
         if (message.kind == DiscordMessageKind.IGNORED_GUILD_MESSAGE) return
@@ -172,6 +185,8 @@ internal class DiscordIngress(
                 upload,
                 edit,
                 send,
+                renderer,
+                sendCard,
             ),
         )
     }
@@ -227,13 +242,15 @@ class DiscordConfiguration {
         scope: SidekickCoroutineScope,
         virtualPathsFactory: VirtualPathsFactory,
         imageSummarizer: ImageSummarizer,
+        renderer: ChatUiRenderer,
     ): JDA {
         check(selectedChatPlatform == ChatPlatform.DISCORD)
         val ingress =
             DiscordIngress(
                 ChatFileIngestor(virtualPathsFactory, imageSummarizer),
                 scope,
-                incoming::receive,
+                renderer = renderer,
+                receive = incoming::receive,
             )
         val listener =
             object : ListenerAdapter() {
@@ -332,6 +349,43 @@ class DiscordConfiguration {
                                     loadThreadHistory,
                                     upload,
                                     edit,
+                                    sendCard = { payload ->
+                                        val data =
+                                            MessageCreateBuilder()
+                                                .addEmbeds(
+                                                    payload.getValue("embeds").jsonArray.map {
+                                                        EmbedBuilder.fromData(
+                                                                DataObject.fromJson(it.toString())
+                                                            )
+                                                            .build()
+                                                    }
+                                                )
+                                                .addComponents(
+                                                    ComponentDeserializer(emptyList())
+                                                        .deserializeAs(
+                                                            MessageTopLevelComponent::class.java,
+                                                            DataArray.fromJson(
+                                                                payload
+                                                                    .getValue("components")
+                                                                    .toString()
+                                                            ),
+                                                        )
+                                                        .toList()
+                                                )
+                                                .build()
+                                        val channel = resolveReplyChannel()
+                                        val posted =
+                                            withContext(Dispatchers.IO) {
+                                                channel
+                                                    .sendMessage(data)
+                                                    .setAllowedMentions(emptyList())
+                                                    .complete()
+                                            }
+                                        DiscordSentMessage(
+                                            posted.id,
+                                            posted.timeCreated.toInstant().toEpochMilli(),
+                                        )
+                                    },
                                 )
                             }
                             .onFailure { log.error("Discord message handling failed", it) }

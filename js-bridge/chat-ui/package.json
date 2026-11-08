@@ -1,0 +1,14 @@
+{
+  "name": "@sidekick/chat-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate-prompt": "node print-prompt.mjs"
+  },
+  "dependencies": {
+    "@chat-adapter/discord": "4.44.0",
+    "@chat-adapter/slack": "4.44.0",
+    "@json-render/chat": "0.22.0",
+    "@json-render/core": "0.22.0"
+  }
+}

@@ -11,6 +11,13 @@ object ContextTags {
 }
 
 object Prompts {
+    fun chatUiPrompt(): String =
+        checkNotNull(Prompts::class.java.getResourceAsStream("/prompts/chat-ui.md")) {
+                "Missing chat UI prompt resource: /prompts/chat-ui.md"
+            }
+            .bufferedReader(Charsets.UTF_8)
+            .use { it.readText() }
+
     val CONTEXT_COMPACTION_PROMPT =
         """
         You are performing session transcript summarization.

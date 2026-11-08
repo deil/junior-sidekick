@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.adapters.ChatFileIngestor
+import com.github.uncomplexco.sidekick.adapters.chat.ChatUiRenderer
 import com.github.uncomplexco.sidekick.adapters.MAX_MESSAGE_FILES
 import com.github.uncomplexco.sidekick.adapters.statusLine
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
@@ -29,6 +30,7 @@ import com.slack.api.model.block.Blocks.context
 import com.slack.api.model.block.Blocks.markdown
 import com.slack.api.model.block.LayoutBlock
 import com.slack.api.model.block.composition.BlockCompositions.markdownText
+import com.slack.api.util.json.GsonFactory
 import java.io.IOException
 import java.net.http.HttpClient
 import java.time.Duration
@@ -36,6 +38,9 @@ import kotlin.time.Clock
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.jsonArray
 
 private fun attachmentUploadFailure(
     name: String,
@@ -51,9 +56,10 @@ class SlackChatPlatformAdapter(
     private val historyLoader: suspend (ConversationId) -> List<ChatMessage>,
     private val fileIngestor: SlackFileIngestor,
     scope: SidekickCoroutineScope,
+    renderer: ChatUiRenderer = ChatUiRenderer(),
 ) : SlackBackedChatPlatformAdapter {
     override val botUsername: String = ctx.botUserId
-    private val output = SlackTurnOutput(ctx.client(), ctx.channelId, threadId, scope)
+    private val output = SlackTurnOutput(ctx.client(), ctx.channelId, threadId, scope, renderer)
     override val lifecycle: TurnLifecycle = output
     override val delivery: ResponseDelivery = output
 
@@ -71,6 +77,7 @@ internal class SlackTurnOutput(
     private val channelId: String,
     private val threadId: ChatThreadId?,
     private val scope: SidekickCoroutineScope,
+    private val renderer: ChatUiRenderer = ChatUiRenderer(),
 ) : TurnLifecycle, ResponseDelivery {
     private class Activity(var renewal: Job? = null)
 
@@ -177,11 +184,44 @@ internal class SlackTurnOutput(
             return PublishedMessage("no_reply:$ts", ts)
         }
 
+        val parts = renderer.render("slack", text)
+        val fallbackText = parts.joinToString("") { it.text ?: it.fallbackText }
+        val gson = GsonFactory.createSnakeCase()
+        val blocks =
+            parts.flatMap { part ->
+                part.payload?.get("blocks")?.jsonArray?.toList()
+                    ?: if (part.text.isNullOrBlank()) emptyList()
+                    else
+                        Json.parseToJsonElement(gson.toJson(replyBlocks(part.text, null)))
+                            .jsonArray
+                            .toList()
+            } +
+                metadata
+                    .statusLine()
+                    ?.let { status ->
+                        Json.parseToJsonElement(
+                                gson.toJson(
+                                    asBlocks(
+                                        context { block ->
+                                            block.elements(listOf(markdownText(status)))
+                                        }
+                                    )
+                                )
+                            )
+                            .jsonArray
+                            .toList()
+                    }
+                    .orEmpty()
+        Loggers.SLACK.info("Posting Slack reply in {} with {} blocks", channelId, blocks.size)
         val postResponse = client.chatPostMessage { req ->
             req.channel(channelId)
             messages.threadTs?.also { req.threadTs(it) }
-            req.text(text)
-            req.blocks(replyBlocks(text, metadata.statusLine()))
+            req.text(fallbackText)
+            if (parts.any { it.payload != null }) {
+                req.blocksAsString(JsonArray(blocks).toString())
+            } else {
+                req.blocks(replyBlocks(fallbackText, metadata.statusLine()))
+            }
         }
 
         val response =
@@ -195,7 +235,7 @@ internal class SlackTurnOutput(
                 client.chatPostMessage { req ->
                     req.channel(channelId)
                     messages.threadTs?.also { req.threadTs(it) }
-                    req.text(text)
+                    req.text(fallbackText)
                 }
             }
 
@@ -290,6 +330,7 @@ fun slackChatPlatformAdapter(
     currentMessageTs: String,
     fileIngestor: SlackFileIngestor,
     scope: SidekickCoroutineScope,
+    renderer: ChatUiRenderer = ChatUiRenderer(),
 ): SlackChatPlatformAdapter =
     SlackChatPlatformAdapter(
         ctx = ctx,
@@ -303,6 +344,7 @@ fun slackChatPlatformAdapter(
         },
         fileIngestor = fileIngestor,
         scope = scope,
+        renderer = renderer,
     )
 
 internal fun incomingChatFiles(

@@ -4,22 +4,12 @@ type: Domain
 
 # Project Context
 
-Project context is the resolved project-wide information carried into an execution.
-It contains tags and instructions; callers consume the result independently of how
-that information was obtained. Projects currently map to chat channels through their
+Project context contains project-wide tags and instructions. Projects map to chat channels through their
 [workspace project roots](workspace.md#roots).
-
-```kotlin
-data class ProjectContext(
-    val tags: Set<String> = emptySet(),
-    val instructions: String? = null,
-)
-```
 
 ## Resolution
 
-`ProjectContexts.resolve(projectRoot)` owns source loading and parsing. Its current
-source is the root-level `AGENTS.md` in that project workspace:
+Project context comes from the root-level `AGENTS.md` in the project workspace:
 
 ```markdown
 ---
@@ -35,35 +25,23 @@ YAML frontmatter supplies an optional list of string tags; the Markdown body sup
 instructions. Inline YAML lists are also supported. Tags retain their case and are
 deduplicated into a set. Other metadata is ignored. Plain Markdown supplies instructions
 with an empty tag set. A missing file resolves to empty tags and absent instructions.
-The Markdown body is rendered with Pebble using explicit feature flags, then its
-trailing whitespace is trimmed. Frontmatter is not templated. See
-[Markdown templates](context-management.md#markdown-templates) for syntax and values.
 
-Malformed frontmatter, invalid tag types, and invalid templates produce a project-configuration error
-response. Session history remains unchanged. The resolver separates metadata from
-instructions so configuration stays outside model instruction text.
-
-The shared `parseMarkdownFrontmatter` and `parseYaml` helpers own YAML parsing and
-document boundaries. Project resolution validates the project-specific tag list;
-skill and subagent consumers use the same helpers for their metadata and instruction bodies.
+Malformed frontmatter, invalid tag types, and invalid templates produce a
+project-configuration error without changing session history. Frontmatter metadata
+stays outside model instruction text.
 
 ## Execution Snapshot
 
-After admission, the coordinator resolves project context before preparing attachments,
-compacting history, recording messages, or deciding participation. Recording receives
-that snapshot and stores it in `ConversationContext.project`. Scheduled turns use the same order.
-That snapshot remains stable through steering and child execution-context copies.
-Each new turn resolves the current source again.
+Project context is resolved after admission, before preparing attachments,
+compacting history, recording messages, or deciding participation. Scheduled turns
+use the same order. A configuration error rejects the turn before those operations
+can change session state.
 
-```text
-project sources → ProjectContexts → ProjectContext
-                                       ↓
-                              ConversationContext.project
-                                       ↓
-                             Sidekick system prompt
-```
+The resolved tags and instructions form one snapshot for the turn. That snapshot
+stays fixed through steering and child execution, even if the source file changes
+while the turn is running. Each new turn resolves the source again.
 
-`SystemPromptBuilder` renders resolved instructions under `# Project context`, between
+Resolved instructions appear under `# Project context`, between
 world context and operating rules. Project tags select the [skills catalog](skills.md)
 used by Sidekick and Tasks, including skill activation by name. See
 [context management](context-management.md#prompt-shape) for prompt composition,

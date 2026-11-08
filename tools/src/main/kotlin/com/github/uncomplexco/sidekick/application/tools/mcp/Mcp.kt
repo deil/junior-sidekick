@@ -72,12 +72,16 @@ class DefaultMcpServersRegistry(
                 .getOrNull()
         }
 
-    private suspend fun connect(server: McpServerConfig): ConnectedMcpServer =
+    private suspend fun connect(server: McpServerConfig): ConnectedMcpServer? =
         when (server.auth) {
             "oauth" -> {
-                val accessToken =
-                    oauth.accessToken(server) ?: error("MCP server ${server.id} requires OAuth")
-                connect(server, authHeaderValue = "Bearer $accessToken")
+                val accessToken = oauth.accessToken(server)
+                if (accessToken == null) {
+                    log.warn("MCP server {} requires OAuth", server.id)
+                    null
+                } else {
+                    connect(server, authHeaderValue = "Bearer $accessToken")
+                }
             }
 
             "header" -> {

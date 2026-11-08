@@ -46,3 +46,38 @@ kotlin {
 }
 
 tasks.withType<Test> { useJUnitPlatform() }
+
+val jsBridgeDirectory = rootProject.layout.projectDirectory.dir("js-bridge")
+
+val installJsBridge by
+    tasks.registering(Exec::class) {
+        group = "build setup"
+        description = "Install locked JavaScript bridge dependencies for explicit code generation."
+        workingDir(jsBridgeDirectory)
+        commandLine("pnpm", "install", "--frozen-lockfile")
+    }
+
+tasks.register("generateChatUiPrompt") {
+    group = "code generation"
+    description =
+        "Regenerate the checked-in chat UI prompt from json-render's standard chat catalog."
+    dependsOn(installJsBridge)
+
+    doLast {
+        val prompt =
+            providers
+                .exec {
+                    workingDir(jsBridgeDirectory)
+                    commandLine("node", "chat-ui/print-prompt.mjs")
+                }
+                .standardOutput
+                .asText
+                .get()
+        check(prompt.isNotBlank()) { "Chat UI prompt generator produced empty output." }
+
+        val resource = layout.projectDirectory.file("src/main/resources/prompts/chat-ui.md").asFile
+        resource.parentFile.mkdirs()
+        resource.writeText(prompt, Charsets.UTF_8)
+        logger.lifecycle("Generated {}", resource)
+    }
+}

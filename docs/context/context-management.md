@@ -15,38 +15,10 @@ have separate construction contracts. This section describes Sidekick session pr
 `SystemPromptBuilder` assembles the system prompt in this order: base platform-specific
 behavior, username identity, optional personality (`SOUL.md`), world (`WORLD.md`),
 resolved project instructions, and operating rules (`RULES.md`).
-[Project context](project-context.md) is loaded once for the turn and supplied through
-`ConversationContext.project`; the builder renders its instructions under `# Project context`.
+[Project context](project-context.md) is loaded once per turn; its instructions appear
+under `# Project context`.
 Optional personality, world, and operating-rule files contribute sections when present.
 Prompt construction belongs to the caller, not the shared agent runtime.
-
-### Markdown templates
-
-`SOUL.md`, `WORLD.md`, `RULES.md`, and the Markdown body of project `AGENTS.md`
-are rendered with Pebble before their instructions enter a prompt. YAML frontmatter
-is parsed separately and is not templated. Project instructions are rendered at
-resolution, so the same selected instructions remain in the per-turn project snapshot.
-
-```twig
-{% if features.chat_ui %}
-Use rich chat cards for tables and visualizations.
-{% else %}
-Use plain-text lists. Do not emit fenced spec blocks.
-{% endif %}
-```
-
-`features.chat_ui` is the boolean Spring property `agent.chat-ui.enabled` (default
-`false`). Future flags must be explicitly added to the template context; templates
-cannot read the Spring environment, arbitrary properties, or application beans.
-`RULES.md` also receives `NO_REPLY_MARKER`, with existing `{{NO_REPLY_MARKER}}`
-references handled by Pebble. Markdown is not HTML-escaped. Unknown variables and
-syntax errors fail with the source file in the error message. Use Pebble's
-`{% verbatim %}...{% endverbatim %}` when documenting literal template syntax.
-
-Templates render from their loaded text, with no filesystem template loader or
-compiled-template cache. Skill definitions, subagent definitions, user messages,
-and stored conversation history are not templated by this mechanism. Configuration
-changes require a restart; Markdown edits are picked up on the next prompt build.
 
 `TurnPromptBuilder` creates one user message per incoming message in the admitted batch.
 Only the first includes shared context and requester metadata. On bootstrap, its shape is:
@@ -108,7 +80,7 @@ Seeded Slack history affects prompts the same way locally recorded history does.
 
 ## Compaction
 
-Compaction rewrites older live transcript into `SessionCompaction` summaries while preserving the recent live transcript as `SessionMessage` entries.
+Compaction summarizes older messages while preserving the recent live transcript.
 
 Compactions are older context, not replacement history:
 
@@ -122,22 +94,20 @@ compactions.jsonl     messages.jsonl      <current_instruction>
                    <thread_transcript>
 ```
 
-Invariant: compaction never removes all live messages. The latest `MIN_LIVE_MESSAGES` always remain untouched in `messages.jsonl`.
-
-A state with compactions but no live history is invalid for normal session prompting.
-
-The compaction algorithm belongs in a dedicated context component. The session service owns the lifecycle hook; the compactor owns the decision and rewrite algorithm.
+Compaction never removes all live messages. The latest `MIN_LIVE_MESSAGES` remain
+untouched in the live transcript. A session with compaction summaries but no live
+history is invalid for normal prompting.
 
 Compaction runs only when recording a new incoming message, after that message is added to session state and before the state is saved or used to build the turn context.
 
-Assistant replies are not a compaction trigger. They are part of the protected recent live transcript, so compacting immediately after recording one adds noise without improving prompt readiness.
+Assistant replies are not a compaction trigger.
 
 ### Parameters
 
-- `MIN_LIVE_MESSAGES`: number of most recent live messages that must always remain untouched.
+- `MIN_LIVE_MESSAGES`: number of most recent live messages that must remain untouched.
 - `COMPACTION_TRIGGER_TOKENS`: estimated prompt-context size that starts compaction.
-- `COMPACTION_TARGET_TOKENS`: estimated prompt-context size compaction tries to reach once triggered.
-- `COMPACTION_BATCH_SIZE`: maximum number of oldest live messages compacted in one iteration.
+- `COMPACTION_TARGET_TOKENS`: lower prompt-context size to reach once compaction starts.
+- `COMPACTION_BATCH_SIZE`: maximum number of oldest live messages summarized in one iteration.
 
 ### Algorithm
 
@@ -155,17 +125,18 @@ while estimate > COMPACTION_TARGET_TOKENS:
   batch = oldest live messages up to batch_size
 
   summary = summarize(batch)
-  append SessionCompaction(summary, covered message ids, assistant message count)
-  remove covered messages from messages.jsonl
+  append summary with covered message IDs and assistant-message count
+  remove covered messages from the live transcript
 
   re-estimate prompt context
 ```
 
-This hysteresis avoids compacting again immediately after every small context change.
+Compaction starts above the trigger threshold and continues toward the lower target
+threshold, rather than stopping as soon as context drops below the trigger.
 
 ### Token estimation
 
-Sidekick does not use an external tokenizer for compaction decisions. Prompt-context size is estimated with a heuristic: roughly four characters are treated as one token.
+Prompt-context size is estimated at roughly one token per four characters.
 
 ## Key files
 
