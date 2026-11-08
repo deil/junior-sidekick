@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration name="SidekickBotApp" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <option name="ACTIVE_PROFILES" value="local" />
+    <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
+    <module name="junior-sidekick.example-app.main" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.github.uncomplexco.example.SidekickBotApp" />
+    <option name="VM_PARAMETERS" value="-javaagent:$PROJECT_DIR$/example-app/build/otel/opentelemetry-javaagent.jar -Dotel.javaagent.configuration-file=$PROJECT_DIR$/observability/otel.properties" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <extension name="com.github.l34130.mise.core.run.MiseRunConfigurationSettingsEditor" myConfigEnvironmentStrategy="use_project_settings" myMiseDirEnvCb="false" myMiseConfigEnvironmentTf="" />
+    <method v="2">
+      <option name="Gradle.BeforeRunTask" enabled="true" tasks=":example-app:prepareOpenTelemetryAgent" externalProjectPath="$PROJECT_DIR$" vmOptions="" scriptParameters="" />
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
