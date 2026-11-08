@@ -40,35 +40,6 @@ message identity = channel + ts
 
 This is the same identity used for deduplication. Do not invent a separate Slack message id; there usually is not one in the event payload.
 
-## Emergency message deletion
-
-The authenticated web sidebar has a **Kill switch** button that opens a native
-dialog. The operator pastes a Slack message permalink and submits **Delete message**.
-The trigger stays visible across pages and in the collapsed sidebar. On mobile it
-appears in the sticky navigation header.
-`POST /api/web/user/messages/delete` accepts `{ "message_url": "https://workspace.slack.com/archives/C123/p1700000000001234" }`.
-It requires a Sidekick bearer token; the browser continuity cookie does not authorize it.
-Every admitted signed-in user has access. There are no separate roles or admin policies.
-
-The HTTP adapter validates HTTPS Slack `/archives/<channel>/p<timestamp>` links and
-translates the path into `channel + ts`. Public, private, and DM channel IDs are
-supported. Thread query parameters are ignored: deletion targets the linked reply,
-not its parent thread. The pasted URL is never fetched.
-
-`DeleteSlackMessageUsecase` in `interfaces` records the authenticated operator email,
-channel, message ID, and outcome. It calls `chat.delete` using the existing bot token and
-`chat:write` scope. Slack enforces that this token can delete only its bot's messages.
-No message text is loaded, returned, previewed, or written to deletion logs.
-
-Only Slack's confirmed success returns `{ "status": "deleted" }`. Invalid links
-return 400; bot permission rejection 403; missing message/channel 404; rate limits
-429; unavailable/unconfigured Slack or other upstream failures 503. A transport
-failure can leave the outcome unknown; the UI tells the operator to check Slack.
-
-This deletes one Slack message. It does not stop a running turn, delete a whole
-thread, erase stored conversation history, remove notifications/copies, or revoke
-leaked credentials. Rotate exposed credentials separately.
-
 ## Events
 
 Sidekick treats Slack `channel + ts` as the event identity for deduplication. Slack can emit more than one event for the same visible message, so handlers must be idempotent at that boundary.

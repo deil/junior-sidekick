@@ -3,20 +3,7 @@
 Spring Security OAuth2 Client handles Google sign-in. Admission requires a verified
 email and an exact configured email domain. No user provisioning or roles exist.
 
-Web authentication belongs to `interfaces`, under `adapters/http/webui/auth`,
-including `SignInUsecase`, domain admission, and token types. It is not part of
-Sidekick's core model. Spring Boot binds environment properties directly; do not
-add `${ENV_VAR:}` aliases to the defaults file. Native environment names remove
-hyphens, for example `webui.auth.google-client-id` becomes `WEBUI_AUTH_GOOGLECLIENTID`.
-
 ## Authentication contract
-
-The web UI is client-rendered. SSR and hydration are disabled. The Node web server
-only serves the application shell and injects runtime `API_BASE_URL` configuration;
-it never calls backend APIs or executes route guards. On direct loads and reloads,
-the browser restores its cookie-backed token before the guard fetches the current
-user profile. This keeps path-scoped cookies on the session endpoint and preserves
-the requested application route.
 
 - Google credentials stay on the backend. A short-lived, single-use PKCE handoff
   delivers the Sidekick access token to the initiating browser.
@@ -27,9 +14,6 @@ the requested application route.
 - Public Sidekick branding is separate at `/api/web/sidekick/profile`.
 - A user API 401 clears frontend identity and displays login, without silently
   retrying that failed request using the browser cookie.
-- The sidebar kill switch uses bearer-protected `POST /api/web/user/messages/delete`.
-  Every admitted signed-in user can delete a message posted by this installation's
-  Slack bot. See [slack.md](slack.md#emergency-message-deletion) for scope and limits.
 
 ## Cookie and JWT lifetime invariant
 
