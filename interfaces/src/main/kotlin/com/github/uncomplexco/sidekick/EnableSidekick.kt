@@ -30,6 +30,7 @@ annotation class EnableSidekick
             "com.github.uncomplexco.sidekick.adapters.sandbox",
             "com.github.uncomplexco.sidekick.adapters.slack",
             "com.github.uncomplexco.sidekick.adapters.spring",
+            "com.github.uncomplexco.sidekick.adapters.sqlite",
         ]
 )
 @EnableScheduling

@@ -5,6 +5,7 @@ import com.github.uncomplexco.sidekick.adapters.chat.ChatUiRenderer
 import com.github.uncomplexco.sidekick.adapters.statusLine
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
+import com.github.uncomplexco.sidekick.application.chat.ChatUserDetails
 import com.github.uncomplexco.sidekick.application.chat.DiscordBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.DiscordChannelHistoryPage
 import com.github.uncomplexco.sidekick.application.chat.DiscordThreadHistoryPage
@@ -67,6 +68,8 @@ internal class DiscordChatPlatformAdapter(
 
     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
         emptyList()
+
+    override suspend fun loadUserDetails(chatId: String): ChatUserDetails? = null
 
     override suspend fun loadChannelHistory(
         limit: Int,

@@ -5,7 +5,6 @@ import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
@@ -25,7 +24,9 @@ import com.github.uncomplexco.sidekick.application.turn.TurnAdmission
 import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
 import com.github.uncomplexco.sidekick.application.turn.TurnParticipation
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
+import com.github.uncomplexco.sidekick.testing.usersService
 import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
+import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
 import com.slack.api.app_backend.events.payload.AgentSessionStoppedPayload
 import com.slack.api.bolt.context.builtin.EventContext
@@ -213,7 +214,7 @@ class SlackActivityTest {
             AgentConfig("Sidekick", dir.resolve("state").toString(), dir.toString()).also {
                 it.botUsername = "UBOT"
             }
-        private val paths = VirtualPathsFactory(config, ChatPlatform.SLACK)
+        private val paths = virtualPathsFactory(config, ChatPlatform.SLACK)
         private val sessions =
             SessionManager(
                 FilesystemConversationStateStore(config, ChatPlatform.SLACK),
@@ -244,6 +245,7 @@ class SlackActivityTest {
                         )
                 },
                 StubSkillsCatalog(),
+                usersService(),
             )
         private val queue = IncomingMessageQueue(scope, coordinator)
         private val incoming = ReceiveChatMessageUsecase(queue, coordinator)

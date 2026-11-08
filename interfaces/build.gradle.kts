@@ -27,6 +27,7 @@ dependencies {
     implementation(libs.jda) { exclude(group = "club.minnced") }
 
     testImplementation(platform(libs.spring.boot.bom))
+    testImplementation(testFixtures(project(":core")))
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.security.test)
     testImplementation(libs.kotlin.test.junit5)

@@ -11,6 +11,7 @@ import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
+import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
 import java.nio.file.Files
@@ -36,7 +37,7 @@ class ChatFileIngestorTest {
     @BeforeEach
     fun setUp() {
         paths =
-            VirtualPathsFactory(
+            virtualPathsFactory(
                 AgentConfig("Sidekick", dir.toString(), dir.resolve("workspace").toString()),
                 ChatPlatform.DISCORD,
             )

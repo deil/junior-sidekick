@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.agent.workspace
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.stream.Stream
@@ -22,7 +23,7 @@ class VirtualPathTest {
         val conversationId = ConversationId("C123", "1700000000.000")
 
         val virtualPaths =
-            VirtualPathsFactory(
+            virtualPathsFactory(
                     AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()),
                     ChatPlatform.SLACK,
                 )
@@ -51,7 +52,7 @@ class VirtualPathTest {
         val conversationId = ConversationId("C123", "1700000000.000")
 
         val virtualPaths =
-            VirtualPathsFactory(
+            virtualPathsFactory(
                     AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()),
                     ChatPlatform.SLACK,
                 )
@@ -71,7 +72,7 @@ class VirtualPathTest {
         val conversationId = ConversationId("123456789012345678", "")
 
         val virtualPaths =
-            VirtualPathsFactory(
+            virtualPathsFactory(
                     AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()),
                     ChatPlatform.DISCORD,
                 )
@@ -105,7 +106,7 @@ class VirtualPathTest {
         val conversationId = ConversationId("C123", "1700000000.000")
 
         val virtualPaths =
-            VirtualPathsFactory(
+            virtualPathsFactory(
                     AgentConfig("Sidekick", stateRoot.toString(), workingRoot.toString()),
                     ChatPlatform.SLACK,
                 )

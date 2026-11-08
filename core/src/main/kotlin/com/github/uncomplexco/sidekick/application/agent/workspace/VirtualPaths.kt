@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.agent.onProjectCreated
 import com.github.uncomplexco.sidekick.application.agent.onWorkCreated
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.application.core.Projects
 import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
 import java.nio.file.Files
 import java.nio.file.Path
@@ -67,6 +68,7 @@ data class VirtualPaths(
 class VirtualPathsFactory(
     private val config: AgentConfig,
     private val platform: ChatPlatform,
+    private val projects: Projects,
 ) {
     fun forConversation(conversationId: ConversationId): VirtualPaths {
         val attachmentsRoot =
@@ -89,6 +91,7 @@ class VirtualPathsFactory(
                     .resolve(sanitizePathSegment(conversationId.channelId))
             )
         onProjectCreated(config, projectRoot)
+        projects.register(projectRoot.fileName.toString(), conversationId.channelId)
 
         return VirtualPaths(
             sessionRoot = attachmentsRoot,

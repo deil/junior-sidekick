@@ -2,13 +2,13 @@ package com.github.uncomplexco.sidekick.application.conversation
 
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.context.ProjectContext
 import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
+import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
@@ -34,7 +34,7 @@ class SessionManagerRecordingTest {
         manager =
             SessionManager(
                 store,
-                VirtualPathsFactory(config, ChatPlatform.SLACK),
+                virtualPathsFactory(config, ChatPlatform.SLACK),
                 SessionContextCompactor { _, _, _ -> "summary" },
                 ProjectContexts(),
             )
@@ -42,7 +42,7 @@ class SessionManagerRecordingTest {
 
     @Test
     fun `turn context contains resolved project tags and instructions`() = runBlocking {
-        val paths = VirtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversationId)
+        val paths = virtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversationId)
         Files.writeString(
             paths.projectRoot.resolve("AGENTS.md"),
             "---\ntags: [engineering, productA]\n---\nProject instructions",
@@ -58,7 +58,7 @@ class SessionManagerRecordingTest {
 
     @Test
     fun `steering keeps the project snapshot after source changes`() = runBlocking {
-        val paths = VirtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversationId)
+        val paths = virtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversationId)
         val file = paths.projectRoot.resolve("AGENTS.md")
         Files.writeString(file, "Original instructions")
         val initial = record(listOf(message("m1", 1)))
@@ -72,7 +72,7 @@ class SessionManagerRecordingTest {
 
     @Test
     fun `new turns resolve the latest project context`() = runBlocking {
-        val paths = VirtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversationId)
+        val paths = virtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversationId)
         val file = paths.projectRoot.resolve("AGENTS.md")
         Files.writeString(file, "Original instructions")
         val initial = record(listOf(message("m1", 1)))
@@ -89,7 +89,7 @@ class SessionManagerRecordingTest {
 
     @Test
     fun `recording uses the resolved project snapshot even if source changes`() = runBlocking {
-        val paths = VirtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversationId)
+        val paths = virtualPathsFactory(config, ChatPlatform.SLACK).forConversation(conversationId)
         val file = paths.projectRoot.resolve("AGENTS.md")
         Files.writeString(file, "---\ntags: [engineering]\n---\nOriginal instructions")
         val project = manager.resolveProjectContext(conversationId)

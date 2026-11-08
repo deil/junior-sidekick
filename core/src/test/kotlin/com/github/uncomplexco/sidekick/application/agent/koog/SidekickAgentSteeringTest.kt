@@ -21,7 +21,6 @@ import com.github.uncomplexco.sidekick.application.agent.skills.Skill
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
@@ -39,6 +38,7 @@ import com.github.uncomplexco.sidekick.application.turn.RecordedTurn
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
 import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
+import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -263,7 +263,7 @@ class SidekickAgentSteeringTest {
     private fun sessionManager(config: AgentConfig, store: FilesystemConversationStateStore) =
         SessionManager(
             store,
-            VirtualPathsFactory(config, ChatPlatform.SLACK),
+            virtualPathsFactory(config, ChatPlatform.SLACK),
             SessionContextCompactor { _, _, _ -> "summary" },
             ProjectContexts(),
         )

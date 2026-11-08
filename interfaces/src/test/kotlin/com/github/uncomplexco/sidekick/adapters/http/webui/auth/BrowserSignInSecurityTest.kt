@@ -5,6 +5,8 @@ import com.github.uncomplexco.sidekick.adapters.http.webui.UserProfileController
 import com.github.uncomplexco.sidekick.adapters.http.webui.WebUiHttpConfiguration
 import com.github.uncomplexco.sidekick.adapters.slack.SlackBotProfile
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.ports.UsersRepository
+import com.github.uncomplexco.sidekick.testing.NoOpUsersRepository
 import com.github.uncomplexco.sidekick.testing.WebAuthFixture
 import jakarta.servlet.http.Cookie
 import java.time.Clock
@@ -219,7 +221,9 @@ class BrowserSignInSecurityTest {
                 .getBean(SignInUsecase::class.java)
                 .execute(
                     SignInUsecase.Command(
-                        VerifiedEmailIdentity("google:subject", "person@example.com")
+                        VerifiedEmailIdentity("google:subject", "person@example.com"),
+                        "Test Person",
+                        "subject",
                     )
                 ) as SignInUsecase.Result.Success
         val value = context.getBean(BrowserSessions::class.java).issue(result)
@@ -240,7 +244,9 @@ class BrowserSignInSecurityTest {
                 .getBean(SignInUsecase::class.java)
                 .execute(
                     SignInUsecase.Command(
-                        VerifiedEmailIdentity("google:subject", "person@example.com")
+                        VerifiedEmailIdentity("google:subject", "person@example.com"),
+                        "Test Person",
+                        "subject",
                     )
                 ) as SignInUsecase.Result.Success
         val value = context.getBean(BrowserSessions::class.java).issue(result)
@@ -291,6 +297,8 @@ class BrowserSignInSecurityTest {
         UserProfileController::class,
     )
     class TestConfiguration {
+        @Bean fun users(): UsersRepository = NoOpUsersRepository()
+
         @Bean fun agentConfig() = AgentConfig("Juniper", "unused", "unused")
 
         @Bean fun slackBotProfile() = SlackBotProfile()

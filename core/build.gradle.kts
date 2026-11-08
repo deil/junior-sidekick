@@ -1,5 +1,6 @@
 plugins {
     `java-library`
+    `java-test-fixtures`
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.spring)
     alias(libs.plugins.kotlin.serialization)
@@ -16,6 +17,10 @@ dependencies {
     compileOnly(libs.spring.context)
     compileOnly(libs.spring.web)
     implementation(libs.kotlin.reflect)
+    implementation(platform(libs.spring.boot.bom))
+    implementation(libs.spring.jdbc)
+    implementation(libs.flyway.core)
+    implementation(libs.sqlite.jdbc)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.snakeyaml)
@@ -37,6 +42,9 @@ dependencies {
     testImplementation(libs.junit.jupiter.params)
     testImplementation(libs.mockito.core)
     testRuntimeOnly(libs.junit.platform.launcher)
+    testFixturesImplementation(platform(libs.spring.boot.bom))
+    testFixturesImplementation(libs.spring.context)
+    testFixturesImplementation(libs.spring.boot)
 }
 
 kotlin {

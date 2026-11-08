@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.http.webui.auth
 
+import com.github.uncomplexco.sidekick.ports.UsersRepository
 import java.time.Clock
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -24,10 +25,16 @@ class WebAuthConfiguration {
         SidekickJwtTokens(properties, Clock.systemUTC())
 
     @Bean
-    fun webSignInUsecase(properties: WebAuthProperties, tokens: SidekickJwtTokens) =
+    fun webSignInUsecase(
+        properties: WebAuthProperties,
+        tokens: SidekickJwtTokens,
+        users: UsersRepository,
+    ) =
         SignInUsecase(
             AllowedEmailDomainPolicy(properties.allowedEmailDomain),
             tokens,
+            users,
+            Clock.systemUTC(),
         )
 
     @Bean fun browserLoginGrants() = BrowserLoginGrants()

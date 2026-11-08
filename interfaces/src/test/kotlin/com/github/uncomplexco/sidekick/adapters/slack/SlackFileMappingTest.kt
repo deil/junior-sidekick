@@ -2,10 +2,10 @@ package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
+import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import com.slack.api.model.Attachment
 import com.slack.api.model.File
 import com.sun.net.httpserver.HttpServer
@@ -72,7 +72,7 @@ class SlackFileMappingTest {
                 SlackFileIngestor(
                     slackBotToken = "token",
                     virtualPathsFactory =
-                        VirtualPathsFactory(
+                        virtualPathsFactory(
                             AgentConfig(
                                 "Sidekick",
                                 dir.toString(),
@@ -120,7 +120,7 @@ class SlackFileMappingTest {
                 SlackFileIngestor(
                     slackBotToken = "token",
                     virtualPathsFactory =
-                        VirtualPathsFactory(
+                        virtualPathsFactory(
                             AgentConfig(
                                 "Sidekick",
                                 dir.toString(),

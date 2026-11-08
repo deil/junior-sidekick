@@ -1,7 +1,12 @@
 # Web authentication
 
 Spring Security OAuth2 Client handles Google sign-in. Admission requires a verified
-email and an exact configured email domain. No user provisioning or roles exist.
+email and an exact configured email domain. Successful sign-in creates a user
+record when the email is not yet known, storing the display name (email fallback),
+email, creation timestamp, and last-seen timestamp. Existing email matches retain
+their row and gain the WebUI IdP identity. `idp_id` and `chat_id` are nullable;
+WebUI sign-in supplies the raw IdP subject and preserves any linked chat ID.
+Successful sign-in updates `last_seen_at`. No roles exist.
 
 ## Authentication contract
 
@@ -45,4 +50,5 @@ until its original deadline.
 
 The remembered browser store is in memory, like the OAuth handoff store. A backend
 restart requires Google sign-in again. Multiple instances require sticky routing
-for browser authentication. No persistent user/session database was introduced.
+for browser authentication. User records are persisted; browser sessions and
+OAuth handoffs remain in memory.

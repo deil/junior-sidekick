@@ -12,11 +12,15 @@ interface ChatPlatformAdapter {
 
     suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage>
 
+    suspend fun loadUserDetails(chatId: String): ChatUserDetails? = null
+
     suspend fun ingestFiles(
         conversationId: ConversationId,
         files: List<IncomingChatFile>,
     ): List<IncomingChatFile>
 }
+
+data class ChatUserDetails(val name: String, val email: String)
 
 interface SlackBackedChatPlatformAdapter : ChatPlatformAdapter
 

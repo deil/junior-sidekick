@@ -1,7 +1,6 @@
 package com.github.uncomplexco.sidekick.application.conversation.triggers
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessageType
@@ -22,6 +21,7 @@ import com.github.uncomplexco.sidekick.application.turn.TurnParticipation
 import com.github.uncomplexco.sidekick.application.turn.TurnParticipationDecision
 import com.github.uncomplexco.sidekick.application.turn.TurnParticipationInput
 import com.github.uncomplexco.sidekick.application.turn.TurnParticipationReason
+import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -245,7 +245,7 @@ class TurnParticipationTest {
                         ConversationContext(
                             conversationId = conversationId,
                             virtualPaths =
-                                VirtualPathsFactory(config, ChatPlatform.SLACK)
+                                virtualPathsFactory(config, ChatPlatform.SLACK)
                                     .forConversation(conversationId),
                             history =
                                 ConversationHistory(

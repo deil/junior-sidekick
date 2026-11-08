@@ -47,7 +47,11 @@ class BrowserLoginHandler(
             when (
                 val result =
                     signIn.execute(
-                        SignInUsecase.Command(VerifiedEmailIdentity("$provider:$subject", email))
+                        SignInUsecase.Command(
+                            identity = VerifiedEmailIdentity("$provider:$subject", email),
+                            name = oidc.fullName?.takeIf { it.isNotBlank() } ?: email,
+                            idpId = subject,
+                        )
                     )
             ) {
                 is SignInUsecase.Result.Success -> {
@@ -70,6 +74,10 @@ class BrowserLoginHandler(
                 SignInUsecase.Result.DomainNotAllowed -> {
                     logger.info("Browser sign-in rejected: email domain is not allowed")
                     response.sendRedirect(errorUrl("domain"))
+                }
+                SignInUsecase.Result.EmailAlreadyLinked -> {
+                    logger.info("Browser sign-in rejected: email belongs to another user")
+                    response.sendRedirect(errorUrl("identity"))
                 }
             }
         } finally {

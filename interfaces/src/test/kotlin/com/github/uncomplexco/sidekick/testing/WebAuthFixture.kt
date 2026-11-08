@@ -10,6 +10,7 @@ import com.github.uncomplexco.sidekick.adapters.http.webui.auth.GoogleSignInCont
 import com.github.uncomplexco.sidekick.adapters.http.webui.auth.SidekickJwtTokens
 import com.github.uncomplexco.sidekick.adapters.http.webui.auth.SignInUsecase
 import com.github.uncomplexco.sidekick.adapters.http.webui.auth.WebAuthProperties
+import com.github.uncomplexco.sidekick.ports.UsersRepository
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
@@ -27,7 +28,7 @@ import org.springframework.security.oauth2.core.oidc.OidcIdToken
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
-class WebAuthFixture {
+class WebAuthFixture(val users: UsersRepository = NoOpUsersRepository()) {
     val verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
     val challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
     val state = "s".repeat(43)
@@ -65,6 +66,7 @@ class WebAuthFixture {
         email: String? = "person@example.com",
         verified: Boolean = true,
         domain: String = "example.com",
+        name: String? = "Test Person",
     ): LoginResult {
         val config = properties.copy(allowedEmailDomain = domain)
         val registration =
@@ -93,6 +95,7 @@ class WebAuthFixture {
                 put("email_verified", verified)
                 put("iss", "https://accounts.google.com")
                 put("aud", listOf(config.googleClientId))
+                if (name != null) put("name", name)
                 if (email != null) put("email", email)
             }
         val idToken =
@@ -109,6 +112,8 @@ class WebAuthFixture {
                 SignInUsecase(
                     AllowedEmailDomainPolicy(domain),
                     SidekickJwtTokens(config, clock),
+                    users,
+                    clock,
                 ),
                 grants,
                 "https://frontend.test",

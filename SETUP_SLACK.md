@@ -37,6 +37,7 @@ im:write
 mpim:history
 mpim:read
 users:read
+users:read.email
 ```
 
 Declare the app as an agent in Slack's app settings. Reinstall the app if its granted scopes change.
@@ -60,4 +61,3 @@ Optional Slack tools require more scopes:
 | `files:read` | `slackCanvasCreate`, `slackFileDownload` |
 | `files:write` | `attachFile` |
 | `reactions:write` | `slackReactionAdd` |
-| `users:read:email` | `slackUserSearch` |

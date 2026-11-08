@@ -1,13 +1,14 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.adapters.ChatFileIngestor
-import com.github.uncomplexco.sidekick.adapters.chat.ChatUiRenderer
 import com.github.uncomplexco.sidekick.adapters.MAX_MESSAGE_FILES
+import com.github.uncomplexco.sidekick.adapters.chat.ChatUiRenderer
 import com.github.uncomplexco.sidekick.adapters.statusLine
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
+import com.github.uncomplexco.sidekick.application.chat.ChatUserDetails
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
@@ -65,6 +66,9 @@ class SlackChatPlatformAdapter(
 
     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
         historyLoader(conversationId)
+
+    override suspend fun loadUserDetails(chatId: String): ChatUserDetails? =
+        loadSlackUserDetails(ctx.client(), chatId)
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,

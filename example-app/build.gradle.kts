@@ -19,11 +19,13 @@ dependencies {
     implementation(project(":interfaces"))
     implementation(project(":tools-dumphere"))
     implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.jdbc)
     implementation(libs.kotlin.reflect)
 
     developmentOnly(libs.spring.boot.devtools)
 
     testImplementation(libs.spring.boot.starter.webmvc.test)
+    testImplementation(libs.spring.boot.devtools)
     testImplementation(libs.kotlin.test.junit5)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

@@ -20,6 +20,7 @@ import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
+import com.github.uncomplexco.sidekick.application.core.UsersService
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.utils.Loggers
@@ -35,6 +36,7 @@ class TurnCoordinator(
     private val participation: TurnParticipation,
     private val agent: AgentTurnExecutor,
     private val skills: SkillsCatalog,
+    private val users: UsersService,
 ) {
     suspend fun run(trigger: TurnTrigger, inbox: SteeringInbox? = null) {
         try {
@@ -66,6 +68,7 @@ class TurnCoordinator(
                 }
 
                 is TurnAdmissionDecision.Admitted -> {
+                    users.record(batch.messages, chat)
                     chat.lifecycle.begin()
                     if (processIncoming(batch.messages, decision, chat, inbox)) {
                         stoppedConversation = decision.conversationId
@@ -232,6 +235,7 @@ class TurnCoordinator(
                         (input as SteeringInput.Messages).messages.sortedBy { it.createdAtMs }
                     if (pending.isEmpty()) null
                     else {
+                        users.record(pending, chat)
                         val (recorded, files) =
                             prepareMessages(pending, turn.context.conversation.conversationId, chat)
                         val updated = sessions.appendIncomingMessages(currentTurn, recorded, files)

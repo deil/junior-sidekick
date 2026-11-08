@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.adapters.chat.ChatUiRenderer
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
+import com.github.uncomplexco.sidekick.application.chat.ChatUserDetails
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
@@ -11,7 +12,7 @@ import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
 import com.slack.api.methods.MethodsClient
 
 class ScheduledSlackChatPlatformAdapter(
-    client: MethodsClient,
+    private val client: MethodsClient,
     channelId: String,
     override val botUsername: String,
     scope: SidekickCoroutineScope,
@@ -24,6 +25,9 @@ class ScheduledSlackChatPlatformAdapter(
 
     override suspend fun loadHistory(conversationId: ConversationId): List<ChatMessage> =
         emptyList()
+
+    override suspend fun loadUserDetails(chatId: String): ChatUserDetails? =
+        loadSlackUserDetails(client, chatId)
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,

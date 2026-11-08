@@ -2,10 +2,10 @@ package com.github.uncomplexco.sidekick.application.conversation
 
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.context.ProjectContexts
 import com.github.uncomplexco.sidekick.application.context.SessionContextCompactor
+import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -31,7 +31,7 @@ class SessionManagerCompletionTest {
         manager =
             SessionManager(
                 store,
-                VirtualPathsFactory(config, ChatPlatform.SLACK),
+                virtualPathsFactory(config, ChatPlatform.SLACK),
                 SessionContextCompactor { _, _, _ -> "summary" },
                 ProjectContexts(),
             )
