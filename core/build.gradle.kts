@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.snakeyaml)
+    implementation(libs.pebble)
     implementation(libs.jgit.core)
     implementation(libs.jgit.ssh)
 

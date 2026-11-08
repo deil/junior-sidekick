@@ -35,9 +35,11 @@ YAML frontmatter supplies an optional list of string tags; the Markdown body sup
 instructions. Inline YAML lists are also supported. Tags retain their case and are
 deduplicated into a set. Other metadata is ignored. Plain Markdown supplies instructions
 with an empty tag set. A missing file resolves to empty tags and absent instructions.
-Trailing instruction whitespace is trimmed.
+The Markdown body is rendered with Pebble using explicit feature flags, then its
+trailing whitespace is trimmed. Frontmatter is not templated. See
+[Markdown templates](context-management.md#markdown-templates) for syntax and values.
 
-Malformed frontmatter and invalid tag types produce a project-configuration error
+Malformed frontmatter, invalid tag types, and invalid templates produce a project-configuration error
 response. Session history remains unchanged. The resolver separates metadata from
 instructions so configuration stays outside model instruction text.
 

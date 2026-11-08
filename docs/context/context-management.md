@@ -20,6 +20,34 @@ resolved project instructions, and operating rules (`RULES.md`).
 Optional personality, world, and operating-rule files contribute sections when present.
 Prompt construction belongs to the caller, not the shared agent runtime.
 
+### Markdown templates
+
+`SOUL.md`, `WORLD.md`, `RULES.md`, and the Markdown body of project `AGENTS.md`
+are rendered with Pebble before their instructions enter a prompt. YAML frontmatter
+is parsed separately and is not templated. Project instructions are rendered at
+resolution, so the same selected instructions remain in the per-turn project snapshot.
+
+```twig
+{% if features.chat_ui %}
+Use rich chat cards for tables and visualizations.
+{% else %}
+Use plain-text lists. Do not emit fenced spec blocks.
+{% endif %}
+```
+
+`features.chat_ui` is the boolean Spring property `agent.chat-ui.enabled` (default
+`false`). Future flags must be explicitly added to the template context; templates
+cannot read the Spring environment, arbitrary properties, or application beans.
+`RULES.md` also receives `NO_REPLY_MARKER`, with existing `{{NO_REPLY_MARKER}}`
+references handled by Pebble. Markdown is not HTML-escaped. Unknown variables and
+syntax errors fail with the source file in the error message. Use Pebble's
+`{% verbatim %}...{% endverbatim %}` when documenting literal template syntax.
+
+Templates render from their loaded text, with no filesystem template loader or
+compiled-template cache. Skill definitions, subagent definitions, user messages,
+and stored conversation history are not templated by this mechanism. Configuration
+changes require a restart; Markdown edits are picked up on the next prompt build.
+
 `TurnPromptBuilder` creates one user message per incoming message in the admitted batch.
 Only the first includes shared context and requester metadata. On bootstrap, its shape is:
 

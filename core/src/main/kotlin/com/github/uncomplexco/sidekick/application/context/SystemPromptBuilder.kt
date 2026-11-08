@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component
 class SystemPromptBuilder(
     private val config: AgentConfig,
     private val platform: ChatPlatform,
+    private val templates: MarkdownPromptTemplate = MarkdownPromptTemplate(),
 ) {
     fun buildSystemPrompt(
         username: String,
@@ -62,10 +63,7 @@ class SystemPromptBuilder(
             return null
         }
 
-        val content =
-            variables.entries.fold(Files.readString(path)) { result, (key, value) ->
-                result.replace("{{$key}}", value)
-            }
+        val content = templates.render(Files.readString(path), path.toString(), variables)
         return markdownSection(heading, content.trimEnd())
     }
 

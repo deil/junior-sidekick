@@ -11,7 +11,7 @@ data class ProjectContext(
 )
 
 @Component
-class ProjectContexts {
+class ProjectContexts(private val templates: MarkdownPromptTemplate = MarkdownPromptTemplate()) {
     private companion object {
         const val PROJECT_INSTRUCTIONS_FILE = "AGENTS.md"
     }
@@ -29,7 +29,7 @@ class ProjectContexts {
 
             ProjectContext(
                 tags = tags.map { it as String }.toSet(),
-                instructions = document.body.trimEnd(),
+                instructions = templates.render(document.body, file.toString()).trimEnd(),
             )
         } catch (error: IllegalArgumentException) {
             throw ProjectConfigurationException(
