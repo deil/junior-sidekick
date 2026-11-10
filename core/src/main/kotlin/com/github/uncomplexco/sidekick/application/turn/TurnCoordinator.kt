@@ -5,6 +5,7 @@ import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
 import com.github.uncomplexco.sidekick.application.agent.skills.detectUserSkillInvocation
+import com.github.uncomplexco.sidekick.application.chat.ChannelVisibility
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.IncomingBatch
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
@@ -20,6 +21,8 @@ import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
+import com.github.uncomplexco.sidekick.application.core.ProjectType
+import com.github.uncomplexco.sidekick.application.core.Projects
 import com.github.uncomplexco.sidekick.application.core.UsersService
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.stats.TurnStats
@@ -37,6 +40,7 @@ class TurnCoordinator(
     private val agent: AgentTurnExecutor,
     private val skills: SkillsCatalog,
     private val users: UsersService,
+    private val projects: Projects,
 ) {
     suspend fun run(trigger: TurnTrigger, inbox: SteeringInbox? = null) {
         try {
@@ -68,6 +72,19 @@ class TurnCoordinator(
                 }
 
                 is TurnAdmissionDecision.Admitted -> {
+                    val channelId = decision.conversationId.channelId
+                    if (!projects.exists(channelId)) {
+                        val visibility = chat.loadChannelVisibility(channelId)
+                        val projectType =
+                            when (visibility) {
+                                ChannelVisibility.PUBLIC -> ProjectType.PUBLIC
+                                ChannelVisibility.PRIVATE -> ProjectType.PRIVATE
+                                ChannelVisibility.DIRECT_MESSAGE -> ProjectType.DM
+                                null -> null
+                            }
+                        projects.register(channelId, projectType)
+                    }
+
                     users.record(batch.messages, chat)
                     chat.lifecycle.begin()
                     if (processIncoming(batch.messages, decision, chat, inbox)) {

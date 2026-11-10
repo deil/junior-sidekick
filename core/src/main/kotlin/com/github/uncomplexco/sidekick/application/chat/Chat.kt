@@ -14,6 +14,8 @@ interface ChatPlatformAdapter {
 
     suspend fun loadUserDetails(chatId: String): ChatUserDetails? = null
 
+    suspend fun loadChannelVisibility(channelId: String): ChannelVisibility? = null
+
     suspend fun ingestFiles(
         conversationId: ConversationId,
         files: List<IncomingChatFile>,
@@ -21,6 +23,12 @@ interface ChatPlatformAdapter {
 }
 
 data class ChatUserDetails(val name: String, val email: String)
+
+enum class ChannelVisibility {
+    PUBLIC,
+    PRIVATE,
+    DIRECT_MESSAGE,
+}
 
 interface SlackBackedChatPlatformAdapter : ChatPlatformAdapter
 

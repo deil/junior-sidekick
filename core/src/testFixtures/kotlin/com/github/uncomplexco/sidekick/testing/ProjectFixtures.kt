@@ -19,3 +19,6 @@ class NoOpProjectsRepository : ProjectsRepository {
 
 fun virtualPathsFactory(config: AgentConfig, platform: ChatPlatform): VirtualPathsFactory =
     VirtualPathsFactory(config, platform, Projects(NoOpProjectsRepository(), config, platform))
+
+fun projectsService(config: AgentConfig, platform: ChatPlatform = ChatPlatform.SLACK): Projects =
+    Projects(NoOpProjectsRepository(), config, platform)

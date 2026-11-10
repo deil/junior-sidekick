@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.core
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
+import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
 import com.github.uncomplexco.sidekick.ports.ProjectsRepository
 import java.nio.file.Files
 import java.nio.file.LinkOption.NOFOLLOW_LINKS
@@ -49,6 +50,27 @@ class Projects(
     fun register(uid: String, channelId: String) {
         if (projects.addIfAbsent(project(uid, channelId, Instant.now()))) {
             log.info("Registered project {} for {} channel {}", uid, platform, channelId)
+        }
+    }
+
+    fun exists(channelId: String): Boolean =
+        projects.findByUid(sanitizePathSegment(channelId)) != null
+
+    fun register(channelId: String, type: ProjectType?) {
+        val uid = sanitizePathSegment(channelId)
+        if (projects.findByUid(uid) != null) return
+
+        val defaults = project(uid, channelId, Instant.now())
+        val project = defaults.copy(type = type ?: defaults.type)
+
+        if (projects.addIfAbsent(project)) {
+            log.info(
+                "Registered project {} for {} channel {} type={}",
+                uid,
+                platform,
+                channelId,
+                project.type,
+            )
         }
     }
 

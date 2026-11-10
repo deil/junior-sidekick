@@ -24,8 +24,9 @@ import com.github.uncomplexco.sidekick.application.turn.TurnAdmission
 import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
 import com.github.uncomplexco.sidekick.application.turn.TurnParticipation
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
-import com.github.uncomplexco.sidekick.testing.usersService
 import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
+import com.github.uncomplexco.sidekick.testing.projectsService
+import com.github.uncomplexco.sidekick.testing.usersService
 import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
 import com.slack.api.app_backend.events.payload.AgentSessionStoppedPayload
@@ -246,6 +247,7 @@ class SlackActivityTest {
                 },
                 StubSkillsCatalog(),
                 usersService(),
+                projectsService(config),
             )
         private val queue = IncomingMessageQueue(scope, coordinator)
         private val incoming = ReceiveChatMessageUsecase(queue, coordinator)

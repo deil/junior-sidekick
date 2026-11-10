@@ -33,8 +33,9 @@ import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.stats.AgentStats
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.stats.TurnStats
-import com.github.uncomplexco.sidekick.testing.usersService
 import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
+import com.github.uncomplexco.sidekick.testing.projectsService
+import com.github.uncomplexco.sidekick.testing.usersService
 import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import java.nio.file.Files
 import java.nio.file.Path
@@ -107,6 +108,7 @@ class TurnCoordinatorTest {
                     },
                     StubSkillsCatalog(),
                     usersService(),
+                    projectsService(config),
                 )
             val chat = chat(replies, lifecycle, ingestedFiles = ingested)
 
@@ -144,6 +146,7 @@ class TurnCoordinatorTest {
                     },
                     StubSkillsCatalog(),
                     usersService(),
+                    projectsService(config),
                 )
             val chat = chat(replies, mutableListOf())
             coordinator.runIncoming(ChatConversationId("C123", "thread"), incoming(1), chat)
@@ -196,6 +199,7 @@ class TurnCoordinatorTest {
                         },
                         StubSkillsCatalog(),
                         usersService(),
+                        projectsService(config),
                     )
 
                 coordinator.run(
@@ -241,6 +245,7 @@ class TurnCoordinatorTest {
                             },
                             StubSkillsCatalog(),
                             usersService(),
+                            projectsService(config),
                         )
                     val execution = async {
                         coordinator.runIncoming(
@@ -296,6 +301,7 @@ class TurnCoordinatorTest {
                     },
                     StubSkillsCatalog(),
                     usersService(),
+                    projectsService(config),
                 )
 
             // Act
@@ -328,6 +334,7 @@ class TurnCoordinatorTest {
                         AgentTurnExecutor { _, _, _ -> successfulResult() },
                         StubSkillsCatalog(),
                         usersService(),
+                        projectsService(config),
                     )
                 val inbox =
                     object : SteeringInbox {
@@ -409,6 +416,7 @@ class TurnCoordinatorTest {
                         },
                         StubSkillsCatalog(reviewSkills()),
                         usersService(),
+                        projectsService(config),
                     )
                 val chat =
                     chat(
@@ -470,6 +478,7 @@ class TurnCoordinatorTest {
                         },
                         StubSkillsCatalog(),
                         usersService(),
+                        projectsService(config),
                     )
 
                 // Act
@@ -524,6 +533,7 @@ class TurnCoordinatorTest {
                         },
                         StubSkillsCatalog(),
                         usersService(),
+                        projectsService(config),
                     )
 
                 // Act
@@ -669,6 +679,7 @@ class TurnCoordinatorTest {
                     },
                     StubSkillsCatalog(),
                     usersService(),
+                    projectsService(config),
                 )
             val messages =
                 (1..2).map { index ->
@@ -725,6 +736,7 @@ class TurnCoordinatorTest {
                         },
                         StubSkillsCatalog(),
                         usersService(),
+                        projectsService(config),
                     )
                 val messages =
                     (1..2).map { index ->
@@ -794,6 +806,7 @@ class TurnCoordinatorTest {
                     },
                     StubSkillsCatalog(),
                     usersService(),
+                    projectsService(config),
                 )
             val mention = incoming(if (unsubscribeLast) 1 else 2)
             val unsubscribe =
@@ -869,7 +882,8 @@ class TurnCoordinatorTest {
                         participation(config),
                         AgentTurnExecutor { _, _, _ -> error("Skipped batch must not execute") },
                         StubSkillsCatalog(),
-                    usersService(),
+                        usersService(),
+                        projectsService(config),
                     )
 
                 // Act
@@ -928,6 +942,7 @@ class TurnCoordinatorTest {
                             },
                             StubSkillsCatalog(),
                             usersService(),
+                            projectsService(config),
                         )
                     SidekickCoroutineScope().use { scope ->
                         val queue = IncomingMessageQueue(scope, coordinator)
@@ -993,6 +1008,7 @@ class TurnCoordinatorTest {
                             },
                             StubSkillsCatalog(),
                             usersService(),
+                            projectsService(config),
                         )
                     val chat =
                         chat(
@@ -1072,6 +1088,7 @@ class TurnCoordinatorTest {
                     },
                 skills = StubSkillsCatalog(),
                 users = usersService(),
+                projects = projectsService(config),
             )
         val job = ScheduledJob(32, "report", null, "0 9 * * *", "UTC", "Run the report")
         val first = ConversationId("C123", "scheduled_32_first")
@@ -1131,6 +1148,7 @@ class TurnCoordinatorTest {
                     },
                 skills = StubSkillsCatalog(),
                 users = usersService(),
+                projects = projectsService(config),
             )
         val chat = chat(replies, lifecycle, statusLines)
         val message =
@@ -1193,6 +1211,7 @@ class TurnCoordinatorTest {
                     },
                 skills = StubSkillsCatalog(),
                 users = usersService(),
+                projects = projectsService(config),
             )
         val chat =
             object : ChatPlatformAdapter {
@@ -1280,6 +1299,7 @@ class TurnCoordinatorTest {
                 agent = AgentTurnExecutor { _, _, _ -> error("agent should not run") },
                 skills = StubSkillsCatalog(),
                 users = usersService(),
+                projects = projectsService(config),
             )
         val message =
             IncomingMessage(
@@ -1317,6 +1337,7 @@ class TurnCoordinatorTest {
                 agent = AgentTurnExecutor { _, _, _ -> error("agent should not run") },
                 skills = StubSkillsCatalog(),
                 users = usersService(),
+                projects = projectsService(config),
             )
         val message =
             IncomingMessage(

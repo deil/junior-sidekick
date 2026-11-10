@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.adapters.chat.ChatUiRenderer
 import com.github.uncomplexco.sidekick.adapters.statusLine
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
+import com.github.uncomplexco.sidekick.application.chat.ChannelVisibility
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatThreadId
 import com.github.uncomplexco.sidekick.application.chat.ChatUserDetails
@@ -69,6 +70,9 @@ class SlackChatPlatformAdapter(
 
     override suspend fun loadUserDetails(chatId: String): ChatUserDetails? =
         loadSlackUserDetails(ctx.client(), chatId)
+
+    override suspend fun loadChannelVisibility(channelId: String): ChannelVisibility? =
+        loadSlackChannelVisibility(ctx.client(), channelId)
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,

@@ -32,8 +32,9 @@ import com.github.uncomplexco.sidekick.application.turn.TurnAdmission
 import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
 import com.github.uncomplexco.sidekick.application.turn.TurnParticipation
 import com.github.uncomplexco.sidekick.application.utils.ImageSummarizer
-import com.github.uncomplexco.sidekick.testing.usersService
 import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
+import com.github.uncomplexco.sidekick.testing.projectsService
+import com.github.uncomplexco.sidekick.testing.usersService
 import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import com.github.uncomplexco.sidekick.usecases.ReceiveChatMessageUsecase
 import java.nio.file.Files
@@ -573,6 +574,7 @@ class DiscordAdapterTest {
                         },
                     skills = StubSkillsCatalog(),
                     users = usersService(),
+                    projects = projectsService(config, ChatPlatform.DISCORD),
                 )
             val scope = SidekickCoroutineScope()
             val usecase =
@@ -645,6 +647,7 @@ class DiscordAdapterTest {
                         },
                     skills = StubSkillsCatalog(),
                     users = usersService(),
+                    projects = projectsService(config, ChatPlatform.DISCORD),
                 )
             val scope = SidekickCoroutineScope()
             val usecase =

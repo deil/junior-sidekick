@@ -11,7 +11,7 @@ import com.github.uncomplexco.sidekick.application.chat.SteeringInbox
 import com.github.uncomplexco.sidekick.application.chat.SteeringInput
 import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.turn.TurnTrigger
-import com.github.uncomplexco.sidekick.testing.UserDetailsChat
+import com.github.uncomplexco.sidekick.testing.StubChatAdapter
 import com.github.uncomplexco.sidekick.testing.sqliteUsersRepository
 import com.github.uncomplexco.sidekick.testing.userInteractionCoordinator
 import java.nio.file.Path
@@ -50,7 +50,7 @@ class ChatUserAdmissionTest {
             type,
         )
 
-    private fun trigger(chat: UserDetailsChat, message: IncomingMessage = message()) =
+    private fun trigger(chat: StubChatAdapter, message: IncomingMessage = message()) =
         TurnTrigger.Incoming(IncomingBatch(ChatConversationId("C123"), listOf(message)), chat)
 
     @Test
@@ -59,7 +59,7 @@ class ChatUserAdmissionTest {
         val config = config()
         val users = sqliteUsersRepository(config)
         val coordinator = userInteractionCoordinator(config, users, clock)
-        val chat = UserDetailsChat(mapOf("U123" to ChatUserDetails("Ada", "ada@example.com")))
+        val chat = StubChatAdapter(mapOf("U123" to ChatUserDetails("Ada", "ada@example.com")))
 
         // Act
         coordinator.run(trigger(chat))
@@ -83,7 +83,7 @@ class ChatUserAdmissionTest {
         val config = config()
         val users = sqliteUsersRepository(config)
         val coordinator = userInteractionCoordinator(config, users, clock)
-        val chat = UserDetailsChat(mapOf("U123" to ChatUserDetails("Ada", "ada@example.com")))
+        val chat = StubChatAdapter(mapOf("U123" to ChatUserDetails("Ada", "ada@example.com")))
 
         // Act
         coordinator.run(trigger(chat, message(type = IncomingMessageType.PASSIVE_MESSAGE)))
@@ -111,7 +111,7 @@ class ChatUserAdmissionTest {
         )
         val original = users.findByChatId("U123")
         val coordinator = userInteractionCoordinator(config, users, clock)
-        val chat = UserDetailsChat()
+        val chat = StubChatAdapter()
 
         // Act
         coordinator.run(trigger(chat))
@@ -136,7 +136,7 @@ class ChatUserAdmissionTest {
         )
         val original = users.findAllByIdpId("google-ada").single()
         val coordinator = userInteractionCoordinator(config, users, clock)
-        val chat = UserDetailsChat(mapOf("U123" to ChatUserDetails("Slack Ada", "ada@example.com")))
+        val chat = StubChatAdapter(mapOf("U123" to ChatUserDetails("Slack Ada", "ada@example.com")))
 
         // Act
         coordinator.run(trigger(chat))
@@ -155,7 +155,7 @@ class ChatUserAdmissionTest {
         val config = config()
         val users = sqliteUsersRepository(config)
         val coordinator = userInteractionCoordinator(config, users, clock)
-        val chat = UserDetailsChat()
+        val chat = StubChatAdapter()
 
         // Act
         coordinator.run(trigger(chat))
@@ -176,7 +176,7 @@ class ChatUserAdmissionTest {
                 steering.drain()
             }
         val chat =
-            UserDetailsChat(
+            StubChatAdapter(
                 mapOf(
                     "U123" to ChatUserDetails("Ada", "ada@example.com"),
                     "U456" to ChatUserDetails("Grace", "grace@example.com"),
@@ -204,7 +204,7 @@ class ChatUserAdmissionTest {
         val users = sqliteUsersRepository(config)
         val coordinator = userInteractionCoordinator(config, users, clock)
         val chat =
-            UserDetailsChat(
+            StubChatAdapter(
                 mapOf(
                     "U123" to ChatUserDetails("Ada", "ada@example.com"),
                     "U456" to ChatUserDetails("Grace", "grace@example.com"),
