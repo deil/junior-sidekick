@@ -5,7 +5,10 @@ import java.net.InetSocketAddress
 import java.util.concurrent.CopyOnWriteArrayList
 
 /** Local HTTP edge for exercising the real OpenRouter client and response parser. */
-class QueuedOpenRouterServer(vararg responses: Response) : AutoCloseable {
+class QueuedOpenRouterServer(
+    vararg responses: Response,
+    path: String = "/api/v1/chat/completions",
+) : AutoCloseable {
     data class Response(val body: String, val status: Int = 200)
 
     private val responses = ArrayDeque(responses.toList())
@@ -15,7 +18,7 @@ class QueuedOpenRouterServer(vararg responses: Response) : AutoCloseable {
         get() = "http://127.0.0.1:${server.address.port}"
 
     init {
-        server.createContext("/api/v1/chat/completions") { exchange ->
+        server.createContext(path) { exchange ->
             exchange.use {
                 requests += it.requestBody.bufferedReader().use { reader -> reader.readText() }
                 val response = this.responses.removeFirst()

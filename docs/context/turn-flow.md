@@ -75,7 +75,7 @@ Turn processing
    +-- TurnParticipation
   |     |
   |     | deterministic participation decision
-  |     | LlmParticipationClassifier for ambiguous passive turns
+   |     | selected ParticipationClassifier for ambiguous passive turns
   |     v
   |   TurnParticipationDecision
   |
@@ -172,7 +172,11 @@ The latest unsubscribe request or explicit mention determines subscription and r
 
 Private assistant messages do not require prior assistant history. They are allowed to proceed even when the session has no assistant messages yet.
 
-Any deterministic `Respond` makes the batch respond; all deterministic skips make it skip. Otherwise, `LlmParticipationClassifier` receives every batch message and author with shared prior history, and makes one model call.
+Any deterministic `Respond` makes the batch respond; all deterministic skips make it skip. Otherwise, `ParticipationClassifier` receives every batch message and author with shared prior history, and makes one model call.
+
+Based on `agent.participation.provider`, Sidekick picks up one of the following:
+- `LlmParticipationClassifier`: `llm` (default).
+- `JevParticipationClassifier`: `jev`.
 
 ### Agent turn
 

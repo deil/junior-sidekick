@@ -14,6 +14,7 @@ dependencies {
     api(libs.slack.api.client)
 
     compileOnly(libs.spring.boot)
+    compileOnly(libs.spring.boot.autoconfigure)
     compileOnly(libs.spring.context)
     compileOnly(libs.spring.web)
     implementation(libs.kotlin.reflect)

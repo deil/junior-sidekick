@@ -13,10 +13,12 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.utils.escapeXml
 import com.github.uncomplexco.sidekick.application.utils.xmlTag
+import com.github.uncomplexco.sidekick.ports.ParticipationClassifier
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 
 data class ParticipationClassifierMessage(
@@ -77,7 +79,7 @@ data class TurnParticipationInput(
 class TurnParticipation(
     private val agentConfig: AgentConfig,
     private val deterministicClassifier: DeterministicParticipationClassifier,
-    private val llmClassifier: LlmParticipationClassifier,
+    private val modelClassifier: ParticipationClassifier,
 ) {
     suspend fun decide(input: TurnParticipationInput): TurnParticipationDecision {
         val turn = input.turn
@@ -108,7 +110,7 @@ class TurnParticipation(
             )
 
         return deterministicClassifier.classify(classifierInput)
-            ?: llmClassifier.classify(classifierInput)
+            ?: modelClassifier.classify(classifierInput)
     }
 }
 
@@ -199,8 +201,14 @@ class DeterministicParticipationClassifier {
 }
 
 @Component
-class LlmParticipationClassifier(private val config: KoogConfig) {
-    suspend fun classify(input: ParticipationClassifierInput): TurnParticipationDecision {
+@ConditionalOnProperty(
+    prefix = "agent.participation",
+    name = ["provider"],
+    havingValue = "llm",
+    matchIfMissing = true,
+)
+class LlmParticipationClassifier(private val config: KoogConfig) : ParticipationClassifier {
+    override suspend fun classify(input: ParticipationClassifierInput): TurnParticipationDecision {
         return runCatching {
                 val historyText =
                     if (input.messageHistory.isEmpty()) {
