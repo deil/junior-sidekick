@@ -3,18 +3,15 @@ package com.github.uncomplexco.sidekick.ports.sandbox
 import java.nio.file.Path
 
 fun interface SandboxExecutor {
-    val usesProjectHome: Boolean
-        get() = false
-
-    fun execute(command: Command): ExecutionResult
+    fun execute(projectId: String, command: Command): ExecutionResult
 }
 
 data class Command(
     val command: String,
-    val workdir: String,
+    val workdir: String?,
     val timeoutSeconds: Long,
     val networkEnabled: Boolean,
-    val mounts: List<SandboxMount>,
+    val mounts: List<SandboxMount> = emptyList(),
 )
 
 data class SandboxMount(

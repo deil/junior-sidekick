@@ -19,6 +19,85 @@ class HelperProjectExecuteRouteTest {
     @TempDir lateinit var temp: Path
 
     @Test
+    fun `v2 returns workdir diagnostics as a failed execution with HTTP 200`() = testApplication {
+        // Arrange
+        val helper = StubProjectHelper(temp)
+        application {
+            sandboxServiceModule(
+                SandboxServiceConfig(
+                    token = "test-token",
+                    rootfs = temp,
+                    allowedSourcePrefixes = emptyList(),
+                ),
+                projectExecutor = helper.executor(),
+            )
+        }
+
+        // Act
+        val response =
+            client.post("/api/v2/execute") {
+                header(HttpHeaders.Authorization, "Bearer test-token")
+                contentType(ContentType.Application.Json)
+                setBody(
+                    """{"projectId":"C123","command":"stub:missing-workdir","workdir":"/data/project","timeoutSeconds":5}"""
+                )
+            }
+
+        // Assert
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(
+            ExecuteResponse(
+                false,
+                null,
+                false,
+                false,
+                "Sandbox helper failed during bash (exit 1): ENOENT: no such file or directory, chdir '/data/project'",
+                "/data/project",
+            ),
+            Json.decodeFromString<ExecuteResponse>(response.bodyAsText()),
+        )
+    }
+
+    @Test
+    fun `v2 returns sudo diagnostics as a failed execution with HTTP 200`() = testApplication {
+        // Arrange
+        val helper = StubProjectHelper(temp)
+        helper.failSudo()
+        application {
+            sandboxServiceModule(
+                SandboxServiceConfig(
+                    token = "test-token",
+                    rootfs = temp,
+                    allowedSourcePrefixes = emptyList(),
+                ),
+                projectExecutor = helper.executor(),
+            )
+        }
+
+        // Act
+        val response =
+            client.post("/api/v2/execute") {
+                header(HttpHeaders.Authorization, "Bearer test-token")
+                contentType(ContentType.Application.Json)
+                setBody("""{"projectId":"C123","command":"stub:success","timeoutSeconds":5}""")
+            }
+
+        // Assert
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(
+            ExecuteResponse(
+                false,
+                null,
+                false,
+                false,
+                "Sandbox helper failed during user:ensure (exit 1): sudo: a password is required",
+                "",
+            ),
+            Json.decodeFromString<ExecuteResponse>(response.bodyAsText()),
+        )
+    }
+
+    @Test
     fun `v2 returns stub helper output without executing the requested command`() =
         testApplication {
             // Arrange

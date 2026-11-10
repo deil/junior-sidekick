@@ -2,7 +2,9 @@ package com.github.uncomplexco.sidekick.sandbox.service
 
 import java.nio.file.Path
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -47,15 +49,63 @@ class HelperProjectCommandExecutorTest {
     }
 
     @Test
-    fun `helper failure is not reported as a command result`() {
+    fun `helper failure returns failed execution with diagnostic output`() {
         // Arrange
         val helper = StubProjectHelper(temp)
         helper.failEnsure()
         val executor = helper.executor()
 
-        // Act / Assert
-        assertFailsWith<IllegalStateException> {
+        // Act
+        val response =
             executor.execute(ProjectExecuteRequest("C123", "stub:success", timeoutSeconds = 5))
-        }
+
+        // Assert
+        assertEquals(
+            ExecuteResponse(
+                false,
+                null,
+                false,
+                false,
+                "Sandbox helper failed during user:ensure (exit 1): stub provisioning failure",
+                "",
+            ),
+            response,
+        )
+    }
+
+    @Test
+    fun `helper diagnostic output respects the response byte cap`() {
+        // Arrange
+        val helper = StubProjectHelper(temp)
+        helper.failEnsure()
+        val executor =
+            HelperProjectCommandExecutor(helper.helper.toString(), helper.sudo.toString(), 7)
+
+        // Act
+        val response =
+            executor.execute(ProjectExecuteRequest("C123", "stub:success", timeoutSeconds = 5))
+
+        // Assert
+        assertEquals(ExecuteResponse(false, null, false, true, "Sandbox", ""), response)
+    }
+
+    @Test
+    fun `helper startup failure returns failed execution with diagnostic output`() {
+        // Arrange
+        val executor =
+            HelperProjectCommandExecutor(
+                "/unused/helper",
+                temp.resolve("missing-sudo").toString(),
+                1234,
+            )
+
+        // Act
+        val response =
+            executor.execute(ProjectExecuteRequest("C123", "stub:success", timeoutSeconds = 5))
+
+        // Assert
+        assertFalse(response.ok)
+        assertNull(response.exitCode)
+        assertTrue(response.output.startsWith("Cannot start sandbox helper during user:ensure:"))
     }
 }

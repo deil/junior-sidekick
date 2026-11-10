@@ -6,17 +6,15 @@ import org.junit.jupiter.api.Test
 
 class SandboxExecutorFactoryTest {
     @Test
-    fun `http-v2 requires project context`() {
+    fun `create rejects unsupported provider`() {
         // Arrange
         val config =
             SandboxExecutorConfig().apply {
-                provider = "http-v2"
-                http.baseUrl = "http://localhost:7171"
-                http.token = "secret"
+                provider = "unsupported"
             }
 
         // Act / Assert
-        assertFailsWith<IllegalArgumentException> { SandboxExecutorFactory(config).create() }
+        assertFailsWith<IllegalStateException> { SandboxExecutorFactory(config).create() }
     }
 
     @Test

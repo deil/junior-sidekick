@@ -23,6 +23,63 @@ import org.junit.jupiter.api.Test
 
 class HttpSandboxExecutorTest {
     @Test
+    fun `v2 returns setup diagnostics from failed execution responses`() {
+        // Arrange
+        val server =
+            testServer("/api/v2/execute") { exchange ->
+                exchange.respond(
+                    200,
+                    """{"ok":false,"exitCode":null,"timedOut":false,"outputTruncated":false,"output":"ENOENT: no such file or directory, chdir '/data/project'","workdir":"/data/project"}""",
+                )
+            }
+        server.use {
+            val executor = HttpSandboxExecutor(server.baseUrl(), "secret", apiVersion = 2)
+
+            // Act
+            val response =
+                executor.execute("C123", Command("stub command", "/data/project", 5, false))
+
+            // Assert
+            assertEquals(false, response.ok)
+            assertEquals(null, response.exitCode)
+            assertEquals(
+                "ENOENT: no such file or directory, chdir '/data/project'",
+                response.output,
+            )
+        }
+    }
+
+    @Test
+    fun `v2 uses the project ID supplied to each execution`() {
+        // Arrange
+        val captured = mutableListOf<CapturedRequest>()
+        val server =
+            testServer("/api/v2/execute") { exchange ->
+                captured.add(exchange.capture())
+                exchange.respond(
+                    200,
+                    """{"ok":true,"exitCode":0,"timedOut":false,"outputTruncated":false,"output":"stub output","workdir":"/home/stub"}""",
+                )
+            }
+        server.use {
+            val executor = HttpSandboxExecutor(server.baseUrl(), "secret", apiVersion = 2)
+            val command = Command("stub command", null, 5, false)
+
+            // Act
+            executor.execute("C123", command)
+            executor.execute("C456", command)
+
+            // Assert
+            assertEquals(
+                listOf("C123", "C456"),
+                captured.map {
+                    Json.parseToJsonElement(it.body).jsonObject["projectId"]?.jsonPrimitive?.content
+                },
+            )
+        }
+    }
+
+    @Test
     fun `http-v2 provider executes in project home without preparing local mounts`() {
         // Arrange
         val local = Files.createTempDirectory("project-http-sandbox-test")
@@ -55,7 +112,7 @@ class HttpSandboxExecutorTest {
                     enabled = true
                     networkEnabled = true
                 }
-            val tools = BashTools(toolConfig, paths, SandboxExecutorFactory(config).create("C123"))
+            val tools = BashTools(toolConfig, "C123", SandboxExecutorFactory(config).create(paths))
 
             // Act
             val result = tools.bash("stub command", "test request")
@@ -78,7 +135,7 @@ class HttpSandboxExecutorTest {
     }
 
     @Test
-    fun `v2 preserves explicit root workdir and timeout response`() {
+    fun `v2 preserves explicit dot workdir and timeout response`() {
         // Arrange
         lateinit var captured: CapturedRequest
         val server =
@@ -90,10 +147,11 @@ class HttpSandboxExecutorTest {
                 )
             }
         server.use {
-            val executor = HttpSandboxExecutor(server.baseUrl(), "secret", projectId = "C456")
+            val executor = HttpSandboxExecutor(server.baseUrl(), "secret", apiVersion = 2)
 
             // Act
-            val result = executor.execute(Command("stub timeout", "/", 5, false, emptyList()))
+            val result =
+                executor.execute("C456", Command("stub timeout", ".", 5, false, emptyList()))
 
             // Assert
             assertEquals(false, result.ok)
@@ -102,7 +160,35 @@ class HttpSandboxExecutorTest {
             assertEquals("stub timeout", result.output)
             assertEquals(
                 Json.parseToJsonElement(
-                    """{"projectId":"C456","command":"stub timeout","workdir":"/","timeoutSeconds":5}"""
+                    """{"projectId":"C456","command":"stub timeout","workdir":".","timeoutSeconds":5}"""
+                ),
+                Json.parseToJsonElement(captured.body),
+            )
+        }
+    }
+
+    @Test
+    fun `legacy client omits unspecified workdir for service to default`() {
+        // Arrange
+        lateinit var captured: CapturedRequest
+        val server = testServer { exchange ->
+            captured = exchange.capture()
+            exchange.respond(
+                200,
+                """{"ok":true,"exitCode":0,"timedOut":false,"outputTruncated":false,"output":"stub output","workdir":"/"}""",
+            )
+        }
+        server.use {
+            val executor = HttpSandboxExecutor(server.baseUrl(), "secret")
+
+            // Act
+            val result = executor.execute("C123", Command("stub command", null, 5, false))
+
+            // Assert
+            assertEquals("/", result.workdir)
+            assertEquals(
+                Json.parseToJsonElement(
+                    """{"command":"stub command","timeoutSeconds":5,"networkEnabled":false,"mounts":[]}"""
                 ),
                 Json.parseToJsonElement(captured.body),
             )
@@ -137,18 +223,19 @@ class HttpSandboxExecutorTest {
                     http.baseUrl = server.baseUrl()
                     http.token = "secret"
                 }
-            val executor = SandboxExecutorFactory(config).create("C123")
+            val executor = SandboxExecutorFactory(config).create()
 
             // Act
             val result =
                 executor.execute(
+                    "C123",
                     Command(
                         command = "pwd",
                         workdir = "/tmp",
                         timeoutSeconds = 7,
                         networkEnabled = true,
                         mounts = listOf(SandboxMount(scratch, "/work", SandboxMountMode.RW)),
-                    )
+                    ),
                 )
 
             // Assert
@@ -188,13 +275,14 @@ class HttpSandboxExecutorTest {
             val error =
                 assertFailsWith<IllegalStateException> {
                     executor.execute(
+                        "C123",
                         Command(
                             command = "pwd",
                             workdir = "/",
                             timeoutSeconds = 7,
                             networkEnabled = false,
                             mounts = emptyList(),
-                        )
+                        ),
                     )
                 }
             assertEquals(

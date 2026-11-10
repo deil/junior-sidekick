@@ -76,10 +76,8 @@ class DefaultAgentToolCatalog(
                 if (bashToolConfig.enabled) {
                     BashTools(
                             bashToolConfig,
-                            it.turn.conversation.virtualPaths,
-                            sandboxExecutorFactory.create(
-                                it.turn.conversation.conversationId.channelId
-                            ),
+                            it.turn.conversation.conversationId.channelId,
+                            sandboxExecutorFactory.create(it.turn.conversation.virtualPaths),
                         )
                         .asTools()
                 } else emptyList()

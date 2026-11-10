@@ -24,6 +24,10 @@ class StubProjectHelper(private val directory: Path) {
         Files.createFile(directory.resolve("fail-ensure"))
     }
 
+    fun failSudo() {
+        Files.createFile(directory.resolve("fail-sudo"))
+    }
+
     fun invocations(): List<String> = Files.readAllLines(directory.resolve("invocations.jsonl"))
 
     private fun install(name: String): Path {

@@ -11,12 +11,12 @@ import com.github.uncomplexco.sidekick.sandbox.bwrap.BwrapSandbox
 import com.github.uncomplexco.sidekick.sandbox.bwrap.BwrapSandboxRequest
 
 class BwrapSandboxExecutor(private val bwrap: BwrapSandbox) : SandboxExecutor {
-    override fun execute(command: Command): ExecutionResult {
+    override fun execute(projectId: String, command: Command): ExecutionResult {
         val result =
             bwrap.execute(
                 BwrapSandboxRequest(
                     command = command.command,
-                    workdir = command.workdir,
+                    workdir = command.workdir ?: "/",
                     timeoutSeconds = command.timeoutSeconds,
                     networkEnabled = command.networkEnabled,
                     mounts = command.mounts.map { it.toBwrapMount() },

@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.sandbox
 
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutor
 import com.github.uncomplexco.sidekick.sandbox.bwrap.BwrapSandbox
 import com.github.uncomplexco.sidekick.sandbox.bwrap.BwrapSandboxConfig
@@ -9,20 +10,22 @@ import org.springframework.stereotype.Component
 
 @Component
 class SandboxExecutorFactory(private val config: SandboxExecutorConfig) {
-    fun create(projectId: String? = null): SandboxExecutor =
+    fun create(virtualPaths: VirtualPaths? = null): SandboxExecutor =
         when (config.provider.trim().lowercase()) {
-            "bwrap" -> bwrapExecutor()
-            "http" -> httpExecutor()
-            "http-v2" -> {
-                require(!projectId.isNullOrBlank()) {
-                    "Project ID is required for bash provider http-v2"
-                }
-                httpExecutor(projectId)
-            }
+            "bwrap" -> withWorkspace(bwrapExecutor(), virtualPaths)
+            "http" -> withWorkspace(httpExecutor(), virtualPaths)
+            "http-v2" -> httpExecutor(apiVersion = 2)
             else -> error("Unsupported bash sandbox provider: ${config.provider}")
         }
 
-    private fun httpExecutor(projectId: String? = null): SandboxExecutor {
+    private fun withWorkspace(
+        executor: SandboxExecutor,
+        virtualPaths: VirtualPaths?,
+    ): SandboxExecutor =
+        if (virtualPaths == null) executor
+        else WorkspaceSandboxExecutor(virtualPaths, config.scratchGid, executor)
+
+    private fun httpExecutor(apiVersion: Int = 1): SandboxExecutor {
         val http = config.http
         if (http.baseUrl.isBlank()) {
             error("Bash sandbox HTTP base URL is not configured")
@@ -33,7 +36,7 @@ class SandboxExecutorFactory(private val config: SandboxExecutorConfig) {
         return HttpSandboxExecutor(
             baseUrl = http.baseUrl,
             token = http.token,
-            projectId = projectId,
+            apiVersion = apiVersion,
         )
     }
 
@@ -60,6 +63,7 @@ class SandboxExecutorFactory(private val config: SandboxExecutorConfig) {
 @ConfigurationProperties(prefix = "agent.tools.bash")
 class SandboxExecutorConfig {
     var provider: String = "http"
+    var scratchGid: Int? = null
     var http: HttpProviderConfig = HttpProviderConfig()
     var bwrap: BwrapProviderConfig = BwrapProviderConfig()
 }

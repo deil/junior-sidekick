@@ -22,15 +22,12 @@ class HttpSandboxExecutor(
     private val token: String,
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = false },
-    private val projectId: String? = null,
+    private val apiVersion: Int = 1,
 ) : SandboxExecutor {
     private val logger = LoggerFactory.getLogger(HttpSandboxExecutor::class.java)
 
-    override val usesProjectHome: Boolean
-        get() = projectId != null
-
-    override fun execute(command: Command): ExecutionResult {
-        if (usesProjectHome) {
+    override fun execute(projectId: String, command: Command): ExecutionResult {
+        if (apiVersion == 2) {
             logger.info(
                 "Sending project sandbox HTTP command: projectId={} workdir={} timeoutSeconds={}",
                 projectId,
@@ -49,7 +46,7 @@ class HttpSandboxExecutor(
             )
         }
         val response =
-            httpClient.send(command.toHttpRequest(), HttpResponse.BodyHandlers.ofString())
+            httpClient.send(command.toHttpRequest(projectId), HttpResponse.BodyHandlers.ofString())
         if (response.statusCode() !in 200..299) {
             throw IllegalStateException(
                 "Bash sandbox service returned HTTP ${response.statusCode()}: ${response.body()}"
@@ -67,14 +64,14 @@ class HttpSandboxExecutor(
         )
     }
 
-    private fun Command.toHttpRequest(): HttpRequest {
+    private fun Command.toHttpRequest(projectId: String): HttpRequest {
         val body =
-            if (projectId != null) {
+            if (apiVersion == 2) {
                 json.encodeToString(
                     ProjectExecuteRequest(
                         projectId = projectId,
                         command = command,
-                        workdir = workdir.takeUnless { it == "." },
+                        workdir = workdir,
                         timeoutSeconds = timeoutSeconds,
                     )
                 )
@@ -111,7 +108,7 @@ class HttpSandboxExecutor(
         }
 
     private fun executeUri(): URI {
-        val path = if (usesProjectHome) "/api/v2/execute" else "/api/execute"
+        val path = if (apiVersion == 2) "/api/v2/execute" else "/api/execute"
         return URI.create("${baseUrl.trimEnd('/')}$path")
     }
 }
@@ -127,7 +124,7 @@ private data class ProjectExecuteRequest(
 @Serializable
 private data class ExecuteRequest(
     val command: String,
-    val workdir: String,
+    val workdir: String? = null,
     val timeoutSeconds: Long,
     val networkEnabled: Boolean,
     val mounts: List<MountRequest>,

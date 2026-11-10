@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools.bash
 
 import ai.koog.agents.core.tools.ToolException
+import com.github.uncomplexco.sidekick.adapters.sandbox.WorkspaceSandboxExecutor
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.ExecutionResult
@@ -29,21 +30,26 @@ class BashToolsTest {
                 timeout = 10
             }
         lateinit var captured: Command
+        lateinit var capturedProjectId: String
         val tools =
             BashTools(
                 config,
-                VirtualPaths(sessionRoot, skillsRoot, globalRoot, workRoot, projectRoot),
-            ) { command ->
-                captured = command
-                ExecutionResult(
-                    ok = true,
-                    exitCode = 0,
-                    timedOut = false,
-                    outputTruncated = false,
-                    output = "ok",
-                    workdir = command.workdir,
-                )
-            }
+                "C123",
+                WorkspaceSandboxExecutor(
+                    VirtualPaths(sessionRoot, skillsRoot, globalRoot, workRoot, projectRoot)
+                ) { projectId, command ->
+                    capturedProjectId = projectId
+                    captured = command
+                    ExecutionResult(
+                        ok = true,
+                        exitCode = 0,
+                        timedOut = false,
+                        outputTruncated = false,
+                        output = "ok",
+                        workdir = "tmp",
+                    )
+                },
+            )
 
         // Act
         val result =
@@ -58,6 +64,7 @@ class BashToolsTest {
         assertEquals(true, result.ok)
         assertEquals("ok", result.output)
         assertEquals("pwd", captured.command)
+        assertEquals("C123", capturedProjectId)
         assertEquals("tmp", captured.workdir)
         assertEquals(10, captured.timeoutSeconds)
         assertEquals(true, captured.networkEnabled)
@@ -87,10 +94,9 @@ class BashToolsTest {
     @Test
     fun `bash maps sandbox validation errors to tool validation failures`() {
         // Arrange
-        val scratch = Files.createTempDirectory("bash-tools-test")
         val config = BashToolConfig().apply { enabled = true }
         val tools =
-            BashTools(config, virtualPaths(scratch)) {
+            BashTools(config, "C123") { _, _ ->
                 throw IllegalArgumentException("mount target must be absolute")
             }
 
@@ -114,28 +120,22 @@ class BashToolsTest {
         val config =
             BashToolConfig().apply {
                 enabled = true
-                scratchGid = gid
             }
         val tools =
             BashTools(
                 config,
-                VirtualPaths(
-                    scratch.resolve("session"),
-                    scratch.resolve("skills"),
-                    scratch.resolve("global"),
-                    workRoot,
-                    projectRoot,
-                ),
-            ) { command ->
-                ExecutionResult(
-                    ok = true,
-                    exitCode = 0,
-                    timedOut = false,
-                    outputTruncated = false,
-                    output = "ok",
-                    workdir = command.workdir,
-                )
-            }
+                "C123",
+                WorkspaceSandboxExecutor(virtualPaths(scratch), gid) { _, _ ->
+                    ExecutionResult(
+                        ok = true,
+                        exitCode = 0,
+                        timedOut = false,
+                        outputTruncated = false,
+                        output = "ok",
+                        workdir = "/",
+                    )
+                },
+            )
 
         // Act
         tools.bash(command = "pwd", description = "prints working directory")
