@@ -97,7 +97,8 @@ Sidekick session catalogs belong to the bootstrap user prompt.
 Subagents use the configured normal/default Koog model profile and the global max agent iteration setting. Each execution starts with its own message history; the `prompt` argument supplies the initial user message.
 
 Task receives the global catalog's fixed shared selection. Callers cannot narrow or
-override it. Shared tools include workspace files, configured sandbox/bash, git, web, skills,
+override it. First-level subagents receive `Task`; their children do not. Maximum delegation: Sidekick → subagent → subagent.
+Shared tools include workspace files, configured sandbox/bash, git, web, skills,
 time utilities, stats, platform history/user/channel/file reads, and MCP/extension tools
 classified as shared. Workspace and sandbox operations are not restricted to reads.
 
@@ -105,7 +106,7 @@ classified as shared. Workspace and sandbox operations are not restricted to rea
 list; only Sidekick publishes the list to chat. Delegate calls have no delivery side effects.
 
 Skill catalog reloading, user-facing status, attachments, canvases, reactions, interactive authentication, session
-settings, scheduling, and delegation tools are orchestrator-only. Delegates return results
+settings, and scheduling are orchestrator-only. Delegates return results
 to their caller without independently communicating with the requester.
 
 Each Task has its own execution context and tool instances, using the parent's virtual paths

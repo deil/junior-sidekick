@@ -22,6 +22,7 @@ data class ToolExecutionContext(
     val turn: TurnContext,
     val chat: ChatPlatformAdapter,
     val replyAttachments: ReplyAttachmentCollector,
+    val delegationDepth: Int = 0,
     val onSubagentCompleted: (AgentUsageStats) -> Unit,
 )
 

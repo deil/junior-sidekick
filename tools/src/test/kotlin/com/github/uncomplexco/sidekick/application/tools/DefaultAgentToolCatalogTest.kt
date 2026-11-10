@@ -45,6 +45,7 @@ class DefaultAgentToolCatalogTest {
                 setOf(
                     "Read",
                     "Todo",
+                    "Task",
                     "Glob",
                     "Grep",
                     "bash",
@@ -64,7 +65,6 @@ class DefaultAgentToolCatalogTest {
             val orchestrator =
                 setOf(
                     "reloadSkills",
-                    "Task",
                     "attachFile",
                     "slackCanvasCreate",
                     "slackReactionAdd",
@@ -320,7 +320,31 @@ class DefaultAgentToolCatalogTest {
         assertContains(registries[0].names(), "bash")
         assertContains(registries[0].names(), "Todo")
         assertFalse("assistant_report_status" in registries[0].names())
-        assertFalse("Task" in registries[0].names())
+        assertContains(registries[0].names(), "Task")
+    }
+
+    @Test
+    fun `subagents can delegate but their children cannot delegate further`() = runBlocking {
+        // Arrange
+        val fixture = ToolCatalogFixture(root)
+        val parent = fixture.execution()
+        val task = fixture.catalog.bindOrchestrator(parent).getTool<TaskTool>()
+        task.execute(TaskTool.Args("Inspect repository", "Inspect the project"))
+        val childTools = fixture.runner.registries.single()
+        val childTask = childTools.getTool<TaskTool>()
+
+        // Act
+        val result = childTask.execute(TaskTool.Args("Check tests", "Inspect the tests"))
+
+        // Assert
+        assertEquals("Task completed", result)
+        val grandchildTools = fixture.runner.registries.last()
+        assertEquals(2, fixture.runner.runIds.size)
+        assertFalse("Task" in grandchildTools.names())
+        assertContains(grandchildTools.names(), "Read")
+        assertContains(grandchildTools.names(), "bash")
+        assertFalse("attachFile" in grandchildTools.names())
+        assertNotSame(childTools.getTool("Read"), grandchildTools.getTool("Read"))
     }
 
     private fun ToolRegistry.names(): Set<String> = tools.map { it.name }.toSet()

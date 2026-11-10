@@ -48,6 +48,8 @@ import java.nio.file.Path
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
+private const val MAX_DELEGATION_DEPTH = 2
+
 @Component
 class DefaultAgentToolCatalog(
     sharedContext: SharedContext,
@@ -110,7 +112,10 @@ class DefaultAgentToolCatalog(
             ToolRegistration("mcp-status", ToolAccess.SHARED) {
                 McpStatusTools(it.turn, mcpToolsConfig.servers).asTools()
             },
-            ToolRegistration("task", ToolAccess.ORCHESTRATOR_ONLY) { execution ->
+            ToolRegistration("task", ToolAccess.SHARED) { execution ->
+                if (execution.delegationDepth >= MAX_DELEGATION_DEPTH)
+                    return@ToolRegistration emptyList()
+
                 listOf(
                     TaskTool(
                         subagentRunner,
@@ -178,7 +183,7 @@ class DefaultAgentToolCatalog(
         bind(context, orchestrator = true)
 
     override suspend fun bindDelegate(context: ToolExecutionContext): ToolRegistry =
-        bind(context, orchestrator = false)
+        bind(context.copy(delegationDepth = context.delegationDepth + 1), orchestrator = false)
 
     private fun bind(context: ToolExecutionContext, orchestrator: Boolean): ToolRegistry {
         val mcpRegistrations =
