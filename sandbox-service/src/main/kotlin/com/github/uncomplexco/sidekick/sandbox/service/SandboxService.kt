@@ -19,6 +19,8 @@ fun Application.module() {
 
 fun Application.sandboxServiceModule(
     config: SandboxServiceConfig,
+    projectExecutor: ProjectCommandExecutor =
+        HelperProjectCommandExecutor(config.helperPath, config.sudoPath, config.maxOutputBytes),
     executor: SandboxCommandExecutor = bwrapExecutor(config),
 ) {
     install(ContentNegotiation) {
@@ -37,6 +39,7 @@ fun Application.sandboxServiceModule(
         mountSourcePolicy = MountSourcePolicy(config.allowedSourcePrefixes),
         executor = executor,
     )
+    projectExecuteRoute(config.token, projectExecutor)
 }
 
 private fun bwrapExecutor(config: SandboxServiceConfig): SandboxCommandExecutor {

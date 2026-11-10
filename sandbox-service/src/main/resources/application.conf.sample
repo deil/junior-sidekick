@@ -15,4 +15,6 @@ sandbox {
   uid = 65534
   gid = 65534
   allowed-source-prefixes = ["/data"]
+  helper-path = "/usr/local/libexec/sandbox-helper"
+  sudo-path = "/usr/bin/sudo"
 }

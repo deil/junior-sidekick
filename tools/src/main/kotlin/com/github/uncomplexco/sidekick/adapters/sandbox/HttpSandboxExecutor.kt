@@ -22,19 +22,32 @@ class HttpSandboxExecutor(
     private val token: String,
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = false },
+    private val projectId: String? = null,
 ) : SandboxExecutor {
     private val logger = LoggerFactory.getLogger(HttpSandboxExecutor::class.java)
 
+    override val usesProjectHome: Boolean
+        get() = projectId != null
+
     override fun execute(command: Command): ExecutionResult {
-        logger.info(
-            "Sending sandbox HTTP command: workdir={} timeoutSeconds={} networkEnabled={} mounts={}",
-            command.workdir,
-            command.timeoutSeconds,
-            command.networkEnabled,
-            command.mounts.map {
-                "${it.mode.name.lowercase()}:${it.source.toAbsolutePath().normalize()}->${it.target} ${fileAttributes(it.source)}"
-            },
-        )
+        if (usesProjectHome) {
+            logger.info(
+                "Sending project sandbox HTTP command: projectId={} workdir={} timeoutSeconds={}",
+                projectId,
+                command.workdir,
+                command.timeoutSeconds,
+            )
+        } else {
+            logger.info(
+                "Sending sandbox HTTP command: workdir={} timeoutSeconds={} networkEnabled={} mounts={}",
+                command.workdir,
+                command.timeoutSeconds,
+                command.networkEnabled,
+                command.mounts.map {
+                    "${it.mode.name.lowercase()}:${it.source.toAbsolutePath().normalize()}->${it.target} ${fileAttributes(it.source)}"
+                },
+            )
+        }
         val response =
             httpClient.send(command.toHttpRequest(), HttpResponse.BodyHandlers.ofString())
         if (response.statusCode() !in 200..299) {
@@ -56,18 +69,31 @@ class HttpSandboxExecutor(
 
     private fun Command.toHttpRequest(): HttpRequest {
         val body =
-            ExecuteRequest(
-                command = command,
-                workdir = workdir,
-                timeoutSeconds = timeoutSeconds,
-                networkEnabled = networkEnabled,
-                mounts = mounts.map { it.toRequest() },
-            )
+            if (projectId != null) {
+                json.encodeToString(
+                    ProjectExecuteRequest(
+                        projectId = projectId,
+                        command = command,
+                        workdir = workdir.takeUnless { it == "." },
+                        timeoutSeconds = timeoutSeconds,
+                    )
+                )
+            } else {
+                json.encodeToString(
+                    ExecuteRequest(
+                        command = command,
+                        workdir = workdir,
+                        timeoutSeconds = timeoutSeconds,
+                        networkEnabled = networkEnabled,
+                        mounts = mounts.map { it.toRequest() },
+                    )
+                )
+            }
         return HttpRequest.newBuilder(executeUri())
             .timeout(Duration.ofSeconds(timeoutSeconds + 5))
             .header("Authorization", "Bearer $token")
             .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(json.encodeToString(body)))
+            .POST(HttpRequest.BodyPublishers.ofString(body))
             .build()
     }
 
@@ -84,8 +110,19 @@ class HttpSandboxExecutor(
             SandboxMountMode.RW -> "rw"
         }
 
-    private fun executeUri(): URI = URI.create("${baseUrl.trimEnd('/')}/api/execute")
+    private fun executeUri(): URI {
+        val path = if (usesProjectHome) "/api/v2/execute" else "/api/execute"
+        return URI.create("${baseUrl.trimEnd('/')}$path")
+    }
 }
+
+@Serializable
+private data class ProjectExecuteRequest(
+    val projectId: String,
+    val command: String,
+    val timeoutSeconds: Long,
+    val workdir: String? = null,
+)
 
 @Serializable
 private data class ExecuteRequest(

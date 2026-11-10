@@ -1,86 +1,46 @@
 # Sandbox Service
 
-Standalone Ktor service that exposes a generic bash sandbox executor over HTTP.
+## Sidekick configuration
 
-## API
-
-```http
-POST /api/execute
-Authorization: Bearer <token>
-Content-Type: application/json
+```properties
+agent.tools.bash.enabled=true
+agent.tools.bash.provider=http-v2
+agent.tools.bash.http.base-url=http://localhost:7171
+agent.tools.bash.http.token=<token>
 ```
 
-```json
-{
-  "command": "pwd",
-  "workdir": "/",
-  "timeoutSeconds": 120,
-  "networkEnabled": false,
-  "mounts": [
-    {
-      "source": "/srv/sidekick/data/state/example/work",
-      "target": "/work",
-      "mode": "rw"
-    }
-  ]
-}
+## Install helper
+
+Requires Node.js 22+ at `/usr/bin/node`, `sudo`, `useradd`, `getent`, and `pkill`.
+
+```bash
+sudo install -d -o root -g root -m 0755 /usr/local/libexec
+sudo install -o root -g root -m 0755 sandbox-service/helper/sandbox-helper.cjs /usr/local/libexec/sandbox-helper
+sudo visudo -f /etc/sudoers.d/sandbox-service
 ```
 
-Response:
+Grant the daemon's service account access:
 
-```json
-{
-  "ok": true,
-  "exitCode": 0,
-  "timedOut": false,
-  "outputTruncated": false,
-  "output": "/\n",
-  "workdir": "/"
-}
+```sudoers
+sandbox-service ALL=(root) NOPASSWD: /usr/local/libexec/sandbox-helper
 ```
 
-## Config
-
-Default config lives in `src/main/resources/application.conf`:
-
-```hocon
-ktor {
-  deployment {
-    port = 7171
-  }
-  application {
-    modules = [com.github.uncomplexco.sidekick.sandbox.service.SandboxServiceKt.module]
-  }
-}
-
-sandbox {
-  token = "test-token-6f3a9b7c2d1e4f80"
-  bwrap-path = "bwrap"
-  rootfs = "../data/sandbox/bash-rootfs"
-  max-output-bytes = 51200
-  uid = 65534
-  gid = 65534
-  allowed-source-prefixes = ["../data"]
-}
+```bash
+sudo -n /usr/local/libexec/sandbox-helper user:ensure --project C123
+sudo -n /usr/local/libexec/sandbox-helper bash --project C123 --workdir repo -- 'npm test'
+sudo -n /usr/local/libexec/sandbox-helper process:kill --project C123
 ```
-
-Every requested mount `source` must resolve under one of `sandbox.allowed-source-prefixes`.
 
 ## Run
 
+Configure the service using [application.conf.sample](src/main/resources/application.conf.sample).
+
 ```bash
 ./gradlew :sandbox-service:run
-```
-
-Use another config file with Ktor's `-config` option:
-
-```bash
 ./gradlew :sandbox-service:run --args="-config=/etc/sidekick/sandbox-service.conf"
 ```
 
-## systemd
-
-Register a user-level systemd service for the local checkout:
+Or register a user-level systemd service:
 
 ```bash
 sandbox-service/register-systemd-service.sh
@@ -88,20 +48,9 @@ systemctl --user start junior-sidekick-sandbox.service
 journalctl --user -u junior-sidekick-sandbox.service -f
 ```
 
-Override the service name or config file:
+## Tests
 
 ```bash
-SERVICE_NAME=sidekick-sandbox \
-CONFIG_FILE=/etc/sidekick/sandbox-service.conf \
-sandbox-service/register-systemd-service.sh
+node --test sandbox-service/helper/sandbox-helper.test.cjs
+./gradlew :sandbox-service:test
 ```
-
-The generated service runs `./gradlew :sandbox-service:run --args=-config=<config-file>` from the repository root. For a packaged deployment, use the same Ktor `-config=<file>` option with the packaged application command.
-
-## Notes
-
-- The service is generic and does not depend on Sidekick `tools` or `core` modules.
-- The service owns mount source-prefix validation.
-- The reusable `sandbox-bwrap` module owns bwrap process execution.
-- The service must run in an environment where `bwrap` is supported.
-- Sidekick and `sandbox-service` must agree on mount `source` paths. A path sent by Sidekick must refer to the same filesystem location from the sandbox-service process.

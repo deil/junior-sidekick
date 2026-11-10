@@ -1,5 +1,8 @@
 package com.github.uncomplexco.sidekick.adapters.sandbox
 
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
+import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
 import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMount
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMountMode
@@ -10,6 +13,7 @@ import java.nio.file.Files
 import kotlin.io.path.pathString
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonArray
@@ -18,6 +22,93 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 
 class HttpSandboxExecutorTest {
+    @Test
+    fun `http-v2 provider executes in project home without preparing local mounts`() {
+        // Arrange
+        val local = Files.createTempDirectory("project-http-sandbox-test")
+        val paths =
+            VirtualPaths(
+                local.resolve("session"),
+                local.resolve("skills"),
+                local.resolve("global"),
+                local.resolve("work"),
+                local.resolve("project"),
+            )
+        lateinit var captured: CapturedRequest
+        val server =
+            testServer("/api/v2/execute") { exchange ->
+                captured = exchange.capture()
+                exchange.respond(
+                    200,
+                    """{"ok":true,"exitCode":0,"timedOut":false,"outputTruncated":false,"output":"stub output","workdir":"/home/sku_project"}""",
+                )
+            }
+        server.use {
+            val config =
+                SandboxExecutorConfig().apply {
+                    provider = "http-v2"
+                    http.baseUrl = server.baseUrl()
+                    http.token = "secret"
+                }
+            val toolConfig =
+                BashToolConfig().apply {
+                    enabled = true
+                    networkEnabled = true
+                }
+            val tools = BashTools(toolConfig, paths, SandboxExecutorFactory(config).create("C123"))
+
+            // Act
+            val result = tools.bash("stub command", "test request")
+
+            // Assert
+            assertEquals("stub output", result.output)
+            assertEquals("/home/sku_project", result.workdir)
+            assertEquals("/api/v2/execute", captured.path)
+            assertEquals("Bearer secret", captured.authorization)
+            assertEquals(
+                Json.parseToJsonElement(
+                    """{"projectId":"C123","command":"stub command","timeoutSeconds":120}"""
+                ),
+                Json.parseToJsonElement(captured.body),
+            )
+            assertFalse(Files.exists(paths.workRoot))
+            assertFalse(Files.exists(paths.projectRoot))
+            assertFalse(Files.exists(paths.sessionRoot))
+        }
+    }
+
+    @Test
+    fun `v2 preserves explicit root workdir and timeout response`() {
+        // Arrange
+        lateinit var captured: CapturedRequest
+        val server =
+            testServer("/api/v2/execute") { exchange ->
+                captured = exchange.capture()
+                exchange.respond(
+                    200,
+                    """{"ok":false,"exitCode":null,"timedOut":true,"outputTruncated":false,"output":"stub timeout","workdir":"/"}""",
+                )
+            }
+        server.use {
+            val executor = HttpSandboxExecutor(server.baseUrl(), "secret", projectId = "C456")
+
+            // Act
+            val result = executor.execute(Command("stub timeout", "/", 5, false, emptyList()))
+
+            // Assert
+            assertEquals(false, result.ok)
+            assertEquals(true, result.timedOut)
+            assertEquals(null, result.exitCode)
+            assertEquals("stub timeout", result.output)
+            assertEquals(
+                Json.parseToJsonElement(
+                    """{"projectId":"C456","command":"stub timeout","workdir":"/","timeoutSeconds":5}"""
+                ),
+                Json.parseToJsonElement(captured.body),
+            )
+        }
+    }
+
     @Test
     fun `execute posts sandbox command to service`() {
         // Arrange
@@ -41,7 +132,12 @@ class HttpSandboxExecutorTest {
             )
         }
         server.use {
-            val executor = HttpSandboxExecutor(baseUrl = server.baseUrl(), token = "secret")
+            val config =
+                SandboxExecutorConfig().apply {
+                    http.baseUrl = server.baseUrl()
+                    http.token = "secret"
+                }
+            val executor = SandboxExecutorFactory(config).create("C123")
 
             // Act
             val result =
@@ -64,6 +160,7 @@ class HttpSandboxExecutorTest {
             assertEquals("Bearer secret", captured.authorization)
 
             val body = Json.parseToJsonElement(captured.body).jsonObject
+            assertFalse(body.containsKey("projectId"))
             assertEquals("pwd", body["command"]?.jsonPrimitive?.content)
             assertEquals("/tmp", body["workdir"]?.jsonPrimitive?.content)
             assertEquals("7", body["timeoutSeconds"]?.jsonPrimitive?.content)
@@ -107,9 +204,12 @@ class HttpSandboxExecutorTest {
         }
     }
 
-    private fun testServer(handler: (HttpExchange) -> Unit): HttpServer {
+    private fun testServer(
+        path: String = "/api/execute",
+        handler: (HttpExchange) -> Unit,
+    ): HttpServer {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.createContext("/api/execute") { exchange -> handler(exchange) }
+        server.createContext(path) { exchange -> handler(exchange) }
         server.start()
         return server
     }

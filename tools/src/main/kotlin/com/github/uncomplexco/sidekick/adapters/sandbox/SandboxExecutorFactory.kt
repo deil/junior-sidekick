@@ -9,14 +9,20 @@ import org.springframework.stereotype.Component
 
 @Component
 class SandboxExecutorFactory(private val config: SandboxExecutorConfig) {
-    fun create(): SandboxExecutor =
+    fun create(projectId: String? = null): SandboxExecutor =
         when (config.provider.trim().lowercase()) {
             "bwrap" -> bwrapExecutor()
             "http" -> httpExecutor()
+            "http-v2" -> {
+                require(!projectId.isNullOrBlank()) {
+                    "Project ID is required for bash provider http-v2"
+                }
+                httpExecutor(projectId)
+            }
             else -> error("Unsupported bash sandbox provider: ${config.provider}")
         }
 
-    private fun httpExecutor(): SandboxExecutor {
+    private fun httpExecutor(projectId: String? = null): SandboxExecutor {
         val http = config.http
         if (http.baseUrl.isBlank()) {
             error("Bash sandbox HTTP base URL is not configured")
@@ -27,6 +33,7 @@ class SandboxExecutorFactory(private val config: SandboxExecutorConfig) {
         return HttpSandboxExecutor(
             baseUrl = http.baseUrl,
             token = http.token,
+            projectId = projectId,
         )
     }
 

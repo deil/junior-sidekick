@@ -27,4 +27,4 @@ Hierarchical index of project context documentation for future-us and AI agents.
 - [turn-suspension.md](turn-suspension.md) – Durable turn checkpoint/resume semantics, external-action waiting, supersession, races, parallel tools, and Koog Persistence versus ChatMemory; read for suspended turns and per-user OAuth continuation work.
 - [scheduled-jobs.md](scheduled-jobs.md) – Channel-scoped recurring prompts, conversational management, isolated scheduled runs, persistence, and delivery; read for scheduled agent work.
 - [workspace.md](workspace.md) – Virtual path roots for session, skills, and global context storage; read for file storage and workspace path changes.
-- [bash.md](bash.md) – Native bash tool sandboxing with Bubblewrap, rootfs configuration, scratch mounts, network toggle, and non-root execution; read for shell/tool execution changes.
+- [bash.md](bash.md) – Bash execution through legacy Bubblewrap or the project-user v2 HTTP API, rootfs configuration, mounts, and the privileged Node.js helper; read for shell/tool execution changes.

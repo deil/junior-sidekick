@@ -6,6 +6,20 @@ import org.junit.jupiter.api.Test
 
 class SandboxExecutorFactoryTest {
     @Test
+    fun `http-v2 requires project context`() {
+        // Arrange
+        val config =
+            SandboxExecutorConfig().apply {
+                provider = "http-v2"
+                http.baseUrl = "http://localhost:7171"
+                http.token = "secret"
+            }
+
+        // Act / Assert
+        assertFailsWith<IllegalArgumentException> { SandboxExecutorFactory(config).create() }
+    }
+
+    @Test
     fun `create returns http sandbox executor for http provider`() {
         // Arrange
         val config =

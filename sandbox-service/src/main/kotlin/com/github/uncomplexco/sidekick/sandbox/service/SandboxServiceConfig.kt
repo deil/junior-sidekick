@@ -12,6 +12,8 @@ data class SandboxServiceConfig(
     val uid: Int = 65534,
     val gid: Int = 65534,
     val allowedSourcePrefixes: List<Path>,
+    val helperPath: String = "/usr/local/libexec/sandbox-helper",
+    val sudoPath: String = "/usr/bin/sudo",
 ) {
     companion object {
         fun fromApplicationConfig(config: ApplicationConfig): SandboxServiceConfig =
@@ -27,6 +29,10 @@ data class SandboxServiceConfig(
                     config.propertyOrNull("sandbox.allowed-source-prefixes")?.getList()?.map {
                         Path.of(it)
                     } ?: emptyList(),
+                helperPath =
+                    config.optionalString("sandbox.helper-path")
+                        ?: "/usr/local/libexec/sandbox-helper",
+                sudoPath = config.optionalString("sandbox.sudo-path") ?: "/usr/bin/sudo",
             )
     }
 }

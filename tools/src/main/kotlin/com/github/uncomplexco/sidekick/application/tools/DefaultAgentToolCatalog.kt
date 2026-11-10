@@ -77,7 +77,9 @@ class DefaultAgentToolCatalog(
                     BashTools(
                             bashToolConfig,
                             it.turn.conversation.virtualPaths,
-                            sandboxExecutorFactory.create(),
+                            sandboxExecutorFactory.create(
+                                it.turn.conversation.conversationId.channelId
+                            ),
                         )
                         .asTools()
                 } else emptyList()

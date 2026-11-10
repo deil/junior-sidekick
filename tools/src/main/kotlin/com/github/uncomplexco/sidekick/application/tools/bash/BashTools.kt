@@ -37,14 +37,17 @@ class BashTools(
 
     @Tool
     @LLMDescription(
-        "Run a shell command. Only home directory /work is writable. Do not use to read or search for files, " +
-            "use ${WorkspaceFileTools.TOOL_GLOB}, ${WorkspaceFileTools.TOOL_GREP} or ${WorkspaceFileTools.TOOL_READ} instead."
+        "Run a shell command in the configured execution environment. For local workspace files, " +
+            "use ${WorkspaceFileTools.TOOL_GLOB}, ${WorkspaceFileTools.TOOL_GREP} or ${WorkspaceFileTools.TOOL_READ}. " +
+            "Project execution has a separate remote filesystem."
     )
     fun bash(
         @LLMDescription("Shell command string to execute") command: String,
         @LLMDescription("Concise description of the command's purpose") description: String,
-        @LLMDescription("Working directory inside the sandbox. Defaults to /")
-        workdir: String = "/",
+        @LLMDescription(
+            "Working directory. Defaults to the project user's home for project execution, or / for sandbox execution"
+        )
+        workdir: String? = null,
         @LLMDescription(
             "Timeout in seconds. Defaults to the configured timeout and may not exceed it"
         )
@@ -57,37 +60,40 @@ class BashTools(
 
         val resolvedTimeout = timeout?.coerceAtMost(config.timeout) ?: config.timeout
         validate(resolvedTimeout >= 1) { "timeoutSeconds must be at least 1" }
+        val resolvedWorkdir = workdir ?: (if (sandboxExecutor.usesProjectHome) "." else "/")
 
         logger.info(
             """
             Running bash command: $command
-            Working directory: $workdir
+            Working directory: $resolvedWorkdir
             Timeout: $resolvedTimeout s
             Description: $description
             """
                 .trimIndent()
         )
 
-        prepareVirtualRoots()
+        val mounts =
+            if (sandboxExecutor.usesProjectHome) emptyList()
+            else {
+                prepareVirtualRoots()
+                virtualPaths.roots.map { root ->
+                    SandboxMount(
+                        source = root.real,
+                        target = root.virtual,
+                        mode = if (root.writable) SandboxMountMode.RW else SandboxMountMode.RO,
+                    )
+                }
+            }
 
         val result =
             try {
                 sandboxExecutor.execute(
                     Command(
                         command = command,
-                        workdir = workdir,
+                        workdir = resolvedWorkdir,
                         timeoutSeconds = resolvedTimeout,
                         networkEnabled = config.networkEnabled,
-                        mounts =
-                            virtualPaths.roots.map { root ->
-                                SandboxMount(
-                                    source = root.real,
-                                    target = root.virtual,
-                                    mode =
-                                        if (root.writable) SandboxMountMode.RW
-                                        else SandboxMountMode.RO,
-                                )
-                            },
+                        mounts = mounts,
                     )
                 )
             } catch (error: IllegalArgumentException) {

@@ -3,6 +3,9 @@ package com.github.uncomplexco.sidekick.ports.sandbox
 import java.nio.file.Path
 
 fun interface SandboxExecutor {
+    val usesProjectHome: Boolean
+        get() = false
+
     fun execute(command: Command): ExecutionResult
 }
 

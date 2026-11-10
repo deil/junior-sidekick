@@ -6,7 +6,7 @@ The tool delegates execution through a sandbox executor port. Phase 1 supports t
 
 The standalone `sandbox-service` module exposes `POST /api/execute` for provider-backed execution. It authenticates with a bearer token, validates requested mount sources against service-side allowed prefixes, then executes through the reusable `sandbox-bwrap` module.
 
-Sidekick selects the bash sandbox provider with `agent.tools.bash.provider`. Use `http` for the external sandbox service and `bwrap` for direct local execution.
+Sidekick selects the bash sandbox provider with `agent.tools.bash.provider`. Use `http` for the legacy external sandbox API (default), `http-v2` for project-user execution, or `bwrap` for direct local execution.
 
 ## Root Filesystem
 
@@ -61,7 +61,7 @@ Inside the sandbox:
 
 Commands should use `/work` for session-scoped files that must survive beyond a single command and `/data/project` for durable channel-scoped project workspace changes. Files written elsewhere either fail because the rootfs is read-only or disappear with tmpfs/sandbox teardown.
 
-The bash tool `workdir` parameter is a sandbox path, not a host path. It defaults to `/`; relative values are resolved from the sandbox root. The directory must already exist inside the sandbox.
+For the `bwrap` and legacy `http` providers, the bash tool `workdir` parameter is a sandbox path, not a host path. It defaults to `/`; relative values are resolved from the sandbox root. The directory must already exist inside the sandbox. The `http-v2` provider instead uses the project user's home as its default and relative-path base.
 
 ## Network
 
@@ -72,6 +72,29 @@ The bash tool `workdir` parameter is a sandbox path, not a host path. It default
 For the HTTP sandbox provider, Sidekick sends the configured network policy to `sandbox-service` as `networkEnabled`; it is not an LLM-facing bash tool parameter.
 
 ## Sandbox Service
+
+### Project-user execution
+
+Enable Sidekick's project-user HTTP client with the existing provider setting:
+
+```properties
+agent.tools.bash.enabled=true
+agent.tools.bash.provider=http-v2
+agent.tools.bash.http.base-url=http://localhost:7171
+agent.tools.bash.http.token=<token>
+```
+
+The tool catalog binds `projectId` from the current conversation's channel ID for both orchestrator and delegate tools. The model does not supply it. Sidekick omits `workdir` when the tool caller leaves it unspecified, so the daemon starts in the project user's home. An explicit workdir is preserved. This provider does not prepare or send local virtual-root mounts, and `network-enabled` and `scratch-gid` do not apply. Other file tools still operate on Sidekick's local virtual filesystem; the remote home is separate and is not synchronized.
+
+`POST /api/v2/execute` accepts `projectId`, `command`, `timeoutSeconds`, and optional `workdir`, using the same bearer token and response fields as `/api/execute`. It automatically ensures a dedicated Linux user and home for the project, then runs a fresh Bash shell as that user. Omitted `workdir` means home; relative paths resolve from home; absolute paths use the user's normal filesystem permissions. This API does not accept `mounts` or `networkEnabled`.
+
+The unprivileged daemon invokes the root-owned Node.js CLI at `sandbox.helper-path` through `sandbox.sudo-path -n`. Its commands are `user:ensure --project <id>` (prints UID), `bash --project <id> [--workdir <path>] -- <command>`, and `process:kill --project <id>`. The latter two require an existing managed account. The helper hashes project IDs into OS usernames with a hardcoded `sku_` prefix and refuses unrelated accounts. Bash runs only after dropping supplementary groups, GID, and UID.
+
+Project files and background processes persist between requests. Per-execution files under `~/.sandbox-executions/run-*/output.log` receive stdout/stderr, avoiding inherited HTTP pipes. Responses contain a byte-capped output snapshot when the shell exits; retained logs are not disk-size capped. Timeouts kill the current execution's process group, not earlier executions. These Linux users share VM network, kernel, and resources; this is intended for a trusted VM, not hostile tenants. See `sandbox-service/README.md` for installation, permissions, and lifecycle details.
+
+The existing `/api/execute` endpoint and the `http` provider remain unchanged and continue to use Bubblewrap.
+
+### Legacy Bubblewrap execution
 
 `sandbox-service` is a standalone Ktor application. It does not depend on Sidekick `tools` or `core` modules and does not share HTTP DTO classes with Sidekick.
 
