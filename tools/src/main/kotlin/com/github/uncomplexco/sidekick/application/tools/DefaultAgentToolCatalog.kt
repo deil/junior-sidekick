@@ -2,7 +2,7 @@ package com.github.uncomplexco.sidekick.application.tools
 
 import ai.koog.agents.core.tools.ToolRegistry
 import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
-import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
+import com.github.uncomplexco.sidekick.adapters.spring.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog

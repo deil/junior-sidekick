@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools.bash
 
 import ai.koog.agents.core.tools.ToolException
-import com.github.uncomplexco.sidekick.adapters.sandbox.WorkspaceSandboxExecutor
+import com.github.uncomplexco.sidekick.adapters.spring.WorkspaceSandboxExecutor
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.ExecutionResult

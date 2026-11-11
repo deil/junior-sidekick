@@ -1,5 +1,8 @@
 package com.github.uncomplexco.sidekick.adapters.sandbox
 
+import com.github.uncomplexco.sidekick.adapters.http.SandboxV2Client
+import com.github.uncomplexco.sidekick.adapters.spring.SandboxExecutorConfig
+import com.github.uncomplexco.sidekick.adapters.spring.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
 import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
@@ -21,7 +24,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 
-class HttpSandboxExecutorTest {
+class SameHostSandboxExecutorTest {
     @Test
     fun `v2 returns setup diagnostics from failed execution responses`() {
         // Arrange
@@ -43,7 +46,7 @@ class HttpSandboxExecutorTest {
                 )
             }
         server.use {
-            val executor = HttpSandboxExecutor(server.baseUrl(), "secret", apiVersion = 2)
+            val executor = RemoteSandboxV2Executor(SandboxV2Client(server.baseUrl(), "secret"))
 
             // Act
             val response =
@@ -82,7 +85,7 @@ class HttpSandboxExecutorTest {
                 )
             }
         server.use {
-            val executor = HttpSandboxExecutor(server.baseUrl(), "secret", apiVersion = 2)
+            val executor = RemoteSandboxV2Executor(SandboxV2Client(server.baseUrl(), "secret"))
             val command = Command("stub command", null, 5, false)
 
             // Act
@@ -187,7 +190,7 @@ class HttpSandboxExecutorTest {
                 )
             }
         server.use {
-            val executor = HttpSandboxExecutor(server.baseUrl(), "secret", apiVersion = 2)
+            val executor = RemoteSandboxV2Executor(SandboxV2Client(server.baseUrl(), "secret"))
 
             // Act
             val result =
@@ -229,7 +232,7 @@ class HttpSandboxExecutorTest {
             )
         }
         server.use {
-            val executor = HttpSandboxExecutor(server.baseUrl(), "secret")
+            val executor = SameHostSandboxExecutor(server.baseUrl(), "secret")
 
             // Act
             val result = executor.execute("C123", Command("stub command", null, 5, false))
@@ -319,7 +322,7 @@ class HttpSandboxExecutorTest {
             exchange.respond(401, "{\"error\":\"Unauthorized\"}")
         }
         server.use {
-            val executor = HttpSandboxExecutor(baseUrl = server.baseUrl(), token = "secret")
+            val executor = SameHostSandboxExecutor(baseUrl = server.baseUrl(), token = "secret")
 
             // Act / Assert
             val error =

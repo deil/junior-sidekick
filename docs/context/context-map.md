@@ -28,3 +28,7 @@ Hierarchical index of project context documentation for future-us and AI agents.
 - [scheduled-jobs.md](scheduled-jobs.md) – Channel-scoped recurring prompts, conversational management, isolated scheduled runs, persistence, and delivery; read for scheduled agent work.
 - [workspace.md](workspace.md) – Virtual path roots for session, skills, and global context storage; read for file storage and workspace path changes.
 - [bash.md](bash.md) – Bash execution through legacy Bubblewrap or the project-user v2 HTTP API, rootfs configuration, mounts, and the privileged Node.js helper; read for shell/tool execution changes.
+
+## Planned work
+
+- [Sandbox v2 filesystem](../thoughts/sandbox-v2-filesystem.md) – Planned remote filesystem routing for v2, file ownership, input/output transfers, affected tools, and open decisions; read for remote workspace and mount replacement work.

@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.adapters.sandbox
+package com.github.uncomplexco.sidekick.adapters.spring
 
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.sandbox.Command
@@ -8,9 +8,7 @@ import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMount
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMountMode
 import java.nio.file.Files
 
-private const val WRITABLE_ROOT_MODE = 0b010111111000
-
-class WorkspaceSandboxExecutor(
+internal class WorkspaceSandboxExecutor(
     private val virtualPaths: VirtualPaths,
     private val scratchGid: Int? = null,
     private val delegate: SandboxExecutor,
@@ -33,5 +31,9 @@ class WorkspaceSandboxExecutor(
                 )
             }
         return delegate.execute(projectId, command.copy(mounts = mounts))
+    }
+
+    private companion object {
+        const val WRITABLE_ROOT_MODE = 0b010111111000
     }
 }

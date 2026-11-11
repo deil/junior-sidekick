@@ -1,4 +1,4 @@
-package com.github.uncomplexco.sidekick.adapters.sandbox
+package com.github.uncomplexco.sidekick.adapters.bwrap
 
 import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.ExecutionResult

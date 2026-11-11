@@ -17,43 +17,35 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 
-class HttpSandboxExecutor(
+class SameHostSandboxExecutor(
     private val baseUrl: String,
     private val token: String,
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = false },
-    private val apiVersion: Int = 1,
 ) : SandboxExecutor {
-    private val logger = LoggerFactory.getLogger(HttpSandboxExecutor::class.java)
+    private val logger = LoggerFactory.getLogger(SameHostSandboxExecutor::class.java)
 
     override fun execute(projectId: String, command: Command): ExecutionResult {
-        if (apiVersion == 2) {
-            logger.info(
-                "Sending project sandbox HTTP command: projectId={} workdir={} timeoutSeconds={}",
-                projectId,
-                command.workdir,
-                command.timeoutSeconds,
-            )
-        } else {
-            logger.info(
-                "Sending sandbox HTTP command: workdir={} timeoutSeconds={} networkEnabled={} mounts={}",
-                command.workdir,
-                command.timeoutSeconds,
-                command.networkEnabled,
-                command.mounts.map {
-                    "${it.mode.name.lowercase()}:${it.source.toAbsolutePath().normalize()}->${it.target} ${fileAttributes(it.source)}"
-                },
-            )
-        }
+        logger.info(
+            "Sending sandbox HTTP command: workdir={} timeoutSeconds={} networkEnabled={} mounts={}",
+            command.workdir,
+            command.timeoutSeconds,
+            command.networkEnabled,
+            command.mounts.map {
+                "${it.mode.name.lowercase()}:${it.source.toAbsolutePath().normalize()}->${it.target} " +
+                    fileAttributes(it.source)
+            },
+        )
         val response =
-            httpClient.send(command.toHttpRequest(projectId), HttpResponse.BodyHandlers.ofString())
-        if (response.statusCode() !in 200..299) {
+            httpClient.send(command.toHttpRequest(), HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() !in HTTP_SUCCESS_CODES) {
             throw IllegalStateException(
                 "Bash sandbox service returned HTTP ${response.statusCode()}: ${response.body()}"
             )
         }
 
         val result = json.decodeFromString<ExecuteResponse>(response.body())
+
         return ExecutionResult(
             ok = result.ok,
             exitCode = result.exitCode,
@@ -64,30 +56,20 @@ class HttpSandboxExecutor(
         )
     }
 
-    private fun Command.toHttpRequest(projectId: String): HttpRequest {
+    private fun Command.toHttpRequest(): HttpRequest {
         val body =
-            if (apiVersion == 2) {
-                json.encodeToString(
-                    ProjectExecuteRequest(
-                        projectId = projectId,
-                        command = command,
-                        workdir = workdir,
-                        timeoutSeconds = timeoutSeconds,
-                    )
+            json.encodeToString(
+                ExecuteRequest(
+                    command = command,
+                    workdir = workdir,
+                    timeoutSeconds = timeoutSeconds,
+                    networkEnabled = networkEnabled,
+                    mounts = mounts.map { it.toRequest() },
                 )
-            } else {
-                json.encodeToString(
-                    ExecuteRequest(
-                        command = command,
-                        workdir = workdir,
-                        timeoutSeconds = timeoutSeconds,
-                        networkEnabled = networkEnabled,
-                        mounts = mounts.map { it.toRequest() },
-                    )
-                )
-            }
+            )
+
         return HttpRequest.newBuilder(executeUri())
-            .timeout(Duration.ofSeconds(timeoutSeconds + 5))
+            .timeout(Duration.ofSeconds(timeoutSeconds + HTTP_TIMEOUT_GRACE_SECONDS))
             .header("Authorization", "Bearer $token")
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -108,18 +90,30 @@ class HttpSandboxExecutor(
         }
 
     private fun executeUri(): URI {
-        val path = if (apiVersion == 2) "/api/v2/execute" else "/api/execute"
-        return URI.create("${baseUrl.trimEnd('/')}$path")
+        return URI.create("${baseUrl.trimEnd('/')}/api/execute")
+    }
+
+    private fun fileAttributes(path: Path): String =
+        try {
+            val normalized = path.toAbsolutePath().normalize()
+            val uid = Files.getAttribute(normalized, "unix:uid")
+            val gid = Files.getAttribute(normalized, "unix:gid")
+            val mode = (Files.getAttribute(normalized, "unix:mode") as Int) and UNIX_MODE_MASK
+
+            "uid=$uid gid=$gid mode=${mode.toString(OCTAL_RADIX)}"
+        } catch (error: UnsupportedOperationException) {
+            logger.warn("Unix mount attributes unavailable path={}", path, error)
+
+            "unix-attributes-unavailable"
+        }
+
+    private companion object {
+        val HTTP_SUCCESS_CODES = 200..299
+        const val HTTP_TIMEOUT_GRACE_SECONDS = 5L
+        const val UNIX_MODE_MASK = 0b111111111111
+        const val OCTAL_RADIX = 8
     }
 }
-
-@Serializable
-private data class ProjectExecuteRequest(
-    val projectId: String,
-    val command: String,
-    val timeoutSeconds: Long,
-    val workdir: String? = null,
-)
 
 @Serializable
 private data class ExecuteRequest(
@@ -146,14 +140,3 @@ private data class ExecuteResponse(
     val output: String,
     val workdir: String,
 )
-
-private fun fileAttributes(path: Path): String =
-    try {
-        val normalized = path.toAbsolutePath().normalize()
-        val uid = Files.getAttribute(normalized, "unix:uid")
-        val gid = Files.getAttribute(normalized, "unix:gid")
-        val mode = (Files.getAttribute(normalized, "unix:mode") as Int) and 0b111111111111
-        "uid=$uid gid=$gid mode=${mode.toString(8)}"
-    } catch (error: UnsupportedOperationException) {
-        "unix-attributes-unavailable"
-    }

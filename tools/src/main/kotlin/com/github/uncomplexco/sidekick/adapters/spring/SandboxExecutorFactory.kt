@@ -1,5 +1,9 @@
-package com.github.uncomplexco.sidekick.adapters.sandbox
+package com.github.uncomplexco.sidekick.adapters.spring
 
+import com.github.uncomplexco.sidekick.adapters.bwrap.BwrapSandboxExecutor
+import com.github.uncomplexco.sidekick.adapters.http.SandboxV2Client
+import com.github.uncomplexco.sidekick.adapters.sandbox.RemoteSandboxV2Executor
+import com.github.uncomplexco.sidekick.adapters.sandbox.SameHostSandboxExecutor
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutor
 import com.github.uncomplexco.sidekick.sandbox.bwrap.BwrapSandbox
@@ -9,12 +13,24 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
 
 @Component
-class SandboxExecutorFactory(private val config: SandboxExecutorConfig) {
+class SandboxExecutorFactory(
+    private val config: SandboxExecutorConfig,
+    private val v2Client: SandboxV2Client = SandboxV2Client(config.http.baseUrl, config.http.token),
+) {
     fun create(virtualPaths: VirtualPaths? = null): SandboxExecutor =
         when (config.provider.trim().lowercase()) {
             "bwrap" -> withWorkspace(bwrapExecutor(), virtualPaths)
             "http" -> withWorkspace(httpExecutor(), virtualPaths)
-            "http-v2" -> httpExecutor(apiVersion = 2)
+            "http-v2" -> {
+                check(config.http.baseUrl.isNotBlank()) {
+                    "Bash sandbox HTTP base URL is not configured"
+                }
+                check(config.http.token.isNotBlank()) {
+                    "Bash sandbox HTTP token is not configured"
+                }
+
+                RemoteSandboxV2Executor(v2Client)
+            }
             else -> error("Unsupported bash sandbox provider: ${config.provider}")
         }
 
@@ -25,7 +41,7 @@ class SandboxExecutorFactory(private val config: SandboxExecutorConfig) {
         if (virtualPaths == null) executor
         else WorkspaceSandboxExecutor(virtualPaths, config.scratchGid, executor)
 
-    private fun httpExecutor(apiVersion: Int = 1): SandboxExecutor {
+    private fun httpExecutor(): SandboxExecutor {
         val http = config.http
         if (http.baseUrl.isBlank()) {
             error("Bash sandbox HTTP base URL is not configured")
@@ -33,10 +49,9 @@ class SandboxExecutorFactory(private val config: SandboxExecutorConfig) {
         if (http.token.isBlank()) {
             error("Bash sandbox HTTP token is not configured")
         }
-        return HttpSandboxExecutor(
+        return SameHostSandboxExecutor(
             baseUrl = http.baseUrl,
             token = http.token,
-            apiVersion = apiVersion,
         )
     }
 

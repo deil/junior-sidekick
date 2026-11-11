@@ -1,5 +1,6 @@
-package com.github.uncomplexco.sidekick.adapters.sandbox
+package com.github.uncomplexco.sidekick.adapters.spring
 
+import com.github.uncomplexco.sidekick.adapters.sandbox.SameHostSandboxExecutor
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import org.junit.jupiter.api.Test
@@ -31,7 +32,7 @@ class SandboxExecutorFactoryTest {
         val executor = SandboxExecutorFactory(config).create()
 
         // Assert
-        assertIs<HttpSandboxExecutor>(executor)
+        assertIs<SameHostSandboxExecutor>(executor)
     }
 
     @Test
