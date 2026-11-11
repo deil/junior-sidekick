@@ -109,7 +109,12 @@ class WorkspaceRead(
             val last = startOffset + lines.size - 1
             val next = last + 1
 
-            if (file.totalLines == null) {
+            if (file.lastLineTruncated) {
+                appendLine(
+                    "(Output capped at $MAX_BYTES_LABEL partway through line $last. " +
+                        "The remainder of that line is omitted.)"
+                )
+            } else if (file.totalLines == null) {
                 appendLine(
                     "(Output capped at $MAX_BYTES_LABEL. Showing lines $startOffset-$last. " +
                         "Use offset=$next to continue.)"

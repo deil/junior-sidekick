@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceRead
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertContains
+import kotlin.test.assertFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -66,6 +67,36 @@ class WorkspaceReadTest {
         val result = workspaceRead().read("/data/session/notes.txt", offset = 1, limit = 1)
 
         assertContains(result, "Showing lines 1-1 of 3. Use offset=2 to continue.")
+    }
+
+    @Test
+    fun `byte cap within a single long line does not suggest an invalid next offset`() {
+        Files.writeString(dir.resolve("notes.txt"), "x".repeat(60000))
+
+        val result = workspaceRead().read("/data/session/notes.txt", offset = 1, limit = 2000)
+
+        assertContains(result, "partway through line 1")
+        assertContains(result, "The remainder of that line is omitted.")
+        assertFalse(result.contains("Use offset="))
+    }
+
+    @Test
+    fun `lines after a byte capped long line remain readable by offset`() {
+        Files.writeString(dir.resolve("notes.txt"), "x".repeat(60000) + "\nsecond\nthird\n")
+
+        val result = workspaceRead().read("/data/session/notes.txt", offset = 2, limit = 1)
+
+        assertContains(result, "2: second")
+        assertContains(result, "Showing lines 2-2 of 3. Use offset=3 to continue.")
+    }
+
+    @Test
+    fun `byte cap at a line boundary suggests the next unread line`() {
+        Files.writeString(dir.resolve("notes.txt"), ("x".repeat(1023) + "\n").repeat(51))
+
+        val result = workspaceRead().read("/data/session/notes.txt", offset = 1, limit = 2000)
+
+        assertContains(result, "Showing lines 1-50. Use offset=51 to continue.")
     }
 
     @Test

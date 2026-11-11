@@ -84,7 +84,7 @@ class LocalWorkspaceFilesystemReadTextTest {
         val result =
             filesystem().readText("C123", "/data/project/text.txt", TextReadOptions(maxBytes = 3))
 
-        assertEquals(TextReadResult("é", true, null), result)
+        assertEquals(TextReadResult("é", true, null, lastLineTruncated = true), result)
     }
 
     @Test
@@ -94,7 +94,7 @@ class LocalWorkspaceFilesystemReadTextTest {
         val result =
             filesystem().readText("C123", "/data/project/text.txt", TextReadOptions(maxBytes = 4))
 
-        assertEquals(TextReadResult("a", true, null), result)
+        assertEquals(TextReadResult("a", true, null, lastLineTruncated = true), result)
     }
 
     @Test

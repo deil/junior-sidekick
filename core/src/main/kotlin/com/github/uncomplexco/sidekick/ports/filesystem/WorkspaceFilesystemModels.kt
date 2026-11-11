@@ -33,6 +33,7 @@ data class TextReadResult(
     val content: String,
     val truncated: Boolean,
     val totalLines: Int?,
+    val lastLineTruncated: Boolean = false,
 )
 
 data class DirectoryPageOptions(val offset: Int = 1, val limit: Int? = null)

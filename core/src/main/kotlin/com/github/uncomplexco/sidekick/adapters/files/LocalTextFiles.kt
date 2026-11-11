@@ -150,6 +150,7 @@ private class TextReadBuffer(private val options: TextReadOptions) {
             content.toString(),
             truncated || byteLimitReached,
             if (byteLimitReached) null else totalLines,
+            byteLimitReached && content.lastOrNull() !in listOf('\r', '\n'),
         )
     }
 
