@@ -89,7 +89,7 @@ Optional fields:
 `metadata` remains a string-to-string mapping as defined by the skills specification;
 project-selection tags use the root-level `tags` field.
 
-Skill catalogs are selected using the resolved [project context](project-context.md).
+Skill catalogs are selected using the resolved [project context](../project-context.md).
 A skill is available when every skill tag belongs to the project's tag set:
 `project.tags.containsAll(skill.tags)`. Untagged skills match every project; a project
 with empty tags selects untagged skills. Matching is case-sensitive.
@@ -106,7 +106,7 @@ Discovered skills retain the parsed metadata and the skill base folder. The base
 
 For the Sidekick orchestrator, `TurnPromptBuilder` includes a skills catalog in the
 bootstrap user prompt when the discovered catalog contains model-invocable or
-user-invocable skills. See [context management](context-management.md#prompt-shape)
+user-invocable skills. See [context management](../context-management.md#prompt-shape)
 for its placement relative to runtime facts, history, and the current instruction.
 
 Model-invocable skills are skills where `disableModelInvocation == false`. Skills with `disable-model-invocation: true` are excluded from the model-facing catalog.

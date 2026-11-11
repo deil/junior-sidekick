@@ -9,7 +9,7 @@ See [turn flow](turn-flow.md) for the surrounding admission and execution lifecy
 
 ## Prompt shape
 
-Sidekick session prompts and [delegated Task prompts](subagents.md#prompt-generation)
+Sidekick session prompts and [delegated Task prompts](tools/subagents.md#prompt-generation)
 have separate construction contracts. This section describes Sidekick session prompts.
 
 `SystemPromptBuilder` assembles the system prompt in this order: base platform-specific
@@ -69,7 +69,7 @@ The user explicitly requested this skill. Call activateSkill with this name befo
 
 The current message is excluded from transcript history. That invariant prevents Sidekick from seeing the same user request twice in one turn.
 
-`<skills>` appears only when bootstrapping model-visible thread context and only when at least one model-invocable or user-invocable skill exists. Its contents and activation rules are documented in [skills](skills.md#turn-prompt-catalog). `<explicit_skill_invocation>` appears for a preprocessed invocation whose skill is available and user-invocable in the project. Message text is XML-escaped and author-prefixed, not rewritten.
+`<skills>` appears only when bootstrapping model-visible thread context and only when at least one model-invocable or user-invocable skill exists. Its contents and activation rules are documented in [skills](tools/skills.md#turn-prompt-catalog). `<explicit_skill_invocation>` appears for a preprocessed invocation whose skill is available and user-invocable in the project. Message text is XML-escaped and author-prefixed, not rewritten.
 
 With existing Koog history, bootstrap runtime facts, compactions, transcript, and skills
 are omitted. The first user message can instead include pending skipped messages before

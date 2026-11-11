@@ -73,17 +73,17 @@ class SlackAppFactory {
         val auth = app.client.authTest { it }
         agentConfig.botUsername = auth.userId
         val userInfo = app.client.usersInfo { it.user(auth.userId) }
-        val username =
+        val displayName =
             if (userInfo.isOk) {
                 slackBotDisplayName(userInfo.user)
             } else {
                 Loggers.SLACK.warn("Could not resolve Slack bot display name: {}", userInfo.error)
                 auth.user
             }
-        slackBotProfile.identity = SlackBotIdentity(username, auth.userId, auth.teamId)
+        slackBotProfile.identity = SlackBotIdentity(displayName, auth.userId, auth.teamId)
         Loggers.SLACK.info(
-            "Resolved Slack bot identity username={} userId={} teamId={}",
-            username,
+            "Resolved Slack bot identity displayName={} userId={} teamId={}",
+            displayName,
             auth.userId,
             auth.teamId,
         )

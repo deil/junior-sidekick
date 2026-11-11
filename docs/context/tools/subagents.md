@@ -55,7 +55,7 @@ Current built-in agent:
 
 ## Prompt Generation
 
-Subagent prompting is separate from [Sidekick session prompting](context-management.md).
+Subagent prompting is separate from [Sidekick session prompting](../context-management.md).
 The selected agent definition supplies behavior, the current skills catalog supplies
 skill discovery instructions, and the caller supplies the task context. Prompt composition
 belongs to the subagent caller of `KoogAgent`.

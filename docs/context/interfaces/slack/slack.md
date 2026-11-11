@@ -95,7 +95,7 @@ The `agent_session_stopped` handler acknowledges Slack immediately and requests 
 
 The agent checks for Stop before starting a tool batch and after draining steering input at the end of a batch. Running tools finish; their results are not sent to another model request after Stop. A final model answer is delivered normally. For a stopped turn, Sidekick records `USER_STOPPED`, clears processing reactions and activity, then sends `STOP_ACK`. The conversation remains subscribed.
 
-Enable the bot event subscription and agent scopes described in [Set up Slack](../../SETUP_SLACK.md). App UI migration is a separate workspace configuration change.
+Enable the bot event subscription and agent scopes described in [Set up Slack](../../../../SETUP_SLACK.md). App UI migration is a separate workspace configuration change.
 
 ## Channel Lookup
 

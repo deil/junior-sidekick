@@ -3,7 +3,7 @@ package com.github.uncomplexco.sidekick.adapters.slack
 import com.slack.api.model.User
 import org.springframework.stereotype.Component
 
-data class SlackBotIdentity(val username: String, val userId: String, val teamId: String)
+data class SlackBotIdentity(val displayName: String, val userId: String, val teamId: String)
 
 internal fun slackBotDisplayName(user: User): String =
     user.profile?.displayName?.takeIf { it.isNotBlank() }

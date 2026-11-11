@@ -47,7 +47,7 @@ workspace/
 Global context is tenant-wide company context: stable company knowledge, policies, glossary, team map, and other shared background material. Treat it as mostly read-only ordinary work context; write paths need explicit product semantics rather than accidental tool writes.
 
 Project context may be provided at `/data/project/AGENTS.md`, backed by `${agent.working-directory}/data/workspaces/projects/<channel-id>/AGENTS.md`.
-The [project-context module](project-context.md) resolves frontmatter tags and Markdown
+The [project-context module](../project-context.md) resolves frontmatter tags and Markdown
 instructions from that root-level file into a per-turn snapshot. `SystemPromptBuilder`
 renders the resolved instructions under `# Project context`.
 
@@ -83,8 +83,8 @@ Filesystem tools must reject path escape and symbolic links. Do not use `FOLLOW_
 
 ## Key files
 
-- [WorkspaceLayout.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/workspace/WorkspaceLayout.kt) - Physical `agent.working-directory` folder and config-file layout.
-- [VirtualPaths.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/workspace/VirtualPaths.kt) - Virtual path helpers and root resolution.
-- [GlobalWorkspace.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/workspace/global/GlobalWorkspace.kt) - `knowledge.json` loading and knowledge repository sync.
-- [GitRepositories.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/git/GitRepositories.kt) - Shared JGit checkout path, clone, fetch, reset, and SSH-key wiring.
-- [Config.kt](../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/Config.kt) - Raw agent configuration and `WorkspaceLayout` construction.
+- [WorkspaceLayout.kt](../../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/workspace/WorkspaceLayout.kt) - Physical `agent.working-directory` folder and config-file layout.
+- [VirtualPaths.kt](../../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/workspace/VirtualPaths.kt) - Virtual path helpers and root resolution.
+- [GlobalWorkspace.kt](../../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/workspace/GlobalWorkspace.kt) - `knowledge.json` loading and knowledge repository sync.
+- [GitRepositories.kt](../../../core/src/main/kotlin/com/github/uncomplexco/sidekick/adapters/git/GitRepositories.kt) - Shared JGit checkout path, clone, fetch, reset, and SSH-key wiring.
+- [Config.kt](../../../core/src/main/kotlin/com/github/uncomplexco/sidekick/application/agent/Config.kt) - Raw agent configuration and `WorkspaceLayout` construction.

@@ -5,7 +5,7 @@ type: Domain
 # Project Context
 
 Project context contains project-wide tags and instructions. Projects map to chat channels through their
-[workspace project roots](workspace.md#roots).
+[workspace project roots](sandbox/workspace.md#roots).
 
 ## Resolution
 
@@ -42,8 +42,8 @@ stays fixed through steering and child execution, even if the source file change
 while the turn is running. Each new turn resolves the source again.
 
 Resolved instructions appear under `# Project context`, between
-world context and operating rules. Project tags select the [skills catalog](skills.md)
+world context and operating rules. Project tags select the [skills catalog](tools/skills.md)
 used by Sidekick and Tasks, including skill activation by name. See
 [context management](context-management.md#prompt-shape) for prompt composition,
-[subagents](subagents.md#prompt-generation) for Task prompting, and
+[subagents](tools/subagents.md#prompt-generation) for Task prompting, and
 [turn flow](turn-flow.md) for the execution lifecycle.

@@ -26,7 +26,7 @@ class SidekickProfileController(
         val slack = slackBotProfile.identity
         return WebAgentProfile(
             name = agentConfig.name,
-            slack = slack?.let { WebSlackProfile(it.username, it.userId, it.teamId) },
+            slack = slack?.let { WebSlackProfile(it.displayName, it.userId, it.teamId) },
         )
     }
 }
