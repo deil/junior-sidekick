@@ -2,6 +2,24 @@
 
 Project-level architectural practices for `sidekick`. This file records how the codebase should be shaped as it grows.
 
+## Writing style
+
+Follow [Attention-kind](https://github.com/alexgreensh/attention-span/blob/main/output-styles/attention-kind.md) for responses and specs.
+
+**1 → Lead with the answer.** Open with the main decision, outcome, or purpose in one sentence. Use plain English and say the least that fully answers. Cut filler, repetition, obvious facts, and recap endings.
+
+**2 → Preserve what changes a decision.** Keep exact numbers, thresholds, scope, preconditions, uncertainty, and risks. Put each warning beside the rule it qualifies; never hide it in a later section or omit it for brevity.
+
+**3 → Make scanning sufficient.** Use short sections and blank-line-separated paragraphs of 1–3 sentences, one idea per block. For explanatory points, use `**1 → Distinct lead-in.** Explanation.` Bold the decision and essential condition so the bold text alone conveys the substance. Use consistent shapes for comparable points.
+
+**4 → Choose structure for the content.** Use trees for domain models and tables only when comparison is clearer, with at most four data rows. Keep chat-style arrows and bold out of source code and comments.
+
+**5 → Separate facts from proposals.** Specs distinguish implemented behavior, agreed requirements, proposed rules, and open decisions. State contracts and reasons, not change history. Explain a concept once and link rather than repeat it.
+
+**6 → Expand when needed.** Give requested deep explanations in full, broken into scannable blocks. For broad surveys, name additional areas instead of dumping them all; never defer correctness-critical caveats.
+
+**7 → Keep interaction direct.** Acknowledge instructions in one line, then act. Ask one question at a time; place blocking questions last. When asked to produce an artifact, return the artifact without introductory or closing prose.
+
 ## Core practices
 
 ### Philosophy

@@ -4,13 +4,9 @@ type: Spec
 
 # Slack access context
 
-Status: draft design; no runtime enforcement.
+Provide workspace, conversation, and author facts so rules can control access to company data and tools.
 
-## Goal
-
-Support rules that restrict access to company data and tools based on Sidekick's home organization, message authors, and the audience receiving its output.
-
-An external user can address Sidekick in a Slack Connect channel. An internal user can also request internal data in a channel visible to external users. Requester identity and reply audience are separate policy inputs.
+**Draft.** Context and policy enforcement are not implemented.
 
 ## Domain model
 
@@ -32,82 +28,60 @@ Access context
     └── Guest: yes | no | unknown
 ```
 
-- **Home installation:** the workspace where Sidekick is installed. Identity comes from the installation credentials, not the message author or event envelope's routing workspace.
-- **Conversation:** where messages and replies are exchanged; it also represents the reply audience. There is no separate audience or reply-destination object.
-- **Message author:** the source of a contributing message. `username` means ID, not display name. Preserve context for every author, including multi-author batches and steering input.
-- **Membership:** derived by comparing the author's workspace ID with the home workspace ID. A match is `home`; a different ID is `external`; unresolved membership is `unknown`. Enterprise membership and workspace allowlists are out of scope.
-- **Shared:** Slack's `is_shared`, without distinguishing Slack Connect from Enterprise sharing. This is independent of public/private visibility and author membership.
-- **Author kind:** human or bot, independent of membership and sharing; available to policy rules.
-- **Guest:** contextual information only. Guests in the home workspace count as home-workspace users; no guest-specific rules are planned.
-- **Access context:** facts supplied to authorization policy, not an authorization decision. Unavailable facts remain unknown. Fact-resolution metadata includes observation time; its representation is undecided.
+**1 → Home means installation workspace.** Compare each author's workspace ID with it: matching is `home`, different is `external`, unavailable is `unknown`. Enterprise membership and workspace allowlists are out of scope.
 
-## Slack sources
+**2 → Conversation includes the audience.** A home-workspace requester can still expose data by asking in a shared channel. No separate audience object is needed.
 
-- `auth.test`: bot user ID and installation workspace ID.
-- `conversations.info`: channel visibility and `is_shared`. Any shared channel crosses the home-workspace boundary; no distinction between Slack Connect and Enterprise organization sharing is needed.
-- `users.info`: author workspace, guest flags, and bot status. `is_stranger=false` does not establish home-workspace membership.
-- Email domains, display names, channel names, and channel ID prefixes are not authorization evidence.
-- Guests can belong to the home workspace. Workspace membership alone does not establish employee status.
-- Guest status is contextual information; guest-specific rules are out of scope. Guests follow the same home-workspace classification as other local accounts.
+**3 → Shared means Slack's `is_shared`.** Treat Slack Connect and Enterprise-shared channels alike. Sharing is independent of public/private visibility; channel ownership does not determine access.
+
+**4 → Author kind is a policy input.** Home and external authors can each be humans or bots. Preserve facts for every author in a batch and for messages received during execution (steering).
+
+**5 → Guest status is context only.** Home-workspace guests count as home users. No guest-specific rules are planned; workspace membership does not establish employee status.
+
+**6 → Unknown stays unknown.** Missing facts must not imply a home user, human author, or non-shared conversation. `username` means ID, not display name.
+
+## Data sources and freshness
+
+**1 → Installation: `auth.test`.** Obtain Sidekick's username and home workspace ID from its credentials, not the message author or event envelope's routing workspace.
+
+**2 → Conversation: `conversations.info` at each new thread.** Fetch kind, visibility, and `is_shared`, including for existing projects. Reuse the snapshot for subsequent messages. **Changes mid-thread are not detected until a new thread starts.** Snapshot storage and refresh boundaries for DMs and scheduled runs remain undecided.
+
+**3 → Author: `users.info`.** Obtain workspace ID, bot status, and guest flags. Author refresh timing is undecided. `is_stranger=false` does not prove home-workspace membership; email domains, display names, channel names, and ID prefixes are not authorization evidence.
 
 ## Scenarios
 
-A shared channel connects workspaces; its host workspace does not determine who can read Sidekick's replies. Classify channel scenarios by `is_shared` and author workspace, not channel ownership.
-
-| Conversation | Author | Scenario |
+| Channel | Author workspace | Meaning |
 | --- | --- | --- |
-| Non-shared channel | Home workspace | Local member, including a possible guest. |
-| Non-shared channel | Other workspace | Not an ordinary live Slack Connect channel message; retain the facts rather than assuming the author is local. |
-| Shared channel | Home workspace | Local requester, cross-workspace audience. |
-| Shared channel | Other workspace | External requester, cross-workspace audience. |
-| DM | Home workspace | Direct conversation with a local member, including a possible guest. |
-| DM | Other workspace | Direct conversation with an external member. |
-| Group DM | Home or other workspace | Author workspace alone does not establish the audience; other participants may be external. |
+| Non-shared | Home | Workspace-local conversation; guests are possible. |
+| Non-shared | Other | Not a normal live Slack Connect message; do not reinterpret the author as local. |
+| Shared | Home | Local requester, cross-workspace audience. |
+| Shared | Other | External requester, cross-workspace audience. |
 
-Each scenario can involve humans or bots. Guest status does not change workspace membership. Unknown membership or sharing remains a separate unresolved case.
+**1 → DMs can be local or external.** Classify the author by workspace ID; non-shared does not establish a local participant.
 
-## Proposed boundary
+**2 → Group DMs need participant context.** The current author's workspace alone does not establish whether other participants are external. How to resolve those participants remains undecided.
 
-The Slack adapter resolves Slack facts and translates them into typed access context. Application policy consumes that context; it does not call Slack or inspect Slack SDK objects.
+**3 → Human/bot kind applies to every scenario.** Unresolved membership or sharing is an unknown case, not a local/non-shared case.
 
-```text
-Slack installation + conversation + authors
-                  ↓
-          typed access context
-                  ↓
-           policy decision
-                  ↓
-   permitted execution and delivery
-```
+## Proposed authorization boundary
 
-Access context is separate from project classification and participation classification. Project `public`/`private`/`dm` does not describe external exposure. `shouldReply` decides participation, not authorization.
+**1 → Adapter resolves facts; policy decides access.** The Slack adapter produces typed access context. Application policy does not inspect Slack SDK objects or call Slack directly.
 
-## Proposed invariants
+**2 → Participation is separate from authorization.** `shouldReply` is not an access check. Project `public`/`private`/`dm` classification is not a security snapshot.
 
-- Missing facts remain unknown; a failed lookup must not imply internal membership or an internal-only audience.
-- Every author in a batch has context. A multi-author turn must not lose security context because it has no single requester.
-- Steering messages require the same authorization as initial input; joining an active turn cannot bypass policy.
-- Delegated work inherits the parent's restrictions. Starting a subagent cannot grant additional access.
-- Authorization covers data supplied to the model, tool execution, and output delivery. Hiding tool definitions alone does not protect internal prompts, history, project instructions, or workspace files.
-- Channel sharing and membership can change. The persisted project type is not an authoritative security snapshot.
-- Denials have explicit reasons without disclosing protected data.
+**3 → Checks cover input, tools, and output.** Hiding tool definitions does not protect internal prompts, history, project instructions, or workspace files already supplied to the model.
 
-Illustrative rule, not a selected default:
+**4 → Steering and delegation cannot bypass policy.** Apply authorization to every contributing author, including steering messages. Subagents inherit the parent's restrictions.
 
-```text
-allow company-data access only when:
-  every contributing author is an allowed home-organization member
-  AND the conversation is permitted to receive company data
-```
+**5 → Denials must not expose protected data.** Exact rules and denial behavior are undecided.
 
 ## Open decisions
 
-- Treatment of external bots and unresolved membership.
-- Whether external conversations are blocked entirely or receive a restricted capability set.
-- How fresh facts must be at admission, tool execution, and delivery; behavior when resolution fails.
-- Representation of access context in turns, queued input, delegated executions, and persisted/resumed work.
-- Coverage of external DMs, group DMs, scheduled work, and existing history when a conversation becomes externally shared.
-- Rule configuration and denial behavior.
+**1 → Rules.** Block external conversations entirely or allow restricted capabilities; treatment of bots and unresolved facts; configuration and denial behavior.
+
+**2 → Lifetime and storage.** Author-fact freshness, lookup-failure behavior, and context representation across turns, queues, subagents, and resumed execution. Conversation refresh is fixed at new-thread boundaries.
+
+**3 → Other execution paths.** DM/group-DM resolution and refresh, scheduled work, and handling existing history when a conversation becomes shared.
 
 ## Related context
 
