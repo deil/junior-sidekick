@@ -11,27 +11,62 @@ Sidekick is a multiplayer AI assistant for AI-pilled teams. It listens in Slack 
 
 Sidekick is built for teams that want an assistant where the work already happens: Slack (or, for some, Discord).
 
-According to GPT-5.5 summary, it receives Slack events, resolves user identity, persists conversation history, runs a Koog agent through OpenRouter, and posts the response back to the right Slack conversation. Eventually, Anton will re-write it to not be a hallucination. This day hasn't come yet, because Sidekick is not fully alive yet.
+Ask it to investigate a problem, work with a repository, query connected systems, or run recurring tasks. Sidekick keeps conversation history, uses channel-specific project instructions, and runs tools to get work done.
+
+## Your Systems, Your Control
+
+- Implement custom tools for any company resource or API, without a fixed integration catalog.
+- Build your own UI through a public API or a custom interface adapter.
+- Run Sidekick on-prem, with control over data storage, tool execution, and internal integrations. Core application features run within your deployment; model inference currently uses OpenRouter.
 
 ## Key Features
 
-- Slack-native interaction through app mentions, DMs, channel messages, and Slack assistant chat.
-- Thread-aware replies for channel conversations.
-- Koog-based agent runtime using OpenRouter as the LLM gateway.
-- File-based workspace operations for reading, searching, and editing project files.
-- Git tools for cloning, pulling, and pushing private GitHub and Bitbucket repositories.
-- Sandboxed bash execution for running workspace commands with configurable network access.
+### Team Conversations
+
+- Slack and Discord conversations with persistent history and automatic context compaction.
+- Selective thread participation and unsubscribe commands.
+- Mid-task follow-ups, live todo lists, and Slack's Stop control.
+
+### Getting Work Done
+
+- Workspace files, web pages, and conversation history.
+- Git repositories, including private GitHub and Bitbucket repos.
+- Sandboxed Bash. Remote project-user execution is experimental.
+- Attachments and Slack files, canvases, and reactions.
+- Isolated subagents with up to two levels of delegation.
+- Recurring jobs managed through Slack.
+
+### Context and Integrations
+
+- Project instructions (`AGENTS.md`), project tags, and shared company knowledge.
+- Extensible skills, subagents, and custom tools.
+- External MCP servers with static credentials or OAuth.
+- OpenRouter model profiles and optional Jev reply classification.
 
 ## Configuration
 
 - [Set up Slack](SETUP_SLACK.md)
 - [Set up Discord](SETUP_DISCORD.md)
 
+## Privacy & Security
+
+### Conversations
+
+Replies in shared channels are visible to external members and can expose internal data. Workspace-based access rules are in progress and not yet enforced.
+
+### Internal Systems Access
+
+Sidekick accesses internal systems as a dedicated service account using configured credentials and API keys, without tying access to the requester's identity. Scope those credentials narrowly; shell sandboxing does not restrict access through connected tools.
+
+## Sandbox
+
+Bash runs through local Bubblewrap or a separate [sandbox service](sandbox-service/README.md). Execution on an external shared VM is experimental.
+
 ## Integrations
 
 | Integration | Purpose |
 | --- | --- |
-| [Dumphere](https://github.com/uncomplex-co/dumphere) | Publishes, reads, edits, and replaces internal HTML, Markdown, and text files. Returns share URLs and replacement version metadata. |
+| [SamePage](https://github.com/uncomplex-co/dumphere) | Publishes and manages shareable HTML and Markdown artifacts. |
 
 ## Ingredients
 
@@ -44,7 +79,7 @@ According to GPT-5.5 summary, it receives Slack events, resolves user identity, 
 
 ## Status
 
-Sidekick is a research preview, not a polished product. The core Slack-to-agent loop works, but the project is actively exploring what a Slack-native AI teammate can do for a team. Expect sharp edges and frequent changes while the shape of the product is still being discovered.
+Sidekick is a research preview, not a polished product. Capabilities vary by chat platform and configuration. Expect sharp edges and frequent changes.
 
 ## License
 
