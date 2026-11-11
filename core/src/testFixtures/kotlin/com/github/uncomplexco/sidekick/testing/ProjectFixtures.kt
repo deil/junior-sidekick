@@ -14,6 +14,8 @@ class NoOpProjectsRepository : ProjectsRepository {
 
     override fun addIfAbsent(project: Project): Boolean = false
 
+    override fun updateChannelDetails(project: Project) = Unit
+
     override fun seedIfEmpty(projects: List<Project>): Boolean = false
 }
 

@@ -13,8 +13,10 @@ class SqliteUsersRepository(private val sidekickJdbcClient: JdbcClient) : UsersR
         sidekickJdbcClient
             .sql(
                 """
-                INSERT INTO users (name, email, idp_id, chat_id, created_at, last_seen_at)
-                VALUES (:name, :email, :idp_id, :chat_id, :created_at, :last_seen_at)
+                INSERT INTO users (name, email, idp_id, chat_id, created_at, last_seen_at,
+                    chat_workspace_id, is_bot, is_guest, chat_details_updated_at)
+                VALUES (:name, :email, :idp_id, :chat_id, :created_at, :last_seen_at,
+                    :chat_workspace_id, :is_bot, :is_guest, :chat_details_updated_at)
                 """
                     .trimIndent()
             )
@@ -24,6 +26,10 @@ class SqliteUsersRepository(private val sidekickJdbcClient: JdbcClient) : UsersR
             .param("chat_id", user.chatId)
             .param("created_at", user.createdAt.toString())
             .param("last_seen_at", user.lastSeenAt?.toString())
+            .param("chat_workspace_id", user.chatWorkspaceId)
+            .param("is_bot", user.isBot)
+            .param("is_guest", user.isGuest)
+            .param("chat_details_updated_at", user.chatDetailsUpdatedAt?.toString())
             .update()
     }
 
@@ -58,6 +64,26 @@ class SqliteUsersRepository(private val sidekickJdbcClient: JdbcClient) : UsersR
             .optional()
             .orElse(null)
 
+    override fun updateChatDetails(chatId: String, user: User) {
+        sidekickJdbcClient
+            .sql(
+                """
+                UPDATE users SET last_seen_at = :last_seen_at,
+                    chat_workspace_id = :chat_workspace_id, is_bot = :is_bot, is_guest = :is_guest,
+                    chat_details_updated_at = :chat_details_updated_at
+                WHERE chat_id = :chat_id
+                """
+                    .trimIndent()
+            )
+            .param("chat_id", chatId)
+            .param("last_seen_at", user.lastSeenAt?.toString())
+            .param("chat_workspace_id", user.chatWorkspaceId)
+            .param("is_bot", user.isBot)
+            .param("is_guest", user.isGuest)
+            .param("chat_details_updated_at", user.chatDetailsUpdatedAt?.toString())
+            .update()
+    }
+
     override fun linkIdpId(email: String, idpId: String, lastSeenAt: Instant) {
         sidekickJdbcClient
             .sql(
@@ -69,13 +95,23 @@ class SqliteUsersRepository(private val sidekickJdbcClient: JdbcClient) : UsersR
             .update()
     }
 
-    override fun linkChatId(email: String, chatId: String, lastSeenAt: Instant) {
+    override fun linkChatId(email: String, user: User) {
         sidekickJdbcClient
             .sql(
-                "UPDATE users SET chat_id = :chat_id, last_seen_at = :last_seen_at WHERE email = :email"
+                """
+                UPDATE users SET chat_id = :chat_id, last_seen_at = :last_seen_at,
+                    chat_workspace_id = :chat_workspace_id, is_bot = :is_bot, is_guest = :is_guest,
+                    chat_details_updated_at = :chat_details_updated_at
+                WHERE email = :email
+                """
+                    .trimIndent()
             )
-            .param("last_seen_at", lastSeenAt.toString())
-            .param("chat_id", chatId)
+            .param("last_seen_at", user.lastSeenAt?.toString())
+            .param("chat_id", user.chatId)
+            .param("chat_workspace_id", user.chatWorkspaceId)
+            .param("is_bot", user.isBot)
+            .param("is_guest", user.isGuest)
+            .param("chat_details_updated_at", user.chatDetailsUpdatedAt?.toString())
             .param("email", email)
             .update()
     }
@@ -100,5 +136,9 @@ class SqliteUsersRepository(private val sidekickJdbcClient: JdbcClient) : UsersR
             chatId = getString("chat_id"),
             createdAt = Instant.parse(getString("created_at")),
             lastSeenAt = getString("last_seen_at")?.let(Instant::parse),
+            chatWorkspaceId = getString("chat_workspace_id"),
+            isBot = getObject("is_bot")?.let { getBoolean("is_bot") },
+            isGuest = getObject("is_guest")?.let { getBoolean("is_guest") },
+            chatDetailsUpdatedAt = getString("chat_details_updated_at")?.let(Instant::parse),
         )
 }

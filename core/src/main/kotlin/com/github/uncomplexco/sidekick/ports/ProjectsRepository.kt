@@ -9,5 +9,7 @@ interface ProjectsRepository {
 
     fun addIfAbsent(project: Project): Boolean
 
+    fun updateChannelDetails(project: Project)
+
     fun seedIfEmpty(projects: List<Project>): Boolean
 }

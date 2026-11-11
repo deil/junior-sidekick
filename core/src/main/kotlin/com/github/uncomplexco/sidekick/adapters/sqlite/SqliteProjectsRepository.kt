@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.adapters.sqlite
 
+import com.github.uncomplexco.sidekick.application.chat.ChannelKind
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.core.Project
 import com.github.uncomplexco.sidekick.application.core.ProjectType
@@ -22,9 +23,7 @@ class SqliteProjectsRepository(
 
     override fun findByUid(uid: String): Project? =
         sidekickJdbcClient
-            .sql(
-                "SELECT id, uid, adapter, type, name, external_ref_id, created_at FROM projects WHERE uid = :uid"
-            )
+            .sql("SELECT * FROM projects WHERE uid = :uid")
             .param("uid", uid)
             .query { row, _ ->
                 Project(
@@ -35,6 +34,12 @@ class SqliteProjectsRepository(
                     externalRefId = row.getString("external_ref_id"),
                     createdAt = Instant.parse(row.getString("created_at")),
                     id = row.getLong("id"),
+                    channelKind =
+                        row.getString("channel_kind")?.let { ChannelKind.valueOf(it.uppercase()) },
+                    isShared = row.getObject("is_shared")?.let { row.getBoolean("is_shared") },
+                    chatWorkspaceId = row.getString("chat_workspace_id"),
+                    channelDetailsUpdatedAt =
+                        row.getString("channel_details_updated_at")?.let(Instant::parse),
                 )
             }
             .optional()
@@ -44,8 +49,10 @@ class SqliteProjectsRepository(
         sidekickJdbcClient
             .sql(
                 """
-                INSERT INTO projects (uid, adapter, type, name, external_ref_id, created_at)
-                VALUES (:uid, :adapter, :type, :name, :external_ref_id, :created_at)
+                INSERT INTO projects (uid, adapter, type, name, external_ref_id, created_at,
+                    channel_kind, is_shared, channel_details_updated_at, chat_workspace_id)
+                VALUES (:uid, :adapter, :type, :name, :external_ref_id, :created_at,
+                    :channel_kind, :is_shared, :channel_details_updated_at, :chat_workspace_id)
                 ON CONFLICT DO NOTHING
                 """
                     .trimIndent()
@@ -56,6 +63,10 @@ class SqliteProjectsRepository(
             .param("name", project.name)
             .param("external_ref_id", project.externalRefId)
             .param("created_at", project.createdAt.toString())
+            .param("channel_kind", project.channelKind?.name?.lowercase())
+            .param("chat_workspace_id", project.chatWorkspaceId)
+            .param("is_shared", project.isShared)
+            .param("channel_details_updated_at", project.channelDetailsUpdatedAt?.toString())
             .update() == 1
 
     override fun seedIfEmpty(projects: List<Project>): Boolean =
@@ -68,4 +79,24 @@ class SqliteProjectsRepository(
 
             true
         } == true
+
+    override fun updateChannelDetails(project: Project) {
+        sidekickJdbcClient
+            .sql(
+                """
+                UPDATE projects SET type = :type, channel_kind = :channel_kind,
+                    is_shared = :is_shared, channel_details_updated_at = :channel_details_updated_at,
+                    chat_workspace_id = :chat_workspace_id
+                WHERE uid = :uid
+                """
+                    .trimIndent()
+            )
+            .param("uid", project.uid)
+            .param("type", project.type.name.lowercase())
+            .param("chat_workspace_id", project.chatWorkspaceId)
+            .param("channel_kind", project.channelKind?.name?.lowercase())
+            .param("is_shared", project.isShared)
+            .param("channel_details_updated_at", project.channelDetailsUpdatedAt?.toString())
+            .update()
+    }
 }

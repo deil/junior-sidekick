@@ -8,6 +8,8 @@ their row and gain the WebUI IdP identity. `idp_id` and `chat_id` are nullable;
 WebUI sign-in supplies the raw IdP subject and preserves any linked chat ID.
 Successful sign-in updates `last_seen_at`. No roles exist.
 
+Stored users may have null email when discovered through chat. Web sign-in still requires a verified email and links by email only when one is present; null emails are not shared identities.
+
 ## Authentication contract
 
 - Google credentials stay on the backend. A short-lived, single-use PKCE handoff

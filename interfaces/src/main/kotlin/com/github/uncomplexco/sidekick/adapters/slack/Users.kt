@@ -38,21 +38,25 @@ internal suspend fun loadSlackUserDetails(client: MethodsClient, chatId: String)
     val user = response.user
     val profile = user.profile
     val email = profile?.email?.takeIf { it.isNotBlank() }
-    if (email == null) {
-        Loggers.SLACK.warn(
-            "Cannot provision Slack user {} without email; users:read.email scope is required",
-            chatId,
-        )
-        return null
-    }
 
     val name =
         user.realName?.takeIf { it.isNotBlank() }
-            ?: profile.displayName?.takeIf { it.isNotBlank() }
+            ?: profile?.displayName?.takeIf { it.isNotBlank() }
             ?: user.name?.takeIf { it.isNotBlank() }
             ?: chatId
 
-    return ChatUserDetails(name, email)
+    return ChatUserDetails(
+        name = name,
+        email = email,
+        workspaceId = user.teamId?.takeIf { it.isNotBlank() },
+        isBot = user.isBot,
+        isGuest =
+            when {
+                user.isRestricted == true || user.isUltraRestricted == true -> true
+                user.isRestricted == false && user.isUltraRestricted == false -> false
+                else -> null
+            },
+    )
 }
 
 internal fun toMessageAuthor(

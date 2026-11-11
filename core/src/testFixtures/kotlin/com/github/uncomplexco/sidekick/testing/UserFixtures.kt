@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.testing
 
-import com.github.uncomplexco.sidekick.application.core.UsersService
 import com.github.uncomplexco.sidekick.application.core.User
+import com.github.uncomplexco.sidekick.application.core.UsersService
 import com.github.uncomplexco.sidekick.ports.UsersRepository
 import java.time.Instant
 
@@ -16,11 +16,13 @@ class NoOpUsersRepository : UsersRepository {
 
     override fun updateLastSeenByChatId(chatId: String, lastSeenAt: Instant) = Unit
 
+    override fun updateChatDetails(chatId: String, user: User) = Unit
+
     override fun linkIdpId(email: String, idpId: String, lastSeenAt: Instant) = Unit
 
     override fun updateEmailByIdpId(idpId: String, email: String, lastSeenAt: Instant) = Unit
 
-    override fun linkChatId(email: String, chatId: String, lastSeenAt: Instant) = Unit
+    override fun linkChatId(email: String, user: User) = Unit
 }
 
 private class KnownChatUsersRepository : UsersRepository by NoOpUsersRepository() {

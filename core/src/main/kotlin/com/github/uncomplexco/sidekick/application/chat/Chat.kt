@@ -14,7 +14,7 @@ interface ChatPlatformAdapter {
 
     suspend fun loadUserDetails(chatId: String): ChatUserDetails? = null
 
-    suspend fun loadChannelVisibility(channelId: String): ChannelVisibility? = null
+    suspend fun loadChannelDetails(channelId: String): ChatChannelDetails? = null
 
     suspend fun ingestFiles(
         conversationId: ConversationId,
@@ -22,7 +22,26 @@ interface ChatPlatformAdapter {
     ): List<IncomingChatFile>
 }
 
-data class ChatUserDetails(val name: String, val email: String)
+data class ChatUserDetails(
+    val name: String,
+    val email: String?,
+    val workspaceId: String? = null,
+    val isBot: Boolean? = null,
+    val isGuest: Boolean? = null,
+)
+
+data class ChatChannelDetails(
+    val visibility: ChannelVisibility?,
+    val kind: ChannelKind? = null,
+    val isShared: Boolean? = null,
+    val workspaceId: String? = null,
+)
+
+enum class ChannelKind {
+    CHANNEL,
+    DM,
+    GROUP_DM,
+}
 
 enum class ChannelVisibility {
     PUBLIC,

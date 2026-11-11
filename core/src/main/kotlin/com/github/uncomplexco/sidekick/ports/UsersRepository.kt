@@ -14,9 +14,11 @@ interface UsersRepository {
 
     fun updateLastSeenByChatId(chatId: String, lastSeenAt: Instant)
 
+    fun updateChatDetails(chatId: String, user: User)
+
     fun linkIdpId(email: String, idpId: String, lastSeenAt: Instant)
 
     fun updateEmailByIdpId(idpId: String, email: String, lastSeenAt: Instant)
 
-    fun linkChatId(email: String, chatId: String, lastSeenAt: Instant)
+    fun linkChatId(email: String, user: User)
 }

@@ -1,6 +1,5 @@
 package com.github.uncomplexco.sidekick.application.core
 
-
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.chat.ChatConversationId
 import com.github.uncomplexco.sidekick.application.chat.ChatUserDetails
@@ -25,6 +24,8 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 class ChatUserAdmissionTest {
     @TempDir lateinit var directory: Path
@@ -59,7 +60,10 @@ class ChatUserAdmissionTest {
         val config = config()
         val users = sqliteUsersRepository(config)
         val coordinator = userInteractionCoordinator(config, users, clock)
-        val chat = StubChatAdapter(mapOf("U123" to ChatUserDetails("Ada", "ada@example.com")))
+        val chat =
+            StubChatAdapter(
+                mapOf("U123" to ChatUserDetails("Ada", "ada@example.com", "THOME", false, true))
+            )
 
         // Act
         coordinator.run(trigger(chat))
@@ -74,6 +78,10 @@ class ChatUserAdmissionTest {
         assertNull(user.idpId)
         assertEquals(now, user.createdAt)
         assertEquals(now, user.lastSeenAt)
+        assertEquals("THOME", user.chatWorkspaceId)
+        assertEquals(false, user.isBot)
+        assertEquals(true, user.isGuest)
+        assertEquals(now, user.chatDetailsUpdatedAt)
         assertEquals(listOf("Done"), chat.replies)
     }
 
@@ -95,21 +103,49 @@ class ChatUserAdmissionTest {
     }
 
     @Test
-    fun `known chat user updates last seen without fetching profile again`() = runBlocking {
+    fun `known chat user with complete metadata does not fetch profile even without email`() =
+        runBlocking {
+            // Arrange
+            val config = config()
+            val users = sqliteUsersRepository(config)
+            users.add(
+                User(
+                    "Ada",
+                    null,
+                    null,
+                    Instant.parse("2026-11-01T12:00:00Z"),
+                    chatId = "U123",
+                    lastSeenAt = Instant.parse("2026-11-07T12:00:00Z"),
+                    chatWorkspaceId = "THOME",
+                    isBot = false,
+                    isGuest = false,
+                    chatDetailsUpdatedAt = Instant.parse("2026-11-01T12:00:00Z"),
+                )
+            )
+            val original = users.findByChatId("U123")
+            val coordinator = userInteractionCoordinator(config, users, clock)
+            val chat = StubChatAdapter()
+
+            // Act
+            coordinator.run(trigger(chat))
+
+            // Assert
+            assertNotNull(original)
+            assertEquals(
+                original.copy(lastSeenAt = now),
+                sqliteUsersRepository(config).findByChatId("U123"),
+            )
+            assertTrue(chat.requestedUsers.isEmpty())
+            assertEquals(listOf("Done"), chat.replies)
+        }
+
+    @Test
+    fun `failed metadata lookup preserves user and records activity`() = runBlocking {
         // Arrange
         val config = config()
         val users = sqliteUsersRepository(config)
-        users.add(
-            User(
-                "Ada",
-                "ada@example.com",
-                null,
-                Instant.parse("2026-11-01T12:00:00Z"),
-                chatId = "U123",
-                lastSeenAt = Instant.parse("2026-11-07T12:00:00Z"),
-            )
-        )
-        val original = users.findByChatId("U123")
+        users.add(User("Ada", "ada@example.com", "google-ada", Instant.EPOCH, chatId = "U123"))
+        val original = users.findByChatId("U123")!!
         val coordinator = userInteractionCoordinator(config, users, clock)
         val chat = StubChatAdapter()
 
@@ -117,12 +153,92 @@ class ChatUserAdmissionTest {
         coordinator.run(trigger(chat))
 
         // Assert
-        assertNotNull(original)
-        assertEquals(
-            original.copy(lastSeenAt = now),
-            sqliteUsersRepository(config).findByChatId("U123"),
+        val stored = sqliteUsersRepository(config).findByChatId("U123")
+        assertEquals(original.copy(lastSeenAt = now), stored)
+        assertTrue(stored!!.isMissingChatMetadata)
+        assertEquals(listOf("U123"), chat.requestedUsers)
+        assertEquals(listOf("Done"), chat.replies)
+    }
+
+    @ParameterizedTest(
+        name = "backfill workspace={0}, bot={1}, guest={2} without replacing user identity"
+    )
+    @CsvSource(
+        ", , ",
+        ", false, false",
+        "THOME, , false",
+        "THOME, false, ",
+    )
+    fun `missing metadata is backfilled on the next interaction`(
+        workspaceId: String?,
+        isBot: Boolean?,
+        isGuest: Boolean?,
+    ) = runBlocking {
+        // Arrange
+        val config = config()
+        val users = sqliteUsersRepository(config)
+        users.add(
+            User(
+                "Web Ada",
+                "ada@example.com",
+                "google-ada",
+                Instant.EPOCH,
+                chatId = "U123",
+                chatWorkspaceId = workspaceId,
+                isBot = isBot,
+                isGuest = isGuest,
+            )
         )
-        assertTrue(chat.requestedUsers.isEmpty())
+        val original = users.findByChatId("U123")!!
+        val coordinator = userInteractionCoordinator(config, users, clock)
+        val chat =
+            StubChatAdapter(
+                mapOf(
+                    "U123" to
+                        ChatUserDetails("Slack Ada", "different@example.com", "THOME", false, false)
+                )
+            )
+
+        // Act
+        coordinator.run(trigger(chat))
+
+        // Assert
+        val stored = sqliteUsersRepository(config).findByChatId("U123")
+        assertEquals(
+            original.copy(
+                chatWorkspaceId = "THOME",
+                isBot = false,
+                isGuest = false,
+                chatDetailsUpdatedAt = now,
+                lastSeenAt = now,
+            ),
+            stored,
+        )
+        assertEquals(false, stored!!.isMissingChatMetadata)
+        assertEquals(listOf("U123"), chat.requestedUsers)
+        assertEquals(listOf("Done"), chat.replies)
+    }
+
+    @Test
+    fun `partial lookup preserves known metadata and remains incomplete`() = runBlocking {
+        // Arrange
+        val config = config()
+        val users = sqliteUsersRepository(config)
+        users.add(User("Ada", null, null, Instant.EPOCH, chatId = "U123", isBot = false))
+        val original = users.findByChatId("U123")!!
+        val coordinator = userInteractionCoordinator(config, users, clock)
+        val chat = StubChatAdapter(mapOf("U123" to ChatUserDetails("Ada", null, "THOME")))
+
+        // Act
+        coordinator.run(trigger(chat))
+
+        // Assert
+        val stored = sqliteUsersRepository(config).findByChatId("U123")
+        assertEquals(
+            original.copy(chatWorkspaceId = "THOME", chatDetailsUpdatedAt = now, lastSeenAt = now),
+            stored,
+        )
+        assertTrue(stored!!.isMissingChatMetadata)
         assertEquals(listOf("Done"), chat.replies)
     }
 
@@ -136,16 +252,94 @@ class ChatUserAdmissionTest {
         )
         val original = users.findAllByIdpId("google-ada").single()
         val coordinator = userInteractionCoordinator(config, users, clock)
-        val chat = StubChatAdapter(mapOf("U123" to ChatUserDetails("Slack Ada", "ada@example.com")))
+        val chat =
+            StubChatAdapter(
+                mapOf(
+                    "U123" to ChatUserDetails("Slack Ada", "ada@example.com", "THOME", false, false)
+                )
+            )
 
         // Act
         coordinator.run(trigger(chat))
 
         // Assert
         assertEquals(
-            original.copy(chatId = "U123", lastSeenAt = now),
+            original.copy(
+                chatId = "U123",
+                lastSeenAt = now,
+                chatWorkspaceId = "THOME",
+                isBot = false,
+                isGuest = false,
+                chatDetailsUpdatedAt = now,
+            ),
             sqliteUsersRepository(config).findByChatId("U123"),
         )
+        assertEquals(listOf("Done"), chat.replies)
+    }
+
+    @Test
+    fun `new bot without email is persisted with chat metadata`() = runBlocking {
+        // Arrange
+        val config = config()
+        val users = sqliteUsersRepository(config)
+        val coordinator = userInteractionCoordinator(config, users, clock)
+        val chat =
+            StubChatAdapter(
+                mapOf("U123" to ChatUserDetails("Build bot", null, "TEXTERNAL", true, false))
+            )
+
+        // Act
+        coordinator.run(trigger(chat))
+
+        // Assert
+        val user = sqliteUsersRepository(config).findByChatId("U123")
+        assertNotNull(user)
+        assertNull(user.email)
+        assertEquals("TEXTERNAL", user.chatWorkspaceId)
+        assertEquals(true, user.isBot)
+        assertEquals(false, user.isGuest)
+        assertEquals(now, user.chatDetailsUpdatedAt)
+        assertEquals(listOf("Done"), chat.replies)
+    }
+
+    @Test
+    fun `authors without emails remain separate users with unknown chat metadata`() = runBlocking {
+        // Arrange
+        val config = config()
+        val users = sqliteUsersRepository(config)
+        val coordinator = userInteractionCoordinator(config, users, clock)
+        val chat =
+            StubChatAdapter(
+                mapOf(
+                    "U123" to ChatUserDetails("Ada", null),
+                    "U456" to ChatUserDetails("Grace", null),
+                )
+            )
+        val batch =
+            IncomingBatch(
+                ChatConversationId("C123", "1700000000.000"),
+                listOf(
+                    message(),
+                    message("U456").copy(id = "1700000001.000"),
+                ),
+            )
+
+        // Act
+        coordinator.run(TurnTrigger.Incoming(batch, chat))
+
+        // Assert
+        val persisted = sqliteUsersRepository(config)
+        val ada = persisted.findByChatId("U123")
+        val grace = persisted.findByChatId("U456")
+        assertNotNull(ada)
+        assertNotNull(grace)
+        assertEquals("Ada", ada.name)
+        assertEquals("Grace", grace.name)
+        assertNull(ada.email)
+        assertNull(grace.email)
+        assertNull(ada.chatWorkspaceId)
+        assertNull(ada.isBot)
+        assertNull(ada.isGuest)
         assertEquals(listOf("Done"), chat.replies)
     }
 

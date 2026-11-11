@@ -104,7 +104,10 @@ class WebLoginUsersTest {
         val fixture = loginFixture()
         fixture.completeLogin()
         val original = users.findAllByIdpId("google-test-subject").single()
-        users.linkChatId("person@example.com", "U123", Instant.parse("2026-11-08T12:00:00Z"))
+        users.linkChatId(
+            "person@example.com",
+            original.copy(chatId = "U123", lastSeenAt = Instant.parse("2026-11-08T12:00:00Z")),
+        )
         fixture.now = Instant.parse("2026-11-09T12:00:00Z")
 
         // Act

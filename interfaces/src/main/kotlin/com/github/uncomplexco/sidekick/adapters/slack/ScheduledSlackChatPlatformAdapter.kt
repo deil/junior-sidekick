@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
 import com.github.uncomplexco.sidekick.adapters.chat.ChatUiRenderer
-import com.github.uncomplexco.sidekick.application.chat.ChannelVisibility
+import com.github.uncomplexco.sidekick.application.chat.ChatChannelDetails
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatUserDetails
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
@@ -30,8 +30,8 @@ class ScheduledSlackChatPlatformAdapter(
     override suspend fun loadUserDetails(chatId: String): ChatUserDetails? =
         loadSlackUserDetails(client, chatId)
 
-    override suspend fun loadChannelVisibility(channelId: String): ChannelVisibility? =
-        loadSlackChannelVisibility(client, channelId)
+    override suspend fun loadChannelDetails(channelId: String): ChatChannelDetails? =
+        loadSlackChannelDetails(client, channelId)
 
     override suspend fun ingestFiles(
         conversationId: ConversationId,

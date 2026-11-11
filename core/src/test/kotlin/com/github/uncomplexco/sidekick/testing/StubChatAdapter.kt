@@ -6,7 +6,7 @@ import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.AgentSteering
 import com.github.uncomplexco.sidekick.application.agent.AgentTurnExecutor
 import com.github.uncomplexco.sidekick.application.agent.TurnExecutionResult
-import com.github.uncomplexco.sidekick.application.chat.ChannelVisibility
+import com.github.uncomplexco.sidekick.application.chat.ChatChannelDetails
 import com.github.uncomplexco.sidekick.application.chat.ChatMessage
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
@@ -37,7 +37,7 @@ import org.mockito.Mockito.mock
 
 class StubChatAdapter(
     private val profiles: Map<String, ChatUserDetails> = emptyMap(),
-    private val channelVisibilities: Map<String, ChannelVisibility> = emptyMap(),
+    private val channels: Map<String, ChatChannelDetails> = emptyMap(),
 ) : ChatPlatformAdapter {
     val requestedUsers = mutableListOf<String>()
     val replies = mutableListOf<String>()
@@ -81,9 +81,9 @@ class StubChatAdapter(
         return profiles[chatId]
     }
 
-    override suspend fun loadChannelVisibility(channelId: String): ChannelVisibility? {
+    override suspend fun loadChannelDetails(channelId: String): ChatChannelDetails? {
         requestedProjects += channelId
-        return channelVisibilities[channelId]
+        return channels[channelId]
     }
 }
 

@@ -27,6 +27,7 @@ import com.github.uncomplexco.sidekick.application.core.UsersService
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.utils.Loggers
+import java.time.Instant
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
@@ -73,16 +74,23 @@ class TurnCoordinator(
 
                 is TurnAdmissionDecision.Admitted -> {
                     val channelId = decision.conversationId.channelId
-                    if (!projects.exists(channelId)) {
-                        val visibility = chat.loadChannelVisibility(channelId)
+                    if (!sessions.exists(decision.conversationId) || !projects.exists(channelId)) {
+                        val details = chat.loadChannelDetails(channelId)
                         val projectType =
-                            when (visibility) {
+                            when (details?.visibility) {
                                 ChannelVisibility.PUBLIC -> ProjectType.PUBLIC
                                 ChannelVisibility.PRIVATE -> ProjectType.PRIVATE
                                 ChannelVisibility.DIRECT_MESSAGE -> ProjectType.DM
                                 null -> null
                             }
-                        projects.register(channelId, projectType)
+                        projects.recordChannelDetails(
+                            channelId,
+                            projectType,
+                            details?.kind,
+                            details?.isShared,
+                            details?.let { Instant.now() },
+                            details?.workspaceId,
+                        )
                     }
 
                     users.record(batch.messages, chat)

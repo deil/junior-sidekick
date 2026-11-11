@@ -6,7 +6,7 @@ type: Spec
 
 Provide workspace, conversation, and author facts so rules can control access to company data and tools.
 
-**Draft.** Context and policy enforcement are not implemented.
+**Persistence and thread-start refresh implemented; authorization remains draft.** Stored facts are not yet bound into execution access context. Policy enforcement is not implemented.
 
 ## Domain model
 
@@ -17,6 +17,7 @@ Access context
 │   └── Sidekick username (ID)
 ├── Conversation
 │   ├── Channel ID
+│   ├── Workspace ID, when known
 │   ├── Kind: channel | DM | group DM
 │   ├── Visibility: public | private (channels only)
 │   └── Shared: yes | no | unknown
@@ -32,7 +33,7 @@ Access context
 
 **2 → Conversation includes the audience.** A home-workspace requester can still expose data by asking in a shared channel. No separate audience object is needed.
 
-**3 → Shared means Slack's `is_shared`.** Treat Slack Connect and Enterprise-shared channels alike. Sharing is independent of public/private visibility; channel ownership does not determine access.
+**3 → Shared means Slack's `is_shared`.** Treat Slack Connect and Enterprise-shared channels alike. Sharing is independent of public/private visibility; channel ownership does not determine access. The conversation workspace comes from `context_team_id`, not `conversation_host_id`; it does not describe every participating workspace.
 
 **4 → Author kind is a policy input.** Home and external authors can each be humans or bots. Preserve facts for every author in a batch and for messages received during execution (steering).
 
@@ -44,9 +45,19 @@ Access context
 
 **1 → Installation: `auth.test`.** Obtain Sidekick's username and home workspace ID from its credentials, not the message author or event envelope's routing workspace.
 
-**2 → Conversation: `conversations.info` at each new thread.** Fetch kind, visibility, and `is_shared`, including for existing projects. Reuse the snapshot for subsequent messages. **Changes mid-thread are not detected until a new thread starts.** Snapshot storage and refresh boundaries for DMs and scheduled runs remain undecided.
+**2 → Conversation: `conversations.info` when Sidekick first enters a thread.** A thread is new to Sidekick when it has no persisted session. Fetch `context_team_id`, kind, visibility, and `is_shared`, including for existing projects with complete metadata. Continuing that thread does not refresh, even if metadata is incomplete. **Changes mid-thread are not detected until a new thread starts.** Snapshot storage and refresh boundaries for DMs and scheduled runs remain undecided.
 
 **3 → Author: `users.info`.** Obtain workspace ID, bot status, and guest flags. Author refresh timing is undecided. `is_stranger=false` does not prove home-workspace membership; email domains, display names, channel names, and ID prefixes are not authorization evidence.
+
+## Persistence
+
+**1 → Channels.** `Project` stores nullable `chatWorkspaceId`, `channelKind`, `isShared`, and `channelDetailsUpdatedAt` alongside its existing visibility classification. `isMissingChatMetadata` is computed from missing workspace ID, channel kind, or sharing status. New channels are registered on admitted input; existing projects refresh at thread start without replacing project identity or creation time. Failed refreshes retain the previous values and successful-lookup timestamp; a failed first lookup leaves the new fields null. A later new thread retries.
+
+**2 → Slack users.** `User` stores nullable `chatWorkspaceId`, `isBot`, `isGuest`, and `chatDetailsUpdatedAt`. Email is nullable: bots and users without accessible email can be stored. Email matches link the Slack identity and metadata to the existing user without replacing its name, IdP identity, or creation time.
+
+**3 → Existing users backfill on interaction.** `User.isMissingChatMetadata` is computed from missing workspace ID, bot status, or guest status. Email does not count. Incomplete users trigger a lookup on admitted messages, including steering. Updates preserve identity, name, email, creation time, and any known metadata absent from the response. Failed lookups still record activity; incomplete results retry on a later interaction. Complete users need no lookup.
+
+**4 → Existing rows remain valid.** New columns are nullable, with no guessed defaults or startup backfill. Nullable booleans preserve the distinction between false and unknown. V6 preserves existing user IDs and identities while allowing null email; non-null emails remain unique.
 
 ## Scenarios
 

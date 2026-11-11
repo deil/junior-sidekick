@@ -19,22 +19,36 @@ class UsersService(
             val chatId = message.sender.username
             val now = clock.instant()
 
-            if (users.findByChatId(chatId) != null) {
-                users.updateLastSeenByChatId(chatId, now)
+            val existing = users.findByChatId(chatId)
+            if (existing != null) {
+                val details =
+                    if (existing.isMissingChatMetadata) chat.loadUserDetails(chatId) else null
+                if (details != null) {
+                    users.updateChatDetails(
+                        chatId,
+                        existing.copy(
+                            lastSeenAt = now,
+                            chatWorkspaceId = details.workspaceId ?: existing.chatWorkspaceId,
+                            isBot = details.isBot ?: existing.isBot,
+                            isGuest = details.isGuest ?: existing.isGuest,
+                            chatDetailsUpdatedAt = clock.instant(),
+                        ),
+                    )
 
-                log.info("Recorded chat interaction for user chatId={}", chatId)
+                    log.info(
+                        "Updated chat metadata and recorded interaction for user chatId={}",
+                        chatId,
+                    )
+                } else {
+                    users.updateLastSeenByChatId(chatId, now)
+
+                    log.info("Recorded chat interaction for user chatId={}", chatId)
+                }
                 continue
             }
 
             val details = chat.loadUserDetails(chatId) ?: continue
-            if (users.findByEmail(details.email) != null) {
-                users.linkChatId(details.email, chatId, now)
-
-                log.info("Linked chat identity and recorded interaction chatId={}", chatId)
-                continue
-            }
-
-            users.add(
+            val user =
                 User(
                     name = details.name,
                     email = details.email,
@@ -42,8 +56,20 @@ class UsersService(
                     chatId = chatId,
                     createdAt = now,
                     lastSeenAt = now,
+                    chatWorkspaceId = details.workspaceId,
+                    isBot = details.isBot,
+                    isGuest = details.isGuest,
+                    chatDetailsUpdatedAt = now,
                 )
-            )
+            val email = details.email
+            if (email != null && users.findByEmail(email) != null) {
+                users.linkChatId(email, user)
+
+                log.info("Linked chat identity and recorded interaction chatId={}", chatId)
+                continue
+            }
+
+            users.add(user)
 
             log.info("Provisioned chat user chatId={}", chatId)
         }

@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.core
 
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
+import com.github.uncomplexco.sidekick.application.chat.ChannelKind
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
 import com.github.uncomplexco.sidekick.ports.ProjectsRepository
@@ -56,14 +57,39 @@ class Projects(
     fun exists(channelId: String): Boolean =
         projects.findByUid(sanitizePathSegment(channelId)) != null
 
-    fun register(channelId: String, type: ProjectType?) {
+    fun recordChannelDetails(
+        channelId: String,
+        type: ProjectType?,
+        channelKind: ChannelKind?,
+        isShared: Boolean?,
+        channelDetailsUpdatedAt: Instant?,
+        chatWorkspaceId: String?,
+    ) {
         val uid = sanitizePathSegment(channelId)
-        if (projects.findByUid(uid) != null) return
+        val existing = projects.findByUid(uid)
 
-        val defaults = project(uid, channelId, Instant.now())
-        val project = defaults.copy(type = type ?: defaults.type)
+        val defaults = existing ?: project(uid, channelId, Instant.now())
+        val project =
+            defaults.copy(
+                type = type ?: defaults.type,
+                channelKind = channelKind ?: defaults.channelKind,
+                chatWorkspaceId = chatWorkspaceId ?: defaults.chatWorkspaceId,
+                isShared = isShared ?: defaults.isShared,
+                channelDetailsUpdatedAt =
+                    channelDetailsUpdatedAt ?: defaults.channelDetailsUpdatedAt,
+            )
 
-        if (projects.addIfAbsent(project)) {
+        if (existing != null) {
+            if (channelDetailsUpdatedAt == null) return
+
+            projects.updateChannelDetails(project)
+            log.info(
+                "Updated channel details for project {} type={} shared={}",
+                uid,
+                project.type,
+                project.isShared,
+            )
+        } else if (projects.addIfAbsent(project)) {
             log.info(
                 "Registered project {} for {} channel {} type={}",
                 uid,
