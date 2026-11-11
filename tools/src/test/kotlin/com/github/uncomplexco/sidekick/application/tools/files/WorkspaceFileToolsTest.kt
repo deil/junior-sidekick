@@ -1,10 +1,12 @@
 package com.github.uncomplexco.sidekick.application.tools.files
 
 import ai.koog.agents.core.tools.ToolException
+import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -57,6 +59,23 @@ class WorkspaceFileToolsTest {
 
         assertContains(result, "handbook/security.md")
         assertContains(result, "handbook/benefits.md")
+    }
+
+    @Test
+    fun `read directory preserves pagination output`() {
+        Files.createDirectories(dir.resolve("project/a"))
+        Files.createDirectory(dir.resolve("project/b"))
+        Files.createDirectory(dir.resolve("project/c"))
+
+        val result = tools().workspaceFileRead("/data/project", offset = 2, limit = 1)
+
+        assertContains(result, "<path>/data/project</path>")
+        assertContains(result, "<type>directory</type>")
+        assertContains(result, "<entries>\nb/\n")
+        assertContains(
+            result,
+            "Showing 1 of 3 entries. Use 'offset' parameter to read beyond entry 3",
+        )
     }
 
     @Test
@@ -131,7 +150,7 @@ class WorkspaceFileToolsTest {
         val result = tools().workspaceFileGrep("SOC2", "/data/global", "**/*.md")
 
         assertContains(result, "Found 1 matches")
-        assertContains(result, "${dir.resolve("global/handbook/security.md")}:")
+        assertContains(result, "/data/global/handbook/security.md:")
         assertContains(result, "Line 1: SOC2 evidence")
     }
 
@@ -152,6 +171,37 @@ class WorkspaceFileToolsTest {
         assertContains(result, "/data/skills/repo/skill/SKILL.md")
         assertContains(result, "/data/global/handbook/security.md")
         assertContains(result, "/data/project/src/notes.md")
+    }
+
+    @Test
+    fun `grep clips matching lines in tool output`() {
+        Files.createDirectories(dir.resolve("project"))
+        Files.writeString(dir.resolve("project/long.txt"), "needle" + "x".repeat(3000))
+
+        val result = tools().workspaceFileGrep("needle", "/data/project")
+
+        assertContains(result, "Line 1: needle${"x".repeat(1994)}...")
+    }
+
+    @Test
+    fun `grep preserves truncation output`() {
+        Files.createDirectories(dir.resolve("project"))
+        Files.writeString(dir.resolve("project/many.txt"), "needle\n".repeat(101))
+
+        val result = tools().workspaceFileGrep("needle", "/data/project")
+
+        assertContains(result, "Found 101 matches (showing first 100)")
+        assertContains(result, "Results truncated: showing 100 of 101 matches (1 hidden)")
+    }
+
+    @Test
+    fun `grep reports no matches`() {
+        Files.createDirectories(dir.resolve("project"))
+        Files.writeString(dir.resolve("project/hello.txt"), "hello")
+
+        val result = tools().workspaceFileGrep("needle", "/data/project")
+
+        assertEquals("No files found", result)
     }
 
     @Test
@@ -197,8 +247,8 @@ class WorkspaceFileToolsTest {
         }
     }
 
-    private fun tools(): WorkspaceFileTools =
-        WorkspaceFileTools(
+    private fun tools(): WorkspaceFileTools {
+        val paths =
             VirtualPaths(
                 sessionRoot = dir.resolve("session"),
                 skillsRoot = dir.resolve("skills"),
@@ -206,7 +256,11 @@ class WorkspaceFileToolsTest {
                 workRoot = dir.resolve("work"),
                 projectRoot = dir.resolve("project"),
             )
+        return WorkspaceFileTools(
+            "C123",
+            WorkspaceFilesystemFactory().create(paths),
         )
+    }
 
     private fun readCases(): List<Pair<String, Path>> =
         listOf(

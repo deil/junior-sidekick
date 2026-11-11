@@ -7,6 +7,7 @@ import ai.koog.serialization.JSONObject
 import ai.koog.serialization.typeToken
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemScheduledJobStore
+import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorConfig
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
@@ -80,6 +81,7 @@ class ToolCatalogFixture(
                     http.token = "unused"
                 }
             ),
+            WorkspaceFilesystemFactory(),
             store,
             ScheduledJobService(FilesystemScheduledJobStore(config)),
             WeeklyStatsService(store),

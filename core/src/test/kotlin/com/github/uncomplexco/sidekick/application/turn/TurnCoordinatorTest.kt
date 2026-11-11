@@ -395,15 +395,13 @@ class TurnCoordinatorTest {
                 val replies = mutableListOf<String>()
                 val events = mutableListOf<Pair<String, String>>()
                 val classifier = mock(LlmParticipationClassifier::class.java)
+                val participation =
+                    TurnParticipation(config, DeterministicParticipationClassifier(), classifier)
                 val coordinator =
                     TurnCoordinator(
                         TurnAdmission(sessions),
                         sessions,
-                        TurnParticipation(
-                            config,
-                            DeterministicParticipationClassifier(),
-                            classifier,
-                        ),
+                        participation,
                         AgentTurnExecutor { turn, _, steer ->
                             started.send(turn)
                             if (turn.messages.first().id == "m1") {
@@ -966,14 +964,11 @@ class TurnCoordinatorTest {
                         otherCompleted.await()
 
                         // Assert
-                        assertEquals(
-                            true,
-                            store
-                                .load(ConversationId("C123", "other"))
-                                .messages
-                                .first { it.id == "m2" }
-                                .replied,
-                        )
+                        val otherMessage =
+                            store.load(ConversationId("C123", "other")).messages.first {
+                                it.id == "m2"
+                            }
+                        assertEquals(true, otherMessage.replied)
                         assertEquals(
                             null,
                             store.load(ConversationId("C123", "blocked")).messages.single().replied,

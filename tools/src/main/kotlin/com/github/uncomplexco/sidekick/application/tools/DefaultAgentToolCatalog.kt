@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.application.tools
 
 import ai.koog.agents.core.tools.ToolRegistry
+import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.adapters.sandbox.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
@@ -60,6 +61,7 @@ class DefaultAgentToolCatalog(
     bashToolConfig: BashToolConfig,
     gitToolConfig: GitToolConfig,
     sandboxExecutorFactory: SandboxExecutorFactory,
+    workspaceFilesystemFactory: WorkspaceFilesystemFactory,
     conversationStateStore: ConversationStateStore,
     scheduledJobs: ScheduledJobService,
     weeklyStats: WeeklyStatsService,
@@ -72,7 +74,11 @@ class DefaultAgentToolCatalog(
             ToolRegistration("system", ToolAccess.SHARED) { SystemTools().asTools() },
             ToolRegistration("stats", ToolAccess.SHARED) { StatsTools(weeklyStats).asTools() },
             ToolRegistration("workspace", ToolAccess.SHARED) {
-                WorkspaceFileTools(it.turn.conversation.virtualPaths).asTools()
+                WorkspaceFileTools(
+                        it.turn.conversation.conversationId.channelId,
+                        workspaceFilesystemFactory.create(it.turn.conversation.virtualPaths),
+                    )
+                    .asTools()
             },
             ToolRegistration("bash", ToolAccess.SHARED) {
                 if (bashToolConfig.enabled) {
@@ -106,7 +112,13 @@ class DefaultAgentToolCatalog(
                     SlackChannelTools(sharedContext.slackClient).asTools() +
                         SlackHistoryTools(sharedContext.slackClient, it.turn).asTools() +
                         SlackUserTools(sharedContext.slackClient).asTools() +
-                        SlackFileTools(it.turn, it.turn.conversation.virtualPaths).asTools()
+                        SlackFileTools(
+                                it.turn,
+                                workspaceFilesystemFactory.create(
+                                    it.turn.conversation.virtualPaths
+                                ),
+                            )
+                            .asTools()
                 } else emptyList()
             },
             ToolRegistration("mcp-status", ToolAccess.SHARED) {

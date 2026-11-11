@@ -29,7 +29,17 @@ class HttpSandboxExecutorTest {
             testServer("/api/v2/execute") { exchange ->
                 exchange.respond(
                     200,
-                    """{"ok":false,"exitCode":null,"timedOut":false,"outputTruncated":false,"output":"ENOENT: no such file or directory, chdir '/data/project'","workdir":"/data/project"}""",
+                    """
+                    {
+                      "ok": false,
+                      "exitCode": null,
+                      "timedOut": false,
+                      "outputTruncated": false,
+                      "output": "ENOENT: no such file or directory, chdir '/data/project'",
+                      "workdir": "/data/project"
+                    }
+                    """
+                        .trimIndent(),
                 )
             }
         server.use {
@@ -58,7 +68,17 @@ class HttpSandboxExecutorTest {
                 captured.add(exchange.capture())
                 exchange.respond(
                     200,
-                    """{"ok":true,"exitCode":0,"timedOut":false,"outputTruncated":false,"output":"stub output","workdir":"/home/stub"}""",
+                    """
+                    {
+                      "ok": true,
+                      "exitCode": 0,
+                      "timedOut": false,
+                      "outputTruncated": false,
+                      "output": "stub output",
+                      "workdir": "/home/stub"
+                    }
+                    """
+                        .trimIndent(),
                 )
             }
         server.use {
@@ -97,7 +117,17 @@ class HttpSandboxExecutorTest {
                 captured = exchange.capture()
                 exchange.respond(
                     200,
-                    """{"ok":true,"exitCode":0,"timedOut":false,"outputTruncated":false,"output":"stub output","workdir":"/home/sku_project"}""",
+                    """
+                    {
+                      "ok": true,
+                      "exitCode": 0,
+                      "timedOut": false,
+                      "outputTruncated": false,
+                      "output": "stub output",
+                      "workdir": "/home/sku_project"
+                    }
+                    """
+                        .trimIndent(),
                 )
             }
         server.use {
@@ -143,7 +173,17 @@ class HttpSandboxExecutorTest {
                 captured = exchange.capture()
                 exchange.respond(
                     200,
-                    """{"ok":false,"exitCode":null,"timedOut":true,"outputTruncated":false,"output":"stub timeout","workdir":"/"}""",
+                    """
+                    {
+                      "ok": false,
+                      "exitCode": null,
+                      "timedOut": true,
+                      "outputTruncated": false,
+                      "output": "stub timeout",
+                      "workdir": "/"
+                    }
+                    """
+                        .trimIndent(),
                 )
             }
         server.use {
@@ -175,7 +215,17 @@ class HttpSandboxExecutorTest {
             captured = exchange.capture()
             exchange.respond(
                 200,
-                """{"ok":true,"exitCode":0,"timedOut":false,"outputTruncated":false,"output":"stub output","workdir":"/"}""",
+                """
+                {
+                  "ok": true,
+                  "exitCode": 0,
+                  "timedOut": false,
+                  "outputTruncated": false,
+                  "output": "stub output",
+                  "workdir": "/"
+                }
+                """
+                    .trimIndent(),
             )
         }
         server.use {

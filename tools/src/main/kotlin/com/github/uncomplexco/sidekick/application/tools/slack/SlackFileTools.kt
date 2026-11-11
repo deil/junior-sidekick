@@ -4,19 +4,19 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceRead
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystem
 import org.springframework.util.MimeType
 import org.springframework.util.MimeTypeUtils
 
 @LLMDescription("Slack file tools for the current inbound message")
 class SlackFileTools(
     private val ctx: TurnContext,
-    private val virtualPaths: VirtualPaths,
+    filesystem: WorkspaceFilesystem,
 ) : ToolSet {
-    private val files = WorkspaceRead(virtualPaths)
+    private val files = WorkspaceRead(ctx.conversation.conversationId.channelId, filesystem)
 
     @Tool
     @LLMDescription(

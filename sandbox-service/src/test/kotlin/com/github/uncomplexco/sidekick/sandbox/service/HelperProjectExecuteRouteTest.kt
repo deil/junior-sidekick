@@ -39,7 +39,15 @@ class HelperProjectExecuteRouteTest {
                 header(HttpHeaders.Authorization, "Bearer test-token")
                 contentType(ContentType.Application.Json)
                 setBody(
-                    """{"projectId":"C123","command":"stub:missing-workdir","workdir":"/data/project","timeoutSeconds":5}"""
+                    """
+                    {
+                      "projectId": "C123",
+                      "command": "stub:missing-workdir",
+                      "workdir": "/data/project",
+                      "timeoutSeconds": 5
+                    }
+                    """
+                        .trimIndent()
                 )
             }
 

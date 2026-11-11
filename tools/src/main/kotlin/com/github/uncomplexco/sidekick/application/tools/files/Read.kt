@@ -1,17 +1,16 @@
 package com.github.uncomplexco.sidekick.application.tools.files
 
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths.Companion.DATA_ROOT
-import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-import java.nio.file.LinkOption
-import java.nio.file.Path
-import kotlin.io.path.pathString
-import kotlin.io.useLines
-import kotlin.use
+import com.github.uncomplexco.sidekick.ports.filesystem.DirectoryPageOptions
+import com.github.uncomplexco.sidekick.ports.filesystem.FileKind
+import com.github.uncomplexco.sidekick.ports.filesystem.TextReadOptions
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystem
+import kotlinx.coroutines.runBlocking
 
-class WorkspaceRead(private val virtualPaths: VirtualPaths) {
+class WorkspaceRead(
+    private val projectId: String,
+    private val filesystem: WorkspaceFilesystem,
+) {
     fun read(
         path: String,
         offset: Int?,
@@ -21,189 +20,76 @@ class WorkspaceRead(private val virtualPaths: VirtualPaths) {
         require(offset == null || offset >= 1) { "`offset` must be greater than or equal to 1" }
 
         val normalizedPath = if (path == VIRTUAL_ROOT) path else path.trimEnd('/')
-        when (normalizedPath) {
-            VIRTUAL_ROOT ->
-                return renderLs(
-                    normalizedPath,
-                    virtualPaths.roots
-                        .map { it.virtual.trimStart('/').substringBefore('/') + "/" }
-                        .distinct(),
-                    offset,
-                    limit,
-                )
-
-            DATA_ROOT ->
-                return renderLs(
-                    normalizedPath,
-                    virtualPaths.roots
-                        .filter { it.virtual.startsWith("$DATA_ROOT/") }
-                        .map { it.virtual.removePrefix("$DATA_ROOT/").substringBefore('/') + "/" }
-                        .distinct(),
-                    offset,
-                    limit,
-                )
+        if (normalizedPath == VIRTUAL_ROOT || normalizedPath == DATA_ROOT) {
+            return ls(normalizedPath, displayPath ?: normalizedPath, offset, limit)
         }
 
-        val realPath =
-            try {
-                Path.of(parseVirtualPath(normalizedPath, virtualPaths)).toAbsolutePath().normalize()
-            } catch (_: IllegalStateException) {
-                throw IllegalArgumentException("Path not found: $normalizedPath")
-            }
-        val root =
-            virtualPaths.roots
-                .firstOrNull {
-                    normalizedPath == it.virtual || normalizedPath.startsWith("${it.virtual}/")
-                }
-                ?.real
-                ?.toAbsolutePath()
-                ?.normalize() ?: throw IllegalArgumentException("Path not found: $normalizedPath")
-        val target = root.resolve(root.relativize(realPath)).normalize()
-        require(target.startsWith(root)) { "Path escapes working directory: $normalizedPath" }
+        val metadata = runBlocking { filesystem.stat(projectId, normalizedPath) }
+        require(metadata != null) { "File not found: $normalizedPath" }
 
-        var current = root
-        for (segment in root.relativize(target)) {
-            current = current.resolve(segment)
-            if (Files.isSymbolicLink(current)) {
-                throw IllegalArgumentException(
-                    "Symbolic links are not allowed in workspace paths: $current"
-                )
-            }
-        }
-
-        if (Files.exists(target)) {
-            val realTarget = target.toRealPath(LinkOption.NOFOLLOW_LINKS)
-            require(realTarget.startsWith(root.toRealPath(LinkOption.NOFOLLOW_LINKS))) {
-                "Path escapes working directory: $target"
-            }
-        }
-        require(Files.exists(target)) { "File not found: ${target.pathString}" }
-
-        return if (Files.isDirectory(target)) {
-            ls(target, displayPath ?: normalizedPath, offset, limit)
+        return if (metadata.kind == FileKind.DIRECTORY) {
+            ls(normalizedPath, displayPath ?: normalizedPath, offset, limit)
         } else {
-            readFile(target, displayPath ?: normalizedPath, offset, limit)
+            readFile(normalizedPath, displayPath ?: normalizedPath, offset, limit)
         }
     }
 
-    fun ls(
-        target: Path,
+    private fun ls(
+        path: String,
         displayTarget: String,
         offset: Int?,
         limit: Int?,
     ): String {
-        val entries =
-            Files.list(target).use { stream ->
-                stream.toList().map {
-                    if (Files.isDirectory(it)) it.fileName.toString() + "/"
-                    else it.fileName.toString()
-                }
-            }
-        return renderLs(displayTarget, entries, offset, limit)
-    }
-
-    private fun renderLs(
-        displayTarget: String,
-        entries: List<String>,
-        offset: Int?,
-        limit: Int?,
-    ): String {
-        val items = entries.sorted()
-        val currentLimit = limit ?: DEFAULT_READ_LIMIT
         val currentOffset = offset ?: 1
-        val start = currentOffset - 1
-        val sliced = items.slice(start until minOf(start + currentLimit, items.size))
-        val truncated = start + sliced.size < items.size
+
+        val page = runBlocking {
+            filesystem.listDirectory(
+                projectId,
+                path,
+                DirectoryPageOptions(currentOffset, limit ?: DEFAULT_READ_LIMIT),
+            )
+        }
+
+        val entries = page.entries.map { it.name + if (it.kind == FileKind.DIRECTORY) "/" else "" }
 
         return listOf(
                 "<path>$displayTarget</path>",
                 "<type>directory</type>",
                 "<entries>",
-                sliced.joinToString("\n"),
-                if (truncated) {
-                    "\n(Showing ${sliced.size} of ${items.size} entries. Use 'offset' parameter to read beyond entry ${currentOffset + sliced.size})"
+                entries.joinToString("\n"),
+                if (page.truncated) {
+                    "\n(Showing ${entries.size} of ${page.total} entries. Use 'offset' parameter to read beyond entry ${currentOffset + entries.size})"
                 } else {
-                    "\n(${items.size} entries)"
+                    "\n(${page.total} entries)"
                 },
                 "</entries>",
             )
             .joinToString("\n")
     }
 
-    fun readFile(
-        target: Path,
+    private fun readFile(
+        path: String,
         displayTarget: String,
         offset: Int?,
         limit: Int?,
     ): String {
-        val ext = target.fileName.toString().substringAfterLast('.', "").lowercase()
-        if (ext in BINARY_FILE_EXTENSIONS) {
-            throw IllegalArgumentException("Cannot read binary file: ${target.pathString}")
-        }
-
-        val size = Files.size(target)
-        if (size > 0L) {
-            val sample =
-                Files.newInputStream(target).use { it.readNBytes(minOf(4096, size.toInt())) }
-            var nonPrintable = 0
-            for (byte in sample) {
-                val value = byte.toInt() and 0xFF
-                if (value == 0) {
-                    throw IllegalArgumentException("Cannot read binary file: ${target.pathString}")
-                }
-                if (value < 9 || (value > 13 && value < 32)) {
-                    nonPrintable++
-                }
-            }
-            if (nonPrintable.toDouble() / sample.size > 0.3) {
-                throw IllegalArgumentException("Cannot read binary file: ${target.pathString}")
-            }
-        }
-
         val startOffset = offset ?: 1
-        val currentLimit = limit ?: DEFAULT_READ_LIMIT
-        val start = startOffset - 1
-        val raw = mutableListOf<String>()
-        var bytes = 0
-        var count = 0
-        var cut = false
-        var more = false
 
-        Files.newBufferedReader(target, StandardCharsets.UTF_8).useLines { lines ->
-            for (text in lines) {
-                count += 1
-                if (count <= start) {
-                    continue
-                }
-
-                if (raw.size >= currentLimit) {
-                    more = true
-                    continue
-                }
-
-                val line =
-                    if (text.length > MAX_LINE_LENGTH)
-                        text.substring(0, MAX_LINE_LENGTH) + MAX_LINE_SUFFIX
-                    else text
-                val lineSize =
-                    line.toByteArray(StandardCharsets.UTF_8).size + if (raw.isNotEmpty()) 1 else 0
-                if (bytes + lineSize > MAX_BYTES) {
-                    cut = true
-                    more = true
-                    break
-                }
-
-                raw += line
-                bytes += lineSize
-            }
-        }
-
-        val file = ReadResult(raw, count, cut, more, startOffset)
-        if (file.count < file.offset && !(file.count == 0 && file.offset == 1)) {
-            throw IllegalArgumentException(
-                "Offset ${file.offset} is out of range for this file (${file.count} lines)"
+        val file = runBlocking {
+            filesystem.readText(
+                projectId,
+                path,
+                TextReadOptions(startOffset, limit ?: DEFAULT_READ_LIMIT, MAX_BYTES),
             )
         }
+
+        val lines =
+            file.content.reader().buffered().use { reader ->
+                reader.readLines().map { line ->
+                    if (line.length > MAX_LINE_LENGTH) line.take(MAX_LINE_LENGTH) + MAX_LINE_SUFFIX
+                    else line
+                }
+            }
 
         return buildString {
             appendLine(
@@ -215,24 +101,25 @@ class WorkspaceRead(private val virtualPaths: VirtualPaths) {
                     .trimIndent()
             )
 
-            file.raw.mapIndexed { index, line -> appendLine("${index + file.offset}: $line") }
+            lines.forEachIndexed { index, line -> appendLine("${index + startOffset}: $line") }
 
             appendLine()
             appendLine()
 
-            val last = file.offset + file.raw.size - 1
+            val last = startOffset + lines.size - 1
             val next = last + 1
 
-            if (file.cut) {
+            if (file.totalLines == null) {
                 appendLine(
-                    "(Output capped at $MAX_BYTES_LABEL. Showing lines ${file.offset}-$last. Use offset=$next to continue.)"
+                    "(Output capped at $MAX_BYTES_LABEL. Showing lines $startOffset-$last. " +
+                        "Use offset=$next to continue.)"
                 )
-            } else if (file.more) {
+            } else if (file.truncated) {
                 appendLine(
-                    "(Showing lines ${file.offset}-$last of ${file.count}. Use offset=$next to continue.)"
+                    "(Showing lines $startOffset-$last of ${file.totalLines}. Use offset=$next to continue.)"
                 )
             } else {
-                appendLine("(End of file - total ${file.count} lines)")
+                appendLine("(End of file - total ${file.totalLines} lines)")
             }
 
             append("</content>")
@@ -244,14 +131,7 @@ class WorkspaceRead(private val virtualPaths: VirtualPaths) {
         const val MAX_LINE_SUFFIX = "... (line truncated to 2000 chars)"
         const val MAX_BYTES = 50 * 1024
         const val MAX_BYTES_LABEL = "50 KB"
+        private const val MAX_LINE_LENGTH = 2000
         private const val VIRTUAL_ROOT = "/"
     }
 }
-
-private data class ReadResult(
-    val raw: List<String>,
-    val count: Int,
-    val cut: Boolean,
-    val more: Boolean,
-    val offset: Int,
-)

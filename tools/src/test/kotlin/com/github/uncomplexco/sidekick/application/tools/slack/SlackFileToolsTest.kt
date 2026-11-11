@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.application.tools.slack
 
+import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
@@ -78,7 +79,7 @@ class SlackFileToolsTest {
                             sessionFiles = listOf(file),
                             aiModelProfile = AiModelProfile.NORMAL,
                         ),
-                    virtualPaths = virtualPaths,
+                    filesystem = WorkspaceFilesystemFactory().create(virtualPaths),
                 )
                 .slackFileRead("F123")
 
