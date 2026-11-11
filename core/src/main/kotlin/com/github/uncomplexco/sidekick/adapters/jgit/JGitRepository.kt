@@ -1,13 +1,5 @@
 package com.github.uncomplexco.sidekick.adapters.jgit
 
-import com.github.uncomplexco.sidekick.application.tools.git.GitPullState
-import com.github.uncomplexco.sidekick.application.tools.git.GitPullStatus
-import com.github.uncomplexco.sidekick.application.tools.git.GitPushPlan
-import com.github.uncomplexco.sidekick.application.tools.git.GitPushState
-import com.github.uncomplexco.sidekick.application.tools.git.GitPushStatus
-import com.github.uncomplexco.sidekick.application.tools.git.GitRepository
-import com.github.uncomplexco.sidekick.application.tools.git.GitRepositoryState
-import com.github.uncomplexco.sidekick.application.tools.git.GitRepositoryStatus
 import java.nio.file.Path
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.MergeCommand

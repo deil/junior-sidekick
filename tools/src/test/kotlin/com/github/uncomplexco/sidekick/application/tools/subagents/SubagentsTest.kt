@@ -45,6 +45,15 @@ class SubagentsTest {
     }
 
     @Test
+    fun `loads only built in subagents when extension config is missing`() {
+        val catalog = Subagents(config())
+
+        val subagents = catalog.catalog().subagents
+
+        assertEquals(listOf("general"), subagents.map { it.name })
+    }
+
+    @Test
     fun `loads subagents from configured extension repositories`() {
         // Arrange
         val config = config()

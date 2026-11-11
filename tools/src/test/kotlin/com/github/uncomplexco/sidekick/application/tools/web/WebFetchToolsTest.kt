@@ -73,6 +73,41 @@ class WebFetchToolsTest {
     }
 
     @Test
+    fun `rejects unsuccessful HTTP response before inspecting its content type`() =
+        withServer { server ->
+            server.handler("/failed") { exchange ->
+                exchange.respond("failed", "image/png", status = 500)
+            }
+            val tools = webFetchTools()
+
+            val error =
+                assertThrows<ToolException.ValidationFailure> {
+                    tools.webFetch("${server.url}/failed")
+                }
+
+            assertEquals("Unable to fetch ${server.url}/failed", error.message)
+        }
+
+    @Test
+    fun `rejects unsupported file content type with normalized mime in message`() =
+        withServer { server ->
+            server.handler("/binary") { exchange ->
+                exchange.respond("binary", "Application/Octet-Stream; charset=utf-8")
+            }
+            val tools = webFetchTools()
+
+            val error =
+                assertThrows<ToolException.ValidationFailure> {
+                    tools.webFetch("${server.url}/binary")
+                }
+
+            assertEquals(
+                "Unsupported fetched file content type: application/octet-stream",
+                error.message,
+            )
+        }
+
+    @Test
     fun `retries cloudflare challenge with agent user agent`() = withServer { server ->
         val userAgents = mutableListOf<String>()
         server.handler("/challenge") { exchange ->

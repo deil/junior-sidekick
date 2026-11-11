@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.ToolException
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
+import com.github.uncomplexco.sidekick.application.tools.ToolArgumentName
 import com.slack.api.methods.MethodsClient
 import com.slack.api.model.User
 import kotlinx.serialization.Serializable
@@ -18,7 +19,9 @@ private const val PAGE_LIMIT = 200
 class SlackUserTools(private val slackClient: MethodsClient) : ToolSet {
     @Tool
     @LLMDescription(
-        "Search Slack users. Supply exactly one of userId, email, or name. userId and email are direct lookups. name searches username, display name, and real name by scanning Slack user-list pages."
+        "Search Slack users. Supply exactly one of userId, email, or name. userId and email are " +
+            "direct lookups. name searches username, display name, and real name by scanning Slack " +
+            "user-list pages."
     )
     fun slackUserSearch(
         @LLMDescription("Slack user id for direct lookup, for example U123.")
@@ -35,7 +38,8 @@ class SlackUserTools(private val slackClient: MethodsClient) : ToolSet {
         @LLMDescription(
             "Maximum Slack API pages to scan when searching by name. Defaults to 2 and is capped at 5."
         )
-        scan_depth: Int? = null,
+        @ToolArgumentName("scan_depth")
+        scanDepth: Int? = null,
     ): SlackUserSearchResult {
         val (normalizedUserId, normalizedEmail, normalizedName) =
             normalizeSlackUserSearchKeys(userId, email, name)
@@ -48,7 +52,7 @@ class SlackUserTools(private val slackClient: MethodsClient) : ToolSet {
                     searchName(
                         requireNotNull(normalizedName),
                         limit.normalizedLimit(),
-                        scan_depth.normalizedScanDepth(),
+                        scanDepth.normalizedScanDepth(),
                     )
             }
 

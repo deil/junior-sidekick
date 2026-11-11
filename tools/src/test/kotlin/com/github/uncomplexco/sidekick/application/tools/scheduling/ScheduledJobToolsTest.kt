@@ -56,7 +56,7 @@ class ScheduledJobToolsTest {
         // Assert
         assertFalse(paused.enabled)
         assertEquals(null, paused.description)
-        assertEquals(0, listed.active_count)
+        assertEquals(0, listed.activeCount)
         assertEquals(created.id, deleted.id)
         assertEquals(emptyList(), tools.listScheduledJobs().jobs)
     }

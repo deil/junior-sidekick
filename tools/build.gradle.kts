@@ -35,8 +35,6 @@ dependencies {
         exclude(group = "io.modelcontextprotocol.sdk", module = "mcp")
         exclude(group = "org.springframework.security", module = "spring-security-config")
     }
-    implementation(libs.jgit.core)
-    implementation(libs.jgit.ssh)
 
     testImplementation(platform(libs.spring.boot.bom))
     testImplementation(libs.spring.boot)
@@ -45,6 +43,7 @@ dependencies {
     testImplementation(libs.spring.web)
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.junit.jupiter.params)
+    testImplementation(libs.jgit.core)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

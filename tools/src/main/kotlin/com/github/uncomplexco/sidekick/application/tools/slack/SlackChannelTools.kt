@@ -5,10 +5,7 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import com.slack.api.methods.MethodsClient
-import com.slack.api.methods.SlackApiException
-import com.slack.api.methods.response.conversations.ConversationsListResponse
 import com.slack.api.model.Conversation
-import com.slack.api.model.ConversationType
 
 private const val DEFAULT_SLACK_CHANNEL_LIMIT = 100
 private const val MAX_SLACK_CHANNEL_LIMIT = 1000
@@ -17,7 +14,8 @@ private const val MAX_SLACK_CHANNEL_LIMIT = 1000
 class SlackChannelTools(private val slackClient: MethodsClient) : ToolSet {
     @Tool
     @LLMDescription(
-        "List or search visible Slack channels. Scans Slack pages internally until enough matching channels are found or Slack has no more pages."
+        "List or search visible Slack channels. Scans Slack pages internally until enough " +
+            "matching channels are found or Slack has no more pages."
     )
     fun slackChannelsList(
         @LLMDescription(
@@ -25,7 +23,8 @@ class SlackChannelTools(private val slackClient: MethodsClient) : ToolSet {
         )
         query: String? = null,
         @LLMDescription(
-            "Maximum matching channels to return. Defaults to $DEFAULT_SLACK_CHANNEL_LIMIT and is capped at $MAX_SLACK_CHANNEL_LIMIT."
+            "Maximum matching channels to return. Defaults to $DEFAULT_SLACK_CHANNEL_LIMIT " +
+                "and is capped at $MAX_SLACK_CHANNEL_LIMIT."
         )
         limit: Int? = null,
         @LLMDescription("Slack pagination cursor from a previous slackChannelsList result.")
@@ -215,39 +214,3 @@ private fun String.singleLine(): String = replace(Regex("\\s+"), " ").trim()
 
 private fun xmlEscape(value: String): String =
     value.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;")
-
-private fun MethodsClient.fetchSlackChannelPage(
-    cursor: String?,
-    limit: Int,
-    includeArchived: Boolean,
-): SlackChannelPage {
-    try {
-        val response: ConversationsListResponse = conversationsList { req ->
-            req.types(listOf(ConversationType.PUBLIC_CHANNEL, ConversationType.PRIVATE_CHANNEL))
-            req.excludeArchived(!includeArchived)
-            req.limit(limit)
-            cursor?.let(req::cursor)
-            req
-        }
-        if (!response.isOk) {
-            if (response.error == "ratelimited") {
-                throw SlackChannelRateLimited(response.retryAfterSeconds())
-            }
-            throw ToolException.ValidationFailure(
-                response.error ?: "Failed to list Slack channels."
-            )
-        }
-        return SlackChannelPage(
-            channels = response.channels.orEmpty(),
-            nextCursor = response.responseMetadata?.nextCursor?.takeIf { it.isNotBlank() },
-        )
-    } catch (error: SlackApiException) {
-        if (error.response?.code == 429) {
-            throw SlackChannelRateLimited(error.response?.header("Retry-After")?.toLongOrNull())
-        }
-        throw error
-    }
-}
-
-private fun ConversationsListResponse.retryAfterSeconds(): Long? =
-    httpResponseHeaders?.get("retry-after")?.firstOrNull()?.toLongOrNull()

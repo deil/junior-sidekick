@@ -1,8 +1,5 @@
 package com.github.uncomplexco.sidekick.adapters.jgit
 
-import com.github.uncomplexco.sidekick.application.tools.git.GitPullStatus
-import com.github.uncomplexco.sidekick.application.tools.git.GitPushStatus
-import com.github.uncomplexco.sidekick.application.tools.git.GitRepositoryStatus
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals

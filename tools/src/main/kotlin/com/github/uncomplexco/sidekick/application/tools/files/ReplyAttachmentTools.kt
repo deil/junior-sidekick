@@ -6,12 +6,14 @@ import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPath
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 class ReplyAttachmentTools(private val collector: ReplyAttachmentCollector) : ToolSet {
     @Tool("attachFile")
     @LLMDescription(
-        "Attach a file to the Slack reply. Use this for files that exist in the workspace. Logs, screenshots, or other files, including created during the session."
+        "Attach a file to the Slack reply. Use this for files that exist in the workspace. Logs, " +
+            "screenshots, or other files, including created during the session."
     )
     fun attachFile(
         @LLMDescription("Absolute path to the file to attach") path: VirtualPath,
@@ -28,6 +30,6 @@ class ReplyAttachmentTools(private val collector: ReplyAttachmentCollector) : To
 @Serializable
 data class AttachFileResult(
     val filename: String,
-    val mime_type: String,
+    @SerialName("mime_type") val mimeType: String,
     val bytes: Long,
 )

@@ -50,14 +50,14 @@ class Subagents(
     private fun loadExtensionSubagents(): List<Subagent> {
         val config = config ?: return emptyList()
         val configFile = config.workspaceLayout().extensionsConfigPath()
-        if (!Files.exists(configFile)) {
-            return emptyList()
+        return if (Files.exists(configFile)) {
+            json
+                .decodeFromString<ExtensionsConfig>(Files.readString(configFile))
+                .extensions
+                .flatMap { repository -> scanRepository(config, repository) }
+        } else {
+            emptyList()
         }
-
-        return json
-            .decodeFromString<ExtensionsConfig>(Files.readString(configFile))
-            .extensions
-            .flatMap { repository -> scanRepository(config, repository) }
     }
 
     private fun scanRepository(

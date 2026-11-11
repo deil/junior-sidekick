@@ -41,34 +41,43 @@ internal fun prepareMcpToolArguments(
     val arguments = args.toKotlinxJsonObject()
     val jsonObjectStringField = atlassianJsonObjectStringField(originalToolName) ?: return arguments
 
-    val fieldValue = arguments[jsonObjectStringField] ?: return arguments
-    if (fieldValue !is JsonPrimitive || !fieldValue.isString) return arguments
+    val fieldValue = arguments[jsonObjectStringField]
+    return if (fieldValue is JsonPrimitive && fieldValue.isString) {
+        val parsedObject =
+            parseAtlassianJsonObject(originalToolName, jsonObjectStringField, fieldValue, json)
+        JsonObject(arguments + (jsonObjectStringField to parsedObject))
+    } else {
+        arguments
+    }
+}
 
+private fun parseAtlassianJsonObject(
+    originalToolName: String,
+    fieldName: String,
+    fieldValue: JsonPrimitive,
+    json: Json,
+): JsonObject {
     val parsed =
         runCatching {
                 json.parseToJsonElement(fieldValue.content)
             }
             .getOrElse {
                 throw IllegalArgumentException(
-                    "$originalToolName $jsonObjectStringField must be a valid JSON object string",
+                    "$originalToolName $fieldName must be a valid JSON object string",
                     it,
                 )
             }
-    val parsedObject =
-        parsed as? JsonObject
-            ?: throw IllegalArgumentException(
-                "$originalToolName $jsonObjectStringField must be a JSON object string"
-            )
-
-    return JsonObject(arguments + (jsonObjectStringField to parsedObject))
+    return parsed as? JsonObject
+        ?: throw IllegalArgumentException(
+            "$originalToolName $fieldName must be a JSON object string"
+        )
 }
 
 private fun stringifyAtlassianJsonObjectField(
     parameter: ToolParameterDescriptor,
     fieldName: String,
 ): ToolParameterDescriptor {
-    if (parameter.name != fieldName) return parameter
-    if (!parameter.type.isUnconstrainedObject()) return parameter
+    if (parameter.name != fieldName || !parameter.type.isUnconstrainedObject()) return parameter
 
     return parameter.copy(
         description =

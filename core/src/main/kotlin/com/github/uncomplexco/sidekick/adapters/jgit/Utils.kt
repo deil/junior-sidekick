@@ -1,7 +1,5 @@
 package com.github.uncomplexco.sidekick.adapters.jgit
 
-import com.github.uncomplexco.sidekick.application.tools.git.GitPushPlan
-import com.github.uncomplexco.sidekick.application.tools.git.GitPushStatus
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.nio.file.Path

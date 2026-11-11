@@ -6,25 +6,28 @@ import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import kotlin.time.Clock
 import kotlin.time.Instant
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 class SystemTools(private val clock: Clock = Clock.System) : ToolSet {
     @Tool
     @LLMDescription(
-        "Return current system time in UTC. Use when the user asks for current time/date context. Do not use as a substitute for historical or timezone-conversion research."
+        "Return current system time in UTC. Use when the user asks for current time/date context. " +
+            "Do not use as a substitute for historical or timezone-conversion research."
     )
     fun currentDateTime(): SystemTimeResult {
         val now = clock.now()
         return SystemTimeResult(
             ok = true,
-            unix_ms = now.toEpochMilliseconds(),
-            iso_utc = now.toString(),
+            unixMs = now.toEpochMilliseconds(),
+            isoUtc = now.toString(),
         )
     }
 
     @Tool
     @LLMDescription(
-        "Convert a Unix timestamp to ISO UTC. Supports seconds and milliseconds; 11+ digit values are treated as milliseconds."
+        "Convert a Unix timestamp to ISO UTC. Supports seconds and milliseconds; 11+ digit values " +
+            "are treated as milliseconds."
     )
     fun timestampToIsoUtc(
         @LLMDescription("Unix timestamp as seconds or milliseconds since epoch.") timestamp: Long
@@ -51,8 +54,8 @@ class SystemTools(private val clock: Clock = Clock.System) : ToolSet {
         return TimestampToIsoUtcResult(
             ok = true,
             timestamp = timestamp,
-            interpreted_as = unit.value,
-            iso_utc = instant.toString(),
+            interpretedAs = unit.value,
+            isoUtc = instant.toString(),
         )
     }
 }
@@ -65,14 +68,14 @@ private enum class TimestampUnit(val value: String) {
 @Serializable
 data class SystemTimeResult(
     val ok: Boolean,
-    val unix_ms: Long,
-    val iso_utc: String,
+    @SerialName("unix_ms") val unixMs: Long,
+    @SerialName("iso_utc") val isoUtc: String,
 )
 
 @Serializable
 data class TimestampToIsoUtcResult(
     val ok: Boolean,
     val timestamp: Long,
-    val interpreted_as: String,
-    val iso_utc: String,
+    @SerialName("interpreted_as") val interpretedAs: String,
+    @SerialName("iso_utc") val isoUtc: String,
 )

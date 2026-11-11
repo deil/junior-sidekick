@@ -5,6 +5,7 @@ import com.github.uncomplexco.sidekick.adapters.spring.WorkspaceSandboxExecutor
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.ExecutionResult
+import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMount
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxMountMode
 import java.nio.file.Files
 import kotlin.test.assertEquals
@@ -40,14 +41,7 @@ class BashToolsTest {
                 ) { projectId, command ->
                     capturedProjectId = projectId
                     captured = command
-                    ExecutionResult(
-                        ok = true,
-                        exitCode = 0,
-                        timedOut = false,
-                        outputTruncated = false,
-                        output = "ok",
-                        workdir = "tmp",
-                    )
+                    successfulExecution("tmp")
                 },
             )
 
@@ -68,22 +62,16 @@ class BashToolsTest {
         assertEquals("tmp", captured.workdir)
         assertEquals(10, captured.timeoutSeconds)
         assertEquals(true, captured.networkEnabled)
-        assertEquals(5, captured.mounts.size)
-        assertEquals(sessionRoot, captured.mounts[0].source)
-        assertEquals("/data/session", captured.mounts[0].target)
-        assertEquals(SandboxMountMode.RO, captured.mounts[0].mode)
-        assertEquals(skillsRoot, captured.mounts[1].source)
-        assertEquals("/data/skills", captured.mounts[1].target)
-        assertEquals(SandboxMountMode.RO, captured.mounts[1].mode)
-        assertEquals(globalRoot, captured.mounts[2].source)
-        assertEquals("/data/global", captured.mounts[2].target)
-        assertEquals(SandboxMountMode.RO, captured.mounts[2].mode)
-        assertEquals(workRoot, captured.mounts[3].source)
-        assertEquals("/work", captured.mounts[3].target)
-        assertEquals(SandboxMountMode.RW, captured.mounts[3].mode)
-        assertEquals(projectRoot, captured.mounts[4].source)
-        assertEquals("/data/project", captured.mounts[4].target)
-        assertEquals(SandboxMountMode.RW, captured.mounts[4].mode)
+        assertEquals(
+            listOf(
+                SandboxMount(sessionRoot, "/data/session", SandboxMountMode.RO),
+                SandboxMount(skillsRoot, "/data/skills", SandboxMountMode.RO),
+                SandboxMount(globalRoot, "/data/global", SandboxMountMode.RO),
+                SandboxMount(workRoot, "/work", SandboxMountMode.RW),
+                SandboxMount(projectRoot, "/data/project", SandboxMountMode.RW),
+            ),
+            captured.mounts,
+        )
         assertTrue(Files.isDirectory(sessionRoot))
         assertTrue(Files.isDirectory(skillsRoot))
         assertTrue(Files.isDirectory(globalRoot))
@@ -126,14 +114,7 @@ class BashToolsTest {
                 config,
                 "C123",
                 WorkspaceSandboxExecutor(virtualPaths(scratch), gid) { _, _ ->
-                    ExecutionResult(
-                        ok = true,
-                        exitCode = 0,
-                        timedOut = false,
-                        outputTruncated = false,
-                        output = "ok",
-                        workdir = "/",
-                    )
+                    successfulExecution("/")
                 },
             )
 
@@ -144,6 +125,16 @@ class BashToolsTest {
         assertWritableMountMode(workRoot, gid)
         assertWritableMountMode(projectRoot, gid)
     }
+
+    private fun successfulExecution(workdir: String): ExecutionResult =
+        ExecutionResult(
+            ok = true,
+            exitCode = 0,
+            timedOut = false,
+            outputTruncated = false,
+            output = "ok",
+            workdir = workdir,
+        )
 
     private fun assertWritableMountMode(
         path: java.nio.file.Path,

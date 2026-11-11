@@ -8,6 +8,9 @@ import ai.koog.serialization.typeToken
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemScheduledJobStore
 import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
+import com.github.uncomplexco.sidekick.adapters.git.WorkspaceGitFactory
+import com.github.uncomplexco.sidekick.adapters.jgit.LocalGitCredentials
+import com.github.uncomplexco.sidekick.adapters.jgit.LocalWorkspaceGit
 import com.github.uncomplexco.sidekick.adapters.spring.SandboxExecutorConfig
 import com.github.uncomplexco.sidekick.adapters.spring.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
@@ -38,7 +41,6 @@ import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.stats.WeeklyStatsService
 import com.github.uncomplexco.sidekick.application.tools.DefaultAgentToolCatalog
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
-import com.github.uncomplexco.sidekick.application.tools.git.GitToolConfig
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpAuthTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpOAuthService
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
@@ -74,7 +76,7 @@ class ToolCatalogFixture(
             mcp,
             McpAuthTools(mcp, McpOAuthService(config, mcp)),
             BashToolConfig().apply { enabled = bashEnabled },
-            GitToolConfig(),
+            WorkspaceGitFactory { LocalWorkspaceGit(LocalGitCredentials(), it) },
             SandboxExecutorFactory(
                 SandboxExecutorConfig().apply {
                     http.baseUrl = "http://localhost:1"

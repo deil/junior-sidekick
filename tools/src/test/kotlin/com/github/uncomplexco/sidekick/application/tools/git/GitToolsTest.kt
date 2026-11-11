@@ -1,10 +1,20 @@
 package com.github.uncomplexco.sidekick.application.tools.git
 
 import ai.koog.agents.core.tools.ToolException
+import com.github.uncomplexco.sidekick.adapters.jgit.GitPushPlan
+import com.github.uncomplexco.sidekick.adapters.jgit.GitPushStatus
+import com.github.uncomplexco.sidekick.adapters.jgit.GitRepository
+import com.github.uncomplexco.sidekick.adapters.jgit.LocalGitCredentials
+import com.github.uncomplexco.sidekick.adapters.jgit.LocalWorkspaceGit
+import com.github.uncomplexco.sidekick.adapters.spring.GitToolConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.testing.FakeGitRepository
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -24,8 +34,15 @@ class GitToolsTest {
         // Assert
         assertEquals("/data/project/private", result.path)
         assertEquals("develop", result.branch)
-        assertEquals("abc123", result.commit_hash)
+        assertEquals("abc123", result.commitHash)
         assertEquals("cloned", result.status)
+        assertEquals(
+            "abc123",
+            Json.parseToJsonElement(Json.encodeToString(result))
+                .jsonObject["commit_hash"]
+                ?.jsonPrimitive
+                ?.content,
+        )
         assertEquals("git@github.com:acme/private.git", git.clonedUrl)
         assertEquals("/keys/github", git.clonedSshKeyFile)
         assertEquals(listOf("develop", "master", "main"), git.clonedPreferredBranches)
@@ -62,7 +79,7 @@ class GitToolsTest {
         // Assert
         assertEquals("/data/project/repo", result.path)
         assertEquals("main", result.branch)
-        assertEquals("def456", result.commit_hash)
+        assertEquals("def456", result.commitHash)
         assertEquals("fetched_fast_forwarded", result.status)
         assertEquals(checkout, git.fetchedCheckout)
     }
@@ -209,7 +226,7 @@ class GitToolsTest {
         // Arrange
         val config = GitToolConfig()
         config.bitbucket.sshKeyFile = "/keys/bitbucket"
-        val tools = GitTools(config, virtualPaths(), FakeGitRepository())
+        val tools = tools(config, FakeGitRepository())
 
         // Act / Assert
         assertThrows<ToolException.ValidationFailure> {
@@ -220,7 +237,7 @@ class GitToolsTest {
     @Test
     fun `fails at call time when fallback key is missing`() {
         // Arrange
-        val tools = GitTools(GitToolConfig(), virtualPaths(), FakeGitRepository())
+        val tools = tools(GitToolConfig(), FakeGitRepository())
 
         // Act
         val error =
@@ -248,7 +265,7 @@ class GitToolsTest {
         // Assert
         assertEquals("/data/project/repo", result.path)
         assertEquals("main", result.branch)
-        assertEquals("ghi789", result.commit_hash)
+        assertEquals("ghi789", result.commitHash)
         assertEquals("origin", result.remote)
         assertEquals("refs/heads/main", result.upstream)
         assertEquals(true, result.dirty)
@@ -443,7 +460,7 @@ class GitToolsTest {
         // Assert
         assertEquals("/data/project/repo", result.path)
         assertEquals("main", result.branch)
-        assertEquals("jkl012", result.commit_hash)
+        assertEquals("jkl012", result.commitHash)
         assertEquals("origin", result.remote)
         assertEquals("main", result.upstream)
         assertEquals("fast_forwarded", result.status)
@@ -458,8 +475,22 @@ class GitToolsTest {
         config.github.sshKeyFile = "/keys/github"
         config.bitbucket.sshKeyFile = "/keys/bitbucket"
         config.sshKeyFile = "/keys/other"
-        return GitTools(config, virtualPaths(), git)
+        return tools(config, git)
     }
+
+    private fun tools(config: GitToolConfig, git: GitRepository): GitTools =
+        GitTools(
+            "C123",
+            LocalWorkspaceGit(
+                LocalGitCredentials(
+                    config.sshKeyFile,
+                    config.github.sshKeyFile,
+                    config.bitbucket.sshKeyFile,
+                ),
+                virtualPaths(),
+                git,
+            ),
+        )
 
     private fun virtualPaths(): VirtualPaths =
         VirtualPaths(
@@ -469,135 +500,4 @@ class GitToolsTest {
             workRoot = dir.resolve("work"),
             projectRoot = Files.createDirectories(dir.resolve("project")),
         )
-}
-
-private class FakeGitRepository(
-    private val gitRepositories: Set<Path> = emptySet(),
-    private val origins: Map<Path, String> = emptyMap(),
-    private val pushPlan: ((Path, String?) -> GitPushPlan)? = null,
-) : GitRepository {
-    var clonedUrl: String? = null
-    var clonedSshKeyFile: String? = null
-    var clonedCheckout: Path? = null
-    var clonedPreferredBranches: List<String>? = null
-    var fetchedCheckout: Path? = null
-    var pushedCheckout: Path? = null
-    var pushedSshKeyFile: String? = null
-    var pushedBranch: String? = null
-    var pushedAll: Boolean? = null
-    var pushedTags: Boolean? = null
-    var pulledCheckout: Path? = null
-    var pulledSshKeyFile: String? = null
-    var pulledRemote: String? = null
-    var pulledRefspec: String? = null
-    var updatedRemote: Triple<Path, String, String>? = null
-
-    override fun clone(
-        url: String,
-        sshKeyFile: String,
-        checkout: Path,
-        workingDirectory: Path,
-        preferredBranches: List<String>,
-    ): GitRepositoryState {
-        clonedUrl = url
-        clonedSshKeyFile = sshKeyFile
-        clonedCheckout = checkout
-        clonedPreferredBranches = preferredBranches
-        return GitRepositoryState(checkout, "develop", "abc123", GitRepositoryStatus.CLONED)
-    }
-
-    override fun fetch(
-        checkout: Path,
-        sshKeyFile: String,
-    ): GitRepositoryState {
-        fetchedCheckout = checkout
-        return GitRepositoryState(
-            checkout,
-            "main",
-            "def456",
-            GitRepositoryStatus.FETCHED_FAST_FORWARDED,
-        )
-    }
-
-    override fun isGitRepository(checkout: Path): Boolean = checkout in gitRepositories
-
-    override fun originUrl(checkout: Path): String? = origins[checkout]
-
-    override fun remoteUrl(
-        checkout: Path,
-        remote: String,
-    ): String? = origins[checkout]
-
-    override fun setRemoteUrl(
-        checkout: Path,
-        remote: String,
-        url: String,
-    ) {
-        updatedRemote = Triple(checkout, remote, url)
-    }
-
-    override fun pushPlan(
-        checkout: Path,
-        branch: String?,
-    ): GitPushPlan {
-        val selectedBranch = branch ?: "main"
-        return pushPlan?.invoke(checkout, branch)
-            ?: GitPushPlan(
-                path = checkout,
-                branch = selectedBranch,
-                commitHash = "ghi789",
-                dirty = true,
-                remote = "origin",
-                upstream = "refs/heads/$selectedBranch",
-                remoteUrl = "git@github.com:acme/repo.git",
-                status = null,
-                message = "Ready",
-            )
-    }
-
-    override fun push(
-        checkout: Path,
-        sshKeyFile: String,
-        branch: String?,
-        all: Boolean,
-        tags: Boolean,
-    ): GitPushState {
-        val selectedBranch = branch ?: "main"
-        pushedCheckout = checkout
-        pushedSshKeyFile = sshKeyFile
-        pushedBranch = branch
-        pushedAll = all
-        pushedTags = tags
-        return GitPushState(
-            path = checkout,
-            branch = selectedBranch,
-            commitHash = "ghi789",
-            dirty = true,
-            remote = "origin",
-            upstream = "refs/heads/$selectedBranch",
-            status = GitPushStatus.PUSHED,
-            message = "refs/heads/$selectedBranch: ok",
-        )
-    }
-
-    override fun pull(
-        checkout: Path,
-        sshKeyFile: String,
-        remote: String,
-        refspec: String,
-    ): GitPullState {
-        pulledCheckout = checkout
-        pulledSshKeyFile = sshKeyFile
-        pulledRemote = remote
-        pulledRefspec = refspec
-        return GitPullState(
-            path = checkout,
-            branch = "main",
-            commitHash = "jkl012",
-            remote = remote,
-            upstream = refspec,
-            status = GitPullStatus.FAST_FORWARDED,
-            message = "FAST_FORWARD",
-        )
-    }
 }

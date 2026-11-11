@@ -5,6 +5,7 @@ import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import com.github.uncomplexco.sidekick.application.stats.WeeklyStatsService
 import java.time.Clock
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 class StatsTools(
@@ -18,7 +19,7 @@ class StatsTools(
         return WeeklyStatsResult(
             channels = gathered.channels,
             conversations = gathered.conversations,
-            tokens_consumed = gathered.tokensConsumed,
+            tokensConsumed = gathered.tokensConsumed,
             users = gathered.users,
         )
     }
@@ -28,6 +29,6 @@ class StatsTools(
 data class WeeklyStatsResult(
     val channels: Int,
     val conversations: Int,
-    val tokens_consumed: Long,
+    @SerialName("tokens_consumed") val tokensConsumed: Long,
     val users: Int,
 )

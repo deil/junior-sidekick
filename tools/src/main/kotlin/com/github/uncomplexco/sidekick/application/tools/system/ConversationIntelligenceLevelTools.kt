@@ -19,7 +19,9 @@ class ConversationIntelligenceLevelTools(
 
     @Tool
     @LLMDescription(
-        "Controls assistant's intelligence level for current conversation. Persists across turns. Use only the the user explicitly requests to enable 'ultrathink' mode. Disable immediately when user requests so."
+        "Controls assistant's intelligence level for current conversation. Persists across turns. " +
+            "Use only the the user explicitly requests to enable 'ultrathink' mode. Disable " +
+            "immediately when user requests so."
     )
     suspend fun enableTokenmaxxin(
         @LLMDescription("Enables or disables ultrathink mode for this conversation")

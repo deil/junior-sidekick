@@ -3,19 +3,18 @@ package com.github.uncomplexco.sidekick.application.tools.mcp
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.isSuccess
 import java.net.URI
 import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-import java.nio.file.Path
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.time.Instant
 import java.util.Base64
-import kotlin.io.path.exists
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toJavaDuration
 import kotlinx.serialization.Serializable
@@ -46,36 +45,44 @@ class McpOAuthService(
         prettyPrint = true
     }
     private val refreshSkew = 5.minutes.toJavaDuration()
+    private val store = McpOAuthStateStore(agentConfig, json)
 
     fun accessToken(server: McpServerConfig): String? {
-        val token = loadToken(server.id) ?: return null
-        if (Instant.parse(token.expiresAt).isAfter(Instant.now().plus(refreshSkew))) {
-            return token.accessToken
-        }
-        val refreshToken = token.refreshToken ?: return null
+        val token = store.loadToken(server.id) ?: return null
+        return when {
+            Instant.parse(token.expiresAt).isAfter(Instant.now().plus(refreshSkew)) ->
+                token.accessToken
+            token.refreshToken == null -> null
+            else ->
+                store.loadClient(server.id)?.let { client ->
+                    val pending =
+                        client.pending
+                            ?: discover(server).let { metadata ->
+                                PendingOAuthFlow(
+                                    state = "",
+                                    codeVerifier = "",
+                                    authorizationEndpoint = metadata.authorizationEndpoint,
+                                    tokenEndpoint = metadata.tokenEndpoint,
+                                    createdAt = Instant.now().toString(),
+                                )
+                            }
 
-        val client = loadClient(server.id) ?: return null
-        val pending =
-            client.pending
-                ?: discover(server).let { metadata ->
-                    PendingOAuthFlow(
-                        state = "",
-                        codeVerifier = "",
-                        authorizationEndpoint = metadata.authorizationEndpoint,
-                        tokenEndpoint = metadata.tokenEndpoint,
-                        createdAt = Instant.now().toString(),
-                    )
+                    runCatching {
+                            val refreshed =
+                                refreshToken(pending.tokenEndpoint, client, token.refreshToken)
+                            store.saveToken(server.id, refreshed)
+                            refreshed.accessToken
+                        }
+                        .onFailure {
+                            log.warn(
+                                "Failed to refresh MCP OAuth token for server {}",
+                                server.id,
+                                it,
+                            )
+                        }
+                        .getOrNull()
                 }
-
-        return runCatching {
-            val refreshed = refreshToken(pending.tokenEndpoint, client, refreshToken)
-            saveToken(server.id, refreshed)
-            refreshed.accessToken
         }
-            .onFailure {
-                log.warn("Failed to refresh MCP OAuth token for server {}", server.id, it)
-            }
-            .getOrNull()
     }
 
     suspend fun connect(
@@ -94,7 +101,7 @@ class McpOAuthService(
         val redirectUrl = "${config.oauth.publicBaseUrl.trimEnd('/')}/mcp/oauth/callback"
         val metadata = discover(server)
         val client =
-            loadClient(server.id)?.takeIf {
+            store.loadClient(server.id)?.takeIf {
                 it.redirectUrl == redirectUrl && it.issuer == metadata.issuer
             } ?: registerClient(server, metadata, redirectUrl)
         val state = randomUrlSafe(32)
@@ -111,7 +118,7 @@ class McpOAuthService(
                         createdAt = Instant.now().toString(),
                     ),
             )
-        saveClient(server.id, updatedClient)
+        store.saveClient(server.id, updatedClient)
 
         val authorizationFields =
             mutableListOf(
@@ -146,14 +153,17 @@ class McpOAuthService(
     ): String {
         val server =
             config.servers.firstNotNullOfOrNull { server ->
-                loadClient(server.id)?.takeIf { it.pending?.state == state }?.let { server to it }
+                store
+                    .loadClient(server.id)
+                    ?.takeIf { it.pending?.state == state }
+                    ?.let { server to it }
             } ?: error("Unknown or expired MCP OAuth state")
         val (serverConfig, client) = server
         val pending = client.pending ?: error("Missing pending MCP OAuth flow")
 
         val token = exchangeCode(pending.tokenEndpoint, client, code, pending.codeVerifier)
-        saveToken(serverConfig.id, token)
-        saveClient(serverConfig.id, client.copy(pending = null))
+        store.saveToken(serverConfig.id, token)
+        store.saveClient(serverConfig.id, client.copy(pending = null))
         return serverConfig.id
     }
 
@@ -252,7 +262,7 @@ class McpOAuthService(
                 tokenEndpointAuthMethod =
                     registered.tokenEndpointAuthMethod() ?: metadata.authenticationMethod.value,
             )
-            .also { saveClient(server.id, it) }
+            .also { store.saveClient(server.id, it) }
     }
 
     private fun exchangeCode(
@@ -312,7 +322,7 @@ class McpOAuthService(
                 .POST(HttpRequest.BodyPublishers.ofString(form(*requestFields.toTypedArray())))
                 .build()
         val httpResponse = http.send(request, HttpResponse.BodyHandlers.ofString())
-        if (httpResponse.statusCode() !in 200..299) {
+        if (!HttpStatusCode.fromValue(httpResponse.statusCode()).isSuccess()) {
             error(
                 "OAuth HTTP ${httpResponse.statusCode()} from $tokenEndpoint: ${httpResponse.body()}"
             )
@@ -326,44 +336,12 @@ class McpOAuthService(
                     ?: error("Missing OAuth token field: access_token"),
             refreshToken =
                 token["refresh_token"]?.jsonPrimitive?.contentOrNull
-                    ?: loadToken(client.serverId)?.refreshToken,
+                    ?: store.loadToken(client.serverId)?.refreshToken,
             tokenType = token["token_type"]?.jsonPrimitive?.contentOrNull ?: "Bearer",
             expiresAt = Instant.now().plusSeconds(expiresIn).toString(),
             scope = token["scope"]?.jsonPrimitive?.contentOrNull,
         )
     }
-
-    private fun mcpDir(serverId: String): Path {
-        val dir = agentConfig.stateDirectoryPath().resolve("mcp").resolve(serverId)
-        Files.createDirectories(dir)
-        return dir
-    }
-
-    private fun loadClient(serverId: String): OAuthClientState? {
-        val path = mcpDir(serverId).resolve("oauth-client.json")
-        if (!path.exists()) return null
-        return json.decodeFromString<OAuthClientState>(Files.readString(path))
-    }
-
-    private fun saveClient(
-        serverId: String,
-        client: OAuthClientState,
-    ) =
-        Files.writeString(
-            mcpDir(serverId).resolve("oauth-client.json"),
-            json.encodeToString(client),
-        )
-
-    private fun loadToken(serverId: String): OAuthTokenState? {
-        val path = mcpDir(serverId).resolve("oauth-token.json")
-        if (!path.exists()) return null
-        return json.decodeFromString<OAuthTokenState>(Files.readString(path))
-    }
-
-    private fun saveToken(
-        serverId: String,
-        token: OAuthTokenState,
-    ) = Files.writeString(mcpDir(serverId).resolve("oauth-token.json"), json.encodeToString(token))
 
     private fun form(vararg fields: Pair<String, String>): String =
         fields.joinToString("&") { (name, value) ->

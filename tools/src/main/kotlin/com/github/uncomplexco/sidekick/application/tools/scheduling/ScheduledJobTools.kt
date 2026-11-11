@@ -10,7 +10,9 @@ import com.github.uncomplexco.sidekick.application.scheduling.CreateScheduledJob
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
 import com.github.uncomplexco.sidekick.application.scheduling.UpdateScheduledJob
+import com.github.uncomplexco.sidekick.application.tools.ToolArgumentName
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 class ScheduledJobTools(
@@ -19,7 +21,8 @@ class ScheduledJobTools(
 ) : ToolSet {
     @Tool("scheduled_jobs__create")
     @LLMDescription(
-        "Create a recurring scheduled job. Convert the user's requested schedule to five-field cron. Jobs run at minute precision and no more than hourly."
+        "Create a recurring scheduled job. Convert the user's requested schedule to five-field " +
+            "cron. Jobs run at minute precision and no more than hourly."
     )
     fun createScheduledJob(
         @LLMDescription("Required unique human-readable job name") name: String,
@@ -50,17 +53,18 @@ class ScheduledJobTools(
         val listed = jobs.list(channelId)
         return ScheduledJobListResult(
             jobs = listed.map(ScheduledJob::toView),
-            active_count = listed.count { it.enabled },
-            active_limit = ACTIVE_JOB_LIMIT,
+            activeCount = listed.count { it.enabled },
+            activeLimit = ACTIVE_JOB_LIMIT,
         )
     }
 
     @Tool("scheduled_jobs__update")
     @LLMDescription(
-        "Update a given scheduled job. Supply only changed fields. Set enabled=false to pause or enabled=true to resume. Use an empty description to clear it."
+        "Update a given scheduled job. Supply only changed fields. Set enabled=false to pause or " +
+            "enabled=true to resume. Use an empty description to clear it."
     )
     fun updateScheduledJob(
-        @LLMDescription("ID of the job to update") job_id: Int,
+        @ToolArgumentName("job_id") @LLMDescription("ID of the job to update") jobId: Int,
         @LLMDescription("New unique human-readable name") name: String? = null,
         @LLMDescription("New description. Empty text clears the description")
         description: String? = null,
@@ -73,7 +77,7 @@ class ScheduledJobTools(
         val job = runBlocking {
             jobs.update(
                 channelId,
-                job_id,
+                jobId,
                 UpdateScheduledJob(
                     name = name,
                     description = description,
@@ -91,9 +95,9 @@ class ScheduledJobTools(
     @Tool("scheduled_jobs__delete")
     @LLMDescription("Permanently delete a scheduled job.")
     fun deleteScheduledJob(
-        @LLMDescription("ID of the job to delete") job_id: Int
+        @ToolArgumentName("job_id") @LLMDescription("ID of the job to delete") jobId: Int
     ): DeletedScheduledJobResult = asToolCall {
-        val deleted = runBlocking { jobs.delete(channelId, job_id) }
+        val deleted = runBlocking { jobs.delete(channelId, jobId) }
         DeletedScheduledJobResult(deleted.id, deleted.name)
     }
 
@@ -112,8 +116,8 @@ class ScheduledJobTools(
 @Serializable
 data class ScheduledJobListResult(
     val jobs: List<ScheduledJobView>,
-    val active_count: Int,
-    val active_limit: Int,
+    @SerialName("active_count") val activeCount: Int,
+    @SerialName("active_limit") val activeLimit: Int,
 )
 
 @Serializable
@@ -131,7 +135,7 @@ data class ScheduledJobView(
     val timezone: String,
     val prompt: String,
     val enabled: Boolean,
-    val last_run_at: Long?,
+    @SerialName("last_run_at") val lastRunAt: Long?,
 )
 
 private fun ScheduledJob.toView(): ScheduledJobView =

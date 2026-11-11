@@ -55,11 +55,11 @@ class DiscordHistoryToolsTest {
         val result = tools.discordChannelHistory(limit = 25, cursor = " 500 ")
 
         assertEquals(25 to "500", request)
-        assertEquals("123", result.channel_id)
+        assertEquals("123", result.channelId)
         assertEquals(1, result.count)
         assertEquals("456", result.messages.single().id)
-        assertEquals("2026-09-09T10:00:00Z", result.messages.single().sent_at)
-        assertEquals("455", result.next_cursor)
+        assertEquals("2026-09-09T10:00:00Z", result.messages.single().sentAt)
+        assertEquals("455", result.nextCursor)
     }
 
     @Test
@@ -79,13 +79,13 @@ class DiscordHistoryToolsTest {
                 },
             )
 
-        val result = tools.discordThreadHistory(thread_id = " 456 ", limit = 25, cursor = " 500 ")
+        val result = tools.discordThreadHistory(threadId = " 456 ", limit = 25, cursor = " 500 ")
 
         assertEquals(Triple("456", 25, "500"), request)
-        assertEquals("123", result.channel_id)
-        assertEquals("456", result.thread_id)
+        assertEquals("123", result.channelId)
+        assertEquals("456", result.threadId)
         assertEquals(0, result.count)
-        assertEquals(null, result.next_cursor)
+        assertEquals(null, result.nextCursor)
     }
 
     @Test
@@ -97,7 +97,7 @@ class DiscordHistoryToolsTest {
             )
 
         assertThrows<ToolException.ValidationFailure> {
-            runBlocking { tools.discordThreadHistory(thread_id = " ") }
+            runBlocking { tools.discordThreadHistory(threadId = " ") }
         }
     }
 }

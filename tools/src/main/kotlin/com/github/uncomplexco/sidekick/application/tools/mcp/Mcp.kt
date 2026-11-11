@@ -7,13 +7,20 @@ import com.github.uncomplexco.sidekick.application.agent.tools.ToolAccess
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolRegistration
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.utils.Loggers
-import io.ktor.client.*
+import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.*
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.compression.ContentEncoding
-import io.ktor.client.plugins.sse.*
-import io.ktor.client.request.*
-import io.modelcontextprotocol.kotlin.sdk.client.*
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.sse.SSE
+import io.ktor.client.request.header
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.isSuccess
+import io.modelcontextprotocol.kotlin.sdk.client.Client
+import io.modelcontextprotocol.kotlin.sdk.client.ClientOptions
+import io.modelcontextprotocol.kotlin.sdk.client.SseClientTransport
+import io.modelcontextprotocol.kotlin.sdk.client.StdioClientTransport
+import io.modelcontextprotocol.kotlin.sdk.client.mcpStreamableHttpTransport
 import io.modelcontextprotocol.kotlin.sdk.shared.Transport
 import io.modelcontextprotocol.kotlin.sdk.types.Implementation
 import java.net.URI
@@ -171,7 +178,7 @@ class DefaultMcpServersRegistry(
                 val response =
                     JavaHttpClient.newHttpClient()
                         .send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString())
-                if (response.statusCode() !in 200..299) {
+                if (!HttpStatusCode.fromValue(response.statusCode()).isSuccess()) {
                     log.warn(
                         "MCP SSE error response server={} url={} status={} body={}",
                         server.id,

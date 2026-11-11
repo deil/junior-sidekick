@@ -22,8 +22,8 @@ class SystemToolsTest {
 
         // Assert
         assertTrue(result.ok)
-        assertEquals(1_780_317_296_000, result.unix_ms)
-        assertEquals("2026-06-01T12:34:56Z", result.iso_utc)
+        assertEquals(1_780_317_296_000, result.unixMs)
+        assertEquals("2026-06-01T12:34:56Z", result.isoUtc)
     }
 
     @Test
@@ -32,8 +32,8 @@ class SystemToolsTest {
 
         assertTrue(result.ok)
         assertEquals(1_780_317_296, result.timestamp)
-        assertEquals("seconds", result.interpreted_as)
-        assertEquals("2026-06-01T12:34:56Z", result.iso_utc)
+        assertEquals("seconds", result.interpretedAs)
+        assertEquals("2026-06-01T12:34:56Z", result.isoUtc)
     }
 
     @Test
@@ -42,7 +42,7 @@ class SystemToolsTest {
 
         assertTrue(result.ok)
         assertEquals(1_780_317_296_123, result.timestamp)
-        assertEquals("milliseconds", result.interpreted_as)
-        assertEquals("2026-06-01T12:34:56.123Z", result.iso_utc)
+        assertEquals("milliseconds", result.interpretedAs)
+        assertEquals("2026-06-01T12:34:56.123Z", result.isoUtc)
     }
 }

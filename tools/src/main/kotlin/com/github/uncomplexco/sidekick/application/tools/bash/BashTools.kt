@@ -9,6 +9,7 @@ import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTool
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.github.uncomplexco.sidekick.ports.sandbox.Command
 import com.github.uncomplexco.sidekick.ports.sandbox.SandboxExecutor
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -32,7 +33,8 @@ class BashTools(
     @Tool
     @LLMDescription(
         "Run a shell command in the configured execution environment. For local workspace files, " +
-            "use ${WorkspaceFileTools.TOOL_GLOB}, ${WorkspaceFileTools.TOOL_GREP} or ${WorkspaceFileTools.TOOL_READ}. " +
+            "use ${WorkspaceFileTools.TOOL_GLOB}, ${WorkspaceFileTools.TOOL_GREP} " +
+            "or ${WorkspaceFileTools.TOOL_READ}. " +
             "Project execution has a separate remote filesystem."
     )
     fun bash(
@@ -82,9 +84,9 @@ class BashTools(
 
         return BashResult(
             ok = result.ok,
-            exit_code = result.exitCode,
-            timed_out = result.timedOut,
-            output_truncated = result.outputTruncated,
+            exitCode = result.exitCode,
+            timedOut = result.timedOut,
+            outputTruncated = result.outputTruncated,
             output = result.output,
             workdir = result.workdir,
         )
@@ -94,9 +96,9 @@ class BashTools(
 @Serializable
 data class BashResult(
     val ok: Boolean,
-    val exit_code: Int?,
-    val timed_out: Boolean,
-    val output_truncated: Boolean,
+    @SerialName("exit_code") val exitCode: Int?,
+    @SerialName("timed_out") val timedOut: Boolean,
+    @SerialName("output_truncated") val outputTruncated: Boolean,
     val output: String,
     val workdir: String,
 )

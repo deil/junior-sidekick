@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.tools
 
 import ai.koog.agents.core.tools.ToolRegistry
 import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
+import com.github.uncomplexco.sidekick.adapters.git.WorkspaceGitFactory
 import com.github.uncomplexco.sidekick.adapters.spring.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.skills.SkillsCatalog
@@ -21,7 +22,6 @@ import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
 import com.github.uncomplexco.sidekick.application.tools.discord.discordTools
 import com.github.uncomplexco.sidekick.application.tools.files.ReplyAttachmentTools
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceFileTools
-import com.github.uncomplexco.sidekick.application.tools.git.GitToolConfig
 import com.github.uncomplexco.sidekick.application.tools.git.GitTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpAuthTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
@@ -59,7 +59,7 @@ class DefaultAgentToolCatalog(
     mcpToolsConfig: McpToolsConfig,
     mcpAuthTools: McpAuthTools,
     bashToolConfig: BashToolConfig,
-    gitToolConfig: GitToolConfig,
+    workspaceGitFactory: WorkspaceGitFactory,
     sandboxExecutorFactory: SandboxExecutorFactory,
     workspaceFilesystemFactory: WorkspaceFilesystemFactory,
     conversationStateStore: ConversationStateStore,
@@ -101,7 +101,11 @@ class DefaultAgentToolCatalog(
                 SkillsManagementTools(skills).asTools()
             },
             ToolRegistration("git", ToolAccess.SHARED) {
-                GitTools(gitToolConfig, it.turn.conversation.virtualPaths).asTools()
+                GitTools(
+                        it.turn.conversation.conversationId.channelId,
+                        workspaceGitFactory.create(it.turn.conversation.virtualPaths),
+                    )
+                    .asTools()
             },
             ToolRegistration("discord-history", ToolAccess.SHARED) {
                 val chat = it.chat
@@ -110,8 +114,8 @@ class DefaultAgentToolCatalog(
             ToolRegistration("slack-read", ToolAccess.SHARED) {
                 if (it.chat is SlackBackedChatPlatformAdapter) {
                     SlackChannelTools(sharedContext.slackClient).asTools() +
-                        SlackHistoryTools(sharedContext.slackClient, it.turn).asTools() +
-                        SlackUserTools(sharedContext.slackClient).asTools() +
+                        SlackHistoryTools(sharedContext.slackClient, it.turn).asLlmTools() +
+                        SlackUserTools(sharedContext.slackClient).asLlmTools() +
                         SlackFileTools(
                                 it.turn,
                                 workspaceFilesystemFactory.create(
@@ -155,7 +159,7 @@ class DefaultAgentToolCatalog(
             ToolRegistration("scheduling", ToolAccess.ORCHESTRATOR_ONLY) {
                 if (it.chat is SlackBackedChatPlatformAdapter) {
                     ScheduledJobTools(it.turn.conversation.conversationId.channelId, scheduledJobs)
-                        .asTools()
+                        .asLlmTools()
                 } else emptyList()
             },
             ToolRegistration("session-settings", ToolAccess.ORCHESTRATOR_ONLY) {

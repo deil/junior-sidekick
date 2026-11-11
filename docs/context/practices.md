@@ -97,8 +97,8 @@ When wiring starts carrying business meaning, move that meaning into a named mod
 
 ### Koog Tools
 
-- Tool argument names must use `snake_case`.
+- LLM-facing tool argument names must use `snake_case`; Kotlin parameter names use `camelCase` with explicit boundary mapping.
 - Tool descriptions must describe only visible intent and/or side effects. Do not expose implementation details, internal behavior, or internal structure.
 - Tool argument validation must use Koog `validate(condition, message)` or `validateNotNull(argument, message)`.
 - Tool failures must use Koog `fail(message)`.
-- Tool response shapes must use `snake_case` field names.
+- Serialized tool response shapes must use `snake_case` field names; Kotlin properties use `camelCase` with `@SerialName` mapping.

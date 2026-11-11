@@ -47,7 +47,8 @@ class SlackChannelToolsTest {
     @Test
     fun `continuation hint tells agent to keep searching with query`() {
         assertEquals(
-            "Search is page-based and may be incomplete. Call slackChannelsList with query=platform and cursor=abc to continue searching.",
+            "Search is page-based and may be incomplete. Call slackChannelsList with query=platform " +
+                "and cursor=abc to continue searching.",
             slackChannelContinuationHint("platform", "abc"),
         )
     }

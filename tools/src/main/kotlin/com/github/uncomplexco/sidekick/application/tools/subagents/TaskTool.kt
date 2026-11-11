@@ -14,6 +14,7 @@ import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 fun interface SubagentRunner {
@@ -50,12 +51,13 @@ class TaskTool(
         @property:LLMDescription(
             "The type of specialized agent to use for this task. Defaults to 'general'"
         )
-        val subagent_type: String = "general",
+        @SerialName("subagent_type")
+        val subagentType: String = "general",
     )
 
     override suspend fun execute(args: Args): String {
         val description = args.description.trim()
-        val subagentType = args.subagent_type.trim()
+        val subagentType = args.subagentType.trim()
 
         validateTaskArgument(description, "description", TASK_DESCRIPTION_MAX_CHARS)
         validateTaskArgument(args.prompt, "prompt", TASK_PROMPT_MAX_CHARS)

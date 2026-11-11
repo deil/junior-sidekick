@@ -5,6 +5,8 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import com.vladsch.flexmark.html2md.converter.FlexmarkHtmlConverter
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.isSuccess
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.URI
@@ -30,7 +32,9 @@ class WebFetchTools(
 ) : ToolSet {
     @Tool
     @LLMDescription(
-        "Fetch content from an HTTP or HTTPS URL and return it as text, markdown, or HTML. Markdown is the default. Use a more targeted tool when one is available. This tool is read-only."
+        "Fetch content from an HTTP or HTTPS URL and return it as text, markdown, or HTML. " +
+            "Markdown is the default. Use a more targeted tool when one is available. This tool is " +
+            "read-only."
     )
     fun webFetch(
         @LLMDescription("The HTTP or HTTPS URL to fetch content from.") url: String,
@@ -53,18 +57,12 @@ class WebFetchTools(
             } else {
                 firstResponse
             }
-        if (response.statusCode() !in 200..299) {
+        if (!HttpStatusCode.fromValue(response.statusCode()).isSuccess()) {
             throw ToolException.ValidationFailure("Unable to fetch $url")
         }
 
         val contentType = response.headers().firstValue("content-type").orElse("")
-        val mime = contentType.substringBefore(";").trim().lowercase()
-        if (isImageAttachment(mime)) {
-            throw ToolException.ValidationFailure("Unsupported fetched image content type: $mime")
-        }
-        if (!isTextualMime(mime)) {
-            throw ToolException.ValidationFailure("Unsupported fetched file content type: $mime")
-        }
+        validateContentType(contentType)
 
         val body =
             response
@@ -78,6 +76,16 @@ class WebFetchTools(
             format = normalizedFormat,
             output = content,
         )
+    }
+
+    private fun validateContentType(contentType: String) {
+        val mime = contentType.substringBefore(";").trim().lowercase()
+        if (isImageAttachment(mime)) {
+            throw ToolException.ValidationFailure("Unsupported fetched image content type: $mime")
+        }
+        if (!isTextualMime(mime)) {
+            throw ToolException.ValidationFailure("Unsupported fetched file content type: $mime")
+        }
     }
 
     private fun execute(
