@@ -14,12 +14,14 @@ class QueuedOpenRouterServer(
     private val responses = ArrayDeque(responses.toList())
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
     val requests = CopyOnWriteArrayList<String>()
+    val requestHeaders = CopyOnWriteArrayList<Map<String, List<String>>>()
     val baseUrl: String
         get() = "http://127.0.0.1:${server.address.port}"
 
     init {
         server.createContext(path) { exchange ->
             exchange.use {
+                requestHeaders += it.requestHeaders.toMap()
                 requests += it.requestBody.bufferedReader().use { reader -> reader.readText() }
                 val response = this.responses.removeFirst()
                 val body = response.body.toByteArray(Charsets.UTF_8)

@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.application.turn
 
+import com.github.uncomplexco.sidekick.application.agent.openRouterAttributionHeaders
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.ports.ParticipationClassifier
 import java.net.URI
@@ -32,8 +33,11 @@ class JevParticipationClassifier(
     @Value($$"${agent.participation.jev.reply-threshold:0.8}") private val replyThreshold: Double,
     @Value($$"${agent.participation.jev.endpoint:https://openrouter.ai/api/alpha/decisions}")
     private val endpoint: String,
+    @Value($$"${agent.name}") appTitle: String,
+    @Value($$"${adapters.open-router.app-url:}") appUrl: String,
 ) : ParticipationClassifier, DisposableBean {
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()
+    private val attributionHeaders = openRouterAttributionHeaders(appTitle, appUrl)
 
     override fun destroy() = client.close()
 
@@ -50,6 +54,7 @@ class JevParticipationClassifier(
                     .timeout(Duration.ofSeconds(30))
                     .header("Authorization", "Bearer $apiKey")
                     .header("Content-Type", "application/json")
+                    .apply { attributionHeaders.forEach { (name, value) -> header(name, value) } }
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody(input)))
                     .build()
 

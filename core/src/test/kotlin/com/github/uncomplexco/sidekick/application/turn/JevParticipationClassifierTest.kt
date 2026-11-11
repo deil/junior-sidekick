@@ -151,11 +151,36 @@ class JevParticipationClassifierTest {
         }
     }
 
+    @Test
+    fun `decision requests include application attribution`() = runBlocking {
+        // Arrange
+        QueuedOpenRouterServer(
+            Response("""{"answers":{"should_reply":{"type":"noul","noul":0.95}}}"""),
+            path = "/api/alpha/decisions",
+        ).use { server ->
+            val classifier = classifier(server)
+            try {
+                // Act
+                val decision = classifier.classify(input)
+
+                // Assert
+                assertIs<TurnParticipationDecision.Respond>(decision)
+                val headers = server.requestHeaders.single().mapKeys { it.key.lowercase() }
+                assertEquals(listOf("Sidekick"), headers["x-openrouter-title"])
+                assertEquals(listOf("https://sidekick.example"), headers["http-referer"])
+            } finally {
+                classifier.destroy()
+            }
+        }
+    }
+
     private fun classifier(server: QueuedOpenRouterServer, threshold: Double = 0.8) =
         JevParticipationClassifier(
             "test-key",
             "typesafe/jev-1.14",
             threshold,
             "${server.baseUrl}/api/alpha/decisions",
+            "Sidekick",
+            "https://sidekick.example",
         )
 }

@@ -39,17 +39,7 @@ internal class OpenRouterHttpClientFactory(
     private val appTitle: String,
     appUrl: String?,
 ) : KoogHttpClient.Factory {
-    private val attributionHeaders =
-        appUrl
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-            ?.let {
-                mapOf(
-                    "HTTP-Referer" to it,
-                    "X-OpenRouter-Title" to appTitle,
-                )
-            }
-            .orEmpty()
+    private val attributionHeaders = openRouterAttributionHeaders(appTitle, appUrl)
 
     override fun create(
         clientName: String,
@@ -72,3 +62,15 @@ internal class OpenRouterHttpClientFactory(
             json = json,
         )
 }
+
+internal fun openRouterAttributionHeaders(appTitle: String, appUrl: String?): Map<String, String> =
+    appUrl
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+        ?.let {
+            mapOf(
+                "HTTP-Referer" to it,
+                "X-OpenRouter-Title" to appTitle,
+            )
+        }
+        .orEmpty()
