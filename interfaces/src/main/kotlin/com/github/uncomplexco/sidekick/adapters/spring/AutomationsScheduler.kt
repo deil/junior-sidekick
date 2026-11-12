@@ -1,19 +1,18 @@
 package com.github.uncomplexco.sidekick.adapters.spring
 
+import com.github.uncomplexco.sidekick.application.core.AutomationService
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
-import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobDispatcher
-import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
 import com.github.uncomplexco.sidekick.application.utils.Loggers
+import com.github.uncomplexco.sidekick.ports.AutomationDispatcher
 import java.time.Instant
-import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
 @Component
-class ScheduledJobsScheduler(
-    private val jobs: ScheduledJobService,
-    private val dispatcherProvider: ObjectProvider<ScheduledJobDispatcher>,
+class AutomationsScheduler(
+    private val automations: AutomationService,
+    private val dispatcherProvider: ObjectProvider<AutomationDispatcher>,
     private val scope: SidekickCoroutineScope,
 ) {
     @Scheduled(cron = "0 * * * * *")
@@ -21,9 +20,9 @@ class ScheduledJobsScheduler(
         val dispatcher = dispatcherProvider.ifAvailable ?: return
         val claimed =
             try {
-                runBlocking { jobs.claimDueRuns(Instant.now()) }
+                automations.claimDueRuns(Instant.now())
             } catch (error: Exception) {
-                Loggers.SCHEDULED_JOBS.error("Failed to claim scheduled jobs", error)
+                Loggers.AUTOMATIONS.error("Failed to claim automations", error)
                 return
             }
 
@@ -31,11 +30,11 @@ class ScheduledJobsScheduler(
             scope.launch {
                 runCatching { dispatcher.dispatch(run) }
                     .onFailure { error ->
-                        Loggers.SCHEDULED_JOBS.error(
-                            "Scheduled job failed: channel={} job_id={} name={}",
-                            run.channelId,
-                            run.job.id,
-                            run.job.name,
+                        Loggers.AUTOMATIONS.error(
+                            "Automation failed: project={} uid={} name={}",
+                            run.projectUid,
+                            run.automation.uid,
+                            run.automation.name,
                             error,
                         )
                     }

@@ -12,7 +12,7 @@ import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScop
 import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
 import com.slack.api.methods.MethodsClient
 
-class ScheduledSlackChatPlatformAdapter(
+class AutomationSlackChatPlatformAdapter(
     private val client: MethodsClient,
     channelId: String,
     override val botUsername: String,

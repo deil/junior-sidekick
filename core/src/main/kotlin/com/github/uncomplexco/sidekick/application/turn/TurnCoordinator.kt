@@ -21,10 +21,10 @@ import com.github.uncomplexco.sidekick.application.conversation.MessageAuthor
 import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
+import com.github.uncomplexco.sidekick.application.core.Automation
 import com.github.uncomplexco.sidekick.application.core.ProjectType
 import com.github.uncomplexco.sidekick.application.core.Projects
 import com.github.uncomplexco.sidekick.application.core.UsersService
-import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import java.time.Instant
@@ -47,7 +47,7 @@ class TurnCoordinator(
         try {
             when (trigger) {
                 is TurnTrigger.Incoming -> runIncoming(trigger.batch, trigger.chat, inbox)
-                is TurnTrigger.Scheduled -> runScheduled(trigger)
+                is TurnTrigger.Automated -> runAutomation(trigger)
             }
         } catch (error: ProjectConfigurationException) {
             log.warn("Turn rejected: {}", error.message, error)
@@ -122,13 +122,13 @@ class TurnCoordinator(
         )
     }
 
-    private suspend fun runScheduled(trigger: TurnTrigger.Scheduled) {
+    private suspend fun runAutomation(trigger: TurnTrigger.Automated) {
         val turnStartedAt = TimeSource.Monotonic.markNow()
 
         trigger.chat.lifecycle.begin()
         try {
             val project = sessions.resolveProjectContext(trigger.conversationId)
-            val currentMessage = scheduledMessage(trigger.job, trigger.startedAtMs)
+            val currentMessage = automationMessage(trigger.automation, trigger.startedAtMs)
             val turn =
                 sessions.recordIncomingMessages(
                     conversationId = trigger.conversationId,
@@ -413,15 +413,19 @@ class TurnCoordinator(
         return recorded to attachedFiles
     }
 
-    private fun scheduledMessage(job: ScheduledJob, startedAtMs: Long): SessionMessage =
+    private fun automationMessage(automation: Automation, startedAtMs: Long): SessionMessage =
         SessionMessage(
-            id = "scheduled_${job.id}_$startedAtMs",
+            id = "automation_${automation.uid}_$startedAtMs",
             role = SessionMessageRole.USER,
-            author = MessageAuthor(username = "scheduled-job-${job.id}", fullName = job.name),
-            text = job.prompt,
+            author =
+                MessageAuthor(
+                    username = "automation-${automation.uid}",
+                    fullName = automation.name,
+                ),
+            text = automation.instructions,
             createdAtMs = startedAtMs,
             explicitSkillInvocation =
-                detectUserSkillInvocation(job.prompt, skills.catalog())?.let {
+                detectUserSkillInvocation(automation.instructions, skills.catalog())?.let {
                     ExplicitSkillInvocation(it.skill.name)
                 },
         )

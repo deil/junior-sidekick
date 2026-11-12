@@ -6,7 +6,6 @@ import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.serialization.JSONObject
 import ai.koog.serialization.typeToken
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
-import com.github.uncomplexco.sidekick.adapters.files.FilesystemScheduledJobStore
 import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.adapters.git.WorkspaceGitFactory
 import com.github.uncomplexco.sidekick.adapters.jgit.LocalGitCredentials
@@ -36,7 +35,6 @@ import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
-import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.stats.WeeklyStatsService
 import com.github.uncomplexco.sidekick.application.tools.DefaultAgentToolCatalog
@@ -85,7 +83,7 @@ class ToolCatalogFixture(
             ),
             WorkspaceFilesystemFactory(),
             store,
-            ScheduledJobService(FilesystemScheduledJobStore(config)),
+            AutomationFixture(config).service,
             WeeklyStatsService(store),
             runner,
             { SubagentCatalog(listOf(Subagent("general", "General-purpose subagent", "Prompt"))) },

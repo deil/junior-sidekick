@@ -2,25 +2,25 @@ package com.github.uncomplexco.sidekick.usecases
 
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobRun
+import com.github.uncomplexco.sidekick.application.core.AutomationRun
 import com.github.uncomplexco.sidekick.application.turn.TurnCoordinator
 import com.github.uncomplexco.sidekick.application.turn.TurnTrigger
 import org.springframework.stereotype.Component
 
 @Component
-class RunScheduledJobUsecase(private val turnCoordinator: TurnCoordinator) {
+class RunAutomationUsecase(private val turnCoordinator: TurnCoordinator) {
     suspend fun run(
-        scheduledRun: ScheduledJobRun,
+        run: AutomationRun,
         chat: ChatPlatformAdapter,
     ) {
-        val job = scheduledRun.job
-        val startedAtMs = requireNotNull(job.lastRunAt)
+        val automation = run.automation
+        val startedAtMs = requireNotNull(automation.lastRunAt).toEpochMilli()
         val conversationId =
-            ConversationId(scheduledRun.channelId, "scheduled_${job.id}_$startedAtMs")
+            ConversationId(run.projectUid, "automation_${automation.uid}_$startedAtMs")
         turnCoordinator.run(
-            TurnTrigger.Scheduled(
+            TurnTrigger.Automated(
                 conversationId = conversationId,
-                job = job,
+                automation = automation,
                 chat = chat,
                 startedAtMs = startedAtMs,
             )

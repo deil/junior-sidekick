@@ -3,7 +3,7 @@ package com.github.uncomplexco.sidekick.application.turn
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.IncomingBatch
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
-import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
+import com.github.uncomplexco.sidekick.application.core.Automation
 
 sealed interface TurnTrigger {
     val chat: ChatPlatformAdapter
@@ -13,9 +13,9 @@ sealed interface TurnTrigger {
         override val chat: ChatPlatformAdapter,
     ) : TurnTrigger
 
-    data class Scheduled(
+    data class Automated(
         val conversationId: ConversationId,
-        val job: ScheduledJob,
+        val automation: Automation,
         override val chat: ChatPlatformAdapter,
         val startedAtMs: Long,
     ) : TurnTrigger

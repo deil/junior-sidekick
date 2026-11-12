@@ -69,10 +69,10 @@ class DefaultAgentToolCatalogTest {
                     "slackCanvasCreate",
                     "slackReactionAdd",
                     "enableTokenmaxxin",
-                    "scheduled_jobs__create",
-                    "scheduled_jobs__list",
-                    "scheduled_jobs__update",
-                    "scheduled_jobs__delete",
+                    "automations__create",
+                    "automations__list",
+                    "automations__update",
+                    "automations__delete",
                 )
             assertTrue(delegate.containsAll(shared), "Missing shared tools: ${shared - delegate}")
             assertTrue(
@@ -178,7 +178,7 @@ class DefaultAgentToolCatalogTest {
             assertFalse("bash" in names)
             assertFalse(names.any { it.startsWith("slack") || it.startsWith("discord") })
             assertFalse("attachFile" in names)
-            assertFalse(names.any { it.startsWith("scheduled_jobs__") })
+            assertFalse(names.any { it.startsWith("automations__") })
         }
     }
 

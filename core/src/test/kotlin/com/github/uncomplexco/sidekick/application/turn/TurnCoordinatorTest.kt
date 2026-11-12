@@ -29,12 +29,12 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
-import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJob
 import com.github.uncomplexco.sidekick.application.stats.AgentStats
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.stats.TurnStats
 import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import com.github.uncomplexco.sidekick.testing.projectsService
+import com.github.uncomplexco.sidekick.testing.testAutomation
 import com.github.uncomplexco.sidekick.testing.usersService
 import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import java.nio.file.Files
@@ -203,9 +203,9 @@ class TurnCoordinatorTest {
                     )
 
                 coordinator.run(
-                    TurnTrigger.Scheduled(
+                    TurnTrigger.Automated(
                         conversation,
-                        ScheduledJob(32, "report", null, "0 9 * * *", "UTC", "Run the report"),
+                        testAutomation(),
                         chat(replies, mutableListOf()),
                         1,
                     )
@@ -1085,23 +1085,23 @@ class TurnCoordinatorTest {
                 users = usersService(),
                 projects = projectsService(config),
             )
-        val job = ScheduledJob(32, "report", null, "0 9 * * *", "UTC", "Run the report")
+        val automation = testAutomation()
         val first = ConversationId("C123", "scheduled_32_first")
         val second = ConversationId("C123", "scheduled_32_second")
 
         // Act
         executor.run(
-            TurnTrigger.Scheduled(
+            TurnTrigger.Automated(
                 first,
-                job,
+                automation,
                 chat(replies, mutableListOf()),
                 startedAtMs = 1_000,
             )
         )
         executor.run(
-            TurnTrigger.Scheduled(
+            TurnTrigger.Automated(
                 second,
-                job,
+                automation,
                 chat(replies, mutableListOf()),
                 startedAtMs = 2_000,
             )
@@ -1113,7 +1113,7 @@ class TurnCoordinatorTest {
         assertEquals(2, store.load(first).messages.size)
         assertEquals(2, store.load(second).messages.size)
         assertEquals(
-            "scheduled-job-32",
+            "automation-32",
             store
                 .load(first)
                 .messages

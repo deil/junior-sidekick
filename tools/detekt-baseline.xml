@@ -5,7 +5,7 @@
     <ID>SwallowedException:BashTools.kt:BashTools$error: IllegalArgumentException</ID>
     <ID>SwallowedException:GitTools.kt:GitTools$error: Exception</ID>
     <ID>SwallowedException:GitTools.kt:GitTools$error: IllegalArgumentException</ID>
-    <ID>SwallowedException:ScheduledJobTools.kt:ScheduledJobTools$error: IllegalArgumentException</ID>
+    <ID>SwallowedException:AutomationTools.kt:AutomationTools$error: IllegalArgumentException</ID>
     <ID>SwallowedException:SlackChannelClient.kt:error: SlackApiException</ID>
     <ID>SwallowedException:WorkspaceFileTools.kt:WorkspaceFileTools$e: IllegalArgumentException</ID>
     <ID>TooGenericExceptionCaught:GitTools.kt:GitTools$error: Exception</ID>

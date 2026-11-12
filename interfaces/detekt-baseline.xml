@@ -25,7 +25,7 @@
     <ID>ReturnCount:DiscordGateway.kt:DiscordIngress$suspend fun receive</ID>
     <ID>ReturnCount:McpOAuthController.kt:McpOAuthController$@GetMapping("/mcp/oauth/callback", produces = [MediaType.TEXT_HTML_VALUE]) fun callback: String</ID>
     <ID>TooGenericExceptionCaught:DiscordInterop.kt:error: Exception</ID>
-    <ID>TooGenericExceptionCaught:ScheduledJobsScheduler.kt:ScheduledJobsScheduler$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:AutomationsScheduler.kt:AutomationsScheduler$error: Exception</ID>
     <ID>TooGenericExceptionCaught:SidekickApiController.kt:SidekickApiController$error: Exception</ID>
     <ID>TooGenericExceptionCaught:SlackInterop.kt:SlackTurnResultHandler$error: Exception</ID>
     <ID>TooManyFunctions:SlackInterop.kt:SlackTurnResultHandler : TurnResultHandler</ID>

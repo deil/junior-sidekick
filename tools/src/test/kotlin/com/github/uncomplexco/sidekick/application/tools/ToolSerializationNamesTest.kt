@@ -1,12 +1,13 @@
 package com.github.uncomplexco.sidekick.application.tools
 
+import com.github.uncomplexco.sidekick.application.core.scheduledTrigger
+import com.github.uncomplexco.sidekick.application.tools.automations.AutomationListResult
+import com.github.uncomplexco.sidekick.application.tools.automations.AutomationView
 import com.github.uncomplexco.sidekick.application.tools.bash.BashResult
 import com.github.uncomplexco.sidekick.application.tools.discord.DiscordChannelHistoryResult
 import com.github.uncomplexco.sidekick.application.tools.discord.DiscordHistoryMessage
 import com.github.uncomplexco.sidekick.application.tools.discord.DiscordThreadHistoryResult
 import com.github.uncomplexco.sidekick.application.tools.files.AttachFileResult
-import com.github.uncomplexco.sidekick.application.tools.scheduling.ScheduledJobListResult
-import com.github.uncomplexco.sidekick.application.tools.scheduling.ScheduledJobView
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelHistoryResult
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackMessage
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackThreadHistoryResult
@@ -106,16 +107,27 @@ class ToolSerializationNamesTest {
                     "filename,mime_type,bytes",
                 ),
                 Arguments.of(
-                    "Scheduled job list",
-                    Json.encodeToString(ScheduledJobListResult(emptyList(), 0, 1)),
-                    "jobs,active_count,active_limit",
+                    "Automation list",
+                    Json.encodeToString(AutomationListResult(emptyList(), 0, 1)),
+                    "automations,active_count,active_limit",
                 ),
                 Arguments.of(
-                    "Scheduled job",
+                    "Automation",
                     Json.encodeToString(
-                        ScheduledJobView(1, "name", null, "0 9 * * *", "UTC", "prompt", true, null)
+                        AutomationView(
+                            1L,
+                            1,
+                            "name",
+                            null,
+                            "instructions",
+                            scheduledTrigger("0 9 * * *", "UTC"),
+                            true,
+                            null,
+                            "2026-11-11T09:00:00Z",
+                            "2026-11-11T09:00:00Z",
+                        )
                     ),
-                    "id,name,description,schedule,timezone,prompt,enabled,last_run_at",
+                    "id,uid,name,description,instructions,trigger,enabled,last_run_at,created_at,updated_at",
                 ),
                 Arguments.of(
                     "Weekly stats",

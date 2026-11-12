@@ -13,9 +13,9 @@ Project-level glossary for `sidekick` terms that should be used consistently in 
 | **Unsubscribed session** | A session where Sidekick has been explicitly told to stop following passive messages. Explicit mention resumes the session unless the mention is itself a control command such as unsubscribe. Persisted as `ConversationState.subscribed = false`. | Muted thread, ignored thread |
 | **Turn** | One admitted batch of user messages, any input consumed through steering during execution, and the Sidekick work performed in response. A batch can contain one message. A turn is scoped within a session and ends when Sidekick replies, declines to reply, or completes another requested action. | Thread, session, request |
 
-## Scheduled work
+## Automations
 
 | Term | Definition | Aliases to avoid |
 |------|-----------|-----------------|
-| **Scheduled job** | A channel-owned schedule and prompt that periodically starts an isolated Sidekick run and posts its result to the channel. | Cron, routine |
-| **Scheduled run** | One firing of a scheduled job. Each run uses a fresh Session and does not inherit history from earlier runs. | Job, execution |
+| **Automation** | Project-owned instructions and a trigger that start an isolated Sidekick run and post its result to the owning channel. Scheduled triggers are currently supported. | Scheduled job, cron, routine |
+| **Automation run** | One firing of an automation. Each run uses a fresh Session and does not inherit history from earlier runs. | Scheduled run, job, execution |

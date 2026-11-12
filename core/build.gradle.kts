@@ -46,6 +46,8 @@ dependencies {
     testFixturesImplementation(platform(libs.spring.boot.bom))
     testFixturesImplementation(libs.spring.context)
     testFixturesImplementation(libs.spring.boot)
+    testFixturesImplementation(libs.spring.jdbc)
+    testFixturesImplementation(libs.sqlite.jdbc)
 }
 
 kotlin {

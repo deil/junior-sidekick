@@ -12,14 +12,14 @@ import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
-class ScheduledSlackChatPlatformAdapterTest {
+class AutomationSlackChatPlatformAdapterTest {
     @Test
     fun `posts scheduled reply to channel root`() = runTest {
         // Arrange
         val requests = mutableListOf<ChatPostMessageRequest>()
         val client = methodsClient(requests)
         val adapter =
-            ScheduledSlackChatPlatformAdapter(
+            AutomationSlackChatPlatformAdapter(
                 client,
                 "C123",
                 "USIDEKICK",

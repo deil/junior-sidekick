@@ -14,9 +14,10 @@ import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualP
 import com.github.uncomplexco.sidekick.application.chat.DiscordBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.conversation.ConversationStateStore
+import com.github.uncomplexco.sidekick.application.core.AutomationService
 import com.github.uncomplexco.sidekick.application.runtime.SharedContext
-import com.github.uncomplexco.sidekick.application.scheduling.ScheduledJobService
 import com.github.uncomplexco.sidekick.application.stats.WeeklyStatsService
+import com.github.uncomplexco.sidekick.application.tools.automations.AutomationTools
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
 import com.github.uncomplexco.sidekick.application.tools.bash.BashTools
 import com.github.uncomplexco.sidekick.application.tools.discord.discordTools
@@ -26,7 +27,6 @@ import com.github.uncomplexco.sidekick.application.tools.git.GitTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpAuthTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpStatusTools
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
-import com.github.uncomplexco.sidekick.application.tools.scheduling.ScheduledJobTools
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillTools
 import com.github.uncomplexco.sidekick.application.tools.skills.SkillsManagementTools
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackCanvasTools
@@ -63,7 +63,7 @@ class DefaultAgentToolCatalog(
     sandboxExecutorFactory: SandboxExecutorFactory,
     workspaceFilesystemFactory: WorkspaceFilesystemFactory,
     conversationStateStore: ConversationStateStore,
-    scheduledJobs: ScheduledJobService,
+    automations: AutomationService,
     weeklyStats: WeeklyStatsService,
     subagentRunner: SubagentRunner,
     subagents: SubagentCatalogProvider,
@@ -156,9 +156,9 @@ class DefaultAgentToolCatalog(
                         SlackReactionTools(sharedContext.slackClient, it.turn).asTools()
                 } else emptyList()
             },
-            ToolRegistration("scheduling", ToolAccess.ORCHESTRATOR_ONLY) {
+            ToolRegistration("automations", ToolAccess.ORCHESTRATOR_ONLY) {
                 if (it.chat is SlackBackedChatPlatformAdapter) {
-                    ScheduledJobTools(it.turn.conversation.conversationId.channelId, scheduledJobs)
+                    AutomationTools(it.turn.conversation.conversationId.channelId, automations)
                         .asLlmTools()
                 } else emptyList()
             },

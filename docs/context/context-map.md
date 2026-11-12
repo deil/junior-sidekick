@@ -29,7 +29,7 @@ Hierarchical index of project context documentation for future-us and AI agents.
   - [tools/mcp.md](tools/mcp.md) – Koog MCP tool registry configuration, supported transports, Grafana MCP examples, and registry merge behavior; read for MCP tool integration changes.
   - [tools/skills.md](tools/skills.md) – Skill sources, discovery, activation, and orchestrator catalog prompting; read for skills loading, prompting, and activation changes.
   - [tools/subagents.md](tools/subagents.md) – `Task` behavior, subagent system/user prompt shape, definition loading, context isolation, and tool access; read for subagent execution and prompt generation changes.
-  - [tools/scheduled-jobs.md](tools/scheduled-jobs.md) – Channel-scoped recurring prompts, conversational management, isolated scheduled runs, persistence, and delivery; read for scheduled agent work.
+  - [tools/automations.md](tools/automations.md) – Project-owned instructions and triggers, SQLite persistence, lazy legacy import, isolated automated runs, and delivery; read for automation management and scheduled work.
 - [turn-flow.md](turn-flow.md) – Session/Turn processing model, turn boundary, and processing stages from Slack event through turn participation and response delivery; read for turn orchestration and participation changes.
 - [turn-suspension.md](turn-suspension.md) – Durable turn checkpoint/resume semantics, external-action waiting, supersession, races, parallel tools, and Koog Persistence versus ChatMemory; read for suspended turns and per-user OAuth continuation work.
 - Sandbox

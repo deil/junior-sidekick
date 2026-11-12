@@ -37,6 +37,7 @@ dependencies {
     }
 
     testImplementation(platform(libs.spring.boot.bom))
+    testImplementation(testFixtures(project(":core")))
     testImplementation(libs.spring.boot)
     testImplementation(libs.spring.context)
     testImplementation(libs.spring.test)

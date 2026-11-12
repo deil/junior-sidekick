@@ -24,8 +24,8 @@ class ToolArgumentNamesTest {
 
     @ParameterizedTest(name = "{0} exposes {1} instead of {2}")
     @CsvSource(
-        "scheduled_jobs__update, job_id, jobId",
-        "scheduled_jobs__delete, job_id, jobId",
+        "automations__update, uid, jobId",
+        "automations__delete, uid, jobId",
         "slackChannelHistory, scan_depth, scanDepth",
         "slackChannelHistory, bounds_inclusive, boundsInclusive",
         "slackThreadHistory, thread_ts, threadTs",
