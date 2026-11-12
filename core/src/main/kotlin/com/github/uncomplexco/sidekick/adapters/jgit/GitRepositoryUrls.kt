@@ -37,6 +37,7 @@ internal class GitRepositoryUrls {
             when (normalizedHost) {
                 "github.com" -> GitProvider.GITHUB
                 "bitbucket.org" -> GitProvider.BITBUCKET
+                "ssh.bitbucket.org" -> GitProvider.BITBUCKET
                 else -> GitProvider.OTHER
             }
 
