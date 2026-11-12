@@ -19,11 +19,11 @@ class SqliteAutomationsRepository(
     private val sidekickJdbcClient: JdbcClient,
     private val sidekickTransactions: TransactionTemplate,
 ) : AutomationsRepository {
-    private val locks = ConcurrentHashMap<String, ReentrantLock>()
+    private val locks = ConcurrentHashMap<Long, ReentrantLock>()
     private val mapper = RowMapper { row, _ ->
         Automation(
             id = row.getLong("id"),
-            projectUid = row.getString("project_uid"),
+            projectId = row.getLong("project_id"),
             uid = row.getInt("uid"),
             name = row.getString("name"),
             description = row.getString("description"),
@@ -36,58 +36,56 @@ class SqliteAutomationsRepository(
         )
     }
 
-    override fun projectUids(): List<String> =
+    override fun projectIds(): List<Long> =
         sidekickJdbcClient
-            .sql("SELECT project_uid FROM automation_projects ORDER BY project_uid")
-            .query { row, _ -> row.getString("project_uid") }
+            .sql("SELECT project_id FROM automation_projects ORDER BY project_id")
+            .query { row, _ -> row.getLong("project_id") }
             .list()
 
-    override fun isImported(projectUid: String): Boolean =
+    override fun isImported(projectId: Long): Boolean =
         sidekickJdbcClient
-            .sql(
-                "SELECT EXISTS (SELECT 1 FROM automation_projects WHERE project_uid = :project_uid)"
-            )
-            .param("project_uid", projectUid)
+            .sql("SELECT EXISTS (SELECT 1 FROM automation_projects WHERE project_id = :project_id)")
+            .param("project_id", projectId)
             .query(Boolean::class.java)
             .single()
 
-    override fun initialize(projectUid: String, lastAllocatedUid: Int) {
+    override fun initialize(projectId: Long, lastAllocatedUid: Int) {
         sidekickJdbcClient
             .sql(
                 """
-                INSERT INTO automation_projects (project_uid, last_allocated_uid)
-                VALUES (:project_uid, :last_allocated_uid)
+                INSERT INTO automation_projects (project_id, last_allocated_uid)
+                VALUES (:project_id, :last_allocated_uid)
                 """
                     .trimIndent()
             )
-            .param("project_uid", projectUid)
+            .param("project_id", projectId)
             .param("last_allocated_uid", lastAllocatedUid)
             .update()
     }
 
-    override fun allocateUid(projectUid: String): Int =
+    override fun allocateUid(projectId: Long): Int =
         sidekickJdbcClient
             .sql(
                 """
                 UPDATE automation_projects SET last_allocated_uid = last_allocated_uid + 1
-                WHERE project_uid = :project_uid
+                WHERE project_id = :project_id
                 RETURNING last_allocated_uid
                 """
                     .trimIndent()
             )
-            .param("project_uid", projectUid)
+            .param("project_id", projectId)
             .query(Int::class.java)
             .single()
 
-    override fun load(projectUid: String): List<Automation> =
+    override fun load(projectId: Long): List<Automation> =
         sidekickJdbcClient
-            .sql("SELECT * FROM automations WHERE project_uid = :project_uid ORDER BY uid")
-            .param("project_uid", projectUid)
+            .sql("SELECT * FROM automations WHERE project_id = :project_id ORDER BY uid")
+            .param("project_id", projectId)
             .query(mapper)
             .list()
 
     override fun insert(
-        projectUid: String,
+        projectId: Long,
         uid: Int,
         command: CreateAutomation,
         now: Instant,
@@ -96,15 +94,15 @@ class SqliteAutomationsRepository(
         sidekickJdbcClient
             .sql(
                 """
-                INSERT INTO automations (project_uid, uid, name, name_key, description, instructions,
+                INSERT INTO automations (project_id, uid, name, name_key, description, instructions,
                     trigger, is_enabled, last_run_at, created_at, updated_at)
-                VALUES (:project_uid, :uid, :name, :name_key, :description, :instructions,
+                VALUES (:project_id, :uid, :name, :name_key, :description, :instructions,
                     :trigger, :is_enabled, :last_run_at, :created_at, :updated_at)
                 RETURNING *
                 """
                     .trimIndent()
             )
-            .param("project_uid", projectUid)
+            .param("project_id", projectId)
             .param("uid", uid)
             .param("name", command.name)
             .param("name_key", command.name.lowercase())
@@ -145,9 +143,9 @@ class SqliteAutomationsRepository(
         sidekickJdbcClient.sql("DELETE FROM automations WHERE id = :id").param("id", id).update()
     }
 
-    override fun <T : Any> inProjectTransaction(projectUid: String, operation: () -> T): T =
+    override fun <T : Any> inProjectTransaction(projectId: Long, operation: () -> T): T =
         locks
-            .computeIfAbsent(projectUid) { ReentrantLock() }
+            .computeIfAbsent(projectId) { ReentrantLock() }
             .withLock {
                 requireNotNull(sidekickTransactions.execute { operation() })
             }

@@ -42,8 +42,8 @@ class AutomationsSchedulerTest {
         scheduler.tick()
 
         // Assert
-        val stored = AutomationFixture(fixture.config).repository.load("C123").single()
-        assertEquals("C123", dispatched.single().projectUid)
+        val stored = AutomationFixture(fixture.config).repository.load(fixture.projectId).single()
+        assertEquals(fixture.projectId, dispatched.single().project.id)
         assertEquals(stored, dispatched.single().automation)
         assertEquals(7, stored.uid)
         assertNotNull(stored.lastRunAt)

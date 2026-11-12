@@ -20,7 +20,7 @@ const val AUTOMATION_COOLDOWN_MILLIS = 60 * 60 * 1000L
 
 data class Automation(
     val id: Long,
-    val projectUid: String,
+    val projectId: Long,
     val uid: Int,
     val name: String,
     val description: String?,
@@ -32,7 +32,7 @@ data class Automation(
     val updatedAt: Instant,
 )
 
-data class AutomationRun(val projectUid: String, val automation: Automation)
+data class AutomationRun(val project: Project, val automation: Automation)
 
 data class CreateAutomation(
     val name: String,
@@ -62,23 +62,27 @@ data class UpdateAutomation(
 class AutomationImporter(
     private val automations: AutomationsRepository,
     private val legacy: LegacyAutomationsReader,
+    private val projects: Projects,
     private val clock: Clock = Clock.systemUTC(),
 ) {
-    fun importProject(projectUid: String) {
+    fun importProject(projectUid: String): Project {
+        val project = projects.getByUid(projectUid)
+        val projectId = requireNotNull(project.id)
         val imported =
-            automations.inProjectTransaction(projectUid) {
-                if (automations.isImported(projectUid)) return@inProjectTransaction false
+            automations.inProjectTransaction(projectId) {
+                if (automations.isImported(projectId)) return@inProjectTransaction false
 
                 val snapshot = legacy.load(projectUid)
                 val now = clock.instant()
-                automations.initialize(projectUid, snapshot.lastAllocatedUid)
+                automations.initialize(projectId, snapshot.lastAllocatedUid)
                 snapshot.automations.forEach {
-                    automations.insert(projectUid, it.uid, it.command, now, it.lastRunAt)
+                    automations.insert(projectId, it.uid, it.command, now, it.lastRunAt)
                 }
                 true
             }
         if (imported)
-            Loggers.AUTOMATIONS.info("Imported automations into SQLite for project {}", projectUid)
+            Loggers.AUTOMATIONS.info("Imported automations into SQLite for project {}", projectId)
+        return project
     }
 }
 
@@ -87,17 +91,18 @@ class AutomationService(
     private val automations: AutomationsRepository,
     private val legacy: LegacyAutomationsReader,
     private val importer: AutomationImporter,
+    private val projects: Projects,
     private val clock: Clock = Clock.systemUTC(),
 ) {
     fun list(projectUid: String): List<Automation> {
-        importer.importProject(projectUid)
-        return automations.load(projectUid).sortedBy { it.name.lowercase() }
+        val project = importer.importProject(projectUid)
+        return automations.load(requireNotNull(project.id)).sortedBy { it.name.lowercase() }
     }
 
-    fun create(projectUid: String, command: CreateAutomation): Automation =
-        automations.inProjectTransaction(projectUid) {
-            importer.importProject(projectUid)
-            val existing = automations.load(projectUid)
+    fun create(projectUid: String, command: CreateAutomation): Automation {
+        val projectId = requireNotNull(importer.importProject(projectUid).id)
+        return automations.inProjectTransaction(projectId) {
+            val existing = automations.load(projectId)
             val normalized =
                 command.copy(
                     name = command.name.cleanRequired("name"),
@@ -113,8 +118,8 @@ class AutomationService(
             }
             val created =
                 automations.insert(
-                    projectUid,
-                    automations.allocateUid(projectUid),
+                    projectId,
+                    automations.allocateUid(projectId),
                     normalized,
                     clock.instant(),
                 )
@@ -125,12 +130,13 @@ class AutomationService(
             )
             created
         }
+    }
 
-    fun update(projectUid: String, uid: Int, command: UpdateAutomation): Automation =
-        automations.inProjectTransaction(projectUid) {
-            importer.importProject(projectUid)
+    fun update(projectUid: String, uid: Int, command: UpdateAutomation): Automation {
+        val projectId = requireNotNull(importer.importProject(projectUid).id)
+        return automations.inProjectTransaction(projectId) {
             require(command.hasChanges()) { "At least one automation field must be changed." }
-            val existing = automations.load(projectUid)
+            val existing = automations.load(projectId)
             val current =
                 existing.find { it.uid == uid }
                     ?: throw IllegalArgumentException("Automation not found: $uid")
@@ -157,38 +163,42 @@ class AutomationService(
             Loggers.AUTOMATIONS.info("Updated automation: project={} uid={}", projectUid, uid)
             updated
         }
+    }
 
-    fun delete(projectUid: String, uid: Int): Automation =
-        automations.inProjectTransaction(projectUid) {
-            importer.importProject(projectUid)
+    fun delete(projectUid: String, uid: Int): Automation {
+        val projectId = requireNotNull(importer.importProject(projectUid).id)
+        return automations.inProjectTransaction(projectId) {
             val removed =
-                automations.load(projectUid).find { it.uid == uid }
+                automations.load(projectId).find { it.uid == uid }
                     ?: throw IllegalArgumentException("Automation not found: $uid")
             automations.delete(removed.id)
             Loggers.AUTOMATIONS.info("Deleted automation: project={} uid={}", projectUid, uid)
             removed
         }
+    }
 
     fun claimDueRuns(now: Instant): List<AutomationRun> =
-        (automations.projectUids() + legacy.projectUids()).distinct().sorted().flatMap { projectUid
-            ->
-            automations.inProjectTransaction(projectUid) {
-                importer.importProject(projectUid)
-                automations
-                    .load(projectUid)
-                    .filter { it.isDue(now) }
-                    .map {
-                        val claimed = it.copy(lastRunAt = now, updatedAt = now)
-                        automations.update(claimed)
-                        Loggers.AUTOMATIONS.info(
-                            "Claimed automation: project={} uid={}",
-                            projectUid,
-                            it.uid,
-                        )
-                        AutomationRun(projectUid, claimed)
-                    }
+        (automations.projectIds().map { projects.getById(it).uid } + legacy.projectUids())
+            .distinct()
+            .sorted()
+            .flatMap { projectUid ->
+                val project = importer.importProject(projectUid)
+                automations.inProjectTransaction(requireNotNull(project.id)) {
+                    automations
+                        .load(requireNotNull(project.id))
+                        .filter { it.isDue(now) }
+                        .map {
+                            val claimed = it.copy(lastRunAt = now, updatedAt = now)
+                            automations.update(claimed)
+                            Loggers.AUTOMATIONS.info(
+                                "Claimed automation: project={} uid={}",
+                                projectUid,
+                                it.uid,
+                            )
+                            AutomationRun(project, claimed)
+                        }
+                }
             }
-        }
 
     private fun requireUniqueName(existing: List<Automation>, name: String) {
         require(existing.none { it.name.lowercase() == name.lowercase() }) {

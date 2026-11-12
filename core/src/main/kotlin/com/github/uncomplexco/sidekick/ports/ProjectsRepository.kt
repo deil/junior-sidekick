@@ -7,6 +7,8 @@ interface ProjectsRepository {
 
     fun findByUid(uid: String): Project?
 
+    fun findById(id: Long): Project?
+
     fun addIfAbsent(project: Project): Boolean
 
     fun updateChannelDetails(project: Project)

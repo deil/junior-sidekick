@@ -14,6 +14,8 @@ class NoOpProjectsRepository : ProjectsRepository {
 
     override fun findByUid(uid: String): Project? = null
 
+    override fun findById(id: Long): Project? = null
+
     override fun addIfAbsent(project: Project): Boolean = false
 
     override fun updateChannelDetails(project: Project) = Unit

@@ -57,6 +57,12 @@ class Projects(
     fun exists(channelId: String): Boolean =
         projects.findByUid(sanitizePathSegment(channelId)) != null
 
+    fun getByUid(uid: String): Project =
+        requireNotNull(projects.findByUid(uid)) { "Project not found: $uid" }
+
+    fun getById(id: Long): Project =
+        requireNotNull(projects.findById(id)) { "Project not found: $id" }
+
     fun recordChannelDetails(
         channelId: String,
         type: ProjectType?,

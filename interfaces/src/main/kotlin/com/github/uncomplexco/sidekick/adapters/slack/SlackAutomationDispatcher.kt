@@ -34,7 +34,7 @@ class SlackAutomationDispatcher(
             chat =
                 AutomationSlackChatPlatformAdapter(
                     app.client(),
-                    run.projectUid,
+                    run.project.externalRefId,
                     agentConfig.botUsername!!,
                     scope,
                     renderer,

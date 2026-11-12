@@ -48,7 +48,7 @@ class AutomationToolsTest {
             )
 
         // Assert
-        val stored = AutomationFixture(fixture.config).repository.load("C123").single()
+        val stored = AutomationFixture(fixture.config).repository.load(fixture.projectId).single()
         assertEquals(1, result.automation.uid)
         assertEquals("Report", stored.instructions)
         assertEquals(result.automation.id, stored.id)
@@ -69,7 +69,7 @@ class AutomationToolsTest {
         val result = tools.updateAutomation(created.uid, description = "", enabled = false)
 
         // Assert
-        val stored = AutomationFixture(fixture.config).repository.load("C123").single()
+        val stored = AutomationFixture(fixture.config).repository.load(fixture.projectId).single()
         assertFalse(result.automation.enabled)
         assertFalse(stored.enabled)
         assertEquals(null, stored.description)
@@ -96,7 +96,7 @@ class AutomationToolsTest {
         // Assert
         val repository = AutomationFixture(fixture.config).repository
         assertEquals(created.uid, deleted.uid)
-        assertEquals(emptyList(), repository.load("C123"))
-        assertEquals(other.id, repository.load("C456").single().id)
+        assertEquals(emptyList(), repository.load(fixture.projectId))
+        assertEquals(other.id, repository.load(fixture.otherProjectId).single().id)
     }
 }

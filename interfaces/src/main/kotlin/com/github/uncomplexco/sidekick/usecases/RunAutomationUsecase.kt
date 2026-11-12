@@ -16,7 +16,7 @@ class RunAutomationUsecase(private val turnCoordinator: TurnCoordinator) {
         val automation = run.automation
         val startedAtMs = requireNotNull(automation.lastRunAt).toEpochMilli()
         val conversationId =
-            ConversationId(run.projectUid, "automation_${automation.uid}_$startedAtMs")
+            ConversationId(run.project.uid, "automation_${automation.uid}_$startedAtMs")
         turnCoordinator.run(
             TurnTrigger.Automated(
                 conversationId = conversationId,

@@ -33,9 +33,9 @@ class AutomationImportTest {
         fixture.importer.importProject("C123")
 
         // Assert
-        val stored = AutomationFixture(fixture.config).repository.load("C123").single()
+        val stored = AutomationFixture(fixture.config).repository.load(fixture.projectId).single()
         assertEquals(7, stored.uid)
-        assertEquals("C123", stored.projectUid)
+        assertEquals(fixture.projectId, stored.projectId)
         assertEquals("Report", stored.name)
         assertEquals("daily", stored.description)
         assertEquals("Summarize alerts", stored.instructions)
@@ -59,7 +59,7 @@ class AutomationImportTest {
         val fixture = automationFixture(dir, clock)
         fixture.writeLegacy("C123", LEGACY_AUTOMATION, 12)
         fixture.importer.importProject("C123")
-        val original = fixture.repository.load("C123")
+        val original = fixture.repository.load(fixture.projectId)
         fixture.writeLegacy("C123", "invalid json", 99)
 
         // Act
@@ -68,7 +68,7 @@ class AutomationImportTest {
             .importProject("C123")
 
         // Assert
-        assertEquals(original, AutomationFixture(fixture.config).repository.load("C123"))
+        assertEquals(original, AutomationFixture(fixture.config).repository.load(fixture.projectId))
     }
 
     @Test
@@ -90,7 +90,7 @@ class AutomationImportTest {
             )
 
         // Assert
-        val stored = AutomationFixture(fixture.config).repository.load("C123")
+        val stored = AutomationFixture(fixture.config).repository.load(fixture.projectId)
         assertEquals(13, created.uid)
         assertEquals(listOf(7, 13), stored.map { it.uid })
         assertEquals(created, stored.last())
@@ -116,7 +116,10 @@ class AutomationImportTest {
 
         // Assert
         assertEquals("Updated instructions", updated.instructions)
-        assertEquals(updated, AutomationFixture(fixture.config).repository.load("C123").single())
+        assertEquals(
+            updated,
+            AutomationFixture(fixture.config).repository.load(fixture.projectId).single(),
+        )
         assertEquals(
             LEGACY_AUTOMATION,
             Files.readString(dir.resolve("state/slack/channels/C123/jobs.jsonl")),
@@ -135,10 +138,10 @@ class AutomationImportTest {
         // Assert
         val reloaded = AutomationFixture(fixture.config)
         assertEquals(7, removed.uid)
-        assertTrue(reloaded.repository.isImported("C123"))
+        assertTrue(reloaded.repository.isImported(fixture.projectId))
         assertTrue(reloaded.service.list("C123").isEmpty())
         assertTrue(reloaded.service.claimDueRuns(now).isEmpty())
-        assertTrue(reloaded.repository.load("C123").isEmpty())
+        assertTrue(reloaded.repository.load(fixture.projectId).isEmpty())
     }
 
     @Test
@@ -151,7 +154,8 @@ class AutomationImportTest {
         val claimed = fixture.service.claimDueRuns(now)
 
         // Assert
-        val persisted = AutomationFixture(fixture.config).repository.load("C123").single()
+        val persisted =
+            AutomationFixture(fixture.config).repository.load(fixture.projectId).single()
         assertEquals(persisted, claimed.single().automation)
         assertEquals(now, persisted.lastRunAt)
         assertTrue(fixture.service.claimDueRuns(now).isEmpty())
@@ -168,7 +172,10 @@ class AutomationImportTest {
 
         // Assert
         assertTrue(claimed.isEmpty())
-        assertEquals(7, AutomationFixture(fixture.config).repository.load("C123").single().uid)
+        assertEquals(
+            7,
+            AutomationFixture(fixture.config).repository.load(fixture.projectId).single().uid,
+        )
     }
 
     @Test
@@ -183,8 +190,8 @@ class AutomationImportTest {
 
         // Assert
         val repository = AutomationFixture(fixture.config).repository
-        val first = repository.load("C123").single()
-        val second = repository.load("C456").single()
+        val first = repository.load(fixture.projectId).single()
+        val second = repository.load(fixture.otherProjectId).single()
         assertEquals(7, first.uid)
         assertEquals(7, second.uid)
         assertNotEquals(first.id, second.id)
@@ -201,8 +208,8 @@ class AutomationImportTest {
 
         // Assert
         val repository = AutomationFixture(fixture.config).repository
-        assertFalse(repository.isImported("C123"))
-        assertTrue(repository.load("C123").isEmpty())
+        assertFalse(repository.isImported(fixture.projectId))
+        assertTrue(repository.load(fixture.projectId).isEmpty())
     }
 
     @Test
@@ -218,8 +225,8 @@ class AutomationImportTest {
 
         // Assert
         val repository = AutomationFixture(fixture.config).repository
-        assertTrue(repository.isImported("C123"))
-        assertEquals(7, repository.load("C123").single().uid)
+        assertTrue(repository.isImported(fixture.projectId))
+        assertEquals(7, repository.load(fixture.projectId).single().uid)
     }
 
     @Test
@@ -232,7 +239,7 @@ class AutomationImportTest {
         val listed = fixture.service.list("C123")
 
         // Assert
-        assertEquals(AutomationFixture(fixture.config).repository.load("C123"), listed)
+        assertEquals(AutomationFixture(fixture.config).repository.load(fixture.projectId), listed)
         assertEquals(7, listed.single().uid)
     }
 
@@ -249,7 +256,7 @@ class AutomationImportTest {
         // Assert
         val reloaded = AutomationFixture(fixture.config)
         assertTrue(claimed.isEmpty())
-        assertTrue(reloaded.repository.isImported("C123"))
+        assertTrue(reloaded.repository.isImported(fixture.projectId))
         assertEquals(
             13,
             reloaded.service

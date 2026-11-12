@@ -50,6 +50,8 @@ Follow [Attention-kind](https://github.com/alexgreensh/attention-span/blob/main/
 
 ### Architecture
 
+- Relational references to a Project must use its integer primary key (`projects.id`), never its UID or external Chat channel identifier.
+
 - Application and domain code must depend on ports, never call adapter implementations. Adapter construction and backend selection belong in composition wiring.
 - Name use cases with the `Usecase` suffix (`CreateBookingUsecase`, not `CreateBookingUseCase`)
 - Use cases must not call other use cases — extract shared logic into an application or domain service

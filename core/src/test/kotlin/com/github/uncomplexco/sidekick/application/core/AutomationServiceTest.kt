@@ -47,7 +47,10 @@ class AutomationServiceTest {
             ),
             created.trigger,
         )
-        assertEquals(created, AutomationFixture(fixture.config).repository.load("C123").single())
+        assertEquals(
+            created,
+            AutomationFixture(fixture.config).repository.load(fixture.projectId).single(),
+        )
     }
 
     @Test
@@ -55,13 +58,13 @@ class AutomationServiceTest {
         // Arrange
         val fixture = automationFixture(dir)
         repeat(5) { fixture.service.create("C123", command("automation $it")) }
-        val original = fixture.repository.load("C123")
+        val original = fixture.repository.load(fixture.projectId)
 
         // Act
         assertThrows<IllegalArgumentException> { fixture.service.create("C123", command("sixth")) }
 
         // Assert
-        assertEquals(original, AutomationFixture(fixture.config).repository.load("C123"))
+        assertEquals(original, AutomationFixture(fixture.config).repository.load(fixture.projectId))
         assertEquals(6, fixture.service.create("C123", command("paused").copy(enabled = false)).uid)
     }
 
@@ -75,7 +78,10 @@ class AutomationServiceTest {
         assertThrows<IllegalArgumentException> { fixture.service.create("C123", command("DAILY")) }
 
         // Assert
-        assertEquals(listOf(created), AutomationFixture(fixture.config).repository.load("C123"))
+        assertEquals(
+            listOf(created),
+            AutomationFixture(fixture.config).repository.load(fixture.projectId),
+        )
     }
 
     @Test
@@ -104,7 +110,10 @@ class AutomationServiceTest {
         assertEquals(claimed.lastRunAt, updated.lastRunAt)
         assertEquals(replacement, updated.trigger)
         assertFalse(updated.enabled)
-        assertEquals(updated, AutomationFixture(fixture.config).repository.load("C123").single())
+        assertEquals(
+            updated,
+            AutomationFixture(fixture.config).repository.load(fixture.projectId).single(),
+        )
     }
 
     @Test
@@ -123,7 +132,10 @@ class AutomationServiceTest {
 
         // Assert
         assertTrue(runs.isEmpty())
-        assertEquals(created, AutomationFixture(fixture.config).repository.load("C123").single())
+        assertEquals(
+            created,
+            AutomationFixture(fixture.config).repository.load(fixture.projectId).single(),
+        )
     }
 
     @Test
@@ -162,7 +174,7 @@ class AutomationServiceTest {
         }
 
         // Assert
-        assertTrue(AutomationFixture(fixture.config).repository.load("C123").isEmpty())
+        assertTrue(AutomationFixture(fixture.config).repository.load(fixture.projectId).isEmpty())
     }
 
     @ParameterizedTest(name = "rejects {0}")
@@ -180,7 +192,10 @@ class AutomationServiceTest {
         }
 
         // Assert
-        assertTrue(AutomationFixture(fixture.config).repository.load("C123").isEmpty(), scenario)
+        assertTrue(
+            AutomationFixture(fixture.config).repository.load(fixture.projectId).isEmpty(),
+            scenario,
+        )
         assertEquals(1, fixture.service.create("C123", command("valid")).uid)
     }
 
@@ -197,7 +212,10 @@ class AutomationServiceTest {
         }
 
         // Assert
-        assertEquals(paused, AutomationFixture(fixture.config).repository.load("C123").last())
+        assertEquals(
+            paused,
+            AutomationFixture(fixture.config).repository.load(fixture.projectId).last(),
+        )
     }
 
     companion object {

@@ -21,10 +21,14 @@ class SqliteProjectsRepository(
             .query(Boolean::class.java)
             .single()
 
-    override fun findByUid(uid: String): Project? =
+    override fun findByUid(uid: String): Project? = find("uid", uid)
+
+    override fun findById(id: Long): Project? = find("id", id)
+
+    private fun find(column: String, value: Any): Project? =
         sidekickJdbcClient
-            .sql("SELECT * FROM projects WHERE uid = :uid")
-            .param("uid", uid)
+            .sql("SELECT * FROM projects WHERE $column = :value")
+            .param("value", value)
             .query { row, _ ->
                 Project(
                     uid = row.getString("uid"),

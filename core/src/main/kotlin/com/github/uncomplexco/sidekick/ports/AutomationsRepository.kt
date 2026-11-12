@@ -5,18 +5,18 @@ import com.github.uncomplexco.sidekick.application.core.CreateAutomation
 import java.time.Instant
 
 interface AutomationsRepository {
-    fun projectUids(): List<String>
+    fun projectIds(): List<Long>
 
-    fun isImported(projectUid: String): Boolean
+    fun isImported(projectId: Long): Boolean
 
-    fun initialize(projectUid: String, lastAllocatedUid: Int)
+    fun initialize(projectId: Long, lastAllocatedUid: Int)
 
-    fun allocateUid(projectUid: String): Int
+    fun allocateUid(projectId: Long): Int
 
-    fun load(projectUid: String): List<Automation>
+    fun load(projectId: Long): List<Automation>
 
     fun insert(
-        projectUid: String,
+        projectId: Long,
         uid: Int,
         command: CreateAutomation,
         now: Instant,
@@ -27,5 +27,5 @@ interface AutomationsRepository {
 
     fun delete(id: Long)
 
-    fun <T : Any> inProjectTransaction(projectUid: String, operation: () -> T): T
+    fun <T : Any> inProjectTransaction(projectId: Long, operation: () -> T): T
 }

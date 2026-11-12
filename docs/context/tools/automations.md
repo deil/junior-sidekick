@@ -7,7 +7,7 @@ Automations are project-owned instructions executed by a trigger. Scheduled trig
 An `Automation` contains:
 
 - `id`: globally unique SQLite-generated integer primary key.
-- `projectUid`: owning project; currently the Chat channel identifier.
+- `projectId`: owning project's integer primary key (`projects.id`). Project UIDs and Chat channel identifiers are lookup and delivery values, not relational references.
 - `uid`: stable project-local management number, starting at 1 and never reused.
 - Required `name`, optional `description`, and required `instructions`.
 - `trigger`: a freeform JSON object with a required string `type`.
@@ -54,9 +54,9 @@ Global `id`, local `uid`, timestamps, and `last_run_at` cannot be changed by use
 
 **SQLite is the only write destination.** Spring JDBC repositories own SQL and row mapping; repository ports live in `ports/`, and models and services in `application/core/`.
 
-`automations` stores the model, with JSON `trigger`, a global `id` primary key, and unique `(project_uid, uid)` and `(project_uid, name_key)` pairs.
+`automations` stores the model, with JSON `trigger`, a global `id` primary key, a required integer `project_id` referencing `projects.id`, and unique `(project_id, uid)` and `(project_id, name_key)` pairs.
 
-`automation_projects` stores each project's last allocated local UID. Its presence also marks SQLite as authoritative, including when the project's automation list is empty. Deleting all automations does not delete this row or reset the sequence.
+`automation_projects` uses `project_id` referencing `projects.id` as its primary key and stores the project's last allocated local UID. Its presence also marks SQLite as authoritative, including when the project's automation list is empty. Deleting all automations does not delete this row or reset the sequence.
 
 **`AutomationImporter.importProject(projectUid)` is the shared, idempotent import routine.** It runs inside a project transaction before management reads, mutations, and scheduled due-run evaluation. If the project marker already exists, it does not read legacy files.
 
@@ -66,6 +66,8 @@ Otherwise it loads the legacy snapshot from:
 <agent.state-directory>/slack/channels/<project-uid>/jobs.jsonl
 <agent.state-directory>/slack/channels/<project-uid>/jobs-sequence
 ```
+
+Import resolves the legacy directory's project UID to an existing Project and stores only its numeric primary key in relational references. Import does not create Projects. Scheduled dispatch uses the Project's external channel identifier; session storage uses its UID.
 
 The importer preserves all records and the allocation high-water mark. Legacy `id` becomes `uid`; SQLite allocates a global `id`. Legacy `prompt` becomes `instructions`, and `schedule`/`timezone` become a `scheduled` trigger. `enabled` and `last_run_at` survive unchanged. Both creation and update timestamps are set to the import time.
 

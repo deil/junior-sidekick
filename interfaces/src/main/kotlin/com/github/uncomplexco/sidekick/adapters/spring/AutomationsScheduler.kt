@@ -32,7 +32,7 @@ class AutomationsScheduler(
                     .onFailure { error ->
                         Loggers.AUTOMATIONS.error(
                             "Automation failed: project={} uid={} name={}",
-                            run.projectUid,
+                            run.project.id,
                             run.automation.uid,
                             run.automation.name,
                             error,
