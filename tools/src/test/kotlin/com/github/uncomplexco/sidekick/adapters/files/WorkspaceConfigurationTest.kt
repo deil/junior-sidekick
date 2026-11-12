@@ -10,6 +10,7 @@ import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsF
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.testing.projectsService
 import java.nio.file.Files
 import java.nio.file.Path

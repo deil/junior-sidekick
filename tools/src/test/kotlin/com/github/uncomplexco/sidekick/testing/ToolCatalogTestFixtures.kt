@@ -6,7 +6,7 @@ import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.serialization.JSONObject
 import ai.koog.serialization.typeToken
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
-import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
+import com.github.uncomplexco.sidekick.adapters.files.LocalWorkspaceFilesystem
 import com.github.uncomplexco.sidekick.adapters.git.WorkspaceGitFactory
 import com.github.uncomplexco.sidekick.adapters.jgit.LocalGitCredentials
 import com.github.uncomplexco.sidekick.adapters.jgit.LocalWorkspaceGit
@@ -51,6 +51,7 @@ import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.ResponseDelivery
 import com.github.uncomplexco.sidekick.application.turn.ResponseMetadata
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.tools.SidekickToolProvider
 import com.slack.api.Slack
 import java.nio.file.Files
@@ -81,7 +82,7 @@ class ToolCatalogFixture(
                     http.token = "unused"
                 }
             ),
-            WorkspaceFilesystemFactory(),
+            WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem),
             store,
             AutomationFixture(config).service,
             WeeklyStatsService(store),

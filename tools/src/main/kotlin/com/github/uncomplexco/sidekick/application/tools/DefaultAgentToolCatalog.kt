@@ -1,7 +1,6 @@
 package com.github.uncomplexco.sidekick.application.tools
 
 import ai.koog.agents.core.tools.ToolRegistry
-import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.adapters.git.WorkspaceGitFactory
 import com.github.uncomplexco.sidekick.adapters.spring.SandboxExecutorFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
@@ -43,6 +42,7 @@ import com.github.uncomplexco.sidekick.application.tools.system.ConversationInte
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import com.github.uncomplexco.sidekick.application.tools.todos.TodoTool
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
 import com.github.uncomplexco.sidekick.tools.SidekickToolProvider
 import java.nio.file.Path

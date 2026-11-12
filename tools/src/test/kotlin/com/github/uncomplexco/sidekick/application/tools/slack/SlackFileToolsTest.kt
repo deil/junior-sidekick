@@ -1,6 +1,6 @@
 package com.github.uncomplexco.sidekick.application.tools.slack
 
-import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
+import com.github.uncomplexco.sidekick.adapters.files.LocalWorkspaceFilesystem
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
@@ -10,6 +10,7 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionFileRef
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import com.github.uncomplexco.sidekick.application.turn.ConversationHistory
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertContains
@@ -79,7 +80,8 @@ class SlackFileToolsTest {
                             sessionFiles = listOf(file),
                             aiModelProfile = AiModelProfile.NORMAL,
                         ),
-                    filesystem = WorkspaceFilesystemFactory().create(virtualPaths),
+                    filesystem =
+                        WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem).create(virtualPaths),
                 )
                 .slackFileRead("F123")
 

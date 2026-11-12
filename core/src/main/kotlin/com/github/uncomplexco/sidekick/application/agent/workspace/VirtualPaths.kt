@@ -1,6 +1,5 @@
 package com.github.uncomplexco.sidekick.application.agent.workspace
 
-import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.onProjectCreated
@@ -9,6 +8,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.core.Projects
 import com.github.uncomplexco.sidekick.application.utils.sanitizePathSegment
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import org.springframework.stereotype.Component

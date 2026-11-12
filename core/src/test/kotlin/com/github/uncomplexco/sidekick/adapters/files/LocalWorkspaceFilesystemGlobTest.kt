@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.adapters.files
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.filesystem.GlobMatch
 import com.github.uncomplexco.sidekick.ports.filesystem.GlobResult
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
@@ -145,7 +146,7 @@ class LocalWorkspaceFilesystemGlobTest {
     }
 
     private fun filesystem() =
-        WorkspaceFilesystemFactory()
+        WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem)
             .create(
                 VirtualPaths(
                     sessionRoot = dir.resolve("session"),

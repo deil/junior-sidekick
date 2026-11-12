@@ -20,6 +20,7 @@ import java.nio.file.Files
 import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,7 +35,23 @@ class LocalWorkspaceFilesystem(private val virtualPaths: VirtualPaths) : Workspa
 
     override suspend fun seedProject(projectId: String, source: Path) {
         withContext(Dispatchers.IO) {
-            seedDirectory(source, resolve(PROJECT_ROOT))
+            val destination = resolve(PROJECT_ROOT)
+            Files.walk(source).use { paths ->
+                paths.forEach { file ->
+                    val relative = source.relativize(file)
+                    if (relative.toString().isBlank()) {
+                        return@forEach
+                    }
+
+                    val target = destination.resolve(relative)
+                    if (Files.isDirectory(file)) {
+                        Files.createDirectories(target)
+                    } else if (!Files.exists(target)) {
+                        Files.createDirectories(target.parent)
+                        Files.copy(file, target, StandardCopyOption.COPY_ATTRIBUTES)
+                    }
+                }
+            }
             logger.info("Project workspace seeded project_id={}", projectId)
         }
     }

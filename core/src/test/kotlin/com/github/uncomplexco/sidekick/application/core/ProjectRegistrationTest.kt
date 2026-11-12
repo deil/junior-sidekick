@@ -1,10 +1,11 @@
 package com.github.uncomplexco.sidekick.application.core
 
-import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
+import com.github.uncomplexco.sidekick.adapters.files.LocalWorkspaceFilesystem
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.testing.sqliteProjectsRepository
 import java.nio.file.Files
 import java.nio.file.Path
@@ -45,7 +46,13 @@ class ProjectRegistrationTest {
         val projects = sqliteProjectsRepository(config)
         val registry = Projects(projects, config, platform)
         registry.afterPropertiesSet()
-        val factory = VirtualPathsFactory(config, platform, registry, WorkspaceFilesystemFactory())
+        val factory =
+            VirtualPathsFactory(
+                config,
+                platform,
+                registry,
+                WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem),
+            )
 
         val paths = factory.forConversation(ConversationId(channelId, threadId))
 
@@ -69,7 +76,12 @@ class ProjectRegistrationTest {
         val projects = sqliteProjectsRepository(config)
         val registry = Projects(projects, config, ChatPlatform.SLACK)
         val factory =
-            VirtualPathsFactory(config, ChatPlatform.SLACK, registry, WorkspaceFilesystemFactory())
+            VirtualPathsFactory(
+                config,
+                ChatPlatform.SLACK,
+                registry,
+                WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem),
+            )
         factory.forConversation(ConversationId("C123", "1700000000.000"))
         val original = projects.findByUid("C123")
 

@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.adapters.files
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.filesystem.FileKind
 import com.github.uncomplexco.sidekick.ports.filesystem.FileMetadata
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.FileTime
@@ -53,7 +54,10 @@ class LocalWorkspaceFilesystemTest {
     fun `stat returns null for a missing workspace root`() = runBlocking {
         val paths = paths().copy(projectRoot = dir.resolve("missing"))
 
-        val result = WorkspaceFilesystemFactory().create(paths).stat("C123", "/data/project")
+        val result =
+            WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem)
+                .create(paths)
+                .stat("C123", "/data/project")
 
         assertNull(result)
     }
@@ -84,7 +88,8 @@ class LocalWorkspaceFilesystemTest {
         }
     }
 
-    private fun filesystem() = WorkspaceFilesystemFactory().create(paths())
+    private fun filesystem() =
+        WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem).create(paths())
 
     private fun paths() =
         VirtualPaths(

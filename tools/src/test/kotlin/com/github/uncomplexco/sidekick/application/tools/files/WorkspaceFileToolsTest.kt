@@ -1,8 +1,9 @@
 package com.github.uncomplexco.sidekick.application.tools.files
 
 import ai.koog.agents.core.tools.ToolException
-import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
+import com.github.uncomplexco.sidekick.adapters.files.LocalWorkspaceFilesystem
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertContains
@@ -258,7 +259,7 @@ class WorkspaceFileToolsTest {
             )
         return WorkspaceFileTools(
             "C123",
-            WorkspaceFilesystemFactory().create(paths),
+            WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem).create(paths),
         )
     }
 

@@ -1,8 +1,9 @@
 package com.github.uncomplexco.sidekick.application.tools
 
-import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
+import com.github.uncomplexco.sidekick.adapters.files.LocalWorkspaceFilesystem
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.tools.files.WorkspaceRead
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertContains
@@ -131,6 +132,9 @@ class WorkspaceReadTest {
                 projectRoot = dir.resolve("project"),
             )
 
-        return WorkspaceRead("C123", WorkspaceFilesystemFactory().create(paths))
+        return WorkspaceRead(
+            "C123",
+            WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem).create(paths),
+        )
     }
 }

@@ -4,6 +4,7 @@ import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.filesystem.PatchChange
 import com.github.uncomplexco.sidekick.ports.filesystem.PatchChangeKind
 import com.github.uncomplexco.sidekick.ports.filesystem.PatchResult
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
@@ -278,7 +279,7 @@ class LocalWorkspaceFilesystemPatchTest {
     }
 
     private fun filesystem() =
-        WorkspaceFilesystemFactory()
+        WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem)
             .create(
                 VirtualPaths(
                     sessionRoot = dir.resolve("session"),

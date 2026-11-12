@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.files
 
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
@@ -92,7 +93,7 @@ class LocalWorkspaceFilesystemWriteTextTest {
     }
 
     private fun filesystem() =
-        WorkspaceFilesystemFactory()
+        WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem)
             .create(
                 VirtualPaths(
                     sessionRoot = dir.resolve("session"),

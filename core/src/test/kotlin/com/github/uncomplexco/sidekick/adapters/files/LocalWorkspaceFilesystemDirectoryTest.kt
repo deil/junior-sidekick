@@ -5,6 +5,7 @@ import com.github.uncomplexco.sidekick.ports.filesystem.DirectoryEntry
 import com.github.uncomplexco.sidekick.ports.filesystem.DirectoryPage
 import com.github.uncomplexco.sidekick.ports.filesystem.DirectoryPageOptions
 import com.github.uncomplexco.sidekick.ports.filesystem.FileKind
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.NotDirectoryException
@@ -157,7 +158,7 @@ class LocalWorkspaceFilesystemDirectoryTest {
     }
 
     private fun filesystem() =
-        WorkspaceFilesystemFactory()
+        WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem)
             .create(
                 VirtualPaths(
                     sessionRoot = dir.resolve("session"),

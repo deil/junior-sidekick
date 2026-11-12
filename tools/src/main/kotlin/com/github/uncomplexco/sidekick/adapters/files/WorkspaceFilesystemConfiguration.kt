@@ -4,6 +4,7 @@ import com.github.uncomplexco.sidekick.adapters.http.SandboxV2Client
 import com.github.uncomplexco.sidekick.adapters.sandbox.RemoteWorkspaceFilesystem
 import com.github.uncomplexco.sidekick.adapters.spring.SandboxExecutorConfig
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -19,12 +20,12 @@ class WorkspaceFilesystemConfiguration {
         sandbox: SandboxExecutorConfig,
         client: SandboxV2Client,
     ): WorkspaceFilesystemFactory {
-        if (!bash.enabled) return WorkspaceFilesystemFactory()
+        if (!bash.enabled) return WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem)
 
         return when (sandbox.provider.trim().lowercase()) {
             "http-v2" -> WorkspaceFilesystemFactory { RemoteWorkspaceFilesystem(client) }
             "http",
-            "bwrap" -> WorkspaceFilesystemFactory()
+            "bwrap" -> WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem)
             else -> error("Unsupported bash sandbox provider: ${sandbox.provider}")
         }
     }

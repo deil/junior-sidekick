@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.adapters.files
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.filesystem.TextReadOptions
 import com.github.uncomplexco.sidekick.ports.filesystem.TextReadResult
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import java.nio.charset.MalformedInputException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -192,7 +193,7 @@ class LocalWorkspaceFilesystemReadTextTest {
     }
 
     private fun filesystem() =
-        WorkspaceFilesystemFactory()
+        WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem)
             .create(
                 VirtualPaths(
                     sessionRoot = dir,

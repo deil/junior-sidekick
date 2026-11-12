@@ -50,6 +50,7 @@ Follow [Attention-kind](https://github.com/alexgreensh/attention-span/blob/main/
 
 ### Architecture
 
+- Application and domain code must depend on ports, never call adapter implementations. Adapter construction and backend selection belong in composition wiring.
 - Name use cases with the `Usecase` suffix (`CreateBookingUsecase`, not `CreateBookingUseCase`)
 - Use cases must not call other use cases — extract shared logic into an application or domain service
 - Validation belongs at the anti-corruption layer (API boundary, message consumer, etc.) — once data is inside the app, treat it as correct; do not re-validate inside methods; the exception: explicit business invariants that must hold before entering a workflow or algorithm
