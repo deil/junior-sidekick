@@ -16,8 +16,9 @@ Keep project working files on the VM. Route agent-facing filesystem operations t
 | --- | --- | --- |
 | Project working files and command outputs | Project user's VM home, under `data/project/` | Seed project templates; migrate existing files explicitly; download outputs for delivery |
 | Project templates | Sidekick's `templates/project/` | Copy missing files into the VM project directory without overwriting existing files |
-| Session scratch files | VM, under `~/.agents/` | No synchronization back to Sidekick; exact session layout remains open |
-| Incoming attachments | Sidekick initially; VM copy for tool access | Upload for the relevant session under `~/.agents/` |
+| Session scratch files | VM, under `~/sessions/<session-id>/work/` | Thread-scoped; no synchronization back to Sidekick |
+| Incoming attachments | Alongside conversation history; VM copy for tool access | Upload immediately after recording into `~/sessions/<session-id>/attachments/` |
+| Reply attachments | Alongside conversation history; source file in workspace | Download a snapshot from the workspace for recording and delivery |
 | Skills repositories | Shared VM `/data/skills/`; local checkouts for Sidekick discovery and prompts | Sandbox daemon clones and refreshes configured repositories on the VM |
 | Knowledge repositories | Shared VM `/data/global/`; local checkouts for Sidekick | Sandbox daemon clones and refreshes configured repositories on the VM |
 
@@ -41,7 +42,8 @@ Sidekick's configuration, persisted sessions, and other internal state remain lo
 - Resolve the project home through the sandbox daemon. Sidekick must not duplicate its Linux username or home-path calculation.
 - `/data/global/` and `/data/skills/` remain shared absolute directories on the VM. They are real daemon-managed directories, not host mounts or per-project aliases.
 - All managed `sku_*` users need directory traversal and file-read access to those shared repositories, but no write access. The daemon manages clone and refresh permissions separately.
-- Session-specific uploads and scratch files belong under `~/.agents/`, not `~/.sidekick/`. Their exact directory layout remains open.
+- Session-specific uploads belong under `~/sessions/<session-id>/attachments/`; writable scratch and generated files belong under `~/sessions/<session-id>/work/`.
+- The session ID is thread-scoped and supplied from trusted conversation context. These directories are separate from `~/data/project/` and `.agents/`.
 
 Here, `~` denotes the project user's home. Filesystem requests must use the agreed home-relative or daemon-resolved absolute paths; shell tilde expansion must not be assumed for API paths.
 
@@ -76,6 +78,16 @@ Private-repository operations need an authentication mechanism that keeps creden
 
 ## Required integration
 
+`WorkspaceFilesystem` exposes session-scoped binary transfers:
+
+- `upload(projectId, sessionId, source: Path): WorkspaceFile` copies a Sidekick-local file into the session's attachments directory, retaining its filename. It returns the agent-visible workspace path and destination metadata. The caller does not choose a workspace destination.
+- `download(projectId, sessionId, source: String, destination: Path): FileMetadata` copies a session-relative source, such as `work/report.pdf` or `attachments/input.pdf`, into Sidekick-local storage. Arbitrary workspace paths are not accepted.
+- Both IDs come from trusted execution context. Workspace path construction belongs in the adapter. Local adapters are already bound to a conversation's `VirtualPaths`: `attachments/` maps to `/data/session/`, and `work/` maps to `/work/`. Remote adapters use `~/sessions/<session-id>/`.
+- Local transfers copy regular files, create missing parent directories, preserve source files, and do not overwrite existing destinations. An upload whose source already is the local session attachment leaves that file unchanged.
+- Remote transfers are stubs; no HTTP transfer contract is implemented, and local paths must not be serialized into sandbox requests.
+
+Incoming attachments are recorded alongside conversation history before being immediately copied into the workspace. Reply attachments are copied from the workspace into conversation-owned storage for recording and delivery. Transfer methods own workspace path construction, but do not own conversation records or choose the conversation-storage download destination. Attachment-flow integration, including durable reply-file retention and message linkage, remains unimplemented.
+
 - File read, glob, and grep must see the same files as Bash.
 - Git operations must use the remote project files.
 - Project-template preparation must finish before project-context loading reads the authoritative `AGENTS.md`.
@@ -96,7 +108,6 @@ Private-repository operations need an authentication mechanism that keeps creden
 ## Open decisions
 
 - Remote file-operation and transfer contracts.
-- Directory layout for uploaded inputs and session-scoped files.
 - VM repository checkout naming, local/remote revision agreement, and refresh/deletion rules for skills and knowledge.
 - Credential handling for daemon-managed private repository clones and tools such as `git__clone` and `git__push`. These operations must work with VM project files while credentials remain outside the sandbox boundary, never stored inside the VM or exposed to model-driven commands. The authentication and transport mechanism remains open.
 - Migration of existing local project files, scheduled-job prompts, and persisted path references.

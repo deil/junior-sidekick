@@ -23,6 +23,8 @@ data class FileMetadata(
     val modifiedAt: Instant,
 )
 
+data class WorkspaceFile(val path: String, val metadata: FileMetadata)
+
 data class TextReadOptions(
     val offset: Int = 1,
     val maxLines: Int? = null,

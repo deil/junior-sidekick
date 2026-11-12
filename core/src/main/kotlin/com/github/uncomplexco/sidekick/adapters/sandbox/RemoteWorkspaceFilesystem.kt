@@ -9,9 +9,24 @@ import com.github.uncomplexco.sidekick.ports.filesystem.GrepResult
 import com.github.uncomplexco.sidekick.ports.filesystem.PatchResult
 import com.github.uncomplexco.sidekick.ports.filesystem.TextReadOptions
 import com.github.uncomplexco.sidekick.ports.filesystem.TextReadResult
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFile
 import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystem
+import java.nio.file.Path
 
 class RemoteWorkspaceFilesystem(private val client: SandboxV2Client) : WorkspaceFilesystem {
+    override suspend fun upload(
+        projectId: String,
+        sessionId: String,
+        source: Path,
+    ): WorkspaceFile = TODO("Sandbox v2 file upload is not implemented")
+
+    override suspend fun download(
+        projectId: String,
+        sessionId: String,
+        source: String,
+        destination: Path,
+    ): FileMetadata = TODO("Sandbox v2 file download is not implemented")
+
     override suspend fun stat(projectId: String, path: String): FileMetadata? =
         client.stat(projectId, path)
 

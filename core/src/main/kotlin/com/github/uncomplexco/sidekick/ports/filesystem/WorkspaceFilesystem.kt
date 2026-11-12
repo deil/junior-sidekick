@@ -1,6 +1,21 @@
 package com.github.uncomplexco.sidekick.ports.filesystem
 
+import java.nio.file.Path
+
 interface WorkspaceFilesystem {
+    suspend fun upload(
+        projectId: String,
+        sessionId: String,
+        source: Path,
+    ): WorkspaceFile
+
+    suspend fun download(
+        projectId: String,
+        sessionId: String,
+        source: String,
+        destination: Path,
+    ): FileMetadata
+
     suspend fun stat(projectId: String, path: String): FileMetadata?
 
     suspend fun readText(

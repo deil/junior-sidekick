@@ -13,12 +13,12 @@ import com.github.uncomplexco.sidekick.ports.filesystem.GrepResult
 import com.github.uncomplexco.sidekick.ports.filesystem.PatchResult
 import com.github.uncomplexco.sidekick.ports.filesystem.TextReadOptions
 import com.github.uncomplexco.sidekick.ports.filesystem.TextReadResult
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFile
 import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystem
 import java.nio.file.Files
 import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
-import java.nio.file.PathMatcher
 import java.nio.file.attribute.BasicFileAttributes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,6 +28,40 @@ class LocalWorkspaceFilesystem(private val virtualPaths: VirtualPaths) : Workspa
     private val logger = LoggerFactory.getLogger(LocalWorkspaceFilesystem::class.java)
     private val textFiles = LocalTextFiles()
     private val patches = LocalWorkspacePatches(::resolve, textFiles)
+    private val transfers = LocalWorkspaceTransfers(::resolve)
+
+    override suspend fun upload(
+        projectId: String,
+        sessionId: String,
+        source: Path,
+    ): WorkspaceFile =
+        withContext(Dispatchers.IO) {
+            val uploaded = transfers.upload(source)
+            logger.info(
+                "Workspace file uploaded project_id={} session_id={} destination={}",
+                projectId,
+                sessionId,
+                uploaded.path,
+            )
+            uploaded
+        }
+
+    override suspend fun download(
+        projectId: String,
+        sessionId: String,
+        source: String,
+        destination: Path,
+    ): FileMetadata =
+        withContext(Dispatchers.IO) {
+            val metadata = transfers.download(source, destination)
+            logger.info(
+                "Workspace file downloaded project_id={} session_id={} source={}",
+                projectId,
+                sessionId,
+                source,
+            )
+            metadata
+        }
 
     override suspend fun stat(projectId: String, path: String): FileMetadata? =
         withContext(Dispatchers.IO) {
@@ -314,24 +348,6 @@ class LocalWorkspaceFilesystem(private val virtualPaths: VirtualPaths) : Workspa
                 matches.size > MAX_GREP_RESULTS,
             )
         }
-
-    private fun grepCandidates(search: Path, cwd: Path): List<Path> {
-        if (Files.isRegularFile(search, NOFOLLOW_LINKS)) return listOf(search)
-
-        return Files.walk(cwd).use { files ->
-            files
-                .filter { Files.isRegularFile(it, NOFOLLOW_LINKS) }
-                .filter { file -> file.none { it.toString() == ".git" } }
-                .toList()
-        }
-    }
-
-    private fun globMatchers(base: Path, pattern: String): List<PathMatcher> {
-        val patterns = linkedSetOf(pattern)
-        if (pattern.startsWith("**/")) patterns += pattern.removePrefix("**/")
-
-        return patterns.map { base.fileSystem.getPathMatcher("glob:$it") }
-    }
 
     private fun resolve(path: String): Path {
         val normalizedPath = path.trimEnd('/')
