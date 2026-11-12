@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.application.agent.workspace
 
+import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.adapters.files.folder
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.onProjectCreated
@@ -69,6 +70,7 @@ class VirtualPathsFactory(
     private val config: AgentConfig,
     private val platform: ChatPlatform,
     private val projects: Projects,
+    private val filesystems: WorkspaceFilesystemFactory,
 ) {
     fun forConversation(conversationId: ConversationId): VirtualPaths {
         val attachmentsRoot =
@@ -90,16 +92,17 @@ class VirtualPathsFactory(
                     .projectWorkspacesDirectoryPath()
                     .resolve(sanitizePathSegment(conversationId.channelId))
             )
-        onProjectCreated(config, projectRoot)
+        val paths =
+            VirtualPaths(
+                sessionRoot = attachmentsRoot,
+                skillsRoot = config.workspaceLayout().extensionsRepositoryDirectoryPath(),
+                globalRoot = config.workspaceLayout().knowledgeRepositoryDirectoryPath(),
+                workRoot = workRoot,
+                projectRoot = projectRoot,
+            )
+        onProjectCreated(config, conversationId.channelId, filesystems.create(paths))
         projects.register(projectRoot.fileName.toString(), conversationId.channelId)
-
-        return VirtualPaths(
-            sessionRoot = attachmentsRoot,
-            skillsRoot = config.workspaceLayout().extensionsRepositoryDirectoryPath(),
-            globalRoot = config.workspaceLayout().knowledgeRepositoryDirectoryPath(),
-            workRoot = workRoot,
-            projectRoot = projectRoot,
-        )
+        return paths
     }
 }
 

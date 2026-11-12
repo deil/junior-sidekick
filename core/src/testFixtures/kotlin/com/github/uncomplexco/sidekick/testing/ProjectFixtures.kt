@@ -1,5 +1,6 @@
 package com.github.uncomplexco.sidekick.testing
 
+import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
@@ -20,7 +21,12 @@ class NoOpProjectsRepository : ProjectsRepository {
 }
 
 fun virtualPathsFactory(config: AgentConfig, platform: ChatPlatform): VirtualPathsFactory =
-    VirtualPathsFactory(config, platform, Projects(NoOpProjectsRepository(), config, platform))
+    VirtualPathsFactory(
+        config,
+        platform,
+        Projects(NoOpProjectsRepository(), config, platform),
+        WorkspaceFilesystemFactory(),
+    )
 
 fun projectsService(config: AgentConfig, platform: ChatPlatform = ChatPlatform.SLACK): Projects =
     Projects(NoOpProjectsRepository(), config, platform)

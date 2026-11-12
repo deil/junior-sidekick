@@ -4,13 +4,19 @@ import com.github.uncomplexco.sidekick.adapters.git.WorkspaceGitFactory
 import com.github.uncomplexco.sidekick.adapters.spring.GitToolConfig
 import com.github.uncomplexco.sidekick.adapters.spring.SandboxExecutorConfig
 import com.github.uncomplexco.sidekick.adapters.spring.WorkspaceGitConfiguration
+import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
+import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
+import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.tools.bash.BashToolConfig
+import com.github.uncomplexco.sidekick.testing.projectsService
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.function.Supplier
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.api.Git
 import org.junit.jupiter.api.Test
@@ -103,6 +109,106 @@ class WorkspaceConfigurationTest {
             val git = context.getBean(WorkspaceGitFactory::class.java).create(paths())
 
             assertFailsWith<NotImplementedError> { git.push("C123", "/data/project/repo") }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["http", "bwrap"])
+    fun `legacy providers seed configured project templates locally`(provider: String) {
+        val config =
+            AgentConfig(
+                "Sidekick",
+                dir.resolve("state").toString(),
+                dir.resolve("workspace").toString(),
+            )
+        val template =
+            Files.createDirectories(
+                config.workspaceLayout().templatesDirectoryPath().resolve("project")
+            )
+        Files.writeString(template.resolve("AGENTS.md"), "project instructions")
+        application(enabled = true, provider = provider).use { context ->
+            val factory =
+                VirtualPathsFactory(
+                    config,
+                    ChatPlatform.SLACK,
+                    projectsService(config),
+                    context.getBean(WorkspaceFilesystemFactory::class.java),
+                )
+
+            val prepared = factory.forConversation(ConversationId("C123", "thread"))
+
+            assertEquals(
+                "project instructions",
+                Files.readString(prepared.projectRoot.resolve("AGENTS.md")),
+            )
+        }
+    }
+
+    @Test
+    fun `disabled bash seeds project templates locally with v2 configured`() {
+        val config =
+            AgentConfig(
+                "Sidekick",
+                dir.resolve("state").toString(),
+                dir.resolve("workspace").toString(),
+            )
+        val template =
+            Files.createDirectories(
+                config.workspaceLayout().templatesDirectoryPath().resolve("project")
+            )
+        Files.writeString(template.resolve("AGENTS.md"), "project instructions")
+        application(enabled = false, provider = "http-v2").use { context ->
+            val factory =
+                VirtualPathsFactory(
+                    config,
+                    ChatPlatform.SLACK,
+                    projectsService(config),
+                    context.getBean(WorkspaceFilesystemFactory::class.java),
+                )
+
+            val prepared = factory.forConversation(ConversationId("C123", "thread"))
+
+            assertEquals(
+                "project instructions",
+                Files.readString(prepared.projectRoot.resolve("AGENTS.md")),
+            )
+        }
+    }
+
+    @Test
+    fun `enabled v2 project seeding throws without copying templates locally`() {
+        val config =
+            AgentConfig(
+                "Sidekick",
+                dir.resolve("state").toString(),
+                dir.resolve("workspace").toString(),
+            )
+        val template =
+            Files.createDirectories(
+                config.workspaceLayout().templatesDirectoryPath().resolve("project")
+            )
+        Files.writeString(template.resolve("AGENTS.md"), "project instructions")
+        application(enabled = true, provider = "http-v2").use { context ->
+            val factory =
+                VirtualPathsFactory(
+                    config,
+                    ChatPlatform.SLACK,
+                    projectsService(config),
+                    context.getBean(WorkspaceFilesystemFactory::class.java),
+                )
+
+            assertFailsWith<NotImplementedError> {
+                factory.forConversation(ConversationId("C123", "thread"))
+            }
+
+            assertFalse(
+                Files.exists(
+                    config
+                        .workspaceLayout()
+                        .projectWorkspacesDirectoryPath()
+                        .resolve("C123/AGENTS.md")
+                )
+            )
         }
     }
 

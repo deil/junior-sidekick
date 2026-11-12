@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.files
 
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
+import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths.Companion.PROJECT_ROOT
 import com.github.uncomplexco.sidekick.ports.filesystem.DirectoryEntry
 import com.github.uncomplexco.sidekick.ports.filesystem.DirectoryPage
 import com.github.uncomplexco.sidekick.ports.filesystem.DirectoryPageOptions
@@ -26,9 +27,17 @@ import org.slf4j.LoggerFactory
 
 class LocalWorkspaceFilesystem(private val virtualPaths: VirtualPaths) : WorkspaceFilesystem {
     private val logger = LoggerFactory.getLogger(LocalWorkspaceFilesystem::class.java)
+    private val resolve = LocalWorkspacePaths(virtualPaths)::resolve
     private val textFiles = LocalTextFiles()
-    private val patches = LocalWorkspacePatches(::resolve, textFiles)
-    private val transfers = LocalWorkspaceTransfers(::resolve)
+    private val patches = LocalWorkspacePatches(resolve, textFiles)
+    private val transfers = LocalWorkspaceTransfers(resolve)
+
+    override suspend fun seedProject(projectId: String, source: Path) {
+        withContext(Dispatchers.IO) {
+            seedDirectory(source, resolve(PROJECT_ROOT))
+            logger.info("Project workspace seeded project_id={}", projectId)
+        }
+    }
 
     override suspend fun upload(
         projectId: String,
@@ -348,31 +357,6 @@ class LocalWorkspaceFilesystem(private val virtualPaths: VirtualPaths) : Workspa
                 matches.size > MAX_GREP_RESULTS,
             )
         }
-
-    private fun resolve(path: String): Path {
-        val normalizedPath = path.trimEnd('/')
-        val root =
-            virtualPaths.roots.firstOrNull {
-                normalizedPath == it.virtual || normalizedPath.startsWith("${it.virtual}/")
-            } ?: throw IllegalArgumentException("Path not found: $path")
-        val realRoot = root.real.toAbsolutePath().normalize()
-        val target =
-            realRoot.resolve(normalizedPath.removePrefix(root.virtual).trimStart('/')).normalize()
-        require(target.startsWith(realRoot)) { "Path escapes working directory: $path" }
-
-        var current = realRoot
-        require(!Files.isSymbolicLink(current)) {
-            "Symbolic links are not allowed in workspace paths: $current"
-        }
-        for (segment in realRoot.relativize(target)) {
-            current = current.resolve(segment)
-            require(!Files.isSymbolicLink(current)) {
-                "Symbolic links are not allowed in workspace paths: $current"
-            }
-        }
-
-        return target
-    }
 
     private companion object {
         const val MAX_GLOB_RESULTS = 100

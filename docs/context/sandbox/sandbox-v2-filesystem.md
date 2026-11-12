@@ -53,6 +53,8 @@ There are no mounts in v2. Do not recreate host mounts, create a global `/data/p
 
 The existing local setup supports optional templates under `${agent.working-directory}/templates/project/`. There is no checked-in `AGENTS.md` template. Existing project files are not overwritten, and all threads in a channel share the same project workspace.
 
+Project preparation now calls `WorkspaceFilesystem.seedProject(projectId, source: Path)` through the selected backend. The caller resolves the optional template directory; the filesystem implementation receives only that source directory and owns the project destination. It has no knowledge of template configuration or storage layout. Local seeding copies the directory contents, retains nested paths and file attributes, and skips existing files. Repeated preparation can add missing files without replacing project edits. Work-template copying retains its existing local behavior. Remote project seeding currently throws `NotImplementedError`; it does not fall back to local copying.
+
 For v2, copy the project template into `~/data/project/` before loading project context or running tools. Copy missing files and create their parent directories; preserve existing files, including `AGENTS.md`. Template preparation must be safe to repeat.
 
 Project-context loading must read `~/data/project/AGENTS.md` through the selected filesystem backend and retain the existing per-turn snapshot behavior. A missing file means empty project context. Remote failures must not silently substitute local instructions.

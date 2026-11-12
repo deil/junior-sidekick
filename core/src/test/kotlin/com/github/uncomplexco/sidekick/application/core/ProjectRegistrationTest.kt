@@ -1,6 +1,6 @@
 package com.github.uncomplexco.sidekick.application.core
 
-
+import com.github.uncomplexco.sidekick.adapters.files.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPathsFactory
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
@@ -45,7 +45,7 @@ class ProjectRegistrationTest {
         val projects = sqliteProjectsRepository(config)
         val registry = Projects(projects, config, platform)
         registry.afterPropertiesSet()
-        val factory = VirtualPathsFactory(config, platform, registry)
+        val factory = VirtualPathsFactory(config, platform, registry, WorkspaceFilesystemFactory())
 
         val paths = factory.forConversation(ConversationId(channelId, threadId))
 
@@ -68,7 +68,8 @@ class ProjectRegistrationTest {
         val config = config()
         val projects = sqliteProjectsRepository(config)
         val registry = Projects(projects, config, ChatPlatform.SLACK)
-        val factory = VirtualPathsFactory(config, ChatPlatform.SLACK, registry)
+        val factory =
+            VirtualPathsFactory(config, ChatPlatform.SLACK, registry, WorkspaceFilesystemFactory())
         factory.forConversation(ConversationId("C123", "1700000000.000"))
         val original = projects.findByUid("C123")
 

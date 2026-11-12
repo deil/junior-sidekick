@@ -14,6 +14,9 @@ import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystem
 import java.nio.file.Path
 
 class RemoteWorkspaceFilesystem(private val client: SandboxV2Client) : WorkspaceFilesystem {
+    override suspend fun seedProject(projectId: String, source: Path): Unit =
+        TODO("Sandbox v2 project seeding is not implemented")
+
     override suspend fun upload(
         projectId: String,
         sessionId: String,

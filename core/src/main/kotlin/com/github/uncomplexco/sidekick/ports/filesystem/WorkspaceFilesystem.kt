@@ -3,6 +3,8 @@ package com.github.uncomplexco.sidekick.ports.filesystem
 import java.nio.file.Path
 
 interface WorkspaceFilesystem {
+    suspend fun seedProject(projectId: String, source: Path)
+
     suspend fun upload(
         projectId: String,
         sessionId: String,
