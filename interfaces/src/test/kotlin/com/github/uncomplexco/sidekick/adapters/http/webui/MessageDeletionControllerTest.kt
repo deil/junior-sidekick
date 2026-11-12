@@ -4,6 +4,8 @@ import com.github.uncomplexco.sidekick.adapters.http.webui.auth.UserApiSecurityC
 import com.github.uncomplexco.sidekick.adapters.http.webui.auth.VerifiedEmailIdentity
 import com.github.uncomplexco.sidekick.adapters.http.webui.auth.WebAuthConfiguration
 import com.github.uncomplexco.sidekick.adapters.slack.DeleteSlackMessageUsecase
+import com.github.uncomplexco.sidekick.ports.UsersRepository
+import com.github.uncomplexco.sidekick.testing.NoOpUsersRepository
 import com.github.uncomplexco.sidekick.testing.SlackDeletionApi
 import com.github.uncomplexco.sidekick.testing.WebAuthFixture
 import jakarta.servlet.http.Cookie
@@ -18,7 +20,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockServletContext
@@ -170,7 +171,6 @@ class MessageDeletionControllerTest {
         assertEquals(1, api.requests.size)
     }
 
-    @Configuration(proxyBeanMethods = false)
     @EnableWebMvc
     @Import(
         WebAuthConfiguration::class,
@@ -180,6 +180,8 @@ class MessageDeletionControllerTest {
         DeleteSlackMessageUsecase::class,
     )
     class TestConfiguration {
+        @Bean fun users(): UsersRepository = NoOpUsersRepository()
+
         @Bean(destroyMethod = "close") fun slackApi() = SlackDeletionApi()
 
         @Bean fun slackApp(api: SlackDeletionApi) = api.app

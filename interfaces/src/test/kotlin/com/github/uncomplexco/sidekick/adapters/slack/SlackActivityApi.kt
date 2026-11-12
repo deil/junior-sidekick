@@ -5,11 +5,17 @@ import com.slack.api.methods.MethodsClient
 import com.slack.api.methods.request.agents.sessions.AgentsSessionsSetStatusRequest
 import com.slack.api.methods.request.chat.ChatPostMessageRequest
 import com.slack.api.methods.request.chat.ChatUpdateRequest
+import com.slack.api.methods.request.conversations.ConversationsInfoRequest
+import com.slack.api.methods.request.users.UsersInfoRequest
 import com.slack.api.methods.response.agents.sessions.AgentsSessionsSetStatusResponse
 import com.slack.api.methods.response.chat.ChatPostMessageResponse
 import com.slack.api.methods.response.chat.ChatUpdateResponse
+import com.slack.api.methods.response.conversations.ConversationsInfoResponse
 import com.slack.api.methods.response.reactions.ReactionsAddResponse
 import com.slack.api.methods.response.reactions.ReactionsRemoveResponse
+import com.slack.api.methods.response.users.UsersInfoResponse
+import com.slack.api.model.Conversation
+import com.slack.api.model.User
 import java.lang.reflect.Proxy
 import kotlinx.coroutines.CompletableDeferred
 
@@ -48,6 +54,36 @@ internal class SlackActivityApi(private val now: () -> Long) {
             arrayOf(MethodsClient::class.java),
         ) { _, method, args ->
             when (method.name) {
+                "usersInfo" -> {
+                    val configure =
+                        args!![0] as RequestConfigurator<UsersInfoRequest.UsersInfoRequestBuilder>
+                    val request = configure.configure(UsersInfoRequest.builder()).build()
+                    UsersInfoResponse().also {
+                        it.isOk = true
+                        it.user =
+                            User().also { user ->
+                                user.id = request.user
+                                user.realName = "User"
+                            }
+                    }
+                }
+                "conversationsInfo" -> {
+                    val configure =
+                        args!![0]
+                            as
+                            RequestConfigurator<
+                                ConversationsInfoRequest.ConversationsInfoRequestBuilder
+                            >
+                    val request = configure.configure(ConversationsInfoRequest.builder()).build()
+                    ConversationsInfoResponse().also {
+                        it.isOk = true
+                        it.channel =
+                            Conversation().also { channel ->
+                                channel.id = request.channel
+                                channel.isIm = true
+                            }
+                    }
+                }
                 "agentsSessionsSetStatus" -> {
                     val configure =
                         args!![0]
