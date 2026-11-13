@@ -7,6 +7,7 @@ import ai.koog.agents.core.tools.reflect.ToolSet
 import ai.koog.agents.core.tools.validate
 import com.github.uncomplexco.sidekick.application.tools.ToolArgumentName
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
+import com.github.uncomplexco.sidekick.ports.ProjectsRepository
 import com.slack.api.methods.MethodsClient
 import com.slack.api.model.Message
 import kotlinx.serialization.SerialName
@@ -21,6 +22,7 @@ private const val MAX_SLACK_HISTORY_SCAN_DEPTH = 5
 class SlackHistoryTools(
     private val slackClient: MethodsClient,
     private val ctx: TurnContext,
+    private val projects: ProjectsRepository,
 ) : ToolSet {
     @Tool
     @LLMDescription(
@@ -56,17 +58,18 @@ class SlackHistoryTools(
         var pagesScanned = 0
         while (pagesScanned < normalizedScanDepth && loadedMessages.size < requestedLimit) {
             val remaining = requestedLimit - loadedMessages.size
-            val history = withSlackApiRetries {
-                slackClient.conversationsHistory { req ->
-                    req.channel(channelId)
-                    req.limit(remaining)
-                    nextCursor?.let(req::cursor)
-                    oldest?.takeIf { it.isNotBlank() }?.let(req::oldest)
-                    latest?.takeIf { it.isNotBlank() }?.let(req::latest)
-                    boundsInclusive?.let(req::inclusive)
-                    req
+            val history =
+                withSlackRetries("Read Slack channel history channel=$channelId") {
+                    slackClient.conversationsHistory { req ->
+                        req.channel(channelId)
+                        req.limit(remaining)
+                        nextCursor?.let(req::cursor)
+                        oldest?.takeIf { it.isNotBlank() }?.let(req::oldest)
+                        latest?.takeIf { it.isNotBlank() }?.let(req::latest)
+                        boundsInclusive?.let(req::inclusive)
+                        req
+                    }
                 }
-            }
             if (!history.isOk) {
                 fail(slackHistoryError(history.error, "Failed to read Slack channel history."))
             }
@@ -90,75 +93,40 @@ class SlackHistoryTools(
 
     @Tool
     @LLMDescription(
-        "List messages (Slack thread history) from a given thread in current conversation's " +
-            "parent Slack channel. Use when the user explicitly asks for thread context outside of " +
-            "this thread. Do not use to monitor or read history of this thread"
+        "Read a Slack thread using a message archive URL or channel and message timestamp. " +
+            "Other channels must be public. May join a public channel to read it. " +
+            "Do not use to monitor or read history of this thread."
     )
     fun slackThreadHistory(
-        @LLMDescription("Slack thread_ts (timestamp of the thread parent message)")
-        @ToolArgumentName("thread_ts")
-        threadTs: String,
+        @LLMDescription("Slack message archive URL") url: String? = null,
+        @LLMDescription(
+            "Slack message id (timestamp). Can be thread root or any child message in the thread"
+        )
+        @ToolArgumentName("slack_ts")
+        slackTs: String? = null,
+        @LLMDescription(
+            "Slack channel id (`C123`), mention (`<#C123>` / `<#C123|name>`), or a channel name from this workspace"
+        )
+        @ToolArgumentName("channel_id")
+        channelId: String? = null,
         @LLMDescription(
             "Maximum total number of messages to return. Defaults to $DEFAULT_SLACK_HISTORY_LIMIT " +
-                "and is capped at $MAX_SLACK_HISTORY_LIMIT"
+                "and is capped at 1000"
         )
-        limit: Int?,
-        @LLMDescription("Pagination cursor to continue from a prior call") cursor: String?,
-        @LLMDescription("Oldest message ts (timestamp) for range filtering") oldest: String?,
-        @LLMDescription("Latest message ts (timestamp) for range filtering") latest: String?,
-        @LLMDescription(
-            "Maximum Slack API pages to scan. Defaults to $DEFAULT_SLACK_HISTORY_SCAN_DEPTH " +
-                "and is capped at $MAX_SLACK_HISTORY_SCAN_DEPTH"
-        )
+        limit: Int? = null,
+        @LLMDescription("Maximum Slack API pages to scan. Defaults to 10 and is capped at 10")
         @ToolArgumentName("scan_depth")
-        scanDepth: Int?,
-        @LLMDescription("Should oldest/latest range bounds be inclusive")
-        @ToolArgumentName("bounds_inclusive")
-        boundsInclusive: Boolean?,
-    ): SlackThreadHistoryResult {
-        val requestedLimit = normalizeSlackHistoryLimit(limit)
-        val normalizedScanDepth = normalizeSlackHistoryScanDepth(scanDepth)
-        val normalizedThreadTs = threadTs.trim()
-        val channelId = ctx.conversation.conversationId.channelId
-
-        val loadedMessages = mutableListOf<SlackMessage>()
-        var nextCursor = cursor?.takeIf { it.isNotBlank() }
-        var pagesScanned = 0
-        while (pagesScanned < normalizedScanDepth && loadedMessages.size < requestedLimit) {
-            val remaining = requestedLimit - loadedMessages.size
-            val replies = withSlackApiRetries {
-                slackClient.conversationsReplies { req ->
-                    req.channel(channelId)
-                    req.ts(normalizedThreadTs)
-                    req.limit(remaining)
-                    nextCursor?.let(req::cursor)
-                    oldest?.takeIf { it.isNotBlank() }?.let(req::oldest)
-                    latest?.takeIf { it.isNotBlank() }?.let(req::latest)
-                    boundsInclusive?.let(req::inclusive)
-                    req
-                }
-            }
-            if (!replies.isOk) {
-                fail(slackHistoryError(replies.error, "Failed to read Slack thread history."))
-            }
-
-            pagesScanned += 1
-            loadedMessages +=
-                replies.messages.orEmpty().take(remaining).map { it.toSlackHistoryMessage() }
-            nextCursor = replies.responseMetadata?.nextCursor?.takeIf { it.isNotBlank() }
-            if (nextCursor == null) {
-                break
-            }
-        }
-
-        return SlackThreadHistoryResult(
-            channelId = channelId,
-            threadTs = normalizedThreadTs,
-            count = loadedMessages.size,
-            messages = loadedMessages,
-            nextCursor = nextCursor,
-        )
-    }
+        scanDepth: Int? = null,
+    ): SlackThreadHistoryResult =
+        SlackThreadHistoryReader(slackClient, projects)
+            .read(
+                ctx.conversation.conversationId.channelId,
+                url,
+                channelId,
+                slackTs,
+                limit,
+                scanDepth,
+            )
 }
 
 fun normalizeSlackHistoryLimit(limit: Int?): Int {
@@ -184,7 +152,7 @@ internal fun slackHistoryError(
         else -> error
     }
 
-private fun Message.toSlackHistoryMessage(): SlackMessage =
+internal fun Message.toSlackHistoryMessage(): SlackMessage =
     SlackMessage(
         id = ts,
         sentAt = slackMessageTsToUtc(ts),
@@ -210,6 +178,8 @@ data class SlackChannelHistoryResult(
 @Serializable
 data class SlackThreadHistoryResult(
     @SerialName("channel_id") val channelId: String,
+    @SerialName("channel_name") val channelName: String,
+    @SerialName("joined_channel") val joinedChannel: Boolean,
     @SerialName("thread_ts") val threadTs: String,
     val count: Int,
     val messages: List<SlackMessage>,

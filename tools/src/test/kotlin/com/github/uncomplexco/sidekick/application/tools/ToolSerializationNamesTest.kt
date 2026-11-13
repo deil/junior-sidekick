@@ -24,7 +24,7 @@ import org.junit.jupiter.params.provider.MethodSource
 
 class ToolSerializationNamesTest {
     @ParameterizedTest(name = "{0} preserves serialized field names")
-    @MethodSource("chatResponses", "otherContracts")
+    @MethodSource("discordResponses", "slackResponses", "otherContracts")
     fun `camel case properties preserve serialized contract`(
         contract: String,
         serialized: String,
@@ -37,7 +37,7 @@ class ToolSerializationNamesTest {
 
     companion object {
         @JvmStatic
-        fun chatResponses(): List<Arguments> =
+        fun discordResponses(): List<Arguments> =
             listOf(
                 Arguments.of(
                     "Discord channel history",
@@ -60,6 +60,11 @@ class ToolSerializationNamesTest {
                     ),
                     "id,sent_at,user_id,username,is_bot,text,thread_id",
                 ),
+            )
+
+        @JvmStatic
+        fun slackResponses(): List<Arguments> =
+            listOf(
                 Arguments.of(
                     "Slack channel history",
                     Json.encodeToString(SlackChannelHistoryResult("channel", 0, emptyList(), null)),
@@ -68,9 +73,17 @@ class ToolSerializationNamesTest {
                 Arguments.of(
                     "Slack thread history",
                     Json.encodeToString(
-                        SlackThreadHistoryResult("channel", "thread", 0, emptyList(), null)
+                        SlackThreadHistoryResult(
+                            "channel",
+                            "name",
+                            false,
+                            "thread",
+                            0,
+                            emptyList(),
+                            null,
+                        )
                     ),
-                    "channel_id,thread_ts,count,messages,next_cursor",
+                    "channel_id,channel_name,joined_channel,thread_ts,count,messages,next_cursor",
                 ),
                 Arguments.of(
                     "Slack message",

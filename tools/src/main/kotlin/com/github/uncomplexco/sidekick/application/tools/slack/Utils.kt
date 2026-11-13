@@ -8,8 +8,3 @@ internal fun slackMessageTsToUtc(ts: String): String =
         .toString()
 
 internal fun slackTsToUtc(ts: Int): String = Instant.fromEpochSeconds(ts.toLong()).toString()
-
-internal fun <T> withSlackApiRetries(
-    retries: Int = 3,
-    action: () -> T,
-): T = action()

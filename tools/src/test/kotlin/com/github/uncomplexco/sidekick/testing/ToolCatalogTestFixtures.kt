@@ -89,6 +89,7 @@ class ToolCatalogFixture(
             runner,
             { SubagentCatalog(listOf(Subagent("general", "General-purpose subagent", "Prompt"))) },
             providers,
+            NoOpProjectsRepository(),
         )
 
     fun execution(

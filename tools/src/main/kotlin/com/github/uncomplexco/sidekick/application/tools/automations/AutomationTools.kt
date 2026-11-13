@@ -25,7 +25,8 @@ class AutomationTools(private val projectUid: String, private val automations: A
         @LLMDescription("Optional automation description") description: String? = null,
         @LLMDescription("Instructions to execute on each run") instructions: String,
         @LLMDescription(
-            "Trigger object with mandatory string type. For type scheduled, include schedule (five-field cron) and timezone (IANA timezone)."
+            "Trigger object with mandatory string type. For type scheduled, include schedule " +
+                "(five-field cron) and timezone (IANA timezone)."
         )
         trigger: JsonObject,
         @LLMDescription("Whether the automation is active. Defaults to true")
@@ -54,7 +55,9 @@ class AutomationTools(private val projectUid: String, private val automations: A
 
     @Tool("automations__update")
     @LLMDescription(
-        "Update an automation by its project-local uid. Supply only changed fields. Set enabled=false to pause or true to resume. An empty description clears it. A supplied trigger replaces the entire trigger object."
+        "Update an automation by its project-local uid. Supply only changed fields. " +
+            "Set enabled=false to pause or true to resume. An empty description clears it. " +
+            "A supplied trigger replaces the entire trigger object."
     )
     fun updateAutomation(
         @LLMDescription("Project-local automation number") uid: Int,
@@ -101,8 +104,14 @@ class AutomationTools(private val projectUid: String, private val automations: A
             throw error
         } catch (error: IllegalArgumentException) {
             throw ToolException.ValidationFailure(error.message ?: "Invalid automation request")
+                .apply {
+                    initCause(error)
+                }
         } catch (error: DateTimeException) {
             throw ToolException.ValidationFailure(error.message ?: "Invalid automation timezone")
+                .apply {
+                    initCause(error)
+                }
         }
 }
 

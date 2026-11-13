@@ -42,6 +42,7 @@ import com.github.uncomplexco.sidekick.application.tools.system.ConversationInte
 import com.github.uncomplexco.sidekick.application.tools.system.SystemTools
 import com.github.uncomplexco.sidekick.application.tools.todos.TodoTool
 import com.github.uncomplexco.sidekick.application.tools.web.WebFetchTools
+import com.github.uncomplexco.sidekick.ports.ProjectsRepository
 import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
 import com.github.uncomplexco.sidekick.tools.SidekickToolProvider
@@ -68,6 +69,7 @@ class DefaultAgentToolCatalog(
     subagentRunner: SubagentRunner,
     subagents: SubagentCatalogProvider,
     sidekickToolProviders: List<SidekickToolProvider>,
+    projects: ProjectsRepository,
 ) : AgentToolCatalog {
     private val registrations: List<ToolRegistration<ToolExecutionContext>> =
         listOf<ToolRegistration<ToolExecutionContext>>(
@@ -114,7 +116,8 @@ class DefaultAgentToolCatalog(
             ToolRegistration("slack-read", ToolAccess.SHARED) {
                 if (it.chat is SlackBackedChatPlatformAdapter) {
                     SlackChannelTools(sharedContext.slackClient).asTools() +
-                        SlackHistoryTools(sharedContext.slackClient, it.turn).asLlmTools() +
+                        SlackHistoryTools(sharedContext.slackClient, it.turn, projects)
+                            .asLlmTools() +
                         SlackUserTools(sharedContext.slackClient).asLlmTools() +
                         SlackFileTools(
                                 it.turn,
