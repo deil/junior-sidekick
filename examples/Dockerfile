@@ -6,7 +6,7 @@ RUN ./gradlew :example-app:bootJar --no-daemon
 
 FROM eclipse-temurin:25-jre
 
-RUN apt update && apt install -y bubblewrap
+RUN apt update && apt install -y bubblewrap nodejs
 
 WORKDIR /app
 COPY --from=build /workspace/example-app/build/libs/*.jar app.jar
