@@ -16,6 +16,12 @@ class NoOpProjectsRepository : ProjectsRepository {
 
     override fun findById(id: Long): Project? = null
 
+    override fun findByName(
+        adapter: ChatPlatform,
+        workspaceId: String,
+        name: String,
+    ): List<Project> = emptyList()
+
     override fun addIfAbsent(project: Project): Boolean = false
 
     override fun updateChannelDetails(project: Project) = Unit

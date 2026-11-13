@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.core.Project
 import com.github.uncomplexco.sidekick.application.core.ProjectType
 import com.github.uncomplexco.sidekick.ports.ProjectsRepository
 import java.time.Instant
+import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.support.TransactionTemplate
@@ -25,29 +26,51 @@ class SqliteProjectsRepository(
 
     override fun findById(id: Long): Project? = find("id", id)
 
+    private val mapper = RowMapper { row, _ ->
+        Project(
+            uid = row.getString("uid"),
+            adapter = ChatPlatform.valueOf(row.getString("adapter").uppercase()),
+            type = ProjectType.valueOf(row.getString("type").uppercase()),
+            name = row.getString("name"),
+            externalRefId = row.getString("external_ref_id"),
+            createdAt = Instant.parse(row.getString("created_at")),
+            id = row.getLong("id"),
+            channelKind =
+                row.getString("channel_kind")?.let { ChannelKind.valueOf(it.uppercase()) },
+            isShared = row.getObject("is_shared")?.let { row.getBoolean("is_shared") },
+            chatWorkspaceId = row.getString("chat_workspace_id"),
+            channelDetailsUpdatedAt =
+                row.getString("channel_details_updated_at")?.let(Instant::parse),
+        )
+    }
+
     private fun find(column: String, value: Any): Project? =
         sidekickJdbcClient
             .sql("SELECT * FROM projects WHERE $column = :value")
             .param("value", value)
-            .query { row, _ ->
-                Project(
-                    uid = row.getString("uid"),
-                    adapter = ChatPlatform.valueOf(row.getString("adapter").uppercase()),
-                    type = ProjectType.valueOf(row.getString("type").uppercase()),
-                    name = row.getString("name"),
-                    externalRefId = row.getString("external_ref_id"),
-                    createdAt = Instant.parse(row.getString("created_at")),
-                    id = row.getLong("id"),
-                    channelKind =
-                        row.getString("channel_kind")?.let { ChannelKind.valueOf(it.uppercase()) },
-                    isShared = row.getObject("is_shared")?.let { row.getBoolean("is_shared") },
-                    chatWorkspaceId = row.getString("chat_workspace_id"),
-                    channelDetailsUpdatedAt =
-                        row.getString("channel_details_updated_at")?.let(Instant::parse),
-                )
-            }
+            .query(mapper)
             .optional()
             .orElse(null)
+
+    override fun findByName(
+        adapter: ChatPlatform,
+        workspaceId: String,
+        name: String,
+    ): List<Project> =
+        sidekickJdbcClient
+            .sql(
+                """
+                SELECT * FROM projects WHERE adapter = :adapter AND chat_workspace_id = :workspace_id
+                    AND lower(name) = lower(:name)
+                ORDER BY id
+                """
+                    .trimIndent()
+            )
+            .param("adapter", adapter.name.lowercase())
+            .param("workspace_id", workspaceId)
+            .param("name", name)
+            .query(mapper)
+            .list()
 
     override fun addIfAbsent(project: Project): Boolean =
         sidekickJdbcClient

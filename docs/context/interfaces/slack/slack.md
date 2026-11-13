@@ -109,21 +109,35 @@ The tool scans Slack pages internally until it returns the requested number of m
 
 On Slack 429 rate limits, the tool does not sleep or retry; it returns any channels collected so far plus the current cursor and retry-after hint.
 
-## Thread history tool
+## History read tools
 
-`slackThreadHistory` accepts either a Slack message archive `url` or both `channel_id` and `slack_ts`. URL takes precedence when provided and cannot be blank. It supports Slack `<url|label>` markup, HTTPS Slack/Slack Gov hosts, `/archives/<channel>/p<timestamp>`, and an optional `thread_ts` query parameter. Explicit channels may be IDs, Slack channel mentions, or exact workspace channel names (case-insensitive, with optional leading `#`).
+`slackChannelRead` reads channel history, defaulting to the current conversation's channel. `slackThreadRead` reads a thread identified by a Slack message archive `url` or both `channel_id` and `slack_ts`. They share channel resolution, access checks, pagination, retries, and conditional joining. There is no `slackChannelHistory` alias.
+
+Both tools accept channel IDs, Slack channel mentions, `slack:<channel>` references, or exact stored channel names (case-insensitive, with optional leading `#`). Names resolve only against stored Projects in the current channel's known workspace, never by live channel-name scans. Unknown workspace or channel names require an explicit channel ID. Ambiguous names are rejected.
+
+For threads, URL takes precedence when provided and cannot be blank. The resolver supports Slack `<url|label>` markup, HTTPS Slack/Slack Gov hosts, `/archives/<channel>/p<timestamp>`, and an optional `thread_ts` query parameter.
 
 `slack_ts` identifies a root or child message. A URL's `thread_ts` takes precedence for the `conversations.replies` lookup; otherwise the supplied message timestamp is used.
 
 The current conversation's channel is allowed, including private conversations. Other channels are rejected when persisted visibility is private and otherwise require live `conversations.info` metadata proving they are public. Channel IDs alone do not prove visibility. An inaccessible target is rejected.
 
-On `not_in_channel`, the tool joins only a confirmed public channel whose metadata did not mark Sidekick as a member, then retries that read once. Successful joining is reported through `joined_channel`. Membership and missing-history-scope errors are returned as tool errors; an empty result reports `No messages found for this thread.`
+On `not_in_channel`, either tool joins only a confirmed public channel whose metadata did not mark Sidekick as a member, then retries the complete read once from the original cursor and bounds. Successful joining is reported through `joined_channel`. Membership and missing-history-scope errors are returned as tool errors. Empty channel history succeeds with zero messages; empty thread history reports `No messages found for this thread.`
 
-`limit` defaults to 100 and is capped at 1000; `scan_depth` defaults to 10 and is capped at 10. Both must be positive. Each page requests at most 200 messages. Reads stop at the message limit, page budget, or end of Slack pagination. There are no input cursor or timestamp-range arguments. The channel-history tool retains its separate limits and range/pagination arguments.
+For both tools, `limit` defaults to 100 and is capped at 1000; `scan_depth` defaults to 10 and is capped at 10. Both must be positive. Each page requests at most 200 messages. Reads stop at the message limit, page budget, or end of Slack pagination. Channel messages retain Slack's returned order, normally newest first; thread replies are not expanded.
 
-Every thread-tool Slack request uses up to three attempts for transient transport/HTTP failures; HTTP 429 retries respect `Retry-After`. Slack application errors do not cause generic retries.
+`slackChannelRead` also accepts nullable `cursor`, `oldest`, `latest`, and `bounds_inclusive`. Supplied string arguments cannot be blank. Time bounds accept Slack timestamps or `slack:<channel>:<timestamp>` references naming the resolved channel. Mismatched references are rejected. Thread reads do not accept cursor or range arguments.
 
-The response contains `channel_id`, `channel_name`, `joined_channel`, `thread_ts`, `count`, `messages`, and `next_cursor`. Root identification uses the URL's thread timestamp, then the first returned message's `thread_ts`, its `ts`, and finally the lookup timestamp. The cursor remains response metadata; the tool does not accept it as an input.
+Invalid cursors report:
+
+```text
+The supplied Slack history cursor is no longer valid. Retry the lookup without `cursor` to start from the newest page again.
+```
+
+Every history-read Slack request uses up to three attempts for transient transport/HTTP failures; HTTP 429 retries respect `Retry-After`. Slack application errors do not cause generic retries.
+
+Both responses contain `channel_id`, `joined_channel`, `count`, `messages`, and nullable `next_cursor`. `channel_name` is nullable and omitted from JSON when unknown; channel IDs are not substituted for unknown names. No explicit truncation flag is returned.
+
+Thread responses also include `thread_ts`. Root identification uses the URL's thread timestamp, then the first returned message's `thread_ts`, its `ts`, and finally the lookup timestamp. Only channel reads accept the returned cursor for continuation.
 
 ## File Attachments
 

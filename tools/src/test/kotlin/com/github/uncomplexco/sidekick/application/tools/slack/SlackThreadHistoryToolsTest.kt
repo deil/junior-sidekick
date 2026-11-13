@@ -2,14 +2,16 @@ package com.github.uncomplexco.sidekick.application.tools.slack
 
 import ai.koog.agents.core.tools.ToolException
 import com.github.uncomplexco.sidekick.testing.SlackThreadFixture
-import com.github.uncomplexco.sidekick.testing.channelPage
 import com.github.uncomplexco.sidekick.testing.threadFailure
 import com.github.uncomplexco.sidekick.testing.threadPage
 import java.io.IOException
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -21,13 +23,31 @@ class SlackThreadHistoryToolsTest {
     @TempDir lateinit var dir: Path
 
     @Test
+    fun `unknown channel name is omitted from thread response even when encoding defaults`() {
+        // Arrange
+        val fixture = SlackThreadFixture(dir)
+        fixture.storedProjects.clear()
+        fixture.info.channel = null
+        fixture.info.isOk = false
+
+        // Act
+        val result =
+            fixture.tools.slackThreadRead(channelId = "C123", slackTs = "1700000000.000000")
+
+        // Assert
+        assertNull(result.channelName)
+        val json = Json { encodeDefaults = true }.encodeToString(result)
+        assertFalse("channel_name" in Json.parseToJsonElement(json).jsonObject)
+    }
+
+    @Test
     fun `archive markup uses query thread timestamp and reports channel name`() {
         // Arrange
         val fixture = SlackThreadFixture(dir)
 
         // Act
         val result =
-            fixture.tools.slackThreadHistory(
+            fixture.tools.slackThreadRead(
                 url =
                     "<https://acme.slack.com/archives/C456/p1700000001000000?thread_ts=1700000000.000000|message>"
             )
@@ -48,7 +68,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         val result =
-            fixture.tools.slackThreadHistory(
+            fixture.tools.slackThreadRead(
                 url = "https://acme.slack-gov.com/archives/C456/p1700000000000001"
             )
 
@@ -65,7 +85,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         val result =
-            fixture.tools.slackThreadHistory(channelId = channel, slackTs = "1700000000.000000")
+            fixture.tools.slackThreadRead(channelId = channel, slackTs = "1700000000.000000")
 
         // Assert
         assertEquals("C456", result.channelId)
@@ -73,19 +93,19 @@ class SlackThreadHistoryToolsTest {
     }
 
     @Test
-    fun `channel name resolution scans pages and matches the full name`() {
+    fun `channel name resolution uses stored workspace channels and matches the full name`() {
         // Arrange
         val fixture = SlackThreadFixture(dir)
-        fixture.lists += channelPage("general-other", cursor = "next")
-        fixture.lists += channelPage("general")
+        fixture.storeChannel("C456", "platform")
+        fixture.storeChannel("C789", "platform", workspaceId = "T456")
 
         // Act
         val result =
-            fixture.tools.slackThreadHistory(channelId = "#General", slackTs = "1700000000.000000")
+            fixture.tools.slackThreadRead(channelId = "#Platform", slackTs = "1700000000.000000")
 
         // Assert
         assertEquals("C456", result.channelId)
-        assertEquals(listOf(null, "next"), fixture.listRequests.map { it.cursor })
+        assertEquals(listOf("conversationsInfo", "conversationsReplies"), fixture.calls)
     }
 
     @Test
@@ -96,7 +116,7 @@ class SlackThreadHistoryToolsTest {
         // Act
         val error =
             assertThrows<ToolException.ValidationFailure> {
-                fixture.tools.slackThreadHistory(slackTs = "1700000000.000000")
+                fixture.tools.slackThreadRead(slackTs = "1700000000.000000")
             }
 
         // Assert
@@ -125,7 +145,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         assertThrows<ToolException.ValidationFailure> {
-            fixture.tools.slackThreadHistory(
+            fixture.tools.slackThreadRead(
                 url = url,
                 channelId = "C123",
                 slackTs = "1700000000.000000",
@@ -144,7 +164,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         assertThrows<ToolException> {
-            fixture.tools.slackThreadHistory(channelId = "C456", slackTs = "1700000000.000000")
+            fixture.tools.slackThreadRead(channelId = "C456", slackTs = "1700000000.000000")
         }
 
         // Assert
@@ -160,7 +180,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         val result =
-            fixture.tools.slackThreadHistory(channelId = "C123", slackTs = "1700000000.000000")
+            fixture.tools.slackThreadRead(channelId = "C123", slackTs = "1700000000.000000")
 
         // Assert
         assertEquals(1, result.count)
@@ -175,7 +195,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         assertThrows<ToolException> {
-            fixture.tools.slackThreadHistory(channelId = "C456", slackTs = "1700000000.000000")
+            fixture.tools.slackThreadRead(channelId = "C456", slackTs = "1700000000.000000")
         }
 
         // Assert
@@ -192,7 +212,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         assertThrows<ToolException> {
-            fixture.tools.slackThreadHistory(channelId = "C456", slackTs = "1700000000.000000")
+            fixture.tools.slackThreadRead(channelId = "C456", slackTs = "1700000000.000000")
         }
 
         // Assert
@@ -209,7 +229,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         val result =
-            fixture.tools.slackThreadHistory(channelId = "C123", slackTs = "1700000000.000000")
+            fixture.tools.slackThreadRead(channelId = "C123", slackTs = "1700000000.000000")
 
         // Assert
         assertEquals(1, result.count)
@@ -226,7 +246,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         val result =
-            fixture.tools.slackThreadHistory(channelId = "C456", slackTs = "1700000000.000000")
+            fixture.tools.slackThreadRead(channelId = "C456", slackTs = "1700000000.000000")
 
         // Assert
         assertTrue(result.joinedChannel)
@@ -251,7 +271,7 @@ class SlackThreadHistoryToolsTest {
         // Act
         val error =
             assertThrows<ToolException> {
-                fixture.tools.slackThreadHistory(channelId = "C456", slackTs = "1700000000.000000")
+                fixture.tools.slackThreadRead(channelId = "C456", slackTs = "1700000000.000000")
             }
 
         // Assert
@@ -270,7 +290,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         assertThrows<ToolException> {
-            fixture.tools.slackThreadHistory(channelId = "C456", slackTs = "1700000000.000000")
+            fixture.tools.slackThreadRead(channelId = "C456", slackTs = "1700000000.000000")
         }
 
         // Assert
@@ -287,7 +307,7 @@ class SlackThreadHistoryToolsTest {
         // Act
         val error =
             assertThrows<ToolException> {
-                fixture.tools.slackThreadHistory(channelId = "C123", slackTs = "1700000000.000000")
+                fixture.tools.slackThreadRead(channelId = "C123", slackTs = "1700000000.000000")
             }
 
         // Assert
@@ -304,7 +324,7 @@ class SlackThreadHistoryToolsTest {
         // Act
         val error =
             assertThrows<ToolException> {
-                fixture.tools.slackThreadHistory(channelId = "C123", slackTs = "1700000000.000000")
+                fixture.tools.slackThreadRead(channelId = "C123", slackTs = "1700000000.000000")
             }
 
         // Assert
@@ -319,7 +339,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         val result =
-            fixture.tools.slackThreadHistory(
+            fixture.tools.slackThreadRead(
                 channelId = "C123",
                 slackTs = "1700000000.000000",
                 limit = 450,
@@ -339,7 +359,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         val result =
-            fixture.tools.slackThreadHistory(
+            fixture.tools.slackThreadRead(
                 channelId = "C123",
                 slackTs = "1700000000.000000",
                 scanDepth = scanDepth,
@@ -358,7 +378,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         val result =
-            fixture.tools.slackThreadHistory(
+            fixture.tools.slackThreadRead(
                 channelId = "C123",
                 slackTs = "1700000000.000000",
                 limit = 2000,
@@ -379,7 +399,7 @@ class SlackThreadHistoryToolsTest {
 
         // Act
         val result =
-            fixture.tools.slackThreadHistory(channelId = "C123", slackTs = "1700000000.000000")
+            fixture.tools.slackThreadRead(channelId = "C123", slackTs = "1700000000.000000")
 
         // Assert
         assertEquals(1, result.count)
@@ -396,7 +416,7 @@ class SlackThreadHistoryToolsTest {
         // Act
         val error =
             assertThrows<ToolException> {
-                fixture.tools.slackThreadHistory(channelId = "C123", slackTs = "1700000000.000000")
+                fixture.tools.slackThreadRead(channelId = "C123", slackTs = "1700000000.000000")
             }
 
         // Assert

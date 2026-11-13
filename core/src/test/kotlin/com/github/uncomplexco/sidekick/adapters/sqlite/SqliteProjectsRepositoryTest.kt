@@ -25,6 +25,36 @@ class SqliteProjectsRepositoryTest {
         )
 
     @Test
+    fun `name lookup matches case insensitively within its platform and workspace`() {
+        // Arrange
+        val config = config()
+        val projects = sqliteProjectsRepository(config)
+        val base =
+            Project(
+                "C123",
+                ChatPlatform.SLACK,
+                "Platform",
+                "C123",
+                Instant.EPOCH,
+                chatWorkspaceId = "T123",
+            )
+        projects.addIfAbsent(base)
+        projects.addIfAbsent(
+            base.copy(uid = "C456", externalRefId = "C456", chatWorkspaceId = "T456")
+        )
+        projects.addIfAbsent(
+            base.copy(uid = "discord", externalRefId = "discord", adapter = ChatPlatform.DISCORD)
+        )
+
+        // Act
+        val found =
+            sqliteProjectsRepository(config).findByName(ChatPlatform.SLACK, "T123", "platform")
+
+        // Assert
+        assertEquals(listOf("C123"), found.map { it.uid })
+    }
+
+    @Test
     fun `adding a project persists each field`() {
         val config = config()
         val projects = sqliteProjectsRepository(config)

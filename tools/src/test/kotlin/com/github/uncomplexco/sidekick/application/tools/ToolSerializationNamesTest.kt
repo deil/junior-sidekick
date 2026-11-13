@@ -8,7 +8,7 @@ import com.github.uncomplexco.sidekick.application.tools.discord.DiscordChannelH
 import com.github.uncomplexco.sidekick.application.tools.discord.DiscordHistoryMessage
 import com.github.uncomplexco.sidekick.application.tools.discord.DiscordThreadHistoryResult
 import com.github.uncomplexco.sidekick.application.tools.files.AttachFileResult
-import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelHistoryResult
+import com.github.uncomplexco.sidekick.application.tools.slack.SlackChannelReadResult
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackMessage
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackThreadHistoryResult
 import com.github.uncomplexco.sidekick.application.tools.stats.WeeklyStatsResult
@@ -67,8 +67,10 @@ class ToolSerializationNamesTest {
             listOf(
                 Arguments.of(
                     "Slack channel history",
-                    Json.encodeToString(SlackChannelHistoryResult("channel", 0, emptyList(), null)),
-                    "channel_id,count,messages,next_cursor",
+                    Json.encodeToString(
+                        SlackChannelReadResult("channel", "name", false, 0, emptyList(), null)
+                    ),
+                    "channel_id,channel_name,joined_channel,count,messages,next_cursor",
                 ),
                 Arguments.of(
                     "Slack thread history",

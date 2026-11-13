@@ -2,17 +2,18 @@ package com.github.uncomplexco.sidekick.testing
 
 import com.github.uncomplexco.sidekick.application.chat.ChatPlatform
 import com.github.uncomplexco.sidekick.application.core.Project
+import com.github.uncomplexco.sidekick.application.core.ProjectType
 import com.github.uncomplexco.sidekick.application.tools.slack.SlackHistoryTools
 import com.github.uncomplexco.sidekick.ports.ProjectsRepository
 import com.slack.api.RequestConfigurator
 import com.slack.api.methods.MethodsClient
+import com.slack.api.methods.request.conversations.ConversationsHistoryRequest
 import com.slack.api.methods.request.conversations.ConversationsInfoRequest
 import com.slack.api.methods.request.conversations.ConversationsJoinRequest
-import com.slack.api.methods.request.conversations.ConversationsListRequest
 import com.slack.api.methods.request.conversations.ConversationsRepliesRequest
+import com.slack.api.methods.response.conversations.ConversationsHistoryResponse
 import com.slack.api.methods.response.conversations.ConversationsInfoResponse
 import com.slack.api.methods.response.conversations.ConversationsJoinResponse
-import com.slack.api.methods.response.conversations.ConversationsListResponse
 import com.slack.api.methods.response.conversations.ConversationsRepliesResponse
 import com.slack.api.model.Conversation
 import com.slack.api.model.Message
@@ -24,11 +25,11 @@ import java.time.Instant
 class SlackThreadFixture(root: Path) {
     val calls = mutableListOf<String>()
     val replyRequests = mutableListOf<ConversationsRepliesRequest>()
-    val listRequests = mutableListOf<ConversationsListRequest>()
+    val historyRequests = mutableListOf<ConversationsHistoryRequest>()
     val joinRequests = mutableListOf<ConversationsJoinRequest>()
     val storedProjects = mutableMapOf<String, Project>()
     val replies = ArrayDeque<Any>()
-    val lists = ArrayDeque<ConversationsListResponse>()
+    val histories = ArrayDeque<Any>()
     var info =
         ConversationsInfoResponse().apply {
             isOk = true
@@ -44,6 +45,17 @@ class SlackThreadFixture(root: Path) {
     private val projects =
         object : ProjectsRepository by NoOpProjectsRepository() {
             override fun findByUid(uid: String): Project? = storedProjects[uid]
+
+            override fun findByName(
+                adapter: ChatPlatform,
+                workspaceId: String,
+                name: String,
+            ): List<Project> =
+                storedProjects.values.filter {
+                    it.adapter == adapter &&
+                        it.chatWorkspaceId == workspaceId &&
+                        it.name.equals(name, ignoreCase = true)
+                }
         }
     private val client =
         Proxy.newProxyInstance(
@@ -56,9 +68,12 @@ class SlackThreadFixture(root: Path) {
                     configured(args!!, ConversationsInfoRequest.builder()).build()
                     info
                 }
-                "conversationsList" -> {
-                    listRequests += configured(args!!, ConversationsListRequest.builder()).build()
-                    lists.removeFirst()
+                "conversationsHistory" -> {
+                    historyRequests +=
+                        configured(args!!, ConversationsHistoryRequest.builder()).build()
+                    val response = histories.removeFirstOrNull() ?: historyPage()
+                    if (response is Throwable) throw response
+                    response
                 }
                 "conversationsReplies" -> {
                     replyRequests +=
@@ -76,9 +91,30 @@ class SlackThreadFixture(root: Path) {
         } as MethodsClient
     val tools = SlackHistoryTools(client, ToolCatalogFixture(root).execution().turn, projects)
 
-    fun storePrivate(channelId: String) {
+    init {
+        storeChannel("C123", "general")
+    }
+
+    fun storeChannel(
+        channelId: String,
+        name: String,
+        workspaceId: String = "T123",
+        type: ProjectType = ProjectType.PUBLIC,
+    ) {
         storedProjects[channelId] =
-            Project(channelId, ChatPlatform.SLACK, "private", channelId, Instant.EPOCH)
+            Project(
+                channelId,
+                ChatPlatform.SLACK,
+                name,
+                channelId,
+                Instant.EPOCH,
+                type = type,
+                chatWorkspaceId = workspaceId,
+            )
+    }
+
+    fun storePrivate(channelId: String) {
+        storeChannel(channelId, "private", type = ProjectType.PRIVATE)
     }
 }
 
@@ -110,19 +146,22 @@ fun threadFailure(code: String): ConversationsRepliesResponse =
         error = code
     }
 
-fun channelPage(
-    name: String,
-    id: String = "C456",
-    cursor: String? = null,
-): ConversationsListResponse =
-    ConversationsListResponse().apply {
+fun historyPage(count: Int = 0, cursor: String? = null): ConversationsHistoryResponse =
+    ConversationsHistoryResponse().apply {
         isOk = true
-        channels =
-            listOf(
-                Conversation().apply {
-                    this.name = name
-                    this.id = id
+        messages =
+            (0 until count).map { index ->
+                Message().apply {
+                    ts = "${1700000100 - index}.000000"
+                    text = "message $index"
+                    replyCount = 3
                 }
-            )
+            }
         responseMetadata = ResponseMetadata().apply { nextCursor = cursor }
+    }
+
+fun historyFailure(code: String): ConversationsHistoryResponse =
+    ConversationsHistoryResponse().apply {
+        isOk = false
+        error = code
     }
