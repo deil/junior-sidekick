@@ -111,7 +111,7 @@ class SqliteProjectsRepository(
         sidekickJdbcClient
             .sql(
                 """
-                UPDATE projects SET type = :type, channel_kind = :channel_kind,
+                UPDATE projects SET name = :name, type = :type, channel_kind = :channel_kind,
                     is_shared = :is_shared, channel_details_updated_at = :channel_details_updated_at,
                     chat_workspace_id = :chat_workspace_id
                 WHERE uid = :uid
@@ -119,6 +119,7 @@ class SqliteProjectsRepository(
                     .trimIndent()
             )
             .param("uid", project.uid)
+            .param("name", project.name)
             .param("type", project.type.name.lowercase())
             .param("chat_workspace_id", project.chatWorkspaceId)
             .param("channel_kind", project.channelKind?.name?.lowercase())

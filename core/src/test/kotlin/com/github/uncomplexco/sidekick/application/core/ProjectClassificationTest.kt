@@ -106,6 +106,138 @@ class ProjectClassificationTest {
     }
 
     @Test
+    fun `channel discovery persists its Slack name and makes it available to name lookup`() =
+        runBlocking {
+            // Arrange
+            val config = config()
+            val projects = sqliteProjectsRepository(config)
+            val coordinator =
+                userInteractionCoordinator(
+                    config,
+                    NoOpUsersRepository(),
+                    Clock.systemUTC(),
+                    projects,
+                )
+            val chat =
+                StubChatAdapter(
+                    channels =
+                        mapOf(
+                            "C123" to
+                                ChatChannelDetails(
+                                    ChannelVisibility.PUBLIC,
+                                    ChannelKind.CHANNEL,
+                                    false,
+                                    "THOME",
+                                    "platform",
+                                )
+                        )
+                )
+
+            // Act
+            coordinator.run(trigger(chat))
+
+            // Assert
+            val reloaded = sqliteProjectsRepository(config)
+            assertEquals("platform", reloaded.findByUid("C123")?.name)
+            assertEquals(
+                listOf("C123"),
+                reloaded.findByName(ChatPlatform.SLACK, "THOME", "platform").map { it.uid },
+            )
+        }
+
+    @Test
+    fun `new thread refreshes a renamed channel without changing project identity`() = runBlocking {
+        // Arrange
+        val config = config()
+        val projects = sqliteProjectsRepository(config)
+        val coordinator =
+            userInteractionCoordinator(config, NoOpUsersRepository(), Clock.systemUTC(), projects)
+        val first =
+            StubChatAdapter(
+                channels =
+                    mapOf(
+                        "C123" to
+                            ChatChannelDetails(
+                                ChannelVisibility.PUBLIC,
+                                ChannelKind.CHANNEL,
+                                false,
+                                "THOME",
+                                "platform",
+                            )
+                    )
+            )
+        coordinator.run(trigger(first))
+        val original = projects.findByUid("C123")!!
+        val renamed =
+            StubChatAdapter(
+                channels =
+                    mapOf(
+                        "C123" to
+                            ChatChannelDetails(
+                                ChannelVisibility.PUBLIC,
+                                ChannelKind.CHANNEL,
+                                false,
+                                "THOME",
+                                "reliability",
+                            )
+                    )
+            )
+
+        // Act
+        coordinator.run(trigger(renamed, threadId = "1700000002.000", messageId = "1700000003.000"))
+
+        // Assert
+        val reloaded = sqliteProjectsRepository(config)
+        val stored = reloaded.findByUid("C123")!!
+        assertEquals(
+            original.copy(
+                name = "reliability",
+                channelDetailsUpdatedAt = stored.channelDetailsUpdatedAt,
+            ),
+            stored,
+        )
+        assertTrue(reloaded.findByName(ChatPlatform.SLACK, "THOME", "platform").isEmpty())
+        assertEquals(
+            listOf(stored),
+            reloaded.findByName(ChatPlatform.SLACK, "THOME", "reliability"),
+        )
+    }
+
+    @Test
+    fun `partial channel metadata refresh retains the known name`() = runBlocking {
+        // Arrange
+        val config = config()
+        val projects = sqliteProjectsRepository(config)
+        val coordinator =
+            userInteractionCoordinator(config, NoOpUsersRepository(), Clock.systemUTC(), projects)
+        val first =
+            StubChatAdapter(
+                channels =
+                    mapOf(
+                        "C123" to
+                            ChatChannelDetails(
+                                ChannelVisibility.PUBLIC,
+                                ChannelKind.CHANNEL,
+                                false,
+                                "THOME",
+                                "platform",
+                            )
+                    )
+            )
+        coordinator.run(trigger(first))
+        val partial =
+            StubChatAdapter(
+                channels = mapOf("C123" to ChatChannelDetails(ChannelVisibility.PUBLIC))
+            )
+
+        // Act
+        coordinator.run(trigger(partial, threadId = "1700000002.000", messageId = "1700000003.000"))
+
+        // Assert
+        assertEquals("platform", sqliteProjectsRepository(config).findByUid("C123")?.name)
+    }
+
+    @Test
     fun `new thread backfills an existing project without replacing its identity`() = runBlocking {
         // Arrange
         val config = config()
@@ -302,6 +434,7 @@ class ProjectClassificationTest {
                                 ChannelKind.CHANNEL,
                                 false,
                                 "THOME",
+                                "platform",
                             )
                     )
             )

@@ -59,5 +59,6 @@ internal suspend fun loadSlackChannelDetails(
             },
         isShared = channel.isShared,
         workspaceId = channel.contextTeamId?.takeIf { it.isNotBlank() },
+        name = channel.name?.takeIf { it.isNotBlank() },
     )
 }

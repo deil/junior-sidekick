@@ -35,6 +35,7 @@ data class ChatChannelDetails(
     val kind: ChannelKind? = null,
     val isShared: Boolean? = null,
     val workspaceId: String? = null,
+    val name: String? = null,
 )
 
 enum class ChannelKind {

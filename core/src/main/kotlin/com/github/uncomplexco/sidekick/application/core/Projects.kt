@@ -70,6 +70,7 @@ class Projects(
         isShared: Boolean?,
         channelDetailsUpdatedAt: Instant?,
         chatWorkspaceId: String?,
+        name: String? = null,
     ) {
         val uid = sanitizePathSegment(channelId)
         val existing = projects.findByUid(uid)
@@ -78,6 +79,7 @@ class Projects(
         val project =
             defaults.copy(
                 type = type ?: defaults.type,
+                name = name ?: defaults.name,
                 channelKind = channelKind ?: defaults.channelKind,
                 chatWorkspaceId = chatWorkspaceId ?: defaults.chatWorkspaceId,
                 isShared = isShared ?: defaults.isShared,

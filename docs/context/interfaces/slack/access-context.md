@@ -45,13 +45,13 @@ Access context
 
 **1 → Installation: `auth.test`.** Obtain Sidekick's username and home workspace ID from its credentials, not the message author or event envelope's routing workspace.
 
-**2 → Conversation: `conversations.info` when Sidekick first enters a thread.** A thread is new to Sidekick when it has no persisted session. Fetch `context_team_id`, kind, visibility, and `is_shared`, including for existing projects with complete metadata. Continuing that thread does not refresh, even if metadata is incomplete. **Changes mid-thread are not detected until a new thread starts.** Snapshot storage and refresh boundaries for DMs and scheduled runs remain undecided.
+**2 → Conversation: `conversations.info` when Sidekick first enters a thread.** A thread is new to Sidekick when it has no persisted session. Fetch channel name, `context_team_id`, kind, visibility, and `is_shared`, including for existing projects with complete metadata. Continuing that thread does not refresh, even if metadata is incomplete. **Changes mid-thread are not detected until a new thread starts.** Snapshot storage and refresh boundaries for DMs and scheduled runs remain undecided.
 
 **3 → Author: `users.info`.** Obtain workspace ID, bot status, and guest flags. Author refresh timing is undecided. `is_stranger=false` does not prove home-workspace membership; email domains, display names, channel names, and ID prefixes are not authorization evidence.
 
 ## Persistence
 
-**1 → Channels.** `Project` stores nullable `chatWorkspaceId`, `channelKind`, `isShared`, and `channelDetailsUpdatedAt` alongside its existing visibility classification. `isMissingChatMetadata` is computed from missing workspace ID, channel kind, or sharing status. New channels are registered on admitted input; existing projects refresh at thread start without replacing project identity or creation time. Failed refreshes retain the previous values and successful-lookup timestamp; a failed first lookup leaves the new fields null. A later new thread retries.
+**1 → Channels.** `Project` stores nullable `chatWorkspaceId`, `channelKind`, `isShared`, and `channelDetailsUpdatedAt` alongside its existing visibility classification. `isMissingChatMetadata` is computed from missing workspace ID, channel kind, or sharing status. New channels are registered on admitted input; existing projects refresh at thread start without replacing project identity or creation time. Refreshes update the channel name when available; otherwise the known name is retained. Failed refreshes retain the previous values and successful-lookup timestamp; a failed first lookup leaves the new fields null. A later new thread retries.
 
 **2 → Slack users.** `User` stores nullable `chatWorkspaceId`, `isBot`, `isGuest`, and `chatDetailsUpdatedAt`. Email is nullable: bots and users without accessible email can be stored. Email matches link the Slack identity and metadata to the existing user without replacing its name, IdP identity, or creation time.
 

@@ -90,6 +90,7 @@ class TurnCoordinator(
                             details?.isShared,
                             details?.let { Instant.now() },
                             details?.workspaceId,
+                            details?.name,
                         )
                     }
 
