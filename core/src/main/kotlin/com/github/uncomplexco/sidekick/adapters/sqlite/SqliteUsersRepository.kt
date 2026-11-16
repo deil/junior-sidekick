@@ -140,5 +140,6 @@ class SqliteUsersRepository(private val sidekickJdbcClient: JdbcClient) : UsersR
             isBot = getObject("is_bot")?.let { getBoolean("is_bot") },
             isGuest = getObject("is_guest")?.let { getBoolean("is_guest") },
             chatDetailsUpdatedAt = getString("chat_details_updated_at")?.let(Instant::parse),
+            isAdmin = getBoolean("is_admin"),
         )
 }

@@ -14,6 +14,7 @@ data class User(
     val isBot: Boolean? = null,
     val isGuest: Boolean? = null,
     val chatDetailsUpdatedAt: Instant? = null,
+    val isAdmin: Boolean = false,
 ) {
     val isMissingChatMetadata: Boolean
         get() = chatWorkspaceId == null || isBot == null || isGuest == null
