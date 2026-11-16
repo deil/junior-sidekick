@@ -1,5 +1,8 @@
 package com.github.uncomplexco.sidekick.adapters.slack
 
+import com.github.uncomplexco.sidekick.application.chat.SubagentProgress
+import com.github.uncomplexco.sidekick.application.chat.SubagentStatus
+import com.github.uncomplexco.sidekick.application.chat.TodoProgress
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.application.utils.Loggers
 import com.slack.api.methods.MethodsClient
@@ -23,6 +26,9 @@ internal class SlackProgressMessages(
     private val timestamps = mutableMapOf<String, String>()
     private val refreshJobs = mutableMapOf<String, Job>()
     private var active = false
+    private var todos: TodoProgress? = null
+    private var todoRefresh: (() -> TodoProgress)? = null
+    private val subagents = linkedMapOf<String, SubagentProgress>()
     var threadTs: String? = threadTs
         private set
 
@@ -30,6 +36,9 @@ internal class SlackProgressMessages(
         synchronized(lock) {
             end()
             timestamps.clear()
+            todos = null
+            todoRefresh = null
+            subagents.clear()
             active = true
         }
 
@@ -57,6 +66,42 @@ internal class SlackProgressMessages(
                 }
             }
         }
+
+    fun reportTodos(progress: TodoProgress, refresh: (() -> TodoProgress)?) =
+        synchronized(lock) {
+            if (!active) return@synchronized
+
+            todos = progress
+            todoRefresh = refresh
+            report(renderTodos(), "todos", refresh?.let { { renderTodos() } })
+        }
+
+    fun reportSubagent(progress: SubagentProgress) =
+        synchronized(lock) {
+            if (!active) return@synchronized
+
+            subagents[progress.id] = progress
+            publish(renderTodos(), "todos")
+        }
+
+    private fun renderTodos(): String {
+        val current = todoRefresh?.invoke() ?: todos
+        val agents =
+            if (subagents.isEmpty()) null
+            else
+                "*Subagents*\n" +
+                    subagents.values.joinToString("\n") { agent ->
+                        val (icon, detail) =
+                            when (agent.status) {
+                                SubagentStatus.ACTIVE -> "∗" to agent.type
+                                SubagentStatus.COMPLETED -> "✓" to agent.type
+                                SubagentStatus.FAILED -> "×" to "${agent.type}, failed"
+                                SubagentStatus.CANCELLED -> "×" to "${agent.type}, cancelled"
+                            }
+                        "$icon ${agent.description} ($detail)"
+                    }
+        return listOfNotNull(current?.text, agents, current?.statusLine).joinToString("\n\n")
+    }
 
     private fun publish(text: String, key: String) {
         try {

@@ -3,6 +3,7 @@ package com.github.uncomplexco.sidekick.application.tools.todos
 import ai.koog.agents.core.tools.Tool
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.serialization.typeToken
+import com.github.uncomplexco.sidekick.application.chat.TodoProgress
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -125,15 +126,14 @@ class TodoTool(
         snapshot = Snapshot(args.goal, args.todos.toList(), clock.now())
         if (output == null) return args.todos
 
-        output.reportStatus(
+        output.reportTodos(
             renderCurrentSnapshot(),
-            key = "todos",
             refresh = if (snapshot.finished) null else ::renderCurrentSnapshot,
         )
         return args.todos
     }
 
-    private fun renderCurrentSnapshot(): String {
+    private fun renderCurrentSnapshot(): TodoProgress {
         val current = snapshot
         val localTime =
             LocalDateTime.ofInstant(current.updatedAt.toJavaInstant(), zone)
@@ -153,6 +153,6 @@ class TodoTool(
                 minutes == 0L -> " (just now)"
                 else -> " ($minutes ${if (minutes == 1L) "minute" else "minutes"} ago)"
             }
-        return "$body\n\n_todos as of $localTime${age}_"
+        return TodoProgress(body, "_todos as of $localTime${age}_")
     }
 }

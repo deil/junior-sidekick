@@ -145,6 +145,10 @@ class DefaultAgentToolCatalog(
                         bindTools = { child ->
                             bindDelegate(execution.copy(turn = child))
                         },
+                        subagentOutput =
+                            if (execution.delegationDepth == 0 && !execution.turn.headless)
+                                execution.chat.lifecycle
+                            else null,
                     )
                 )
             },

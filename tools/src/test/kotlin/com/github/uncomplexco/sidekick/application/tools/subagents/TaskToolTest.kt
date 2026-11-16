@@ -9,6 +9,7 @@ import com.github.uncomplexco.sidekick.application.chat.ChatPlatformAdapter
 import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
+import com.github.uncomplexco.sidekick.application.chat.SubagentStatus
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import com.github.uncomplexco.sidekick.application.conversation.AiModelProfile
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
@@ -21,6 +22,7 @@ import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.testing.CancellingSubagentRunner
 import com.github.uncomplexco.sidekick.testing.FailingSubagentRunner
 import com.github.uncomplexco.sidekick.testing.RecordingSubagentRunner
+import com.github.uncomplexco.sidekick.testing.SubagentProgressRecorder
 import java.nio.file.Path
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -34,6 +36,83 @@ import org.junit.jupiter.api.io.TempDir
 
 class TaskToolTest {
     @TempDir lateinit var tempDir: Path
+
+    @Test
+    fun `task is active while the subagent runs and completed when it returns`() = runBlocking {
+        val output = SubagentProgressRecorder()
+        var statusDuringRun: SubagentStatus? = null
+        val runner =
+            RecordingSubagentRunner(
+                "done",
+                onRun = {
+                    statusDuringRun = output.events.single().status
+                },
+            )
+        val task = tool(runner, subagentOutput = output)
+
+        val result = task.execute(TaskTool.Args("Find owners", "Inspect the repo"))
+
+        assertEquals("done", result)
+        assertEquals(SubagentStatus.ACTIVE, statusDuringRun)
+        assertEquals(
+            listOf(SubagentStatus.ACTIVE, SubagentStatus.COMPLETED),
+            output.events.map { it.status },
+        )
+        assertEquals(
+            listOf(runner.agentIds.single(), runner.agentIds.single()),
+            output.events.map { it.id },
+        )
+        assertEquals(listOf("Find owners", "Find owners"), output.events.map { it.description })
+        assertEquals(listOf("general", "general"), output.events.map { it.type })
+    }
+
+    @Test
+    fun `failed subagent is reported as failed rather than completed`() {
+        val output = SubagentProgressRecorder()
+        val task = tool(FailingSubagentRunner(), subagentOutput = output)
+
+        assertThrows<ToolException.ValidationFailure> {
+            runBlocking { task.execute(TaskTool.Args("Find owners", "Inspect the repo")) }
+        }
+
+        assertEquals(
+            listOf(SubagentStatus.ACTIVE, SubagentStatus.FAILED),
+            output.events.map { it.status },
+        )
+        assertEquals(output.events.first().id, output.events.last().id)
+    }
+
+    @Test
+    fun `cancelled subagent is reported as cancelled and cancellation propagates`() {
+        val output = SubagentProgressRecorder()
+        val cancellation = CancellationException("Cancelled")
+        val task = tool(CancellingSubagentRunner(cancellation), subagentOutput = output)
+
+        val thrown =
+            assertThrows<CancellationException> {
+                runBlocking { task.execute(TaskTool.Args("Find owners", "Inspect the repo")) }
+            }
+
+        assertSame(cancellation, thrown)
+        assertEquals(
+            listOf(SubagentStatus.ACTIVE, SubagentStatus.CANCELLED),
+            output.events.map { it.status },
+        )
+    }
+
+    @Test
+    fun `invalid Task does not publish a subagent row`() {
+        val output = SubagentProgressRecorder()
+        val runner = RecordingSubagentRunner("done")
+        val task = tool(runner, subagentOutput = output)
+
+        assertThrows<ToolException.ValidationFailure> {
+            runBlocking { task.execute(TaskTool.Args(" ", "Inspect the repo")) }
+        }
+
+        assertEquals(emptyList(), output.events)
+        assertEquals(emptyList(), runner.prompts)
+    }
 
     @Test
     fun `description lists available agent types`() {
@@ -192,6 +271,7 @@ class TaskToolTest {
         chat: RecordingChatPlatform = RecordingChatPlatform(),
         onUsage: (AgentUsageStats) -> Unit = {},
         bindTools: suspend (TurnContext) -> ToolRegistry = { ToolRegistry.EMPTY },
+        subagentOutput: TurnLifecycle? = chat.lifecycle,
     ): TaskTool =
         TaskTool(
             runner = runner,
@@ -200,6 +280,7 @@ class TaskToolTest {
             availableSubagents = listOf(Subagent("general", "General-purpose subagent", "Prompt")),
             onSubagentCompleted = onUsage,
             bindTools = bindTools,
+            subagentOutput = subagentOutput,
         )
 }
 

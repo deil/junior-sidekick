@@ -8,6 +8,8 @@ import ai.koog.agents.core.tools.validate
 import ai.koog.serialization.typeToken
 import com.github.uncomplexco.sidekick.application.agent.AgentRunResult
 import com.github.uncomplexco.sidekick.application.agent.koog.RunId
+import com.github.uncomplexco.sidekick.application.chat.SubagentProgress
+import com.github.uncomplexco.sidekick.application.chat.SubagentStatus
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
@@ -35,6 +37,7 @@ class TaskTool(
     availableSubagents: List<Subagent>,
     private val onSubagentCompleted: (AgentUsageStats) -> Unit,
     private val bindTools: suspend (TurnContext) -> ToolRegistry,
+    private val subagentOutput: TurnLifecycle? = activityReporter,
 ) :
     Tool<TaskTool.Args, String>(
         argsType = typeToken<Args>(),
@@ -65,10 +68,12 @@ class TaskTool(
         validate(subagentType in availableSubagentTypes) { "Unknown subagent_type: $subagentType" }
 
         activityReporter.progress("$subagentType task - $description")
+        val agentId = "subagent-${UUID.randomUUID()}"
+        val progress = SubagentProgress(agentId, description, subagentType, SubagentStatus.ACTIVE)
 
         try {
+            subagentOutput?.reportSubagent(progress)
             val child = ctx.copy(turnId = "task-${UUID.randomUUID()}")
-            val agentId = "subagent-${UUID.randomUUID()}"
             val runId = RunId(ctx.conversation.conversationId, child.turnId)
             val result =
                 runner.run(
@@ -81,12 +86,17 @@ class TaskTool(
                 )
             onSubagentCompleted(result.usage)
             return when (result) {
-                is AgentRunResult.Completed -> result.output
+                is AgentRunResult.Completed -> {
+                    subagentOutput?.reportSubagent(progress.copy(status = SubagentStatus.COMPLETED))
+                    result.output
+                }
                 is AgentRunResult.Failed -> throw result.cause
             }
         } catch (e: CancellationException) {
+            subagentOutput?.reportSubagent(progress.copy(status = SubagentStatus.CANCELLED))
             throw e
         } catch (e: Exception) {
+            subagentOutput?.reportSubagent(progress.copy(status = SubagentStatus.FAILED))
             fail(e.message ?: "Subagent failed")
         } finally {
             activityReporter.progress()

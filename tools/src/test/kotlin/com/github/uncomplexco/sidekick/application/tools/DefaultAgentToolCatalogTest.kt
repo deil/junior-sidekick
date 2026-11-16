@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.serialization.JSONObject
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolAccess
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolRegistration
+import com.github.uncomplexco.sidekick.application.chat.SubagentStatus
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpServerConfig
 import com.github.uncomplexco.sidekick.application.tools.mcp.McpToolsConfig
 import com.github.uncomplexco.sidekick.application.tools.subagents.TaskTool
@@ -13,6 +14,7 @@ import com.github.uncomplexco.sidekick.testing.CatalogDiscordChat
 import com.github.uncomplexco.sidekick.testing.CatalogMcpServer
 import com.github.uncomplexco.sidekick.testing.CatalogSlackChat
 import com.github.uncomplexco.sidekick.testing.ContextProbeTool
+import com.github.uncomplexco.sidekick.testing.SubagentProgressChat
 import com.github.uncomplexco.sidekick.testing.ToolCatalogFixture
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
 import com.github.uncomplexco.sidekick.tools.SidekickToolProvider
@@ -83,6 +85,48 @@ class DefaultAgentToolCatalogTest {
             assertFalse("Loop" in sidekick)
             assertFalse("assistant_report_status" in sidekick)
         }
+
+    @Test
+    fun `orchestrator Task publishes subagent progress`() = runBlocking {
+        val fixture = ToolCatalogFixture(root)
+        val chat = SubagentProgressChat()
+        val task =
+            fixture.catalog.bindOrchestrator(fixture.execution(chat = chat)).getTool<TaskTool>()
+
+        task.execute(TaskTool.Args("Find owners", "Inspect the repo"))
+
+        assertEquals(
+            listOf(SubagentStatus.ACTIVE, SubagentStatus.COMPLETED),
+            chat.recorder.events.map { it.status },
+        )
+    }
+
+    @Test
+    fun `delegate Task does not publish subagent progress`() = runBlocking {
+        val fixture = ToolCatalogFixture(root)
+        val chat = SubagentProgressChat()
+        val task = fixture.catalog.bindDelegate(fixture.execution(chat = chat)).getTool<TaskTool>()
+
+        val result = task.execute(TaskTool.Args("Find owners", "Inspect the repo"))
+
+        assertEquals("Task completed", result)
+        assertTrue(chat.recorder.events.isEmpty())
+    }
+
+    @Test
+    fun `headless Task does not publish subagent progress`() = runBlocking {
+        val fixture = ToolCatalogFixture(root)
+        val chat = SubagentProgressChat()
+        val task =
+            fixture.catalog
+                .bindOrchestrator(fixture.execution(chat = chat, headless = true))
+                .getTool<TaskTool>()
+
+        val result = task.execute(TaskTool.Args("Find owners", "Inspect the repo"))
+
+        assertEquals("Task completed", result)
+        assertTrue(chat.recorder.events.isEmpty())
+    }
 
     @Test
     fun `orchestrator Todo publishes the supplied list`() = runBlocking {

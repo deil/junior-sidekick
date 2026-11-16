@@ -16,6 +16,11 @@ Sidekick exposes a Koog `Task` tool that runs an isolated subagent and returns t
 
 While the tool runs, Sidekick reports status as `<subagent_type> task - <description>`, then restores generic thinking status when the call completes.
 
+In Slack, top-level tasks also appear in the turn's progress message with their
+description, type, and active, completed, failed, or cancelled status. Starting and
+finishing a task updates the same message. Nested and headless tasks do not publish
+these rows.
+
 The `Task` tool descriptor is built dynamically from the agents catalog. Its description ends with:
 
 ```text

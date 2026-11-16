@@ -84,6 +84,15 @@ While a turn has pending or in-progress tasks, the italic footer includes elapse
 minutes since the last `Todo` call and refreshes every minute. The update time stays
 fixed until the next call. Lists containing only completed/cancelled tasks omit the
 age and stop refreshing; turn completion also stops refreshing.
+
+After a top-level `Task` starts, the same message includes a Subagents section
+between the todo list and its timestamp. Each row shows the task description,
+subagent type, and active, completed, failed, or cancelled status. Starting and
+finishing a task updates its row immediately; completed rows remain for the turn.
+Tasks started before the first `Todo` create the progress message, and later todo
+updates retain the subagent list. Nested delegation and headless runs do not
+publish subagent rows.
+
 `Todo` owns an in-memory snapshot of the goal, task list, and last tool-update time.
 Both immediate updates and minute refreshes render that current snapshot.
 Scheduled-job executions keep todo snapshots in memory without posting or refreshing

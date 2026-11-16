@@ -14,6 +14,8 @@ import com.github.uncomplexco.sidekick.application.chat.IncomingChatFile
 import com.github.uncomplexco.sidekick.application.chat.IncomingMessage
 import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.chat.SlackBackedChatPlatformAdapter
+import com.github.uncomplexco.sidekick.application.chat.SubagentProgress
+import com.github.uncomplexco.sidekick.application.chat.TodoProgress
 import com.github.uncomplexco.sidekick.application.chat.TurnLifecycle
 import com.github.uncomplexco.sidekick.application.context.SystemPromptBuilder
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
@@ -137,6 +139,14 @@ internal class SlackTurnOutput(
 
     override suspend fun reportStatus(text: String, key: String, refresh: (() -> String)?) {
         messages.report(text, key, refresh)
+    }
+
+    override suspend fun reportTodos(progress: TodoProgress, refresh: (() -> TodoProgress)?) {
+        messages.reportTodos(progress, refresh)
+    }
+
+    override suspend fun reportSubagent(progress: SubagentProgress) {
+        messages.reportSubagent(progress)
     }
 
     private fun stopActivity(current: Activity) {

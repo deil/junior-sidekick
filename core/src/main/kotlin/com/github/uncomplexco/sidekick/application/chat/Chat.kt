@@ -99,6 +99,11 @@ interface TurnLifecycle {
         refresh: (() -> String)? = null,
     ) = Unit
 
+    suspend fun reportTodos(progress: TodoProgress, refresh: (() -> TodoProgress)? = null) =
+        reportStatus(progress.render(), "todos", refresh?.let { update -> { update().render() } })
+
+    suspend fun reportSubagent(progress: SubagentProgress) = Unit
+
     fun end()
 
     suspend fun markProcessing(message: IncomingMessage)
