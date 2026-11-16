@@ -82,9 +82,10 @@ class SlackAppFactory {
             }
         slackBotProfile.identity = SlackBotIdentity(displayName, auth.userId, auth.teamId)
         Loggers.SLACK.info(
-            "Resolved Slack bot identity displayName={} userId={} teamId={}",
+            "Resolved Slack bot identity displayName={} userId={} botId={} teamId={}",
             displayName,
             auth.userId,
+            auth.botId,
             auth.teamId,
         )
 
