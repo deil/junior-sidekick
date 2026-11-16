@@ -302,7 +302,7 @@ class LlmParticipationClassifier(private val config: KoogConfig) : Participation
         Reply true when at least one message in the batch is aimed at $agentName.
         Later clarifications and corrections update earlier requests. A later acknowledgment does not erase an earlier request.
         Use who currently has the conversation floor, not just topic overlap.
-        If $agentName was the last speaker terse clarifications, follow-ups, direct reference to $agentName's prior answer should count as an implicit follow-up.
+        If $agentName was the last speaker, terse clarifications, follow-ups, direct reference to $agentName's prior answer should count as an implicit follow-up.
         If $agentName's last message was a question or request for confirmation - acknowledgment and clarification to it should count as follow-up.
         If a human message in the batch contains a request, new task, even if on a different subject, or references prior work, that should count as a follow-up.
         If several humans spoke after $agentName, require a direct and clear reference to $agentName. Topic overlap is not enough.
