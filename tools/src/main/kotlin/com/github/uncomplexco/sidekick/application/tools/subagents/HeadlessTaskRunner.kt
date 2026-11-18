@@ -5,6 +5,8 @@ import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.AgentRunResult
 import com.github.uncomplexco.sidekick.application.agent.koog.McpServersRegistry
 import com.github.uncomplexco.sidekick.application.agent.koog.RunId
+import com.github.uncomplexco.sidekick.application.agent.onProjectCreated
+import com.github.uncomplexco.sidekick.application.agent.onWorkCreated
 import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
 import com.github.uncomplexco.sidekick.application.agent.tools.ToolExecutionContext
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
@@ -45,8 +47,12 @@ class HeadlessTaskRunner(
     ): AgentRunResult<String> {
         val conversationId = ConversationId(runId, runId)
         val paths = createWorkspace(runId)
-        val attachments =
-            ReplyAttachmentCollector(runId, filesystems.create(paths), paths.sessionRoot)
+        val filesystem = filesystems.create(paths)
+        onWorkCreated(config, paths.workRoot)
+        onProjectCreated(config, runId, filesystem)
+        log.info("Initialized workspace for API task projectId={}", runId)
+
+        val attachments = ReplyAttachmentCollector(runId, filesystem, paths.sessionRoot)
         val servers = mcp.connect(conversationId, userId = null, workRoot = paths.workRoot)
 
         try {
@@ -84,16 +90,13 @@ class HeadlessTaskRunner(
     private fun createWorkspace(projectId: String): VirtualPaths {
         val layout = config.workspaceLayout()
         val root = Files.createDirectory(layout.taskWorkspacesDirectoryPath().resolve(projectId))
-        val paths =
-            VirtualPaths(
-                sessionRoot = Files.createDirectory(root.resolve("session")),
-                skillsRoot = layout.extensionsRepositoryDirectoryPath(),
-                globalRoot = layout.knowledgeRepositoryDirectoryPath(),
-                workRoot = Files.createDirectory(root.resolve("work")),
-                projectRoot = Files.createDirectory(root.resolve("project")),
-            )
-        log.info("Created workspace for API task projectId={}", projectId)
-        return paths
+        return VirtualPaths(
+            sessionRoot = Files.createDirectory(root.resolve("session")),
+            skillsRoot = layout.extensionsRepositoryDirectoryPath(),
+            globalRoot = layout.knowledgeRepositoryDirectoryPath(),
+            workRoot = Files.createDirectory(root.resolve("work")),
+            projectRoot = Files.createDirectory(root.resolve("project")),
+        )
     }
 
     private object HeadlessChat : ChatPlatformAdapter, TurnLifecycle, ResponseDelivery {

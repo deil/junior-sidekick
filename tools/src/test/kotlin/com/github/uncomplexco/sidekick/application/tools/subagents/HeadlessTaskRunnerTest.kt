@@ -19,16 +19,32 @@ class HeadlessTaskRunnerTest {
     @TempDir lateinit var directory: Path
 
     @Test
+    fun `headless run seeds its workspace from the configured templates`() = runBlocking {
+        val fixture = ToolCatalogFixture(directory)
+        val templates = fixture.config.workspaceLayout().templatesDirectoryPath()
+        val workTemplate = Files.createDirectory(templates.resolve("work"))
+        val projectTemplate = Files.createDirectory(templates.resolve("project"))
+        Files.writeString(workTemplate.resolve("starter.txt"), "Work starter")
+        Files.writeString(projectTemplate.resolve("starter.txt"), "Project starter")
+        val runner = runner(fixture)
+
+        val result =
+            runner.runIsolated(
+                "api-task-seeded",
+                Subagent("general", "General", "Answer the question"),
+                "Find the answer",
+            )
+
+        assertIs<AgentRunResult.Completed<String>>(result)
+        val workspace = directory.resolve("data/workspaces/tasks/api-task-seeded")
+        assertEquals("Work starter", Files.readString(workspace.resolve("work/starter.txt")))
+        assertEquals("Project starter", Files.readString(workspace.resolve("project/starter.txt")))
+    }
+
+    @Test
     fun `headless run uses the prefixed conversation and normal delegate tools`() = runBlocking {
         val fixture = ToolCatalogFixture(directory)
-        val runner =
-            HeadlessTaskRunner(
-                fixture.config,
-                fixture.catalog,
-                fixture.runner,
-                WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem),
-                EmptyTaskMcpRegistry,
-            )
+        val runner = runner(fixture)
 
         val result =
             runner.runIsolated(
@@ -48,4 +64,13 @@ class HeadlessTaskRunnerTest {
         assertTrue(Files.isDirectory(workspace.resolve("work")))
         assertTrue(Files.isDirectory(workspace.resolve("project")))
     }
+
+    private fun runner(fixture: ToolCatalogFixture) =
+        HeadlessTaskRunner(
+            fixture.config,
+            fixture.catalog,
+            fixture.runner,
+            WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem),
+            EmptyTaskMcpRegistry,
+        )
 }
