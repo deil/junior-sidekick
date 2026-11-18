@@ -1,0 +1,8 @@
+package com.github.uncomplexco.sidekick.adapters.http.tasks
+
+import org.springframework.boot.context.properties.ConfigurationProperties
+
+@ConfigurationProperties("sidekick.task-api")
+data class TaskApiProperties(val clients: Map<String, Client> = emptyMap()) {
+    data class Client(val keyHashes: List<String> = emptyList())
+}

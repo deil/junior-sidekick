@@ -47,6 +47,7 @@ Ask it to investigate a problem, work with a repository, query connected systems
 
 - [Set up Slack](SETUP_SLACK.md)
 - [Set up Discord](SETUP_DISCORD.md)
+- [Run subagents over HTTP](docs/task-api.md)
 
 ## Privacy & Security
 

@@ -24,6 +24,9 @@ class Subagents(
 
     override fun catalog(): SubagentCatalog = SubagentCatalog(subagentsByName().values.toList())
 
+    fun findBuiltIn(name: String): Subagent? =
+        BUILT_IN_SUBAGENTS.firstOrNull { it == name }?.let(::loadBuiltIn)
+
     private fun subagentsByName(): Map<String, Subagent> = buildMap {
         BUILT_IN_SUBAGENTS.forEach { subagent -> put(subagent, loadBuiltIn(subagent)) }
         loadExtensionSubagents().forEach { subagent ->
