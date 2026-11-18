@@ -12,6 +12,8 @@ class WorkspaceLayout(private val root: Path) {
 
     fun projectWorkspacesDirectoryPath(): Path = directory("data/workspaces/projects")
 
+    fun taskWorkspacesDirectoryPath(): Path = directory("data/workspaces/tasks")
+
     fun extensionsConfigPath(): Path = configDirectoryPath().resolve("extensions.json")
 
     fun knowledgeConfigPath(): Path = configDirectoryPath().resolve("knowledge.json")

@@ -4,6 +4,9 @@ import com.github.uncomplexco.sidekick.application.agent.AgentRunResult
 import com.github.uncomplexco.sidekick.application.runtime.SidekickCoroutineScope
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.tools.subagents.PublicTaskRuns
+import com.github.uncomplexco.sidekick.application.tools.subagents.Subagent
+import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentCatalog
+import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentCatalogProvider
 import com.github.uncomplexco.sidekick.application.tools.subagents.Subagents
 import com.github.uncomplexco.sidekick.testing.TaskApiTestRunner
 import com.jayway.jsonpath.JsonPath
@@ -165,6 +168,19 @@ class TaskApiTest {
     }
 
     @Test
+    fun `submission runs an extension subagent under a prefixed execution ID`() {
+        val runner = context.getBean(TaskApiTestRunner::class.java)
+
+        val response = submit(OWNER_KEY, """{"prompt":"Review this","subagent_type":"reviewer"}""")
+        scope.runCurrent()
+
+        response.andExpect { status { isAccepted() } }
+        val runId = JsonPath.read<String>(response.andReturn().response.contentAsString, "$.run_id")
+        assertEquals(listOf("reviewer" to "Review this"), runner.requests)
+        assertEquals(listOf("api-task-$runId"), runner.executionIds)
+    }
+
+    @Test
     fun `submission rejects an unknown subagent type`() {
         submit(OWNER_KEY, """{"prompt":"Find the answer","subagent_type":"unknown"}""").andExpect {
             status { isBadRequest() }
@@ -206,7 +222,13 @@ class TaskApiTest {
     @EnableWebSecurity
     @Import(TaskApiController::class, TaskApiSecurity::class, PublicTaskRuns::class)
     class Config {
-        @Bean fun subagents() = Subagents()
+        @Bean
+        fun subagents() = SubagentCatalogProvider {
+            SubagentCatalog(
+                Subagents().catalog().subagents +
+                    Subagent("reviewer", "Reviews text", "Review the supplied text.")
+            )
+        }
 
         @Bean fun runner() = TaskApiTestRunner()
     }

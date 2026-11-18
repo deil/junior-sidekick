@@ -18,20 +18,7 @@ class KoogSubagentRunner(
     private val koogConfig: KoogConfig,
     private val subagents: SubagentCatalogProvider,
     private val skills: SkillsCatalog,
-) : SubagentRunner, IsolatedSubagentRunner {
-    override suspend fun runIsolated(
-        runId: String,
-        subagent: Subagent,
-        prompt: String,
-    ): AgentRunResult<String> =
-        KoogAgent(koogConfig, "api-task-$runId")
-            .runSimple(
-                runId = RunId(null, runId),
-                model = koogConfig.normalProfile,
-                systemPrompt = { subagent.systemPrompt },
-                input = { prompt },
-            )
-
+) : SubagentRunner {
     override suspend fun run(
         agentId: String,
         runId: RunId,

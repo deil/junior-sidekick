@@ -1,6 +1,8 @@
 # Task API
 
-The Task API runs a built-in subagent in a fresh context. It has no tools, project files, session history, or chat output. Results are returned over HTTP.
+The Task API runs a subagent headlessly with the normal delegate tools available outside chat. It starts in a fresh workspace with no existing project files or session history. Results are returned over HTTP.
+
+Synthetic workspaces and conversations use `api-task-<run_id>` so they are easy to find in logs. Configured shared skills and knowledge remain available. The workspace is separate from existing chat projects.
 
 ## Configure API keys
 
@@ -35,7 +37,7 @@ curl -X POST "$SIDEKICK_URL/api/internal/tasks" \
   -d '{"prompt":"Summarize what a build cache does."}'
 ```
 
-`prompt` is required, nonblank, and limited to 10,000 characters. `subagent_type` is optional and defaults to `general`, the available built-in type.
+`prompt` is required, nonblank, and limited to 10,000 characters. `subagent_type` is optional and defaults to `general`. It accepts any type in the `Task` catalog, including extensions.
 
 Submission returns `202 Accepted`, a JSON `run_id`, and a `Location` header with the polling path.
 
@@ -46,4 +48,4 @@ curl "$SIDEKICK_URL/api/internal/tasks/$RUN_ID" \
 
 Polling returns `200 OK` with `status`: `queued`, `running`, `completed`, or `failed`. A completed run includes `result`; a failed run includes `error`. Missing or invalid keys get `401`. Unknown, expired, and other clients' run IDs get `404`.
 
-Runs are held in memory on a single instance and lost on restart. Poll the same instance that accepted the task. Finished runs are available for one hour. Up to four tasks execute at once, with a two-minute execution timeout. Submissions return `429` when the instance holds 256 queued, running, or unexpired finished runs.
+Run status and results are held in memory on a single instance and lost on restart. Poll the same instance that accepted the task. Finished results are available for one hour. Workspace files are kept separately and do not expire with the result. Up to four tasks execute at once, with a two-minute execution timeout. Submissions return `429` when the instance holds 256 queued, running, or unexpired finished results.

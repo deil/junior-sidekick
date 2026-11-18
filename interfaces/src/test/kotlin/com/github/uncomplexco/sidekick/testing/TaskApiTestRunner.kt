@@ -8,6 +8,7 @@ import kotlinx.coroutines.CompletableDeferred
 class TaskApiTestRunner : IsolatedSubagentRunner {
     val result = CompletableDeferred<AgentRunResult<String>>()
     val requests = mutableListOf<Pair<String, String>>()
+    val executionIds = mutableListOf<String>()
 
     override suspend fun runIsolated(
         runId: String,
@@ -15,6 +16,7 @@ class TaskApiTestRunner : IsolatedSubagentRunner {
         prompt: String,
     ): AgentRunResult<String> {
         requests += subagent.name to prompt
+        executionIds += runId
         return result.await()
     }
 }

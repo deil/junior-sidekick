@@ -24,7 +24,7 @@ fun interface IsolatedSubagentRunner {
 
 @Component
 class PublicTaskRuns(
-    private val subagents: Subagents,
+    private val subagents: SubagentCatalogProvider,
     private val runner: IsolatedSubagentRunner,
     private val scope: SidekickCoroutineScope,
 ) {
@@ -47,6 +47,7 @@ class PublicTaskRuns(
     }
 
     private class Run(val id: UUID, val clientId: String) {
+        val executionId = "api-task-$id"
         var status: Status = Status.Queued
         var finishedAt: TimeMark? = null
 
@@ -61,7 +62,9 @@ class PublicTaskRuns(
     private val log = LoggerFactory.getLogger(PublicTaskRuns::class.java)
 
     fun submit(clientId: String, subagentType: String, prompt: String): Submission {
-        val subagent = subagents.findBuiltIn(subagentType) ?: return Submission.UnknownSubagent
+        val subagent =
+            subagents.catalog().subagents.firstOrNull { it.name == subagentType }
+                ?: return Submission.UnknownSubagent
         val run = Run(UUID.randomUUID(), clientId)
         synchronized(runs) {
             runs.values.removeIf(Run::isExpired)
@@ -71,7 +74,7 @@ class PublicTaskRuns(
 
         log.info(
             "Queued API task runId={} clientId={} subagentType={}",
-            run.id,
+            run.executionId,
             clientId,
             subagentType,
         )
@@ -93,11 +96,11 @@ class PublicTaskRuns(
         try {
             workers.withPermit {
                 synchronized(runs) { run.status = Status.Running }
-                log.info("Started API task runId={}", run.id)
+                log.info("Started API task runId={}", run.executionId)
 
                 val result =
                     withTimeoutOrNull(EXECUTION_TIMEOUT) {
-                        runner.runIsolated(run.id.toString(), subagent, prompt)
+                        runner.runIsolated(run.executionId, subagent, prompt)
                     }
                 val status =
                     if (result is AgentRunResult.Completed) {
@@ -111,7 +114,11 @@ class PublicTaskRuns(
             finish(run, Status.Failed)
             throw e
         } catch (e: Exception) {
-            log.warn("Unexpected API task failure runId={} kind={}", run.id, e.javaClass.simpleName)
+            log.warn(
+                "Unexpected API task failure runId={} kind={}",
+                run.executionId,
+                e.javaClass.simpleName,
+            )
             finish(run, Status.Failed)
         }
     }
@@ -121,7 +128,11 @@ class PublicTaskRuns(
             run.status = status
             run.finishedAt = TimeSource.Monotonic.markNow()
         }
-        log.info("Finished API task runId={} completed={}", run.id, status is Status.Completed)
+        log.info(
+            "Finished API task runId={} completed={}",
+            run.executionId,
+            status is Status.Completed,
+        )
     }
 
     private companion object {
