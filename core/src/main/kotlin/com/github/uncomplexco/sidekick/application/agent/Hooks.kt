@@ -1,6 +1,6 @@
 package com.github.uncomplexco.sidekick.application.agent
 
-import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystem
+import com.github.uncomplexco.sidekick.ports.filesystem.Workspace
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -19,13 +19,13 @@ fun onWorkCreated(
 fun onProjectCreated(
     config: AgentConfig,
     projectId: String,
-    filesystem: WorkspaceFilesystem,
+    filesystem: Workspace,
 ) {
     val template = config.workspaceLayout().templatesDirectoryPath().resolve("project")
     if (!Files.isDirectory(template)) return
 
     try {
-        runBlocking { filesystem.seedProject(projectId, template) }
+        runBlocking { filesystem.transfers.seedProject(projectId, template) }
     } catch (error: Exception) {
         logger.warn("Failed to seed project workspace project_id={}", projectId, error)
     }

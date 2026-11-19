@@ -120,7 +120,11 @@ class ToolCatalogFixture(
                 AiModelProfile.NORMAL,
                 headless = headless,
             )
-        return ToolExecutionContext(turn, chat, ReplyAttachmentCollector(paths)) {}
+        return ToolExecutionContext(
+            turn,
+            chat,
+            ReplyAttachmentCollector("C123", LocalWorkspaceFilesystem(paths), paths.sessionRoot),
+        ) {}
     }
 
     private fun directory(path: String): Path = Files.createDirectories(root.resolve(path))

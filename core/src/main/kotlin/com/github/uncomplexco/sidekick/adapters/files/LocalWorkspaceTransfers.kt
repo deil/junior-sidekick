@@ -5,9 +5,11 @@ import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths.
 import com.github.uncomplexco.sidekick.ports.filesystem.FileKind
 import com.github.uncomplexco.sidekick.ports.filesystem.FileMetadata
 import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFile
+import java.nio.file.CopyOption
 import java.nio.file.Files
 import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption.COPY_ATTRIBUTES
 import java.nio.file.attribute.BasicFileAttributes
 
 internal class LocalWorkspaceTransfers(private val resolve: (String) -> Path) {
@@ -19,6 +21,9 @@ internal class LocalWorkspaceTransfers(private val resolve: (String) -> Path) {
 
     fun download(source: String, destination: Path): FileMetadata =
         copy(resolve(sessionPath(source)), destination)
+
+    fun downloadWorkspace(source: String, destination: Path): FileMetadata =
+        copy(resolve(source), destination, NOFOLLOW_LINKS, COPY_ATTRIBUTES)
 
     private fun sessionPath(source: String): String {
         val directory = source.substringBefore('/')
@@ -34,14 +39,14 @@ internal class LocalWorkspaceTransfers(private val resolve: (String) -> Path) {
         return root + source.removePrefix(directory)
     }
 
-    private fun copy(source: Path, destination: Path): FileMetadata {
+    private fun copy(source: Path, destination: Path, vararg options: CopyOption): FileMetadata {
         require(Files.isRegularFile(source, NOFOLLOW_LINKS)) {
             "Path is not a regular file: $source"
         }
 
         val target = destination.toAbsolutePath().normalize()
         Files.createDirectories(target.parent)
-        Files.copy(source, target)
+        Files.copy(source, target, *options)
 
         val attributes =
             Files.readAttributes(target, BasicFileAttributes::class.java, NOFOLLOW_LINKS)

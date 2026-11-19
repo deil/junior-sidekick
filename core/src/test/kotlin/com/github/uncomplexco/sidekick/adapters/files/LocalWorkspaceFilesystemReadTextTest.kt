@@ -203,4 +203,5 @@ class LocalWorkspaceFilesystemReadTextTest {
                     projectRoot = dir,
                 )
             )
+            .files
 }

@@ -36,6 +36,7 @@ import com.github.uncomplexco.sidekick.application.turn.RecordedTurn
 import com.github.uncomplexco.sidekick.application.turn.ReplyAttachmentCollector
 import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
 import com.github.uncomplexco.sidekick.application.turn.resolveRequester
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import java.nio.file.Path
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -67,6 +68,7 @@ class SidekickAgent(
     private val mcpServersRegistry: McpServersRegistry,
     private val chatHistoryProvider: ChatHistoryProvider,
     private val checkpointPersistence: TurnCheckpointPersistence,
+    private val filesystems: WorkspaceFilesystemFactory,
 ) : AgentTurnExecutor {
     override suspend fun execute(
         turn: RecordedTurn,
@@ -84,7 +86,12 @@ class SidekickAgent(
                 ctx.conversation.virtualPaths.workRoot,
             )
         val ctxWithMcp = ctx.copy(conversation = ctx.conversation.copy(mcpServers = mcpServers))
-        val replyAttachments = ReplyAttachmentCollector(ctx.conversation.virtualPaths)
+        val replyAttachments =
+            ReplyAttachmentCollector(
+                ctx.conversation.conversationId.channelId,
+                filesystems.create(ctx.conversation.virtualPaths),
+                ctx.conversation.virtualPaths.sessionRoot,
+            )
 
         try {
             val toolRegistry =

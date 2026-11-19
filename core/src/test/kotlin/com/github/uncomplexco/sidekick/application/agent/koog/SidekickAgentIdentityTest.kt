@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.agent.koog
 
 import ai.koog.agents.chatMemory.feature.ChatHistoryProvider
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
+import com.github.uncomplexco.sidekick.adapters.files.LocalWorkspaceFilesystem
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.tools.AgentToolCatalog
@@ -17,6 +18,7 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionManager
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessage
 import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRole
 import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import java.nio.file.Path
@@ -82,6 +84,7 @@ class SidekickAgentIdentityTest {
                 registry,
                 mock(ChatHistoryProvider::class.java),
                 TurnCheckpointPersistence(store),
+                WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem),
             )
 
         // Act

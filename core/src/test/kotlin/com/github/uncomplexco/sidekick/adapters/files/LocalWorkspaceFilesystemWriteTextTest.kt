@@ -103,4 +103,5 @@ class LocalWorkspaceFilesystemWriteTextTest {
                     projectRoot = dir.resolve("project"),
                 )
             )
+            .files
 }

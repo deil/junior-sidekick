@@ -9,11 +9,20 @@ import com.github.uncomplexco.sidekick.ports.filesystem.GrepResult
 import com.github.uncomplexco.sidekick.ports.filesystem.PatchResult
 import com.github.uncomplexco.sidekick.ports.filesystem.TextReadOptions
 import com.github.uncomplexco.sidekick.ports.filesystem.TextReadResult
+import com.github.uncomplexco.sidekick.ports.filesystem.Workspace
 import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFile
-import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystem
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFiles
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceSearch
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceTransfers
 import java.nio.file.Path
 
-class RemoteWorkspaceFilesystem(private val client: SandboxV2Client) : WorkspaceFilesystem {
+class RemoteWorkspaceFilesystem(client: SandboxV2Client) : Workspace {
+    override val search: WorkspaceSearch = RemoteWorkspaceSearch(client)
+    override val files: WorkspaceFiles = RemoteWorkspaceFiles(client)
+    override val transfers: WorkspaceTransfers = RemoteWorkspaceTransfers
+}
+
+private object RemoteWorkspaceTransfers : WorkspaceTransfers {
     override suspend fun seedProject(projectId: String, source: Path): Unit =
         TODO("Sandbox v2 project seeding is not implemented")
 
@@ -30,9 +39,14 @@ class RemoteWorkspaceFilesystem(private val client: SandboxV2Client) : Workspace
         destination: Path,
     ): FileMetadata = TODO("Sandbox v2 file download is not implemented")
 
-    override suspend fun stat(projectId: String, path: String): FileMetadata? =
-        client.stat(projectId, path)
+    override suspend fun download(
+        projectId: String,
+        source: String,
+        destination: Path,
+    ): FileMetadata = TODO("Sandbox v2 workspace file download is not implemented")
+}
 
+private class RemoteWorkspaceFiles(private val client: SandboxV2Client) : WorkspaceFiles {
     override suspend fun readText(
         projectId: String,
         path: String,
@@ -55,6 +69,11 @@ class RemoteWorkspaceFilesystem(private val client: SandboxV2Client) : Workspace
         path: String,
         patchText: String,
     ): PatchResult = client.applyPatch(projectId, path, patchText)
+}
+
+private class RemoteWorkspaceSearch(private val client: SandboxV2Client) : WorkspaceSearch {
+    override suspend fun stat(projectId: String, path: String): FileMetadata? =
+        client.stat(projectId, path)
 
     override suspend fun listDirectory(
         projectId: String,

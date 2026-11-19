@@ -37,7 +37,7 @@ class WorkspaceConfigurationTest {
         application(enabled = true, provider = provider).use { context ->
             val filesystem = context.getBean(WorkspaceFilesystemFactory::class.java).create(paths())
 
-            val result = filesystem.readText("C123", "/data/project/file.txt")
+            val result = filesystem.files.readText("C123", "/data/project/file.txt")
 
             assertEquals("local", result.content)
         }
@@ -50,7 +50,7 @@ class WorkspaceConfigurationTest {
         application(enabled = false, provider = "http-v2").use { context ->
             val filesystem = context.getBean(WorkspaceFilesystemFactory::class.java).create(paths())
 
-            val result = filesystem.readText("C123", "/data/project/file.txt")
+            val result = filesystem.files.readText("C123", "/data/project/file.txt")
 
             assertEquals("local", result.content)
         }
@@ -65,7 +65,7 @@ class WorkspaceConfigurationTest {
             val filesystem = context.getBean(WorkspaceFilesystemFactory::class.java).create(paths())
 
             assertFailsWith<NotImplementedError> {
-                filesystem.writeText("C123", "/data/project/file.txt", "changed")
+                filesystem.files.writeText("C123", "/data/project/file.txt", "changed")
             }
             assertEquals("original", Files.readString(dir.resolve("file.txt")))
         }

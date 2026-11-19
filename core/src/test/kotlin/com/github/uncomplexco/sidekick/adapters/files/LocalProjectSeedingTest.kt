@@ -1,7 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.files
 
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystem
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceTransfers
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
@@ -61,14 +61,15 @@ class LocalProjectSeedingTest {
         assertEquals("new content", Files.readString(dir.resolve("project/new.txt")))
     }
 
-    private fun filesystem(): WorkspaceFilesystem =
+    private fun filesystem(): WorkspaceTransfers =
         LocalWorkspaceFilesystem(
-            VirtualPaths(
-                sessionRoot = dir.resolve("session"),
-                skillsRoot = dir.resolve("skills"),
-                globalRoot = dir.resolve("global"),
-                workRoot = dir.resolve("work"),
-                projectRoot = dir.resolve("project"),
+                VirtualPaths(
+                    sessionRoot = dir.resolve("session"),
+                    skillsRoot = dir.resolve("skills"),
+                    globalRoot = dir.resolve("global"),
+                    workRoot = dir.resolve("work"),
+                    projectRoot = dir.resolve("project"),
+                )
             )
-        )
+            .transfers
 }

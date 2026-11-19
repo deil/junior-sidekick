@@ -10,6 +10,7 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.serialization.typeToken
 import com.github.uncomplexco.sidekick.adapters.files.FilesystemConversationStateStore
+import com.github.uncomplexco.sidekick.adapters.files.LocalWorkspaceFilesystem
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
 import com.github.uncomplexco.sidekick.application.agent.AgentSteering
 import com.github.uncomplexco.sidekick.application.agent.KoogConfig
@@ -37,6 +38,7 @@ import com.github.uncomplexco.sidekick.application.conversation.SessionMessageRo
 import com.github.uncomplexco.sidekick.application.turn.RecordedTurn
 import com.github.uncomplexco.sidekick.application.turn.TurnContext
 import com.github.uncomplexco.sidekick.application.turn.checkpoints.TurnCheckpointPersistence
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFactory
 import com.github.uncomplexco.sidekick.testing.StubSkillsCatalog
 import com.github.uncomplexco.sidekick.testing.virtualPathsFactory
 import java.nio.file.Path
@@ -303,6 +305,7 @@ class SidekickAgentSteeringTest {
             registry,
             ConversationStateChatHistoryProvider(store),
             TurnCheckpointPersistence(store),
+            WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem),
         )
 
     private fun modelConfig(ctx: TurnContext): KoogConfig {

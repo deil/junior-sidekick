@@ -156,4 +156,5 @@ class LocalWorkspaceFilesystemEditTextTest {
                     projectRoot = dir,
                 )
             )
+            .files
 }

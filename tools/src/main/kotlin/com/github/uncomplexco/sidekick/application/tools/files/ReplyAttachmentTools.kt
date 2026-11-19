@@ -15,7 +15,7 @@ class ReplyAttachmentTools(private val collector: ReplyAttachmentCollector) : To
         "Attach a file to the Slack reply. Use this for files that exist in the workspace. Logs, " +
             "screenshots, or other files, including created during the session."
     )
-    fun attachFile(
+    suspend fun attachFile(
         @LLMDescription("Absolute path to the file to attach") path: VirtualPath,
         @LLMDescription("Optional file name override to display in Slack") name: String? = null,
         @LLMDescription("Optional MIME type override, e.g. text/markdown") mimeType: String? = null,

@@ -14,8 +14,11 @@ import com.github.uncomplexco.sidekick.ports.filesystem.GrepResult
 import com.github.uncomplexco.sidekick.ports.filesystem.PatchResult
 import com.github.uncomplexco.sidekick.ports.filesystem.TextReadOptions
 import com.github.uncomplexco.sidekick.ports.filesystem.TextReadResult
+import com.github.uncomplexco.sidekick.ports.filesystem.Workspace
 import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFile
-import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystem
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFiles
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceSearch
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceTransfers
 import java.nio.file.Files
 import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.NoSuchFileException
@@ -26,11 +29,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 
-class LocalWorkspaceFilesystem(private val virtualPaths: VirtualPaths) : WorkspaceFilesystem {
-    private val logger = LoggerFactory.getLogger(LocalWorkspaceFilesystem::class.java)
+class LocalWorkspaceFilesystem(virtualPaths: VirtualPaths) : Workspace {
     private val resolve = LocalWorkspacePaths(virtualPaths)::resolve
     private val textFiles = LocalTextFiles()
-    private val patches = LocalWorkspacePatches(resolve, textFiles)
+    override val search: WorkspaceSearch = LocalWorkspaceSearch(virtualPaths, resolve, textFiles)
+    override val files: WorkspaceFiles = LocalWorkspaceFiles(resolve, textFiles)
+    override val transfers: WorkspaceTransfers = LocalWorkspaceTransferOperations(resolve)
+}
+
+private class LocalWorkspaceTransferOperations(private val resolve: (String) -> Path) :
+    WorkspaceTransfers {
+    private val logger = LoggerFactory.getLogger(LocalWorkspaceFilesystem::class.java)
     private val transfers = LocalWorkspaceTransfers(resolve)
 
     override suspend fun seedProject(projectId: String, source: Path) {
@@ -89,26 +98,24 @@ class LocalWorkspaceFilesystem(private val virtualPaths: VirtualPaths) : Workspa
             metadata
         }
 
-    override suspend fun stat(projectId: String, path: String): FileMetadata? =
+    override suspend fun download(
+        projectId: String,
+        source: String,
+        destination: Path,
+    ): FileMetadata =
         withContext(Dispatchers.IO) {
-            val target = resolve(path)
-
-            val attributes =
-                try {
-                    Files.readAttributes(target, BasicFileAttributes::class.java, NOFOLLOW_LINKS)
-                } catch (_: NoSuchFileException) {
-                    return@withContext null
-                }
-            require(attributes.isRegularFile || attributes.isDirectory) {
-                "Path is not a regular file or directory: $path"
-            }
-
-            FileMetadata(
-                kind = if (attributes.isDirectory) FileKind.DIRECTORY else FileKind.FILE,
-                sizeBytes = attributes.size(),
-                modifiedAt = attributes.lastModifiedTime().toInstant(),
-            )
+            val metadata = transfers.downloadWorkspace(source, destination)
+            logger.info("Workspace file downloaded project_id={} source={}", projectId, source)
+            metadata
         }
+}
+
+private class LocalWorkspaceFiles(
+    private val resolve: (String) -> Path,
+    private val textFiles: LocalTextFiles,
+) : WorkspaceFiles {
+    private val logger = LoggerFactory.getLogger(LocalWorkspaceFilesystem::class.java)
+    private val patches = LocalWorkspacePatches(resolve, textFiles)
 
     override suspend fun readText(
         projectId: String,
@@ -189,6 +196,33 @@ class LocalWorkspaceFilesystem(private val virtualPaths: VirtualPaths) : Workspa
         path: String,
         patchText: String,
     ): PatchResult = withContext(Dispatchers.IO) { patches.apply(projectId, path, patchText) }
+}
+
+private class LocalWorkspaceSearch(
+    private val virtualPaths: VirtualPaths,
+    private val resolve: (String) -> Path,
+    private val textFiles: LocalTextFiles,
+) : WorkspaceSearch {
+    override suspend fun stat(projectId: String, path: String): FileMetadata? =
+        withContext(Dispatchers.IO) {
+            val target = resolve(path)
+
+            val attributes =
+                try {
+                    Files.readAttributes(target, BasicFileAttributes::class.java, NOFOLLOW_LINKS)
+                } catch (_: NoSuchFileException) {
+                    return@withContext null
+                }
+            require(attributes.isRegularFile || attributes.isDirectory) {
+                "Path is not a regular file or directory: $path"
+            }
+
+            FileMetadata(
+                kind = if (attributes.isDirectory) FileKind.DIRECTORY else FileKind.FILE,
+                sizeBytes = attributes.size(),
+                modifiedAt = attributes.lastModifiedTime().toInstant(),
+            )
+        }
 
     override suspend fun listDirectory(
         projectId: String,

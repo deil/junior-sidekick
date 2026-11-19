@@ -57,6 +57,7 @@ class LocalWorkspaceFilesystemTest {
         val result =
             WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem)
                 .create(paths)
+                .search
                 .stat("C123", "/data/project")
 
         assertNull(result)
@@ -89,7 +90,7 @@ class LocalWorkspaceFilesystemTest {
     }
 
     private fun filesystem() =
-        WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem).create(paths())
+        WorkspaceFilesystemFactory(::LocalWorkspaceFilesystem).create(paths()).search
 
     private fun paths() =
         VirtualPaths(

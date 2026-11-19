@@ -2,7 +2,7 @@ package com.github.uncomplexco.sidekick.adapters.files
 
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.ports.filesystem.FileKind
-import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystem
+import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceTransfers
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -184,14 +184,15 @@ class LocalWorkspaceTransfersTest {
         )
     }
 
-    private fun filesystem(root: Path = dir): WorkspaceFilesystem =
+    private fun filesystem(root: Path = dir): WorkspaceTransfers =
         LocalWorkspaceFilesystem(
-            VirtualPaths(
-                sessionRoot = root.resolve("history"),
-                skillsRoot = root.resolve("skills"),
-                globalRoot = root.resolve("global"),
-                workRoot = root.resolve("work"),
-                projectRoot = root.resolve("project"),
+                VirtualPaths(
+                    sessionRoot = root.resolve("history"),
+                    skillsRoot = root.resolve("skills"),
+                    globalRoot = root.resolve("global"),
+                    workRoot = root.resolve("work"),
+                    projectRoot = root.resolve("project"),
+                )
             )
-        )
+            .transfers
 }

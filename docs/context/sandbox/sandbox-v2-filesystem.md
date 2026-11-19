@@ -1,10 +1,10 @@
 # Sandbox v2 filesystem
 
-Status: partially implemented. Local filesystem extraction and remote adapter wiring are complete. Remote filesystem operations, project-template seeding, and the remaining integrations are not implemented. Project-user execution remains highly experimental and incomplete.
+Status: partially implemented. Bash execution, filesystem operations, Git operations, project seeding, and session transfers have interfaces and local implementations. Interface extraction is not complete: workspace addressing, session preparation, shared repositories, MCP output storage, and extension tools still depend on local paths or adapter implementations. Remote Bash execution works; remote filesystem, Git, seeding, and transfer operations remain stubs. Project-user execution remains highly experimental and incomplete.
 
 ## Problem
 
-With `agent.tools.bash.provider=http-v2`, Bash runs on a remote VM. Git tools, project-context loading, skills, and attachment handling still depend on Sidekick's local filesystem. File tools now select a remote adapter when v2 Bash is enabled, but its filesystem client methods are stubs. They fail rather than fall back to local files.
+With `agent.tools.bash.provider=http-v2`, Bash runs on a remote VM. File and Git tools select remote adapters, but those operations are stubs and fail rather than fall back to local files. Project-context loading, skills, attachment handling, and several other consumers still assume Sidekick-local files.
 
 The local and remote filesystems must not be treated as interchangeable. In particular, the local virtual path `/data/project` does not exist on the VM.
 
@@ -29,6 +29,7 @@ Background processes can modify working files between commands. Keeping those fi
 - `bwrap` and `http` retain the existing local filesystem behavior.
 - Bash enabled with `http-v2` selects a remote filesystem implementation. With Bash disabled, filesystem operations remain local.
 - Tools use a common filesystem interface. Provider selection belongs in wiring, not capability flags or provider checks inside tools.
+- Application and domain code depend on ports, never adapter implementations. Template discovery and configuration belong to callers; filesystem adapters receive explicit inputs and own backend-specific paths.
 - Remote operations receive the current project's ID as a mandatory method argument, supplied from trusted execution context rather than model arguments.
 - Remote operations run as the project's Linux user.
 - `RemoteWorkspaceFilesystem` and `RemoteSandboxV2Executor` delegate to the shared `SandboxV2Client`. Its v2 Bash execution is implemented; its filesystem methods are not.
@@ -53,13 +54,13 @@ There are no mounts in v2. Do not recreate host mounts, create a global `/data/p
 
 The existing local setup supports optional templates under `${agent.working-directory}/templates/project/`. There is no checked-in `AGENTS.md` template. Existing project files are not overwritten, and all threads in a channel share the same project workspace.
 
-Project preparation now calls `WorkspaceFilesystem.seedProject(projectId, source: Path)` through the selected backend. The caller resolves the optional template directory; the filesystem implementation receives only that source directory and owns the project destination. It has no knowledge of template configuration or storage layout. Local seeding copies the directory contents, retains nested paths and file attributes, and skips existing files. Repeated preparation can add missing files without replacing project edits. Work-template copying retains its existing local behavior. Remote project seeding currently throws `NotImplementedError`; it does not fall back to local copying.
+Project preparation now calls `workspace.transfers.seedProject(projectId, source: Path)` through the selected backend. The caller resolves the optional template directory; the filesystem implementation receives only that source directory and owns the project destination. It has no knowledge of template configuration or storage layout. Local seeding copies the directory contents, retains nested paths and file attributes, and skips existing files. Repeated preparation can add missing files without replacing project edits. Work-template copying retains its existing local behavior. Remote project seeding currently throws `NotImplementedError`; it does not fall back to local copying.
 
 For v2, copy the project template into `~/data/project/` before loading project context or running tools. Copy missing files and create their parent directories; preserve existing files, including `AGENTS.md`. Template preparation must be safe to repeat.
 
 Project-context loading must read `~/data/project/AGENTS.md` through the selected filesystem backend and retain the existing per-turn snapshot behavior. A missing file means empty project context. Remote failures must not silently substitute local instructions.
 
-The next implementation slice covers project templates only. Session work-template copying is deferred.
+Session work-template copying and scratch-directory creation are still local operations. They need a session-preparation interface before remote implementation; the existing local folder layout and copying behavior must remain unchanged.
 
 ## Skills and knowledge repositories
 
@@ -80,15 +81,18 @@ Private-repository operations need an authentication mechanism that keeps creden
 
 ## Required integration
 
-`WorkspaceFilesystem` exposes session-scoped binary transfers:
+`Workspace.transfers` exposes binary transfers:
 
 - `upload(projectId, sessionId, source: Path): WorkspaceFile` copies a Sidekick-local file into the session's attachments directory, retaining its filename. It returns the agent-visible workspace path and destination metadata. The caller does not choose a workspace destination.
 - `download(projectId, sessionId, source: String, destination: Path): FileMetadata` copies a session-relative source, such as `work/report.pdf` or `attachments/input.pdf`, into Sidekick-local storage. Arbitrary workspace paths are not accepted.
+- `download(projectId, source: String, destination: Path): FileMetadata` copies an allowed workspace file into Sidekick-local storage. The caller passes the agent-supplied source path unchanged; the selected adapter resolves and validates it. This overload does not address session storage or require `sessionId`.
 - Both IDs come from trusted execution context. Workspace path construction belongs in the adapter. Local adapters are already bound to a conversation's `VirtualPaths`: `attachments/` maps to `/data/session/`, and `work/` maps to `/work/`. Remote adapters use `~/sessions/<session-id>/`.
 - Local transfers copy regular files, create missing parent directories, preserve source files, and do not overwrite existing destinations. An upload whose source already is the local session attachment leaves that file unchanged.
 - Remote transfers are stubs; no HTTP transfer contract is implemented, and local paths must not be serialized into sandbox requests.
 
-Incoming attachments are recorded alongside conversation history before being immediately copied into the workspace. Reply attachments are copied from the workspace into conversation-owned storage for recording and delivery. Transfer methods own workspace path construction, but do not own conversation records or choose the conversation-storage download destination. Attachment-flow integration, including durable reply-file retention and message linkage, remains unimplemented.
+The target incoming flow records attachments alongside conversation history and immediately copies them into the workspace. The target reply flow copies attachments from the workspace into conversation-owned storage for recording and delivery. Transfer methods own workspace path construction, but do not own conversation records or choose the conversation-storage download destination. Incoming files already have durable conversation storage, but their workspace upload is not wired yet. Reply files now download through the filesystem port into temporary local staging and are deleted after delivery; durable reply-file retention and message linkage remain unimplemented.
+
+The `attachFile` tool uses the project-scoped download overload to retain access to files anywhere in the allowed workspace, including project files. Its collector validates file kind and the 10 MiB limit through `stat`, downloads a local snapshot into conversation reply staging, and retains the five-files-per-reply limit and existing delivery cleanup. Workspace reads use the filesystem port; conversation staging and delivery remain local. No `copyToDropbox` operation or extra VM staging step is required. The session-scoped overload retains its narrower source semantics.
 
 - File read, glob, and grep must see the same files as Bash.
 - Git operations must use the remote project files.
@@ -97,18 +101,59 @@ Incoming attachments are recorded alongside conversation history before being im
 - Incoming attachments must be uploaded before tools need them. The daemon must prepare skills and knowledge checkouts before their paths are advertised.
 - Paths exposed in prompts and tool results must resolve on the filesystem those tools use. Do not advertise local `/data/...` paths as remote paths unless they are provided there.
 
+## Interface extraction
+
+Extract interfaces and migrate local consumers before implementing more remote operations. Interface extraction, consumer migration, and remote implementation are separate milestones.
+
+### Extracted
+
+- `SandboxExecutor`: Bash execution, with local/legacy and v2 backend selection.
+- `Workspace.search`: stat, directory listing, glob, and grep. `Workspace.files`: text read/write/edit and patch.
+- `WorkspaceGit`: clone, push, and pull, with local execution and a remote stub.
+- `Workspace.transfers.seedProject(projectId, source)`: caller-selected source directory; adapter-owned project destination. Local preparation uses this interface.
+- `Workspace.transfers.upload` and `download`: session-scoped binary transfers, with local implementations and remote stubs.
+- `Workspace.transfers.download(projectId, source, destination)`: workspace-file export, used by `attachFile`, with local implementation and a remote stub. `ReplyAttachmentCollector` receives the selected workspace through its port and no longer resolves workspace files locally.
+- `WorkspaceFilesystemFactory`: a port; filesystem construction and selection live in adapter wiring.
+
+### Remaining interfaces and local-path contracts
+
+| Area | Current dependency | Required extraction |
+| --- | --- | --- |
+| Workspace addressing | `VirtualPaths` exposes local `Path` objects; project instructions, attachments, scratch files, and skill locations are derived from them | Backend-independent project/session addressing and agent-visible locations, without caller-side local/remote path branching |
+| Session preparation | `VirtualPathsFactory` creates local scratch directories; `Hooks.kt` copies work templates locally | A session-preparation operation whose implementation owns workspace destinations; callers retain template-source discovery |
+| Shared repository preparation | `Skills` and `GlobalWorkspace` call `gitRepositoryCheckoutPath` and `syncGitRepository` adapters directly; `Subagents` also calls the checkout-path adapter helper | Ports for repository preparation and logical checkout references; retain local discovery copies and prepare VM checkouts separately |
+| MCP output storage | `McpServersRegistry.connect` takes `workRoot: Path`; `ConnectedMcpServer` exposes `ToolRegistration<Path>`; `McpServerTool` writes oversized output locally | A session-output storage interface or session-aware filesystem operation returning an agent-visible file reference |
+| Extension-tool file access | `SidekickToolContext.resolvePath` returns a local Java `Path`; DumpHere reads files from that path | A file-access/export contract that supports both backends without exposing local workspace paths |
+| Remaining adapter dependencies | `DefaultAgentToolCatalog` imports concrete `WorkspaceGitFactory` and `SandboxExecutorFactory`; application code imports the adapter-level conversation `folder` helper | Port-based factories and application-owned logical references; keep physical storage layout inside its implementation |
+
+### Consumers still bypassing the extracted interfaces
+
+- `ProjectContexts` reads `AGENTS.md` with Java `Files`; `SessionManager` supplies a local project root. Separate project-file access from parsing, tags, and template rendering, retaining per-turn snapshots.
+- `ChatFileIngestor` records incoming files locally but does not upload them. Keep the conversation-owned copy and add immediate workspace transfer after recording.
+- Reply-file recording still needs durable conversation storage and message linkage. `ReplyAttachmentCollector` already uses the filesystem port for workspace validation/download, but staged reply files are still deleted after delivery.
+- `SkillTools` reads local skill files and resources and advertises paths through `VirtualPaths`. Local discovery and prompt assembly can remain local; executable/resource locations must refer to the selected workspace.
+- Skill, attachment, and delegated-agent prompt generation still uses local virtual paths. Return workspace references from the interfaces rather than reconstructing paths in prompts.
+
+Application configuration, persisted conversation history, attachment archives, checkpoints, and OAuth credentials remain Sidekick-local. Their locality alone does not require a remote workspace interface.
+
 ## Implementation order
 
-1. Completed: extract local workspace operations behind `WorkspaceFilesystem`.
-2. Completed: share the v2 sandbox client between Bash and the remote filesystem adapter, and wire backend selection. Remote filesystem methods remain stubs.
-3. Add daemon-side project-home resolution and the remote operations needed to seed project templates into `~/data/project/` without overwriting files.
-4. Route project-context loading through the selected backend.
-5. Implement the remaining remote filesystem operations and daemon-managed skills/knowledge repository preparation.
-6. Add attachment uploads and output downloads; route Git and reply attachment delivery to the remote project files.
-7. Update prompt and skill path generation, and provide an explicit migration for existing files and path references.
+1. Complete workspace-addressing and session-preparation interfaces; preserve local paths and work-template behavior.
+2. Remove remaining application-to-adapter dependencies, including Git/Bash factories and repository/layout helpers.
+3. Extract shared repository preparation, session-output storage for MCP, and backend-independent file access for extension tools.
+4. Migrate project-context loading, incoming/reply attachments, skills, MCP, extension tools, and prompt generation to those interfaces, using local implementations first. Preserve existing behavior except the explicitly planned durable reply-attachment recording.
+5. Implement daemon-side project-home resolution, project seeding, and filesystem operations. Ensure seeding finishes before remote `AGENTS.md` loading and never substitute local instructions after remote failure.
+6. Implement remote session preparation, uploads, both download overloads, and daemon-managed skills/knowledge checkouts. Complete immediate incoming uploads and durable reply-file recording/delivery.
+7. Implement remote Git after credential transport is agreed; credentials remain outside the sandbox boundary.
+8. Provide explicit migration of existing files and path references. Verify that prompts and tools refer to the same VM files as Bash.
+
+Each extraction must keep the full test suite passing, retain local folder structure and behavior, and test observable file contents and side effects through the public interface. Remote stubs must fail rather than fall back to local files. Do not replace behavioral assertions with implementation/wiring checks.
 
 ## Open decisions
 
+- Whether remote project instructions remain at `~/data/project/AGENTS.md` or move to `~/AGENTS.md`. The current specified layout remains unchanged until a move is agreed.
+- Workspace-addressing and session-preparation interface shapes, including session work-template seeding.
+- Replacement of local-`Path` contracts in extension tools and MCP output storage.
 - Remote file-operation and transfer contracts.
 - VM repository checkout naming, local/remote revision agreement, and refresh/deletion rules for skills and knowledge.
 - Credential handling for daemon-managed private repository clones and tools such as `git__clone` and `git__push`. These operations must work with VM project files while credentials remain outside the sandbox boundary, never stored inside the VM or exposed to model-driven commands. The authentication and transport mechanism remains open.

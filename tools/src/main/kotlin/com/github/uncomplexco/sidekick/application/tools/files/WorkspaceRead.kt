@@ -4,12 +4,12 @@ import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths.
 import com.github.uncomplexco.sidekick.ports.filesystem.DirectoryPageOptions
 import com.github.uncomplexco.sidekick.ports.filesystem.FileKind
 import com.github.uncomplexco.sidekick.ports.filesystem.TextReadOptions
-import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystem
+import com.github.uncomplexco.sidekick.ports.filesystem.Workspace
 import kotlinx.coroutines.runBlocking
 
 class WorkspaceRead(
     private val projectId: String,
-    private val filesystem: WorkspaceFilesystem,
+    private val filesystem: Workspace,
 ) {
     fun read(
         path: String,
@@ -24,7 +24,7 @@ class WorkspaceRead(
             return ls(normalizedPath, displayPath ?: normalizedPath, offset, limit)
         }
 
-        val metadata = runBlocking { filesystem.stat(projectId, normalizedPath) }
+        val metadata = runBlocking { filesystem.search.stat(projectId, normalizedPath) }
         require(metadata != null) { "File not found: $normalizedPath" }
 
         return if (metadata.kind == FileKind.DIRECTORY) {
@@ -43,7 +43,7 @@ class WorkspaceRead(
         val currentOffset = offset ?: 1
 
         val page = runBlocking {
-            filesystem.listDirectory(
+            filesystem.search.listDirectory(
                 projectId,
                 path,
                 DirectoryPageOptions(currentOffset, limit ?: DEFAULT_READ_LIMIT),
@@ -76,7 +76,7 @@ class WorkspaceRead(
         val startOffset = offset ?: 1
 
         val file = runBlocking {
-            filesystem.readText(
+            filesystem.files.readText(
                 projectId,
                 path,
                 TextReadOptions(startOffset, limit ?: DEFAULT_READ_LIMIT, MAX_BYTES),

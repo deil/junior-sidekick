@@ -2,15 +2,13 @@ package com.github.uncomplexco.sidekick.application.turn
 
 import com.github.uncomplexco.sidekick.application.agent.AgentResponse
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPath
-import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
-import com.github.uncomplexco.sidekick.application.agent.workspace.parseVirtualPath
 import com.github.uncomplexco.sidekick.application.chat.PublishedMessage
 import com.github.uncomplexco.sidekick.application.stats.TurnStats
+import com.github.uncomplexco.sidekick.ports.filesystem.FileKind
+import com.github.uncomplexco.sidekick.ports.filesystem.Workspace
 import java.io.IOException
 import java.nio.file.Files
-import java.nio.file.LinkOption
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.util.*
 
 interface ResponseDelivery {
@@ -59,10 +57,14 @@ data class ReplyAttachment(
     val bytes: Long,
 )
 
-class ReplyAttachmentCollector(private val virtualPaths: VirtualPaths) {
+class ReplyAttachmentCollector(
+    private val projectId: String,
+    private val filesystem: Workspace,
+    private val sessionRoot: Path,
+) {
     private val attachments = mutableListOf<ReplyAttachment>()
 
-    fun attach(
+    suspend fun attach(
         path: VirtualPath,
         name: String?,
         mimeType: String?,
@@ -71,14 +73,19 @@ class ReplyAttachmentCollector(private val virtualPaths: VirtualPaths) {
             "A reply can include at most $MAX_REPLY_ATTACHMENTS files."
         }
 
-        val source = resolveRegularFile(path)
-        val filename = name?.trim()?.also(::requireFilename) ?: source.fileName.toString()
-        val staged = stage(source, filename)
+        val metadata = filesystem.search.stat(projectId, path)
+        require(metadata?.kind == FileKind.FILE) { "Path is not a regular file: $path" }
+        require(metadata.sizeBytes <= MAX_REPLY_ATTACHMENT_BYTES) {
+            "File exceeds the 10 MiB reply attachment limit: $path"
+        }
+        val sourceName = Path.of(path).normalize().fileName.toString()
+        val filename = name?.trim()?.also(::requireFilename) ?: sourceName
+        val staged = stage(path, sourceName)
         val attachment =
             ReplyAttachment(
                 path = staged,
                 name = filename,
-                mimeType = mimeType?.trim()?.takeIf(String::isNotBlank) ?: inferMimeType(source),
+                mimeType = mimeType?.trim()?.takeIf(String::isNotBlank) ?: inferMimeType(staged),
                 bytes = Files.size(staged),
             )
         attachments += attachment
@@ -92,45 +99,14 @@ class ReplyAttachmentCollector(private val virtualPaths: VirtualPaths) {
         attachments.clear()
     }
 
-    private fun resolveRegularFile(path: VirtualPath): Path {
-        val root =
-            virtualPaths.roots.firstOrNull {
-                path == it.virtual || path.startsWith("${it.virtual}/")
-            } ?: error("Unknown virtual path: $path")
-        val target = Path.of(parseVirtualPath(path, virtualPaths)).toAbsolutePath().normalize()
-        val normalizedRoot = root.real.toAbsolutePath().normalize()
-        require(target.startsWith(normalizedRoot)) { "Path escapes workspace: $path" }
-
-        var current = normalizedRoot
-        normalizedRoot.relativize(target).forEach {
-            current = current.resolve(it)
-            require(!Files.isSymbolicLink(current)) {
-                "Path must not contain symbolic links: $path"
-            }
-        }
-        require(Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
-            "Path is not a regular file: $path"
-        }
-        require(Files.size(target) <= MAX_REPLY_ATTACHMENT_BYTES) {
-            "File exceeds the 10 MiB reply attachment limit: $path"
-        }
-        return target
-    }
-
-    private fun stage(
-        source: Path,
+    private suspend fun stage(
+        source: String,
         filename: String,
     ): Path {
-        val stagingDirectory =
-            Files.createDirectories(virtualPaths.sessionRoot.resolve(STAGING_DIRECTORY))
+        val stagingDirectory = Files.createDirectories(sessionRoot.resolve(STAGING_DIRECTORY))
         val target = stagingDirectory.resolve("${UUID.randomUUID()}-$filename")
         try {
-            Files.copy(
-                source,
-                target,
-                LinkOption.NOFOLLOW_LINKS,
-                StandardCopyOption.COPY_ATTRIBUTES,
-            )
+            filesystem.transfers.download(projectId, source, target)
         } catch (error: IOException) {
             Files.deleteIfExists(target)
             throw error

@@ -156,4 +156,5 @@ class LocalWorkspaceFilesystemGlobTest {
                     projectRoot = dir.resolve("project"),
                 )
             )
+            .search
 }

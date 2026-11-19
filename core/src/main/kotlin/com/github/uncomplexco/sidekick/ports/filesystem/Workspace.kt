@@ -2,7 +2,13 @@ package com.github.uncomplexco.sidekick.ports.filesystem
 
 import java.nio.file.Path
 
-interface WorkspaceFilesystem {
+interface Workspace {
+    val search: WorkspaceSearch
+    val files: WorkspaceFiles
+    val transfers: WorkspaceTransfers
+}
+
+interface WorkspaceTransfers {
     suspend fun seedProject(projectId: String, source: Path)
 
     suspend fun upload(
@@ -18,8 +24,10 @@ interface WorkspaceFilesystem {
         destination: Path,
     ): FileMetadata
 
-    suspend fun stat(projectId: String, path: String): FileMetadata?
+    suspend fun download(projectId: String, source: String, destination: Path): FileMetadata
+}
 
+interface WorkspaceFiles {
     suspend fun readText(
         projectId: String,
         path: String,
@@ -37,6 +45,10 @@ interface WorkspaceFilesystem {
         newString: String,
         replaceAll: Boolean = false,
     )
+}
+
+interface WorkspaceSearch {
+    suspend fun stat(projectId: String, path: String): FileMetadata?
 
     suspend fun listDirectory(
         projectId: String,

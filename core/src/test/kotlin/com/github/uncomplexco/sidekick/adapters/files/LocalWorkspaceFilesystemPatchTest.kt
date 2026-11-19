@@ -289,4 +289,5 @@ class LocalWorkspaceFilesystemPatchTest {
                     projectRoot = dir.resolve("project"),
                 )
             )
+            .files
 }

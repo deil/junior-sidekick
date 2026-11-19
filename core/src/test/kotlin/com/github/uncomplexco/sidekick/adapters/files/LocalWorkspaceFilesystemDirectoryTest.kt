@@ -168,4 +168,5 @@ class LocalWorkspaceFilesystemDirectoryTest {
                     projectRoot = dir.resolve("project"),
                 )
             )
+            .search
 }

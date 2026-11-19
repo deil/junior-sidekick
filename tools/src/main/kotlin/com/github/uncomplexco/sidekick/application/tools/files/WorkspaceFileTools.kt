@@ -5,12 +5,12 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.ToolSet
 import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths.Companion.DATA_ROOT
-import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystem
+import com.github.uncomplexco.sidekick.ports.filesystem.Workspace
 import kotlinx.coroutines.runBlocking
 
 class WorkspaceFileTools(
     private val projectId: String,
-    private val filesystem: WorkspaceFilesystem,
+    private val filesystem: Workspace,
 ) : ToolSet {
     @Tool(TOOL_READ)
     @LLMDescription("Read a file or directory")
@@ -35,7 +35,7 @@ class WorkspaceFileTools(
         @LLMDescription("Directory to search. Absolute path") path: String,
     ): String {
         val normalizedPath = normalizeVirtualDirectoryPath(path)
-        val result = runBlocking { filesystem.glob(projectId, normalizedPath, pattern) }
+        val result = runBlocking { filesystem.search.glob(projectId, normalizedPath, pattern) }
         if (result.matches.isEmpty()) {
             return "No files found"
         }
@@ -65,7 +65,9 @@ class WorkspaceFileTools(
         @LLMDescription("Optional include glob, for example **/*.md") include: String? = null,
     ): String {
         val normalizedPath = normalizeVirtualDirectoryPath(path)
-        val result = runBlocking { filesystem.grep(projectId, normalizedPath, pattern, include) }
+        val result = runBlocking {
+            filesystem.search.grep(projectId, normalizedPath, pattern, include)
+        }
         if (result.matches.isEmpty()) {
             return "No files found"
         }
