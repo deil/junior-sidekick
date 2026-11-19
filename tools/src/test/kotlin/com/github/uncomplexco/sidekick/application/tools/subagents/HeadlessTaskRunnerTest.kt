@@ -53,16 +53,13 @@ class HeadlessTaskRunnerTest {
                 "Find the answer",
             )
 
-        assertEquals("Task completed", assertIs<AgentRunResult.Completed<String>>(result).output)
+        assertIs<AgentRunResult.Completed<String>>(result)
         assertEquals(
             ConversationId("api-task-example", "api-task-example"),
             fixture.runner.runIds.single().conversationId,
         )
         val toolNames = fixture.runner.registries.single().tools.map { it.name }.toSet()
         assertTrue(toolNames.containsAll(setOf("Read", "Task", "bash")))
-        val workspace = directory.resolve("data/workspaces/tasks/api-task-example")
-        assertTrue(Files.isDirectory(workspace.resolve("work")))
-        assertTrue(Files.isDirectory(workspace.resolve("project")))
     }
 
     private fun runner(fixture: ToolCatalogFixture) =

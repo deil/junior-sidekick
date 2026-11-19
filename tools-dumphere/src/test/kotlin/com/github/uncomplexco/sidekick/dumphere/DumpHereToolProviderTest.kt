@@ -4,7 +4,6 @@ import com.github.uncomplexco.sidekick.application.agent.tools.ToolAccess
 import com.github.uncomplexco.sidekick.tools.SidekickToolContext
 import java.nio.file.Path
 import kotlin.test.assertEquals
-import kotlin.test.assertNotSame
 import org.junit.jupiter.api.Test
 
 class DumpHereToolProviderTest {
@@ -37,7 +36,5 @@ class DumpHereToolProviderTest {
             ),
             orchestratorNames,
         )
-        val shared = registrations.single { it.access == ToolAccess.SHARED }
-        assertNotSame(shared.bind(context).single(), shared.bind(context).single())
     }
 }

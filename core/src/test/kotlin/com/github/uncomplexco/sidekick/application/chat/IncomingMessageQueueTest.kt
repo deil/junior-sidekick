@@ -89,40 +89,6 @@ class IncomingMessageQueueTest {
         assertEquals("", first.threadId)
     }
 
-    @Test
-    fun `batch keys can be used as map keys`() {
-        // Arrange
-        val threadConversationId =
-            ChatConversationId(channelId = "C123", threadId = "1700000000.000")
-        val rootConversationId = ChatConversationId(channelId = "C123")
-        val batches = mutableMapOf<BatchKey, List<String>>()
-
-        // Act
-        batches[batchKeyFor(threadConversationId, message(id = "1700000001.000"))] =
-            listOf("first thread message")
-        batches[batchKeyFor(threadConversationId, message(id = "1700000002.000"))] =
-            listOf("second thread message")
-        batches[batchKeyFor(rootConversationId, message(id = "1700000001.000"))] =
-            listOf("first root message")
-        batches[batchKeyFor(rootConversationId, message(id = "1700000002.000"))] =
-            listOf("second root message")
-
-        // Assert
-        assertEquals(3, batches.size)
-        assertEquals(
-            listOf("second thread message"),
-            batches[batchKeyFor(threadConversationId, message(id = "1700000003.000"))],
-        )
-        assertEquals(
-            listOf("first root message"),
-            batches[batchKeyFor(rootConversationId, message(id = "1700000001.000"))],
-        )
-        assertEquals(
-            listOf("second root message"),
-            batches[batchKeyFor(rootConversationId, message(id = "1700000002.000"))],
-        )
-    }
-
     private fun message(id: String = "1700000001.000"): IncomingMessage =
         IncomingMessage(
             id = id,

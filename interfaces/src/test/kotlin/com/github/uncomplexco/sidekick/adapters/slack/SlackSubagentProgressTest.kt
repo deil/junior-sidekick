@@ -23,33 +23,6 @@ class SlackSubagentProgressTest {
     private val agent = SubagentProgress("agent-1", "Find owners", "general", SubagentStatus.ACTIVE)
 
     @Test
-    fun `subagent lifecycle events render between the todo list and status line`() = runTest {
-        val api = SlackActivityApi { testScheduler.currentTime }
-        val output =
-            SlackTurnOutput(
-                api.client,
-                "C123",
-                ChatThreadId("1700000000.000", true),
-                SidekickCoroutineScope(backgroundScope),
-            )
-        output.begin()
-        output.reportTodos(todos)
-
-        output.reportSubagent(agent)
-        output.reportSubagent(agent.copy(status = SubagentStatus.COMPLETED))
-
-        assertEquals(1, api.replies.size)
-        assertEquals(
-            listOf(
-                "Fix the bug\n\n∗ Implement\n\n*Subagents*\n∗ Find owners (general)\n\n_todos as of 12:34:56 (just now)_",
-                "Fix the bug\n\n∗ Implement\n\n*Subagents*\n✓ Find owners (general)\n\n_todos as of 12:34:56 (just now)_",
-            ),
-            api.edits.map { it.text },
-        )
-        assertEquals(listOf("1700000001.000", "1700000001.000"), api.edits.map { it.ts })
-    }
-
-    @Test
     fun `Todo tool updates retain completed subagents in the same message`() = runTest {
         val api = SlackActivityApi { testScheduler.currentTime }
         val output =

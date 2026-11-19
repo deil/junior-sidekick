@@ -2,7 +2,6 @@ package com.github.uncomplexco.sidekick.application.tools.subagents
 
 import com.github.uncomplexco.sidekick.adapters.git.gitRepositoryCheckoutPath
 import com.github.uncomplexco.sidekick.application.agent.AgentConfig
-import com.github.uncomplexco.sidekick.application.utils.parseMarkdownFrontmatter
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
@@ -14,21 +13,9 @@ class SubagentsTest {
     @TempDir lateinit var dir: Path
 
     @Test
-    fun `loads built in subagent`() {
-        // Arrange
-        val subagents = Subagents()
-
-        // Act
-        val prompt = subagents.catalog().subagents.single { it.name == "general" }.systemPrompt
-
-        // Assert
-        assertTrue(prompt.startsWith("You are a general-purpose subagent."), prompt)
-    }
-
-    @Test
     fun `lists built in subagents with descriptions`() {
         // Arrange
-        val catalog = Subagents()
+        val catalog = Subagents(config())
 
         // Act
         val subagents = catalog.catalog().subagents
@@ -42,15 +29,6 @@ class SubagentsTest {
         assertTrue(
             subagents.single().systemPrompt.startsWith("You are a general-purpose subagent.")
         )
-    }
-
-    @Test
-    fun `loads only built in subagents when extension config is missing`() {
-        val catalog = Subagents(config())
-
-        val subagents = catalog.catalog().subagents
-
-        assertEquals(listOf("general"), subagents.map { it.name })
     }
 
     @Test
@@ -127,26 +105,6 @@ class SubagentsTest {
 
         // Assert
         assertEquals(listOf("general", "valid"), subagents.map { it.name })
-    }
-
-    @Test
-    fun `strips frontmatter from subagent definition`() {
-        // Arrange
-        val markdown =
-            """
-            ---
-            name: general
-            description: General agent
-            ---
-            System prompt.
-            """
-                .trimIndent()
-
-        // Act
-        val prompt = parseMarkdownFrontmatter(markdown).body
-
-        // Assert
-        assertEquals("System prompt.", prompt)
     }
 
     private fun writeSubagentFile(

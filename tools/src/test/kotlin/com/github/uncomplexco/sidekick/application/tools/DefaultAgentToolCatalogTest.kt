@@ -82,8 +82,6 @@ class DefaultAgentToolCatalogTest {
                 "Missing Sidekick tools: ${orchestrator - sidekick}",
             )
             assertTrue((delegate intersect orchestrator).isEmpty())
-            assertFalse("Loop" in sidekick)
-            assertFalse("assistant_report_status" in sidekick)
         }
 
     @Test

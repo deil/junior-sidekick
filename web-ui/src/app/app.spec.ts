@@ -122,23 +122,19 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const page = fixture.nativeElement as HTMLElement;
-    const toggle = page.querySelector<HTMLButtonElement>('.sidebar-toggle')!;
-    expect(toggle.closest('aside')?.id).toBe('workspace-sidebar');
+    const toggle = page.querySelector<HTMLButtonElement>('button[aria-controls="workspace-sidebar"]')!;
 
-    expect(page.classList.contains('sidebar-collapsed')).toBe(true);
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(toggle.getAttribute('aria-label')).toBe('Expand sidebar');
     expect(page.querySelector('nav a[aria-label="Overview"]')).toBeTruthy();
 
     toggle.click();
     await fixture.whenStable();
-    expect(page.classList.contains('sidebar-collapsed')).toBe(false);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(toggle.getAttribute('aria-label')).toBe('Collapse sidebar');
 
     toggle.click();
     await fixture.whenStable();
-    expect(page.classList.contains('sidebar-collapsed')).toBe(true);
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
   });
 

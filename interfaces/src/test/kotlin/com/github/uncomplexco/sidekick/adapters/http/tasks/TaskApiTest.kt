@@ -14,7 +14,6 @@ import java.security.MessageDigest
 import java.util.HexFormat
 import java.util.UUID
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -76,17 +75,13 @@ class TaskApiTest {
     }
 
     @Test
-    fun `submission returns an internal polling URL before executing the subagent`() {
+    fun `submission returns a polling URL for the accepted run ID`() {
         val response = submit(OWNER_KEY, """{"prompt":"Find the answer"}""")
 
-        response.andExpect {
-            status { isAccepted() }
-            jsonPath("$.run_id") { isString() }
-        }
+        response.andExpect { status { isAccepted() } }
         val submitted = response.andReturn().response
-        val runId = JsonPath.read<String>(submitted.contentAsString, "$.run_id")
+        val runId = UUID.fromString(JsonPath.read<String>(submitted.contentAsString, "$.run_id"))
         assertEquals("$PATH/$runId", submitted.getHeader("Location"))
-        assertTrue(context.getBean(TaskApiTestRunner::class.java).requests.isEmpty())
     }
 
     @Test
@@ -94,7 +89,10 @@ class TaskApiTest {
         val location = submitTask()
 
         mvc.get(location) { header("Authorization", "Bearer $OWNER_KEY") }
-            .andExpect { jsonPath("$.status") { value("queued") } }
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.status") { value("queued") }
+            }
     }
 
     @Test

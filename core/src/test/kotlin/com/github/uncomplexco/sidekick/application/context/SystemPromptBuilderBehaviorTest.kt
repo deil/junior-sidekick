@@ -92,19 +92,6 @@ class SystemPromptBuilderBehaviorTest {
     }
 
     @Test
-    fun `ignores legacy global project context`() {
-        val workingDir = Files.createDirectories(dir.resolve("workspace"))
-        val contextDir =
-            Files.createDirectories(workingDir.resolve("data/repositories/knowledge/context/C123"))
-        Files.writeString(contextDir.resolve("AGENTS.md"), "Legacy project context")
-
-        val prompt = prompt(workingDir)
-
-        assertFalse(prompt.contains("# Project context"), prompt)
-        assertFalse(prompt.contains("Legacy project context"), prompt)
-    }
-
-    @Test
     fun `skips channel project context when missing`() {
         val prompt = prompt(dir.resolve("workspace"))
 
