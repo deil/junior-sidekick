@@ -56,6 +56,7 @@ import com.github.uncomplexco.sidekick.tools.SidekickToolProvider
 import com.slack.api.Slack
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlinx.serialization.json.JsonObject
 
 /** Shared real dependencies and test doubles for catalog and delegated execution tests. */
 class ToolCatalogFixture(
@@ -206,6 +207,7 @@ class CatalogSubagentRunner : SubagentRunner {
         prompt: String,
         tools: ToolRegistry,
         conversation: ConversationContext,
+        outputSchema: JsonObject?,
     ): AgentRunResult<String> {
         runIds += runId
         registries += tools

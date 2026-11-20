@@ -1,7 +1,12 @@
 package com.github.uncomplexco.sidekick.application.agent.koog
 
 import ai.koog.agents.core.tools.ToolRegistry
+import ai.koog.http.client.HttpClientFactoryResolver
+import ai.koog.prompt.executor.clients.openrouter.OpenRouterClientSettings
+import ai.koog.prompt.executor.clients.openrouter.OpenRouterLLMClient
+import ai.koog.prompt.executor.llms.MultiLLMPromptExecutor
 import ai.koog.prompt.executor.model.PromptExecutor
+import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
@@ -10,18 +15,78 @@ import com.github.uncomplexco.sidekick.application.agent.KoogConfig
 import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
+import com.github.uncomplexco.sidekick.testing.QueuedOpenRouterServer
+import com.github.uncomplexco.sidekick.testing.QueuedOpenRouterServer.Response
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertSame
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mockStatic
 import org.mockito.Mockito.spy
 import org.mockito.Mockito.verify
 
 class KoogAgentRunTest {
+    @Test
+    fun `native output schema survives the tool loop on the OpenRouter wire`() = runBlocking {
+        val schema =
+            Json.parseToJsonElement(
+                    """{"type":"object","properties":{"evidence":{"type":"string"}},"required":["evidence"],"additionalProperties":false}"""
+                )
+                .jsonObject
+        val output = """{"evidence":"Inspected"}"""
+        QueuedOpenRouterServer(
+                Response(
+                    """{"id":"test","object":"chat.completion","created":1794094917,"model":"z-ai/glm-5.3","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"inspect","arguments":"{}"}}]}}]}"""
+                ),
+                Response(
+                    """{"id":"test","object":"chat.completion","created":1794094917,"model":"z-ai/glm-5.3","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":${JsonPrimitive(output)}}}]}"""
+                ),
+            )
+            .use { server ->
+                val client =
+                    OpenRouterLLMClient(
+                        apiKey = "test-key",
+                        settings = OpenRouterClientSettings(baseUrl = server.baseUrl),
+                        httpClientFactory = HttpClientFactoryResolver.resolve(),
+                    )
+                val executor = MultiLLMPromptExecutor(LLMProvider.OpenRouter to client)
+
+                val result = runAgent(executor, ToolRegistry { tool(UsageCountingTool()) }, schema)
+
+                assertEquals(output, assertIs<AgentRunResult.Completed<String>>(result).output)
+                val requests = server.requests.map { Json.parseToJsonElement(it).jsonObject }
+                assertEquals(2, requests.size)
+                val expectedFormat =
+                    Json.parseToJsonElement(
+                        """{"type":"json_schema","json_schema":{"name":"task_result","strict":true,"schema":$schema}}"""
+                    )
+                assertEquals(
+                    listOf(expectedFormat, expectedFormat),
+                    requests.map { it["response_format"] },
+                )
+                assertEquals(
+                    JsonPrimitive(true),
+                    requests.first()["provider"]?.jsonObject?.get("require_parameters"),
+                )
+                val evidence =
+                    requests
+                        .last()
+                        .getValue("messages")
+                        .jsonArray
+                        .map { it.jsonObject }
+                        .single { it["role"] == JsonPrimitive("tool") }
+                assertEquals(JsonPrimitive("Inspected"), evidence["content"])
+            }
+    }
+
     @Test
     fun `completed run sums model usage and tool attempts`() = runBlocking {
         val tool = UsageCountingTool()
@@ -91,8 +156,9 @@ class KoogAgentRunTest {
     }
 
     private suspend fun runAgent(
-        executor: QueuedPromptExecutor,
+        executor: PromptExecutor,
         tools: ToolRegistry = ToolRegistry.EMPTY,
+        outputSchema: JsonObject? = null,
     ): AgentRunResult<String> {
         val config =
             KoogConfig(
@@ -123,6 +189,7 @@ class KoogAgentRunTest {
                         config.normalProfile,
                         { "System instructions" },
                         { "Inspect input" },
+                        outputSchema,
                     )
             }
     }

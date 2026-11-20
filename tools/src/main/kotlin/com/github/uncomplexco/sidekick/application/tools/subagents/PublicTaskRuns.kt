@@ -11,14 +11,16 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonObject
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
-fun interface IsolatedSubagentRunner {
+interface IsolatedSubagentRunner {
     suspend fun runIsolated(
         runId: String,
         subagent: Subagent,
         prompt: String,
+        outputSchema: JsonObject? = null,
     ): AgentRunResult<String>
 }
 
@@ -43,6 +45,10 @@ class PublicTaskRuns(
 
         data class Completed(val result: String) : Status
 
+        data class Structured(val result: JsonObject) : Status
+
+        data object InvalidOutput : Status
+
         data object Failed : Status
     }
 
@@ -61,7 +67,12 @@ class PublicTaskRuns(
     private val workers = Semaphore(MAX_CONCURRENT_RUNS)
     private val log = LoggerFactory.getLogger(PublicTaskRuns::class.java)
 
-    fun submit(clientId: String, subagentType: String, prompt: String): Submission {
+    fun submit(
+        clientId: String,
+        subagentType: String,
+        prompt: String,
+        schema: TaskOutputSchema? = null,
+    ): Submission {
         val subagent =
             subagents.catalog().subagents.firstOrNull { it.name == subagentType }
                 ?: return Submission.UnknownSubagent
@@ -78,7 +89,7 @@ class PublicTaskRuns(
             clientId,
             subagentType,
         )
-        scope.launch { execute(run, subagent, prompt) }
+        scope.launch { execute(run, subagent, prompt, schema) }
         return Submission.Accepted(run.id)
     }
 
@@ -92,7 +103,12 @@ class PublicTaskRuns(
             run.takeIf { it.clientId == clientId }?.status
         }
 
-    private suspend fun execute(run: Run, subagent: Subagent, prompt: String) {
+    private suspend fun execute(
+        run: Run,
+        subagent: Subagent,
+        prompt: String,
+        schema: TaskOutputSchema?,
+    ) {
         try {
             workers.withPermit {
                 synchronized(runs) { run.status = Status.Running }
@@ -100,13 +116,15 @@ class PublicTaskRuns(
 
                 val result =
                     withTimeoutOrNull(EXECUTION_TIMEOUT) {
-                        runner.runIsolated(run.executionId, subagent, prompt)
+                        runner.runIsolated(run.executionId, subagent, prompt, schema?.json)
                     }
                 val status =
-                    if (result is AgentRunResult.Completed) {
-                        Status.Completed(result.output)
-                    } else {
-                        Status.Failed
+                    when {
+                        result !is AgentRunResult.Completed -> Status.Failed
+                        schema == null -> Status.Completed(result.output)
+                        else ->
+                            schema.parse(result.output)?.let { Status.Structured(it) }
+                                ?: Status.InvalidOutput
                     }
                 finish(run, status)
             }
@@ -131,7 +149,7 @@ class PublicTaskRuns(
         log.info(
             "Finished API task runId={} completed={}",
             run.executionId,
-            status is Status.Completed,
+            status is Status.Completed || status is Status.Structured,
         )
     }
 

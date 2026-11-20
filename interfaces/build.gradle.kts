@@ -17,6 +17,8 @@ dependencies {
     compileOnly(libs.spring.boot.servlet)
     compileOnly(libs.spring.boot.webmvc)
     compileOnly(libs.jackson.annotations)
+    implementation(libs.jackson.module.kotlin)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.spring.security.oauth2.jose)
     implementation(libs.spring.boot.starter.oauth2.client)

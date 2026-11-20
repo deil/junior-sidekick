@@ -1,6 +1,7 @@
 package com.github.uncomplexco.sidekick.adapters.http.tasks
 
 import com.github.uncomplexco.sidekick.adapters.http.tasks.TaskApiController.Companion.PATH
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -12,6 +13,7 @@ import org.springframework.security.web.context.NullSecurityContextRepository
 import org.springframework.security.web.savedrequest.NullRequestCache
 
 @Configuration
+@ConditionalOnProperty(prefix = "task-api", name = ["enabled"], havingValue = "true")
 @EnableConfigurationProperties(TaskApiProperties::class)
 class TaskApiSecurity {
     @Bean

@@ -18,8 +18,9 @@ import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 
-fun interface SubagentRunner {
+interface SubagentRunner {
     suspend fun run(
         agentId: String,
         runId: RunId,
@@ -27,6 +28,7 @@ fun interface SubagentRunner {
         prompt: String,
         tools: ToolRegistry,
         conversation: ConversationContext,
+        outputSchema: JsonObject? = null,
     ): AgentRunResult<String>
 }
 

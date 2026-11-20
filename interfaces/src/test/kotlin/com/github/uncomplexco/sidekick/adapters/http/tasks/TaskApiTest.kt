@@ -17,6 +17,8 @@ import kotlin.test.assertEquals
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -54,9 +56,10 @@ class TaskApiTest {
                 servletContext = MockServletContext()
                 TestPropertySourceUtils.addInlinedPropertiesToEnvironment(
                     this,
-                    "sidekick.task-api.clients.ci.key-hashes[0]=${hash(OWNER_KEY)}",
-                    "sidekick.task-api.clients.ci.key-hashes[1]=${hash(ROTATED_KEY)}",
-                    "sidekick.task-api.clients.other.key-hashes[0]=${hash(OTHER_KEY)}",
+                    "task-api.enabled=true",
+                    "task-api.auth.clients.ci.key-hashes[0]=${hash(OWNER_KEY)}",
+                    "task-api.auth.clients.ci.key-hashes[1]=${hash(ROTATED_KEY)}",
+                    "task-api.auth.clients.other.key-hashes[0]=${hash(OTHER_KEY)}",
                 )
                 beanFactoryRegistration()
                 refresh()
@@ -123,6 +126,44 @@ class TaskApiTest {
                 jsonPath("$.result") { value("42") }
             }
         assertEquals(listOf("general" to "Find the answer"), runner.requests)
+    }
+
+    @Test
+    fun `structured run returns a JSON object instead of a string`() {
+        val location = submitStructuredTask()
+        val runner = context.getBean(TaskApiTestRunner::class.java)
+        runner.result.complete(AgentRunResult.Completed("""{"answer":42}""", AgentUsageStats()))
+        scope.runCurrent()
+
+        mvc.get(location) { header("Authorization", "Bearer $OWNER_KEY") }
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.status") { value("completed") }
+                jsonPath("$.result.answer") { value(42) }
+            }
+        assertEquals(Json.parseToJsonElement(OUTPUT_SCHEMA).jsonObject, runner.schemas.single())
+    }
+
+    @Test
+    fun `schema mismatch fails the task without returning the invalid output`() {
+        val location = submitStructuredTask()
+        val runner = context.getBean(TaskApiTestRunner::class.java)
+        runner.result.complete(AgentRunResult.Completed("""{"answer":"42"}""", AgentUsageStats()))
+        scope.runCurrent()
+
+        mvc.get(location) { header("Authorization", "Bearer $OWNER_KEY") }
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.status") { value("failed") }
+                jsonPath("$.error_code") { value("invalid_output") }
+                jsonPath("$.result") { doesNotExist() }
+            }
+    }
+
+    @Test
+    fun `unsupported output schema is rejected at submission`() {
+        submit(OWNER_KEY, """{"prompt":"Find the answer","output_schema":{"type":"string"}}""")
+            .andExpect { status { isBadRequest() } }
     }
 
     @Test
@@ -206,6 +247,15 @@ class TaskApiTest {
                 .getHeader("Location")
         )
 
+    private fun submitStructuredTask(): String =
+        checkNotNull(
+            submit(OWNER_KEY, """{"prompt":"Find the answer","output_schema":$OUTPUT_SCHEMA}""")
+                .andExpect { status { isAccepted() } }
+                .andReturn()
+                .response
+                .getHeader("Location")
+        )
+
     private fun AnnotationConfigWebApplicationContext.beanFactoryRegistration() {
         addBeanFactoryPostProcessor {
             it.registerSingleton("sidekickCoroutineScope", taskScope)
@@ -229,5 +279,10 @@ class TaskApiTest {
         }
 
         @Bean fun runner() = TaskApiTestRunner()
+    }
+
+    private companion object {
+        const val OUTPUT_SCHEMA =
+            """{"type":"object","properties":{"answer":{"type":"integer"}},"required":["answer"],"additionalProperties":false}"""
     }
 }

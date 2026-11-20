@@ -5,9 +5,11 @@ import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.dsl.prompt
+import ai.koog.prompt.executor.clients.openrouter.models.ProviderPreferences
 import ai.koog.prompt.executor.model.parseResponseToStructuredResponse
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.structure.StructuredRequest
 import ai.koog.prompt.structure.StructuredRequestConfig
 import ai.koog.prompt.structure.json.JsonStructure
@@ -18,6 +20,7 @@ import com.github.uncomplexco.sidekick.application.agent.openRouterExecutor
 import com.github.uncomplexco.sidekick.application.conversation.ConversationId
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.JsonObject
 
 data class RunId(
     val conversationId: ConversationId?,
@@ -97,10 +100,14 @@ class KoogAgent(
         model: LlmProfile,
         systemPrompt: () -> String,
         input: () -> String,
+        outputSchema: JsonObject? = null,
     ): AgentRunResult<String> {
         var usage = AgentUsageStats()
         val runLog = AgentRunLog(runId, agentId)
         return try {
+            val params = koogConfig.openRouterParams(model, runId.conversationId)
+            val capabilities = koogConfig.modelCapabilities()
+            val schema = outputSchema?.let { LLMParams.Schema.JSON.Standard("task_result", it) }
             val result =
                 koogConfig.openRouterExecutor().use { executor ->
                     val koog =
@@ -113,19 +120,32 @@ class KoogAgent(
                                         LLModel(
                                             provider = LLMProvider.OpenRouter,
                                             id = model.model,
-                                            capabilities = koogConfig.modelCapabilities(),
+                                            capabilities =
+                                                if (schema == null) capabilities
+                                                else capabilities + schema.capability,
                                         ),
                                     maxAgentIterations = koogConfig.maxAgentIterations,
                                     prompt =
                                         prompt(
                                             id = "${runId.conversationId}-$agentId",
                                             params =
-                                                koogConfig.openRouterParams(
-                                                    model,
-                                                    runId.conversationId,
-                                                ),
+                                                if (schema == null) params
+                                                else
+                                                    params.copy(
+                                                        schema = schema,
+                                                        provider =
+                                                            ProviderPreferences(
+                                                                only = listOf(model.provider),
+                                                                requireParameters = true,
+                                                            ),
+                                                    ),
                                         ) {
                                             system(systemPrompt())
+                                            if (schema != null) {
+                                                system(
+                                                    "Gather the facts needed for this final output schema before answering:\n$outputSchema"
+                                                )
+                                            }
                                         },
                                 ),
                             toolRegistry = tools,

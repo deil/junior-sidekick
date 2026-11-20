@@ -11,6 +11,7 @@ import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunner
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.JsonObject
 
 class RecordingSubagentRunner(
     private val result: String,
@@ -31,6 +32,7 @@ class RecordingSubagentRunner(
         prompt: String,
         tools: ToolRegistry,
         conversation: ConversationContext,
+        outputSchema: JsonObject?,
     ): AgentRunResult<String> {
         onRun()
         agentIds += agentId
@@ -67,6 +69,7 @@ class FailingSubagentRunner(
         prompt: String,
         tools: ToolRegistry,
         conversation: ConversationContext,
+        outputSchema: JsonObject?,
     ): AgentRunResult<String> = AgentRunResult.Failed(failure, usage)
 }
 
@@ -78,5 +81,6 @@ class CancellingSubagentRunner(private val cancellation: CancellationException) 
         prompt: String,
         tools: ToolRegistry,
         conversation: ConversationContext,
+        outputSchema: JsonObject?,
     ): AgentRunResult<String> = throw cancellation
 }

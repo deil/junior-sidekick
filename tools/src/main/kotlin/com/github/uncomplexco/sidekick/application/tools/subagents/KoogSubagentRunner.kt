@@ -11,6 +11,7 @@ import com.github.uncomplexco.sidekick.application.agent.workspace.VirtualPaths
 import com.github.uncomplexco.sidekick.application.context.ProjectContext
 import com.github.uncomplexco.sidekick.application.context.prompts.SkillsSection.renderSkillsSection
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
+import kotlinx.serialization.json.JsonObject
 import org.springframework.stereotype.Component
 
 @Component
@@ -26,6 +27,7 @@ class KoogSubagentRunner(
         prompt: String,
         tools: ToolRegistry,
         conversation: ConversationContext,
+        outputSchema: JsonObject?,
     ): AgentRunResult<String> {
         val systemPrompt =
             subagents.catalog().subagents.firstOrNull { it.name == subagentType }?.systemPrompt
@@ -45,6 +47,7 @@ class KoogSubagentRunner(
                     )
                 },
                 input = { prompt },
+                outputSchema = outputSchema,
             )
     }
 }

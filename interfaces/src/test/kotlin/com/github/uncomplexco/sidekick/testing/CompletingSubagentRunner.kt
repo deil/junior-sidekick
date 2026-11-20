@@ -6,6 +6,7 @@ import com.github.uncomplexco.sidekick.application.agent.koog.RunId
 import com.github.uncomplexco.sidekick.application.stats.AgentUsageStats
 import com.github.uncomplexco.sidekick.application.tools.subagents.SubagentRunner
 import com.github.uncomplexco.sidekick.application.turn.ConversationContext
+import kotlinx.serialization.json.JsonObject
 
 class CompletingSubagentRunner(private val answer: String) : SubagentRunner {
     override suspend fun run(
@@ -15,5 +16,6 @@ class CompletingSubagentRunner(private val answer: String) : SubagentRunner {
         prompt: String,
         tools: ToolRegistry,
         conversation: ConversationContext,
+        outputSchema: JsonObject?,
     ): AgentRunResult<String> = AgentRunResult.Completed(answer, AgentUsageStats())
 }

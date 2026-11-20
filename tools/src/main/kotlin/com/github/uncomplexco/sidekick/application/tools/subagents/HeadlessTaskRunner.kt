@@ -27,6 +27,7 @@ import com.github.uncomplexco.sidekick.ports.filesystem.WorkspaceFilesystemFacto
 import java.nio.file.Files
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -44,6 +45,7 @@ class HeadlessTaskRunner(
         runId: String,
         subagent: Subagent,
         prompt: String,
+        outputSchema: JsonObject?,
     ): AgentRunResult<String> {
         val conversationId = ConversationId(runId, runId)
         val paths = createWorkspace(runId)
@@ -81,6 +83,7 @@ class HeadlessTaskRunner(
                 prompt,
                 registry,
                 conversation,
+                outputSchema,
             )
         } finally {
             withContext(NonCancellable) { servers.forEach { it.close() } }
