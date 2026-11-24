@@ -3,7 +3,6 @@ package com.github.uncomplexco.sidekick.adapters.http.tasks
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.github.uncomplexco.sidekick.application.tools.subagents.PublicTaskRuns
 import com.github.uncomplexco.sidekick.application.tools.subagents.TaskOutputSchema
-import com.github.uncomplexco.sidekick.application.tools.subagents.TaskTool
 import java.net.URI
 import java.security.Principal
 import java.util.UUID
@@ -40,10 +39,10 @@ class TaskApiController(private val runs: PublicTaskRuns) {
         @RequestBody request: Request,
         principal: Principal,
     ): ResponseEntity<Map<String, String>> {
-        if (request.prompt.isBlank() || request.prompt.length > TaskTool.TASK_PROMPT_MAX_CHARS) {
+        if (request.prompt.isBlank() || request.prompt.length > MAX_PROMPT_CHARS) {
             throw ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
-                "Prompt must contain 1 to ${TaskTool.TASK_PROMPT_MAX_CHARS} characters and cannot be blank",
+                "Prompt must contain 1 to $MAX_PROMPT_CHARS characters and cannot be blank",
             )
         }
 
@@ -108,5 +107,6 @@ class TaskApiController(private val runs: PublicTaskRuns) {
 
     companion object {
         internal const val PATH = "/api/internal/tasks"
+        private const val MAX_PROMPT_CHARS = 20_000
     }
 }

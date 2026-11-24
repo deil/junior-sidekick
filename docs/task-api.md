@@ -40,7 +40,7 @@ curl -X POST "$SIDEKICK_URL/api/internal/tasks" \
   -d '{"prompt":"Summarize what a build cache does."}'
 ```
 
-`prompt` is required, nonblank, and limited to 10,000 characters. `subagent_type` is optional and defaults to `general`. It accepts any type in the `Task` catalog, including extensions.
+`prompt` is required, nonblank, and limited to 20,000 characters. `subagent_type` is optional and defaults to `general`. It accepts any type in the `Task` catalog, including extensions.
 
 Submission returns `202 Accepted`, a JSON `run_id`, and a `Location` header with the polling path.
 

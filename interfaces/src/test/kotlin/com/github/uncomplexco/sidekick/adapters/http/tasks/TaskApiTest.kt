@@ -231,6 +231,24 @@ class TaskApiTest {
         submit(OWNER_KEY, """{"prompt":" "}""").andExpect { status { isBadRequest() } }
     }
 
+    @Test
+    fun `submission accepts a 20000 character prompt`() {
+        val prompt = "x".repeat(20_000)
+
+        val response = submit(OWNER_KEY, """{"prompt":"$prompt"}""")
+
+        response.andExpect { status { isAccepted() } }
+    }
+
+    @Test
+    fun `submission rejects a 20001 character prompt`() {
+        val prompt = "x".repeat(20_001)
+
+        val response = submit(OWNER_KEY, """{"prompt":"$prompt"}""")
+
+        response.andExpect { status { isBadRequest() } }
+    }
+
     private fun submit(key: String, body: String) =
         mvc.post(PATH) {
             header("Authorization", "Bearer $key")
