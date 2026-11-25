@@ -47,6 +47,9 @@ class KoogAgentRunTest {
                     """{"id":"test","object":"chat.completion","created":1794094917,"model":"z-ai/glm-5.3","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"inspect","arguments":"{}"}}]}}]}"""
                 ),
                 Response(
+                    """{"id":"test","object":"chat.completion","created":1794094917,"model":"z-ai/glm-5.3","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":"I'll inspect the source next.","tool_calls":[{"id":"call-2","type":"function","function":{"name":"inspect","arguments":"{}"}}]}}]}"""
+                ),
+                Response(
                     """{"id":"test","object":"chat.completion","created":1794094917,"model":"z-ai/glm-5.3","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":${JsonPrimitive(output)}}}]}"""
                 ),
             )
@@ -63,13 +66,13 @@ class KoogAgentRunTest {
 
                 assertEquals(output, assertIs<AgentRunResult.Completed<String>>(result).output)
                 val requests = server.requests.map { Json.parseToJsonElement(it).jsonObject }
-                assertEquals(2, requests.size)
+                assertEquals(3, requests.size)
                 val expectedFormat =
                     Json.parseToJsonElement(
                         """{"type":"json_schema","json_schema":{"name":"task_result","strict":true,"schema":$schema}}"""
                     )
                 assertEquals(
-                    listOf(expectedFormat, expectedFormat),
+                    List(3) { expectedFormat },
                     requests.map { it["response_format"] },
                 )
                 assertEquals(
@@ -82,8 +85,12 @@ class KoogAgentRunTest {
                         .getValue("messages")
                         .jsonArray
                         .map { it.jsonObject }
-                        .single { it["role"] == JsonPrimitive("tool") }
-                assertEquals(JsonPrimitive("Inspected"), evidence["content"])
+                        .filter { it["role"] == JsonPrimitive("tool") }
+                assertEquals(
+                    listOf("call-1", "call-2").map(::JsonPrimitive),
+                    evidence.map { it["tool_call_id"] },
+                )
+                assertEquals(List(2) { JsonPrimitive("Inspected") }, evidence.map { it["content"] })
             }
     }
 

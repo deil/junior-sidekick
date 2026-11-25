@@ -2,6 +2,12 @@ package com.github.uncomplexco.sidekick.application.agent.koog
 
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
+import ai.koog.agents.core.dsl.builder.strategy
+import ai.koog.agents.core.dsl.extension.nodeExecuteTools
+import ai.koog.agents.core.dsl.extension.nodeLLMRequest
+import ai.koog.agents.core.dsl.extension.nodeLLMSendToolResults
+import ai.koog.agents.core.dsl.extension.onTextMessage
+import ai.koog.agents.core.dsl.extension.onToolCalls
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.dsl.prompt
@@ -114,6 +120,7 @@ class KoogAgent(
                         AIAgent(
                             id = agentId,
                             promptExecutor = executor,
+                            strategy = toolLoop(),
                             agentConfig =
                                 AIAgentConfig(
                                     model =
@@ -179,3 +186,18 @@ class KoogAgent(
         }
     }
 }
+
+private fun toolLoop() =
+    strategy<String, String>("single_run") {
+        val nodeCallLLM by nodeLLMRequest()
+        val nodeExecuteTool by nodeExecuteTools()
+        val nodeSendToolResult by nodeLLMSendToolResults()
+
+        edge(nodeStart forwardTo nodeCallLLM)
+        edge(nodeExecuteTool forwardTo nodeSendToolResult)
+        // Koog takes the first matching edge. Text accompanying a tool call is not a final answer.
+        for (reply in listOf(nodeCallLLM, nodeSendToolResult)) {
+            edge(reply forwardTo nodeExecuteTool onToolCalls { true })
+            edge(reply forwardTo nodeFinish onTextMessage { true })
+        }
+    }
