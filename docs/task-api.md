@@ -69,7 +69,7 @@ Add `output_schema` to the submission to get an object instead of a string in `r
 
 The root must be an object. Objects must list all properties as required and set `additionalProperties` to `false`. Supported types are `object`, `array` (with one `items` schema), `string`, `integer`, `number`, `boolean`, and `null`. Optional `description` is supported; other keywords are rejected. The schema is limited to 16,384 characters and 12 levels of nesting below the root. Unsupported schemas return `400`.
 
-The configured normal model and OpenRouter provider must support native JSON Schema output with tools. Sidekick sends the schema during the existing tool loop and requires OpenRouter to honor the request parameters. An answer that does not match the schema fails with `error_code: "invalid_output"`. Omit `output_schema` to keep the text result.
+Sidekick includes the schema in the task instructions and runs tools normally. After the task finishes, it sends the same conversation, including tool results, to the configured model and provider for one final request with strict JSON Schema and no tools. An answer that does not match the schema fails with `error_code: "invalid_output"`. Omitting `output_schema` returns the text result without this extra request.
 
 ## Run limits
 

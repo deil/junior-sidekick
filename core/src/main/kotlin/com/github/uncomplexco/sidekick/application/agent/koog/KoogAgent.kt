@@ -2,6 +2,7 @@ package com.github.uncomplexco.sidekick.application.agent.koog
 
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
+import ai.koog.agents.core.dsl.builder.node
 import ai.koog.agents.core.dsl.builder.strategy
 import ai.koog.agents.core.dsl.extension.nodeExecuteTools
 import ai.koog.agents.core.dsl.extension.nodeLLMRequest
@@ -120,7 +121,19 @@ class KoogAgent(
                         AIAgent(
                             id = agentId,
                             promptExecutor = executor,
-                            strategy = toolLoop(),
+                            strategy =
+                                toolLoop(
+                                    schema?.let {
+                                        params.copy(
+                                            schema = it,
+                                            provider =
+                                                ProviderPreferences(
+                                                    only = listOf(model.provider),
+                                                    requireParameters = true,
+                                                ),
+                                        )
+                                    }
+                                ),
                             agentConfig =
                                 AIAgentConfig(
                                     model =
@@ -135,17 +148,7 @@ class KoogAgent(
                                     prompt =
                                         prompt(
                                             id = "${runId.conversationId}-$agentId",
-                                            params =
-                                                if (schema == null) params
-                                                else
-                                                    params.copy(
-                                                        schema = schema,
-                                                        provider =
-                                                            ProviderPreferences(
-                                                                only = listOf(model.provider),
-                                                                requireParameters = true,
-                                                            ),
-                                                    ),
+                                            params = params,
                                         ) {
                                             system(systemPrompt())
                                             if (schema != null) {
@@ -187,17 +190,35 @@ class KoogAgent(
     }
 }
 
-private fun toolLoop() =
+private fun toolLoop(finalParams: LLMParams?) =
     strategy<String, String>("single_run") {
         val nodeCallLLM by nodeLLMRequest()
         val nodeExecuteTool by nodeExecuteTools()
         val nodeSendToolResult by nodeLLMSendToolResults()
+        val finish =
+            if (finalParams == null) nodeFinish
+            else {
+                val formatResult by
+                    node<String, String> {
+                        llm.writeSession {
+                            changeLLMParams(finalParams)
+                            appendPrompt {
+                                user(
+                                    "Return the completed task result in the requested JSON format using the conversation above."
+                                )
+                            }
+                            requestLLMWithoutTools().textContent()
+                        }
+                    }
+                edge(formatResult forwardTo nodeFinish)
+                formatResult
+            }
 
         edge(nodeStart forwardTo nodeCallLLM)
         edge(nodeExecuteTool forwardTo nodeSendToolResult)
         // Koog takes the first matching edge. Text accompanying a tool call is not a final answer.
         for (reply in listOf(nodeCallLLM, nodeSendToolResult)) {
             edge(reply forwardTo nodeExecuteTool onToolCalls { true })
-            edge(reply forwardTo nodeFinish onTextMessage { true })
+            edge(reply forwardTo finish onTextMessage { true })
         }
     }

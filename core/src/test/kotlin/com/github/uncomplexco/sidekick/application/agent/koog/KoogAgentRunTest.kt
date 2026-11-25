@@ -21,6 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -35,64 +36,90 @@ import org.mockito.Mockito.verify
 
 class KoogAgentRunTest {
     @Test
-    fun `native output schema survives the tool loop on the OpenRouter wire`() = runBlocking {
-        val schema =
-            Json.parseToJsonElement(
-                    """{"type":"object","properties":{"evidence":{"type":"string"}},"required":["evidence"],"additionalProperties":false}"""
-                )
-                .jsonObject
-        val output = """{"evidence":"Inspected"}"""
-        QueuedOpenRouterServer(
-                Response(
-                    """{"id":"test","object":"chat.completion","created":1794094917,"model":"z-ai/glm-5.3","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"inspect","arguments":"{}"}}]}}]}"""
-                ),
-                Response(
-                    """{"id":"test","object":"chat.completion","created":1794094917,"model":"z-ai/glm-5.3","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":"I'll inspect the source next.","tool_calls":[{"id":"call-2","type":"function","function":{"name":"inspect","arguments":"{}"}}]}}]}"""
-                ),
-                Response(
-                    """{"id":"test","object":"chat.completion","created":1794094917,"model":"z-ai/glm-5.3","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":${JsonPrimitive(output)}}}]}"""
-                ),
-            )
-            .use { server ->
-                val client =
-                    OpenRouterLLMClient(
-                        apiKey = "test-key",
-                        settings = OpenRouterClientSettings(baseUrl = server.baseUrl),
-                        httpClientFactory = HttpClientFactoryResolver.resolve(),
+    fun `native output schema is sent only after tool execution on the OpenRouter wire`() =
+        runBlocking {
+            val schema =
+                Json.parseToJsonElement(
+                        """{"type":"object","properties":{"evidence":{"type":"string"}},"required":["evidence"],"additionalProperties":false}"""
                     )
-                val executor = MultiLLMPromptExecutor(LLMProvider.OpenRouter to client)
+                    .jsonObject
+            val output = """{"evidence":"Inspected"}"""
+            QueuedOpenRouterServer(
+                    Response(
+                        """{"id":"test","object":"chat.completion","created":1794094917,"model":"z-ai/glm-5.3","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"inspect","arguments":"{}"}}]}}]}"""
+                    ),
+                    Response(
+                        """{"id":"test","object":"chat.completion","created":1794094917,"model":"z-ai/glm-5.3","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":"I'll inspect the source next.","tool_calls":[{"id":"call-2","type":"function","function":{"name":"inspect","arguments":"{}"}}]}}]}"""
+                    ),
+                    Response(
+                        """{"id":"test","object":"chat.completion","created":1794094917,"model":"z-ai/glm-5.3","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"Inspection complete."}}]}"""
+                    ),
+                    Response(
+                        """{"id":"test","object":"chat.completion","created":1794094917,"model":"z-ai/glm-5.3","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":${JsonPrimitive(output)}}}]}"""
+                    ),
+                )
+                .use { server ->
+                    val client =
+                        OpenRouterLLMClient(
+                            apiKey = "test-key",
+                            settings = OpenRouterClientSettings(baseUrl = server.baseUrl),
+                            httpClientFactory = HttpClientFactoryResolver.resolve(),
+                        )
+                    val executor = MultiLLMPromptExecutor(LLMProvider.OpenRouter to client)
 
-                val result = runAgent(executor, ToolRegistry { tool(UsageCountingTool()) }, schema)
+                    val result =
+                        runAgent(executor, ToolRegistry { tool(UsageCountingTool()) }, schema)
 
-                assertEquals(output, assertIs<AgentRunResult.Completed<String>>(result).output)
-                val requests = server.requests.map { Json.parseToJsonElement(it).jsonObject }
-                assertEquals(3, requests.size)
-                val expectedFormat =
-                    Json.parseToJsonElement(
-                        """{"type":"json_schema","json_schema":{"name":"task_result","strict":true,"schema":$schema}}"""
+                    assertEquals(output, assertIs<AgentRunResult.Completed<String>>(result).output)
+                    val requests = server.requests.map { Json.parseToJsonElement(it).jsonObject }
+                    assertEquals(4, requests.size)
+                    val expectedFormat =
+                        Json.parseToJsonElement(
+                            """{"type":"json_schema","json_schema":{"name":"task_result","strict":true,"schema":$schema}}"""
+                        )
+                    for (request in requests.dropLast(1)) {
+                        assertEquals(null, request["response_format"])
+                        assertTrue(request.getValue("tools").jsonArray.isNotEmpty())
+                    }
+                    assertTrue(
+                        requests.first().getValue("messages").jsonArray.any {
+                            it.jsonObject["content"].toString().contains("evidence")
+                        }
                     )
-                assertEquals(
-                    List(3) { expectedFormat },
-                    requests.map { it["response_format"] },
-                )
-                assertEquals(
-                    JsonPrimitive(true),
-                    requests.first()["provider"]?.jsonObject?.get("require_parameters"),
-                )
-                val evidence =
-                    requests
-                        .last()
-                        .getValue("messages")
-                        .jsonArray
-                        .map { it.jsonObject }
-                        .filter { it["role"] == JsonPrimitive("tool") }
-                assertEquals(
-                    listOf("call-1", "call-2").map(::JsonPrimitive),
-                    evidence.map { it["tool_call_id"] },
-                )
-                assertEquals(List(2) { JsonPrimitive("Inspected") }, evidence.map { it["content"] })
-            }
-    }
+                    assertEquals(expectedFormat, requests.last()["response_format"])
+                    assertTrue(requests.last()["tools"]?.jsonArray.isNullOrEmpty())
+                    assertEquals(
+                        JsonPrimitive(true),
+                        requests.last()["provider"]?.jsonObject?.get("require_parameters"),
+                    )
+                    val evidence =
+                        requests
+                            .get(2)
+                            .getValue("messages")
+                            .jsonArray
+                            .map { it.jsonObject }
+                            .filter { it["role"] == JsonPrimitive("tool") }
+                    assertEquals(
+                        listOf("call-1", "call-2").map(::JsonPrimitive),
+                        evidence.map { it["tool_call_id"] },
+                    )
+                    assertEquals(
+                        List(2) { JsonPrimitive("Inspected") },
+                        evidence.map { it["content"] },
+                    )
+                    val finalHistory = requests.last().getValue("messages").jsonArray
+                    assertTrue(
+                        finalHistory.any {
+                            it.jsonObject["content"].toString().contains("Inspected")
+                        }
+                    )
+                    assertTrue(
+                        finalHistory.any {
+                            it.jsonObject["content"] == JsonPrimitive("Inspection complete.")
+                        }
+                    )
+                }
+        }
 
     @Test
     fun `completed run sums model usage and tool attempts`() = runBlocking {
