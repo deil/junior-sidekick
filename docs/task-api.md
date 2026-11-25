@@ -73,4 +73,4 @@ The configured normal model and OpenRouter provider must support native JSON Sch
 
 ## Run limits
 
-Run status and results are held in memory on a single instance and lost on restart. Poll the same instance that accepted the task. Finished results are available for one hour. Workspace files are kept separately and do not expire with the result. Up to four tasks execute at once, with a two-minute execution timeout. Submissions return `429` when the instance holds 256 queued, running, or unexpired finished results.
+Run status and results are held in memory on a single instance and lost on restart. Poll the same instance that accepted the task. Finished results are available for one hour. Workspace files are kept separately and do not expire with the result. Up to four tasks execute at once, with a ten-minute execution timeout. Submissions return `429` when the instance holds 256 queued, running, or unexpired finished results.

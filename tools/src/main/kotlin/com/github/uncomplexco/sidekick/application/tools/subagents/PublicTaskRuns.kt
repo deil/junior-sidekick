@@ -156,7 +156,7 @@ class PublicTaskRuns(
     private companion object {
         const val MAX_CONCURRENT_RUNS = 4
         const val MAX_RETAINED_RUNS = 256
-        val EXECUTION_TIMEOUT = 2.minutes
+        val EXECUTION_TIMEOUT = 10.minutes
         val RESULT_RETENTION = 1.hours
     }
 }
